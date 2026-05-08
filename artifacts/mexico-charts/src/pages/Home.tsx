@@ -57,14 +57,13 @@ const NOTICIAS = [
 
 const REPORTES = [
   { tag: "TOURING", title: "Luis Miguel Tour 2023-24", desc: "Análisis completo del tour más exitoso del año." },
-  { tag: "TOURING", title: "Peso Pluma Éxodo Tour", desc: "Datos completos, ciudades, gross, asistentes y más." },
+  { tag: "TOURING", title: "Peso Pluma Éxodo Tour", desc: "Datos completos, ciudades, ingresos, asistentes y más." },
   { tag: "STREAMING", title: "Artistas Mexicanos en Spotify 2024", desc: "Ranking completo de oyentes, streams y crecimiento." },
   { tag: "YOUTUBE", title: "Top Mexicanos en YouTube", desc: "Los artistas mexicanos más vistos del momento." }
 ];
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("SPOTIFY");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "start", slidesToScroll: 1 });
   const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
@@ -342,7 +341,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-zinc-600 font-medium mt-3 uppercase tracking-wider">Gross reportado (USD)</p>
+                <p className="text-xs text-zinc-600 font-medium mt-3 uppercase tracking-wider">Ingresos brutos reportados (USD)</p>
               </div>
 
             </div>
@@ -372,7 +371,7 @@ export default function Home() {
 
               {/* Newsletter */}
               <div data-testid="section-newsletter" className="bg-[#0a0a0a] border border-white/10 p-6">
-                <h2 className="text-lg font-black text-white uppercase tracking-wide mb-2">NEWSLETTER</h2>
+                <h2 className="text-lg font-black text-white uppercase tracking-wide mb-2">BOLETÍN</h2>
                 <p className="text-sm text-zinc-400 mb-6 leading-relaxed">Recibe reportes exclusivos, noticias y estadísticas directo a tu correo.</p>
                 <div className="flex flex-col gap-3">
                   <input 
