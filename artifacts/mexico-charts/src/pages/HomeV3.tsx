@@ -70,7 +70,8 @@ const PLATFORMS = [
     name: "Spotify",
     icon: SiSpotify,
     color: "#1DB954",
-    bg: "from-[#1a1a1a] to-[#0d1f12]",
+    bgStart: "#1a1a1a",
+    bgEnd: "#0d1f12",
     accent: "rgba(29,185,84,0.15)",
   },
   {
@@ -78,7 +79,8 @@ const PLATFORMS = [
     name: "YouTube",
     icon: SiYoutube,
     color: "#FF0000",
-    bg: "from-[#1a1a1a] to-[#1f0d0d]",
+    bgStart: "#1a1a1a",
+    bgEnd: "#1f0d0d",
     accent: "rgba(255,0,0,0.12)",
   },
   {
@@ -86,7 +88,8 @@ const PLATFORMS = [
     name: "Apple Music",
     icon: SiApple,
     color: "#fa57c1",
-    bg: "from-[#1a1a1a] to-[#1f0d18]",
+    bgStart: "#1a1a1a",
+    bgEnd: "#1f0d18",
     accent: "rgba(250,87,193,0.12)",
   },
   {
@@ -94,7 +97,8 @@ const PLATFORMS = [
     name: "Deezer",
     icon: Music,
     color: "#A238FF",
-    bg: "from-[#1a1a1a] to-[#130d1f]",
+    bgStart: "#1a1a1a",
+    bgEnd: "#130d1f",
     accent: "rgba(162,56,255,0.12)",
   },
 ];
@@ -556,12 +560,17 @@ export default function HomeV3() {
             </div>
           </div>
 
-          {/* ── CARD 4: MAPA GLOBAL (1col × 1row) ── */}
+          {/* ── CARD 4: MAPA GLOBAL (1col × 1row) — glassmorphism ── */}
           <div
-            className="relative overflow-hidden border border-white/5 bg-[#0a0a0a] group cursor-pointer"
+            className="relative overflow-hidden border group cursor-pointer"
             style={{
               gridColumn: "3 / 4",
               gridRow: "3",
+              borderColor: "rgba(57,255,20,0.12)",
+              background: "rgba(10, 20, 10, 0.55)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              boxShadow: "inset 0 1px 0 rgba(57,255,20,0.08), inset 0 -1px 0 rgba(0,0,0,0.3)",
               transition: "transform 0.3s ease, box-shadow 0.3s ease",
             }}
             onMouseEnter={e => {
@@ -648,14 +657,17 @@ export default function HomeV3() {
             </div>
           </div>
 
-          {/* ── CARD 6: BOLETÍN (1col × 1row) ── */}
+          {/* ── CARD 6: BOLETÍN (1col × 1row) — glassmorphism ── */}
           <div
             className="relative overflow-hidden border group"
             style={{
               gridColumn: "3 / 4",
               gridRow: "4",
-              borderColor: "rgba(57,255,20,0.15)",
-              background: "linear-gradient(135deg, #050505, #0a1a08)",
+              borderColor: "rgba(57,255,20,0.18)",
+              background: "rgba(8, 20, 8, 0.60)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              boxShadow: "inset 0 1px 0 rgba(57,255,20,0.12), inset 0 -1px 0 rgba(0,0,0,0.4), 0 0 30px rgba(57,255,20,0.04)",
               transition: "transform 0.3s ease, box-shadow 0.3s ease",
             }}
             onMouseEnter={e => {
@@ -739,8 +751,8 @@ export default function HomeV3() {
               return (
                 <div
                   key={platform.id}
-                  className={`flex-shrink-0 w-[320px] border border-white/5 relative overflow-hidden`}
-                  style={{ background: `linear-gradient(180deg, ${platform.bg.replace("from-", "").replace("to-", "")})` }}
+                  className="flex-shrink-0 w-[320px] border border-white/5 relative overflow-hidden"
+                  style={{ background: `linear-gradient(180deg, ${platform.bgStart}, ${platform.bgEnd})` }}
                   data-testid={`platform-card-${platform.id}`}
                 >
                   {/* Color accent overlay */}
