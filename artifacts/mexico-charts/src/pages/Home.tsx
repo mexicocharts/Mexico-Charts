@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Search, Menu, Users, FileText, Database, Globe, Users2, Diamond } from "lucide-react";
+import { Search, Menu, Users, FileText, Database, Globe, Users2, Diamond, ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { SiInstagram, SiX, SiTiktok, SiYoutube } from "react-icons/si";
+import useEmblaCarousel from "embla-carousel-react";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -63,6 +64,11 @@ const REPORTES = [
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState("SPOTIFY");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "start", slidesToScroll: 1 });
+  const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
+  const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
   return (
     <div className="min-h-[100dvh] bg-[#050505] text-zinc-300 selection:bg-primary selection:text-black font-sans">
@@ -84,11 +90,21 @@ export default function Home() {
             <Link href="#" className="hover:text-white transition-colors" data-testid="link-nav-acerca">ACERCA DE</Link>
           </div>
 
-          <div className="hidden lg:flex items-center space-x-4">
-            <button className="text-zinc-400 hover:text-white transition-colors" data-testid="btn-search">
-              <Search className="w-5 h-5" />
-            </button>
-            <div className="h-4 w-px bg-white/20 mx-2"></div>
+          <div className="hidden lg:flex items-center space-x-3">
+            <div className="flex items-center border border-white/10 bg-[#0a0a0a] focus-within:border-primary transition-colors" data-testid="search-bar">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Buscar artista, canción..."
+                className="bg-transparent text-sm text-zinc-300 placeholder-zinc-600 px-3 py-2 w-44 focus:outline-none focus:w-56 transition-all duration-300"
+                data-testid="input-search"
+              />
+              <button className="text-zinc-500 hover:text-primary px-3 py-2 transition-colors" data-testid="btn-search">
+                <Search className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="h-4 w-px bg-white/20 mx-1"></div>
             <a href="#" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-social-ig"><SiInstagram className="w-4 h-4" /></a>
             <a href="#" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-social-x"><SiX className="w-4 h-4" /></a>
             <a href="#" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-social-tk"><SiTiktok className="w-4 h-4" /></a>
@@ -403,31 +419,45 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex items-end justify-between border-b border-white/20 pb-4 mb-8">
             <h2 className="text-2xl font-black text-white uppercase tracking-wide">ÚLTIMOS REPORTES <span className="text-primary">+</span></h2>
-            <a href="#" className="text-primary text-xs font-bold uppercase tracking-widest hover:text-white transition-colors hidden sm:block">VER TODOS LOS REPORTES →</a>
+            <div className="flex items-center gap-4">
+              <a href="#" className="text-primary text-xs font-bold uppercase tracking-widest hover:text-white transition-colors hidden sm:block">VER TODOS LOS REPORTES →</a>
+              <div className="flex gap-2">
+                <button onClick={scrollPrev} className="border border-white/10 hover:border-primary text-zinc-400 hover:text-primary transition-colors p-2" data-testid="btn-carousel-prev" aria-label="Anterior">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button onClick={scrollNext} className="border border-white/10 hover:border-primary text-zinc-400 hover:text-primary transition-colors p-2" data-testid="btn-carousel-next" aria-label="Siguiente">
+                  <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {REPORTES.map((report, idx) => (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                key={idx} 
-                className="bg-[#0a0a0a] border border-white/10 p-6 flex flex-col group hover:border-primary/50 transition-colors cursor-pointer relative overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-3 group-hover:text-primary transition-colors">{report.tag}</span>
-                <h3 className="text-lg font-bold text-white leading-tight mb-3 uppercase tracking-wide">{report.title}</h3>
-                <p className="text-sm text-zinc-400 mb-6 flex-1">{report.desc}</p>
-                <div className="text-xs font-bold uppercase tracking-widest text-white group-hover:text-primary transition-colors mt-auto">
-                  VER REPORTE →
+          <div className="overflow-hidden" ref={emblaRef}>
+            <div className="flex gap-6">
+              {REPORTES.map((report, idx) => (
+                <div
+                  key={idx}
+                  className="flex-[0_0_80%] sm:flex-[0_0_45%] lg:flex-[0_0_22%] min-w-0"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.1 }}
+                    className="bg-[#0a0a0a] border border-white/10 p-6 flex flex-col group hover:border-primary/50 transition-colors cursor-pointer relative overflow-hidden h-full"
+                  >
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <span className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-3 group-hover:text-primary transition-colors">{report.tag}</span>
+                    <h3 className="text-lg font-bold text-white leading-tight mb-3 uppercase tracking-wide">{report.title}</h3>
+                    <p className="text-sm text-zinc-400 mb-6 flex-1">{report.desc}</p>
+                    <div className="text-xs font-bold uppercase tracking-widest text-white group-hover:text-primary transition-colors mt-auto">
+                      VER REPORTE →
+                    </div>
+                  </motion.div>
                 </div>
-              </motion.div>
-            ))}
+              ))}
+            </div>
           </div>
-          
-          <a href="#" className="text-primary text-xs font-bold uppercase tracking-widest hover:text-white transition-colors block sm:hidden mt-8 text-center border border-white/10 py-4">VER TODOS LOS REPORTES →</a>
         </div>
       </section>
 
