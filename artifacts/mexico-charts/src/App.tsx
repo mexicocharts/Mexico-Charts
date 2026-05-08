@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import HomeV1 from "@/pages/HomeV1";
 import HomeV3 from "@/pages/HomeV3";
+import HomeV4 from "@/pages/HomeV4";
 
 const queryClient = new QueryClient();
 
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/v1" component={HomeV1} />
       <Route path="/v3" component={HomeV3} />
+      <Route path="/v4" component={HomeV4} />
       <Route component={NotFound} />
     </Switch>
   );

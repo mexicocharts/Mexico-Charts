@@ -79,6 +79,8 @@ export default function Home() {
         <span>Mockup V2</span>
         <span className="text-primary/30">|</span>
         <Link href="/v3" className="underline hover:text-white transition-colors">Ver V3 →</Link>
+        <span className="text-primary/30">|</span>
+        <Link href="/v4" className="underline hover:text-white transition-colors">Ver V4 →</Link>
       </div>
 
       {/* NAVIGATION */}

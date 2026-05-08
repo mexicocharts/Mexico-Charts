@@ -91,6 +91,8 @@ export default function HomeV1() {
         <Link href="/" className="underline hover:text-white transition-colors">Ver V2 →</Link>
         <span className="text-primary/30">|</span>
         <Link href="/v3" className="underline hover:text-white transition-colors">Ver V3 →</Link>
+        <span className="text-primary/30">|</span>
+        <Link href="/v4" className="underline hover:text-white transition-colors">Ver V4 →</Link>
       </div>
 
       {/* Navigation */}
