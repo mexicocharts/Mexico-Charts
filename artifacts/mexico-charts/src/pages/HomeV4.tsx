@@ -1,498 +1,369 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
-import { Music } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { SiInstagram, SiX, SiTiktok, SiYoutube } from "react-icons/si";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
-
 const GREEN = "#39FF14";
 
-const HOT_20 = [
-  { rank: 1,  trend: "▲", artist: "Peso Pluma",          genre: "Corridos Tumbados", streams: "8.14M",  change: "+3",  platforms: "SP YT AM" },
-  { rank: 2,  trend: "▲", artist: "Fuerza Regida",        genre: "Corridos Tumbados", streams: "4.31M",  change: "+1",  platforms: "SP YT" },
-  { rank: 3,  trend: "●", artist: "Natanael Cano",        genre: "Corridos Tumbados", streams: "3.97M",  change: "—",   platforms: "SP AM DZ" },
-  { rank: 4,  trend: "▼", artist: "Junior H",             genre: "Regional Mexicano", streams: "3.62M",  change: "-1",  platforms: "SP YT" },
-  { rank: 5,  trend: "▲", artist: "Carin León",           genre: "Regional Mexicano", streams: "3.18M",  change: "+2",  platforms: "SP YT AM" },
-  { rank: 6,  trend: "▼", artist: "Grupo Frontera",       genre: "Norteño",           streams: "2.94M",  change: "-1",  platforms: "SP" },
-  { rank: 7,  trend: "▲", artist: "Luis R Conriquez",     genre: "Corridos Tumbados", streams: "2.71M",  change: "+4",  platforms: "SP YT" },
-  { rank: 8,  trend: "●", artist: "Xavi",                 genre: "Regional Mexicano", streams: "2.43M",  change: "—",   platforms: "SP AM" },
-  { rank: 9,  trend: "▲", artist: "Eslabon Armado",       genre: "Regional Mexicano", streams: "2.28M",  change: "+2",  platforms: "SP YT AM" },
-  { rank: 10, trend: "▼", artist: "Gabito Ballesteros",   genre: "Corridos Tumbados", streams: "2.17M",  change: "-2",  platforms: "SP" },
-  { rank: 11, trend: "▲", artist: "Tito Double P",        genre: "Corridos Tumbados", streams: "1.98M",  change: "+5",  platforms: "SP YT" },
-  { rank: 12, trend: "▼", artist: "Santa Fe Klan",        genre: "Hip-Hop Mexicano",  streams: "1.84M",  change: "-1",  platforms: "SP YT" },
-  { rank: 13, trend: "▲", artist: "Oscar Maydon",         genre: "Corridos Tumbados", streams: "1.76M",  change: "+3",  platforms: "SP" },
-  { rank: 14, trend: "●", artist: "Marca Registrada",     genre: "Regional Mexicano", streams: "1.62M",  change: "—",   platforms: "SP AM" },
-  { rank: 15, trend: "▼", artist: "Grupo Firme",          genre: "Banda",             streams: "1.54M",  change: "-2",  platforms: "SP YT" },
-  { rank: 16, trend: "▲", artist: "Clave Especial",       genre: "Corridos Tumbados", streams: "1.41M",  change: "+6",  platforms: "SP" },
-  { rank: 17, trend: "●", artist: "Edén Muñoz",           genre: "Regional Mexicano", streams: "1.33M",  change: "—",   platforms: "SP YT AM" },
-  { rank: 18, trend: "▲", artist: "Jasiel Nuñez",         genre: "Corridos Tumbados", streams: "1.19M",  change: "+2",  platforms: "SP" },
-  { rank: 19, trend: "▼", artist: "Remmy Valenzuela",     genre: "Banda",             streams: "1.07M",  change: "-3",  platforms: "SP YT" },
-  { rank: 20, trend: "▲", artist: "Yng Lvcas",            genre: "Pop Urbano",        streams: "0.98M",  change: "+1",  platforms: "SP YT AM" },
+const HERO_ARTISTS = [
+  { name: "PESO\nPLUMA",      stat: "8.14M OYENTES · SEMANA 19", label: "SEMANA 19 · #1 EN MÉXICO" },
+  { name: "FUERZA\nREGIDA",   stat: "4.31M OYENTES · SEMANA 19", label: "SEMANA 19 · #2 EN MÉXICO" },
+  { name: "NATANAEL\nCANO",   stat: "3.97M OYENTES · SEMANA 19", label: "SEMANA 19 · #3 EN MÉXICO" },
+  { name: "JUNIOR H",         stat: "3.62M OYENTES · SEMANA 19", label: "SEMANA 19 · #4 EN MÉXICO" },
+  { name: "CARIN\nLEÓN",     stat: "3.18M OYENTES · SEMANA 19", label: "SEMANA 19 · #5 EN MÉXICO" },
 ];
 
-const INITIAL_FEED = [
-  { time: "15:41", msg: "PESO PLUMA sube #1 en Spotify MX",        type: "peak" },
-  { time: "15:38", msg: "FUERZA REGIDA +2.1M streams hoy",          type: "stream" },
-  { time: "15:34", msg: "CLAVE ESPECIAL nuevo pico histórico #16",  type: "peak" },
-  { time: "15:29", msg: "NATANAEL CANO supera 11M oyentes/mes",     type: "stream" },
-  { time: "15:21", msg: "TITO DOUBLE P entra TOP 11 por 1ra vez",   type: "peak" },
-  { time: "15:14", msg: "CARIN LEÓN +28% crecimiento semanal",      type: "stream" },
-  { time: "15:06", msg: "GRUPO FRONTERA baja -1 posición esta sem", type: "drop" },
-  { time: "14:58", msg: "OSCAR MAYDON +3.2M streams semana 19",     type: "stream" },
-  { time: "14:47", msg: "ESLABON ARMADO regresa TOP 10 → #9",       type: "peak" },
-  { time: "14:39", msg: "SANTA FE KLAN baja -1 esta semana",        type: "drop" },
+const TOP_10 = [
+  { rank: "01", artist: "Peso Pluma",        streams: "8.14M" },
+  { rank: "02", artist: "Fuerza Regida",      streams: "4.31M" },
+  { rank: "03", artist: "Natanael Cano",      streams: "3.97M" },
+  { rank: "04", artist: "Junior H",           streams: "3.62M" },
+  { rank: "05", artist: "Carin León",         streams: "3.18M" },
+  { rank: "06", artist: "Grupo Frontera",     streams: "2.94M" },
+  { rank: "07", artist: "Luis R Conriquez",   streams: "2.71M" },
+  { rank: "08", artist: "Xavi",               streams: "2.43M" },
+  { rank: "09", artist: "Eslabon Armado",     streams: "2.28M" },
+  { rank: "10", artist: "Gabito Ballesteros", streams: "2.17M" },
 ];
 
-const NEW_FEED_ITEMS = [
-  { msg: "LUIS R CONRIQUEZ nuevo peak #7 semana 19",  type: "peak" },
-  { msg: "JUNIOR H supera 9.8M oyentes mensuales",    type: "stream" },
-  { msg: "XAVI estable en #8, sin movimiento",         type: "neutral" },
-  { msg: "GABITO BALLESTEROS baja -2 esta semana",    type: "drop" },
-  { msg: "MARCA REGISTRADA entra TOP 15 global",      type: "peak" },
-  { msg: "EDEN MUÑOZ acumula 1.33M streams hoy",      type: "stream" },
-];
-
-const TOURING = [
-  { rank: "01", artist: "Luis Miguel",    tour: "Tour 2023-24",        gross: "$318.2M" },
-  { rank: "02", artist: "Peso Pluma",     tour: "Éxodo Tour",          gross: "$60.0M+" },
-  { rank: "03", artist: "RBD",            tour: "Soy Rebelde Tour",    gross: "$54.4M" },
-  { rank: "04", artist: "Grupo Firme",    tour: "Tour 2022",           gross: "$45.7M" },
-  { rank: "05", artist: "Bad Bunny",      tour: "World's Hottest",     gross: "$41.9M" },
-  { rank: "06", artist: "Grupo Frontera", tour: "No Se Va Tour",       gross: "$28.3M" },
-];
-
-const PLATFORMS = [
-  { name: "SPOTIFY",     share: 48, streams: "32.4M" },
-  { name: "YOUTUBE",     share: 28, streams: "18.2M" },
-  { name: "APPLE MUSIC", share: 14, streams: "9.1M"  },
-  { name: "DEEZER",      share: 10, streams: "6.5M"  },
-];
-
-const ASCENSO = [
-  { artist: "Tito Double P",   pct: "+78%", streams: "1.98M" },
-  { artist: "Oscar Maydon",    pct: "+65%", streams: "1.76M" },
-  { artist: "Marca Registrada",pct: "+56%", streams: "1.62M" },
-  { artist: "Clave Especial",  pct: "+49%", streams: "1.41M" },
-  { artist: "Jasiel Nuñez",    pct: "+47%", streams: "1.19M" },
-  { artist: "Tito Double P",   pct: "+38%", streams: "0.94M" },
+const GENRES = [
+  { name: "CORRIDOS TUMBADOS", streams: "12.4M" },
+  { name: "REGIONAL MEXICANO", streams: "9.1M"  },
+  { name: "NORTEÑO",           streams: "5.3M"  },
+  { name: "BANDA",             streams: "4.2M"  },
+  { name: "HIP-HOP MEXICANO",  streams: "2.8M"  },
+  { name: "POP URBANO",        streams: "1.9M"  },
 ];
 
 const REPORTES = [
   {
-    path: "/reportes/touring/peso-pluma-exodo-tour",
-    tag: "[DESTACADO]",
-    size: "4.2MB",
-    date: "2024-05-14",
-    desc: "Análisis completo: ciudades, ingresos, asistencia y alcance global del Éxodo Tour.",
+    date: "14 MAY 2024",
+    title: "Éxodo Tour: El ascenso global de Peso Pluma",
+    teaser: "Análisis de ciudades, ingresos y el impacto del tour más ambicioso del corrido.",
     featured: true,
   },
   {
-    path: "/reportes/touring/luis-miguel-tour-2023",
-    tag: "",
-    size: "3.1MB",
-    date: "2024-05-10",
-    desc: "El tour más lucrativo de la música mexicana — $318M en ingresos brutos.",
+    date: "10 MAY 2024",
+    title: "Luis Miguel y el tour más lucrativo de México",
+    teaser: "$318M en ingresos brutos — la gira que redefinió los estándares de la música mexicana.",
     featured: false,
   },
   {
-    path: "/reportes/streaming/spotify-mexico-top100-2024",
-    tag: "",
-    size: "2.8MB",
-    date: "2024-05-07",
-    desc: "Ranking completo: oyentes mensuales, streams acumulados y crecimiento por artista.",
-    featured: false,
-  },
-  {
-    path: "/reportes/plataformas/youtube-top-mx-mayo",
-    tag: "",
-    size: "1.9MB",
-    date: "2024-05-01",
-    desc: "Los artistas mexicanos más vistos en YouTube — mayo 2024.",
+    date: "07 MAY 2024",
+    title: "Spotify México: Top 100 — Semana 19",
+    teaser: "Oyentes mensuales, streams acumulados y crecimiento por artista en detalle.",
     featured: false,
   },
 ];
 
-function bar(pct: number, total = 20): string {
-  const filled = Math.round((pct / 100) * total);
-  return "█".repeat(filled) + "░".repeat(total - filled);
-}
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 32 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.9, ease: "easeOut", delay },
+});
 
-function trendColor(t: string) {
-  if (t === "▲") return GREEN;
-  if (t === "▼") return "#ef4444";
-  return "#71717a";
-}
+const fadeUpView = (delay = 0) => ({
+  initial: { opacity: 0, y: 24 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true },
+  transition: { duration: 0.85, ease: "easeOut", delay },
+});
 
 export default function HomeV4() {
-  const [feed, setFeed] = useState(INITIAL_FEED);
-  const [openReport, setOpenReport] = useState<number | null>(null);
-  const [tick, setTick] = useState(0);
-  const newItemIndex = useRef(0);
-
-  // Live clock
-  const [clock, setClock] = useState(() => {
-    const n = new Date();
-    return n.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  });
+  const [artistIdx, setArtistIdx] = useState(0);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [hoveredGenre, setHoveredGenre] = useState<number | null>(null);
 
   useEffect(() => {
-    const c = setInterval(() => {
-      setClock(new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-    }, 1000);
-    return () => clearInterval(c);
-  }, []);
-
-  // Feed auto-inserts
-  useEffect(() => {
-    const t = setInterval(() => {
-      const item = NEW_FEED_ITEMS[newItemIndex.current % NEW_FEED_ITEMS.length];
-      newItemIndex.current += 1;
-      const now = new Date();
-      const time = now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
-      setFeed(prev => [{ time, msg: item.msg, type: item.type }, ...prev.slice(0, 18)]);
-      setTick(t => t + 1);
-    }, 5000);
+    const t = setInterval(() => setArtistIdx(i => (i + 1) % HERO_ARTISTS.length), 5000);
     return () => clearInterval(t);
   }, []);
 
-  const mono = "'Space Mono', monospace";
+  const artist = HERO_ARTISTS[artistIdx];
 
   return (
     <div
-      className="scanlines min-h-[100dvh] bg-[#020202] text-zinc-400 overflow-x-hidden selection:bg-[#39FF14] selection:text-black"
-      style={{ fontFamily: mono }}
+      className="min-h-[100dvh] bg-black text-white overflow-x-hidden selection:bg-[#39FF14] selection:text-black"
+      style={{ fontFamily: "'Syne', sans-serif" }}
       data-testid="page-v4"
     >
 
       {/* ── VERSION BANNER ── */}
-      <div
-        className="border-b text-center py-1 text-[10px] uppercase tracking-widest flex items-center justify-center gap-4"
-        style={{ borderColor: "rgba(57,255,20,0.12)", background: "#020202", fontFamily: mono }}
-      >
-        <Link href="/v1" className="hover:text-white transition-colors">V1</Link>
-        <span style={{ color: "rgba(57,255,20,0.2)" }}>│</span>
-        <Link href="/" className="hover:text-white transition-colors">V2</Link>
-        <span style={{ color: "rgba(57,255,20,0.2)" }}>│</span>
-        <Link href="/v3" className="hover:text-white transition-colors">V3</Link>
-        <span style={{ color: "rgba(57,255,20,0.2)" }}>│</span>
-        <span style={{ color: GREEN }}>V4 — TERMINAL</span>
+      <div className="border-b border-white/5 text-center py-1.5 text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-5 text-zinc-600">
+        <Link href="/v1" className="hover:text-white transition-colors duration-300">V1</Link>
+        <span className="text-white/10">·</span>
+        <Link href="/" className="hover:text-white transition-colors duration-300">V2</Link>
+        <span className="text-white/10">·</span>
+        <Link href="/v3" className="hover:text-white transition-colors duration-300">V3</Link>
+        <span className="text-white/10">·</span>
+        <span style={{ color: GREEN }}>V4 — DARK LUXURY</span>
       </div>
 
-      {/* ── STATUS BAR ── */}
-      <div
-        className="sticky top-0 z-50 border-b"
-        style={{ background: "#020202", borderColor: "rgba(57,255,20,0.15)" }}
+      {/* ── NAV ── */}
+      <nav
+        className="sticky top-0 z-50 border-b border-white/5 bg-black/90 backdrop-blur-md"
         data-testid="navigation"
       >
-        {/* Top row: live platform stats */}
-        <div
-          className="border-b px-4 py-1 flex items-center gap-6 overflow-x-auto"
-          style={{ borderColor: "rgba(255,255,255,0.05)", fontSize: "10px" }}
-        >
-          <span className="text-zinc-600 flex-shrink-0">LIVE</span>
-          <span className="flex-shrink-0 flex items-center gap-1">
-            <SiSpotify className="w-3 h-3" style={{ color: "#1DB954" }} />
-            <span className="text-zinc-500">SPOTIFY</span>
-            <span className="font-bold ml-1" style={{ color: GREEN }}>32.4M</span>
-            <span style={{ color: GREEN }}>▲</span>
-          </span>
-          <span className="flex-shrink-0 flex items-center gap-1">
-            <SiYoutube className="w-3 h-3 text-red-500" />
-            <span className="text-zinc-500">YOUTUBE</span>
-            <span className="font-bold ml-1" style={{ color: GREEN }}>18.2M</span>
-            <span style={{ color: GREEN }}>▲</span>
-          </span>
-          <span className="flex-shrink-0 flex items-center gap-1">
-            <SiApple className="w-3 h-3 text-pink-400" />
-            <span className="text-zinc-500">APPLE MUSIC</span>
-            <span className="font-bold ml-1" style={{ color: GREEN }}>9.1M</span>
-            <span style={{ color: GREEN }}>▲</span>
-          </span>
-          <span className="flex-shrink-0 flex items-center gap-1">
-            <Music className="w-3 h-3 text-purple-400" />
-            <span className="text-zinc-500">DEEZER</span>
-            <span className="font-bold ml-1" style={{ color: GREEN }}>6.5M</span>
-            <span style={{ color: GREEN }}>▲</span>
-          </span>
-          <div className="flex-1" />
-          <span className="text-zinc-600 flex-shrink-0 tabular-nums">
-            {new Date().toLocaleDateString("es-MX", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).toUpperCase()}
-            {" · "}
-            {clock}
-          </span>
-        </div>
-
-        {/* Bottom row: logo + nav */}
-        <div className="px-4 py-1.5 flex items-center justify-between gap-4">
+        <div className="px-8 h-14 flex items-center justify-between">
           <Link href="/v4" data-testid="link-logo">
-            <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-90" />
+            <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-80 hover:opacity-100 transition-opacity" />
           </Link>
-          <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <a href="#" data-testid="link-social-ig" className="text-zinc-700 hover:text-white transition-colors"><SiInstagram className="w-3 h-3" /></a>
-            <a href="#" data-testid="link-social-x"  className="text-zinc-700 hover:text-white transition-colors"><SiX className="w-3 h-3" /></a>
-            <a href="#" data-testid="link-social-tk" className="text-zinc-700 hover:text-white transition-colors"><SiTiktok className="w-3 h-3" /></a>
-            <a href="#" data-testid="link-social-yt" className="text-zinc-700 hover:text-white transition-colors"><SiYoutube className="w-3 h-3" /></a>
+          <span className="text-[11px] uppercase tracking-[0.4em] text-zinc-500 hidden md:block">
+            Mexico Charts
+          </span>
+          <div className="flex items-center gap-5">
+            <a href="#" data-testid="link-social-ig" className="text-zinc-700 hover:text-white transition-colors duration-300"><SiInstagram className="w-4 h-4" /></a>
+            <a href="#" data-testid="link-social-x"  className="text-zinc-700 hover:text-white transition-colors duration-300"><SiX className="w-4 h-4" /></a>
+            <a href="#" data-testid="link-social-tk" className="text-zinc-700 hover:text-white transition-colors duration-300"><SiTiktok className="w-4 h-4" /></a>
+            <a href="#" data-testid="link-social-yt" className="text-zinc-700 hover:text-white transition-colors duration-300"><SiYoutube className="w-4 h-4" /></a>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* ── COMMAND HEADER ── */}
-      <div
-        className="px-4 py-2 border-b text-[11px]"
-        style={{ background: "#010101", borderColor: "rgba(57,255,20,0.1)" }}
-        data-testid="command-header"
+      {/* ── HERO — FULL VIEWPORT ── */}
+      <section
+        className="relative min-h-[100dvh] flex flex-col justify-center px-8 md:px-16 overflow-hidden"
+        data-testid="section-hero"
       >
-        <span style={{ color: GREEN }}>{">"}</span>
-        <span className="ml-2 text-zinc-500">MEXICO CHARTS INTELLIGENCE</span>
-        <span className="mx-2 text-zinc-700">—</span>
-        <span style={{ color: GREEN }}>SEMANA 19</span>
-        <span className="mx-2 text-zinc-700">—</span>
-        <span className="text-zinc-500">ACTUALIZADO:</span>
-        <span className="ml-1 tabular-nums" style={{ color: GREEN }}>{clock}</span>
-        <span className="cursor-blink" />
-      </div>
+        {/* Label */}
+        <motion.div {...fadeUp(0.1)} className="text-[11px] uppercase tracking-[0.3em] mb-8" style={{ color: GREEN }}>
+          {artist.label}
+        </motion.div>
 
-      {/* ── MAIN DATA GRID ── */}
-      <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }} data-testid="section-main-grid">
-
-        {/* LEFT 65%: Ranking table */}
-        <div className="flex-1 border-r overflow-x-auto" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-          {/* Table header */}
-          <div
-            className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600 flex items-center justify-between"
-            style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}
-          >
-            <span>HOT 20 MÉXICO — SEMANA 19</span>
-            <span style={{ color: GREEN }}>● EN VIVO</span>
-          </div>
-
-          <table className="w-full text-[11px] border-collapse" data-testid="ranking-table">
-            <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)", background: "#010101" }}>
-                {["RK","↕","ARTISTA","GÉNERO","STREAMS 7D","CAMBIO","PLAT."].map(h => (
-                  <th key={h} className="px-3 py-1.5 text-left font-bold text-[9px] tracking-widest text-zinc-600 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {HOT_20.map((row, idx) => (
-                <tr
-                  key={row.rank}
-                  className="terminal-row border-b"
-                  style={{
-                    borderColor: "rgba(255,255,255,0.03)",
-                    background: idx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)",
-                  }}
-                >
-                  <td className="px-3 py-1.5 font-bold tabular-nums whitespace-nowrap">
-                    <span className="rank-num text-zinc-500">{String(row.rank).padStart(2,"0")}</span>
-                  </td>
-                  <td className="px-3 py-1.5 tabular-nums font-bold" style={{ color: trendColor(row.trend) }}>{row.trend}</td>
-                  <td className="px-3 py-1.5 text-white font-bold whitespace-nowrap">{row.artist}</td>
-                  <td className="px-3 py-1.5 text-zinc-600 whitespace-nowrap text-[10px]">{row.genre}</td>
-                  <td className="px-3 py-1.5 tabular-nums font-bold whitespace-nowrap" style={{ color: GREEN }}>{row.streams}</td>
-                  <td className="px-3 py-1.5 tabular-nums whitespace-nowrap" style={{ color: row.change.startsWith("+") ? GREEN : row.change.startsWith("-") ? "#ef4444" : "#71717a" }}>
-                    {row.change}
-                  </td>
-                  <td className="px-3 py-1.5 text-zinc-700 text-[9px] whitespace-nowrap">{row.platforms}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Artist name — huge */}
+        <div className="overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={artistIdx}
+              initial={{ opacity: 0, y: 60 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -40 }}
+              transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+              className="font-black uppercase leading-[0.88] tracking-[-0.02em] whitespace-pre-line"
+              style={{ fontSize: "clamp(4rem, 14vw, 13rem)", lineHeight: 0.88 }}
+            >
+              {artist.name}
+            </motion.h1>
+          </AnimatePresence>
         </div>
 
-        {/* RIGHT 35%: Live feed */}
-        <div className="w-[35%] min-w-[240px] flex-shrink-0 flex flex-col" style={{ maxHeight: "600px" }} data-testid="live-feed">
-          <div
-            className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600 flex items-center gap-2"
-            style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}
+        {/* Stat line */}
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={`stat-${artistIdx}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+            className="mt-8 text-[13px] uppercase tracking-[0.2em] text-zinc-500"
           >
-            <span className="w-1.5 h-1.5 rounded-full animate-dot-pulse flex-shrink-0" style={{ background: GREEN, display: "inline-block" }} />
-            FEED EN VIVO
-          </div>
-          <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-            {feed.map((entry, idx) => (
-              <div
-                key={`${entry.time}-${idx}-${tick}`}
-                className={`flex gap-3 px-3 py-1.5 border-b text-[10px] ${idx === 0 ? "feed-entry" : ""}`}
-                style={{ borderColor: "rgba(255,255,255,0.03)" }}
-              >
-                <span className="text-zinc-700 tabular-nums flex-shrink-0">{entry.time}</span>
-                <span style={{
-                  color: entry.type === "peak" ? GREEN : entry.type === "drop" ? "#ef4444" : entry.type === "stream" ? "#a3e635" : "#71717a",
-                  lineHeight: "1.4",
-                }}>
-                  {entry.msg}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            {artist.stat}
+          </motion.p>
+        </AnimatePresence>
 
-      {/* ── METRICS STRIP ── */}
-      <div
-        className="border-b px-4 py-2 overflow-x-auto"
-        style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}
-        data-testid="metrics-strip"
-      >
-        <div className="flex items-center gap-0 text-[10px] whitespace-nowrap min-w-max">
-          {[
-            { label: "STREAMS TOTALES",  val: "2.4B" },
-            { label: "TOP GÉNERO",       val: "CORRIDOS TUMBADOS" },
-            { label: "MAYOR MOVIMIENTO", val: "CLAVE ESPECIAL +6" },
-            { label: "TOURING INGRESOS", val: "$318.2M" },
-            { label: "ARTISTAS ACTIVOS", val: "250+" },
-            { label: "PAÍSES",           val: "60+" },
-          ].map((m, i, arr) => (
-            <span key={m.label} className="flex items-center">
-              <span className="text-zinc-600">{m.label}</span>
-              <span className="mx-2 font-bold" style={{ color: GREEN }}>{m.val}</span>
-              {i < arr.length - 1 && <span className="mr-2 text-zinc-800">│</span>}
-            </span>
+        {/* Dot indicators — bottom left */}
+        <div className="absolute bottom-12 left-8 md:left-16 flex items-center gap-3">
+          {HERO_ARTISTS.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setArtistIdx(i)}
+              className="transition-all duration-500"
+              style={{
+                width: i === artistIdx ? "24px" : "6px",
+                height: "6px",
+                borderRadius: "3px",
+                background: i === artistIdx ? GREEN : "rgba(255,255,255,0.2)",
+              }}
+              aria-label={`Ver artista ${i + 1}`}
+            />
           ))}
         </div>
-      </div>
 
-      {/* ── SECONDARY PANELS ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }} data-testid="secondary-panels">
-
-        {/* Panel A: Touring Revenue */}
-        <div className="border-r" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-          <div className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600" style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}>
-            TOURING REVENUE — USD BRUTO
-          </div>
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <th className="px-3 py-1 text-left text-[9px] text-zinc-700">#</th>
-                <th className="px-3 py-1 text-left text-[9px] text-zinc-700">ARTISTA</th>
-                <th className="px-3 py-1 text-left text-[9px] text-zinc-700">TOUR</th>
-                <th className="px-3 py-1 text-right text-[9px] text-zinc-700">GROSS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TOURING.map(t => (
-                <tr key={t.rank} className="terminal-row border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
-                  <td className="px-3 py-1.5 text-zinc-600 rank-num">{t.rank}</td>
-                  <td className="px-3 py-1.5 text-white font-bold whitespace-nowrap">{t.artist}</td>
-                  <td className="px-3 py-1.5 text-zinc-500 whitespace-nowrap">{t.tour}</td>
-                  <td className="px-3 py-1.5 text-right font-bold tabular-nums whitespace-nowrap" style={{ color: GREEN }}>{t.gross}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Panel B: Platform Breakdown */}
-        <div className="border-r" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-          <div className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600" style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}>
-            PLATAFORMAS — DISTRIBUCIÓN DE STREAMS
-          </div>
-          <div className="px-3 py-3 flex flex-col gap-3">
-            {PLATFORMS.map(p => (
-              <div key={p.name}>
-                <div className="flex justify-between text-[9px] mb-1">
-                  <span className="text-zinc-500">{p.name}</span>
-                  <span className="tabular-nums" style={{ color: GREEN }}>{p.streams}  {p.share}%</span>
-                </div>
-                <div className="text-[11px] tracking-[0.05em]" style={{ color: GREEN, letterSpacing: "0" }}>
-                  <span style={{ color: GREEN }}>{bar(p.share)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="px-3 pb-3 text-[9px] text-zinc-700 border-t mt-1" style={{ borderColor: "rgba(255,255,255,0.04)", paddingTop: "8px" }}>
-            █ = streams activos  ░ = capacidad restante
-          </div>
-        </div>
-
-        {/* Panel C: Artistas en Ascenso */}
-        <div>
-          <div className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600" style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}>
-            ARTISTAS EN ASCENSO — CRECIMIENTO MENSUAL
-          </div>
-          <table className="w-full text-[10px]">
-            <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                <th className="px-3 py-1 text-left text-[9px] text-zinc-700">ARTISTA</th>
-                <th className="px-3 py-1 text-right text-[9px] text-zinc-700">STREAMS</th>
-                <th className="px-3 py-1 text-right text-[9px] text-zinc-700">CRECIM.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ASCENSO.map((a, i) => (
-                <tr key={i} className="terminal-row border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
-                  <td className="px-3 py-1.5 text-white font-bold whitespace-nowrap">{a.artist}</td>
-                  <td className="px-3 py-1.5 text-right text-zinc-500 tabular-nums">{a.streams}</td>
-                  <td className="px-3 py-1.5 text-right font-bold tabular-nums" style={{ color: GREEN }}>{a.pct}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── REPORTES TERMINAL ── */}
-      <div className="border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }} data-testid="section-reportes">
-        <div
-          className="px-4 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600 flex items-center justify-between"
-          style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}
+        {/* Scroll hint — bottom right */}
+        <motion.div
+          {...fadeUp(1.2)}
+          className="absolute bottom-12 right-8 md:right-16 text-[10px] uppercase tracking-[0.3em] text-zinc-700"
         >
-          <span>ARCHIVO DE REPORTES — /reportes/</span>
-          <span className="text-zinc-700">4 ARCHIVOS</span>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-          {REPORTES.map((r, i) => (
-            <div
-              key={i}
-              className="border-r border-b p-3 cursor-pointer transition-all duration-150"
+          Scroll ↓
+        </motion.div>
+      </section>
+
+      {/* ── THE ROLL — TOP 10 ── */}
+      <section className="px-8 md:px-16 py-24 border-t border-white/5" data-testid="section-roll">
+        <motion.div {...fadeUpView()} className="text-[10px] uppercase tracking-[0.35em] mb-16" style={{ color: GREEN }}>
+          Clasificación · Semana 19
+        </motion.div>
+
+        <div className="flex flex-col">
+          {TOP_10.map((row, i) => (
+            <motion.div
+              key={row.rank}
+              {...fadeUpView(i * 0.07)}
+              className="flex items-center justify-between py-6 border-b border-white/5 cursor-pointer group"
               style={{
-                borderColor: openReport === i ? `rgba(57,255,20,0.3)` : "rgba(255,255,255,0.05)",
-                background: openReport === i ? "rgba(57,255,20,0.04)" : "transparent",
+                transition: "all 0.3s ease",
               }}
-              onClick={() => setOpenReport(openReport === i ? null : i)}
+              onMouseEnter={() => setHoveredRow(i)}
+              onMouseLeave={() => setHoveredRow(null)}
+            >
+              {/* Rank */}
+              <span
+                className="font-black tabular-nums flex-shrink-0 transition-colors duration-300"
+                style={{
+                  fontSize: "clamp(2rem, 5vw, 5rem)",
+                  color: hoveredRow === i ? GREEN : "rgba(255,255,255,0.08)",
+                  lineHeight: 1,
+                }}
+              >
+                {row.rank}
+              </span>
+
+              {/* Artist name */}
+              <span
+                className="flex-1 text-center font-black uppercase tracking-[-0.02em] transition-all duration-300"
+                style={{
+                  fontSize: "clamp(1.5rem, 3.5vw, 3.5rem)",
+                  transform: hoveredRow === i ? "translateX(10px)" : "translateX(0)",
+                  lineHeight: 1,
+                }}
+              >
+                {row.artist}
+              </span>
+
+              {/* Streams */}
+              <span
+                className="flex-shrink-0 text-right font-bold tabular-nums transition-colors duration-300"
+                style={{
+                  fontSize: "clamp(1rem, 2vw, 1.8rem)",
+                  color: hoveredRow === i ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)",
+                }}
+              >
+                {row.streams}
+              </span>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── BIG NUMBER — FULL VIEWPORT ── */}
+      <section
+        className="min-h-[80vh] flex flex-col items-center justify-center text-center px-8 border-t border-white/5"
+        data-testid="section-big-number"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1.1, ease: "easeOut" }}
+        >
+          <div
+            className="font-black tracking-[-0.04em] leading-none"
+            style={{
+              fontSize: "clamp(5rem, 22vw, 20rem)",
+              textShadow: `0 0 80px rgba(57,255,20,0.12), 0 0 200px rgba(57,255,20,0.06)`,
+            }}
+          >
+            2.4B
+          </div>
+        </motion.div>
+        <motion.p
+          {...fadeUpView(0.3)}
+          className="mt-8 text-[11px] uppercase tracking-[0.35em] text-zinc-600"
+        >
+          Streams Totales · México · Semana 19
+        </motion.p>
+      </section>
+
+      {/* ── GENRES STRIP ── */}
+      <section className="px-8 md:px-16 py-24 border-t border-white/5" data-testid="section-genres">
+        <motion.div {...fadeUpView()} className="text-[10px] uppercase tracking-[0.35em] mb-16" style={{ color: GREEN }}>
+          Géneros
+        </motion.div>
+
+        <div className="flex flex-wrap gap-x-12 gap-y-10">
+          {GENRES.map((g, i) => (
+            <motion.div
+              key={g.name}
+              {...fadeUpView(i * 0.06)}
+              className="cursor-default group"
+              onMouseEnter={() => setHoveredGenre(i)}
+              onMouseLeave={() => setHoveredGenre(null)}
+            >
+              <div
+                className="text-xl md:text-3xl font-black uppercase tracking-[-0.01em] pb-2 transition-all duration-300"
+                style={{
+                  borderBottom: hoveredGenre === i ? `2px solid ${GREEN}` : "2px solid transparent",
+                  color: hoveredGenre === i ? "white" : "rgba(255,255,255,0.6)",
+                }}
+              >
+                {g.name}
+              </div>
+              <div className="mt-2 text-[11px] uppercase tracking-[0.2em] text-zinc-700">{g.streams}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── REPORTES ── */}
+      <section className="px-8 md:px-16 py-24 border-t border-white/5" data-testid="section-reportes">
+        <motion.div {...fadeUpView()} className="text-[10px] uppercase tracking-[0.35em] mb-16" style={{ color: GREEN }}>
+          Reportes
+        </motion.div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5">
+          {REPORTES.map((r, i) => (
+            <motion.div
+              key={i}
+              {...fadeUpView(i * 0.1)}
+              className="bg-black p-10 flex flex-col gap-6 cursor-pointer group transition-colors duration-300 hover:bg-white/[0.02]"
               data-testid={`reporte-card-${i}`}
             >
+              <span className="text-[10px] uppercase tracking-[0.3em] text-zinc-700 group-hover:text-zinc-500 transition-colors duration-300">
+                {r.date}
+              </span>
+
               {r.featured && (
-                <div className="text-[9px] font-bold mb-1.5" style={{ color: GREEN }}>[DESTACADO]</div>
+                <span className="text-[10px] uppercase tracking-[0.2em] font-bold" style={{ color: GREEN }}>
+                  Destacado
+                </span>
               )}
-              {openReport === i && (
-                <div className="text-[9px] font-bold mb-1.5" style={{ color: GREEN }}>[ABIERTO]</div>
-              )}
-              <div className="text-[10px] font-bold text-white mb-1 break-all leading-snug">{r.path}</div>
-              <div className="flex gap-3 text-[9px] text-zinc-700 mb-2">
-                <span>{r.size}</span>
-                <span>{r.date}</span>
-              </div>
-              <div className="text-[10px] text-zinc-500 leading-relaxed">{r.desc}</div>
-              <div className="mt-2 text-[9px]" style={{ color: openReport === i ? GREEN : "rgba(57,255,20,0.4)" }}>
-                {openReport === i ? "CERRAR ↑" : "ABRIR →"}
-              </div>
-            </div>
+
+              <div
+                className="h-px transition-colors duration-300"
+                style={{ background: i === 0 ? GREEN : "rgba(255,255,255,0.08)" }}
+              />
+
+              <h3 className="text-xl md:text-2xl font-black uppercase leading-tight tracking-[-0.01em] transition-transform duration-300 group-hover:-translate-y-0.5">
+                {r.title}
+              </h3>
+
+              <p className="text-sm text-zinc-600 leading-relaxed group-hover:text-zinc-500 transition-colors duration-300 flex-1">
+                {r.teaser}
+              </p>
+
+              <span className="text-[10px] uppercase tracking-[0.3em] text-zinc-700 group-hover:text-white transition-colors duration-300">
+                Leer →
+              </span>
+            </motion.div>
           ))}
         </div>
-      </div>
+      </section>
 
       {/* ── FOOTER ── */}
-      <div
-        className="px-4 py-2 flex items-center justify-between text-[9px] text-zinc-700 gap-4"
-        style={{ background: "#010101" }}
-        data-testid="footer"
-      >
-        <span>© 2024 MEXICO CHARTS — TODOS LOS DERECHOS RESERVADOS</span>
-        <div className="flex items-center gap-3">
-          <Link href="/v1" className="hover:text-zinc-400 transition-colors">V1</Link>
-          <span>│</span>
-          <Link href="/" className="hover:text-zinc-400 transition-colors">V2</Link>
-          <span>│</span>
-          <Link href="/v3" className="hover:text-zinc-400 transition-colors">V3</Link>
-          <span>│</span>
-          <span style={{ color: GREEN }}>V4</span>
-          <span className="ml-4 text-zinc-800">v4.0.1-terminal</span>
+      <footer className="border-t border-white/5 px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase tracking-[0.25em] text-zinc-700" data-testid="footer">
+        <span>© 2024 Mexico Charts</span>
+        <div className="flex items-center gap-5">
+          <Link href="/v1" className="hover:text-white transition-colors duration-300">V1</Link>
+          <span className="text-white/10">·</span>
+          <Link href="/" className="hover:text-white transition-colors duration-300">V2</Link>
+          <span className="text-white/10">·</span>
+          <Link href="/v3" className="hover:text-white transition-colors duration-300">V3</Link>
+          <span className="text-white/10">·</span>
+          <span style={{ color: GREEN }}>V4 — Dark Luxury</span>
         </div>
-      </div>
+        <span>v4.1.0-dark</span>
+      </footer>
 
     </div>
   );
