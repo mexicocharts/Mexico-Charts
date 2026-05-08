@@ -282,23 +282,69 @@ export default function HomeV3() {
       <section
         className="relative w-full min-h-[100svh] flex overflow-hidden"
         data-testid="section-hero"
-        style={{
-          background: "radial-gradient(ellipse 80% 60% at 30% 50%, #0d1f0d 0%, #050505 70%)",
-        }}
+        style={{ background: "#050505" }}
       >
+        {/* Animated gradient blobs */}
+        <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
+          {/* Blob 1 — large green, left-center */}
+          <div
+            className="hero-blob-1 absolute"
+            style={{
+              width: "900px",
+              height: "700px",
+              left: "-10%",
+              top: "10%",
+              background: "radial-gradient(ellipse at center, rgba(57,255,20,0.13) 0%, rgba(57,255,20,0.04) 40%, transparent 70%)",
+              filter: "blur(40px)",
+            }}
+          />
+          {/* Blob 2 — medium green, bottom-right */}
+          <div
+            className="hero-blob-2 absolute"
+            style={{
+              width: "600px",
+              height: "600px",
+              right: "5%",
+              bottom: "-10%",
+              background: "radial-gradient(ellipse at center, rgba(57,255,20,0.09) 0%, rgba(57,255,20,0.03) 50%, transparent 75%)",
+              filter: "blur(60px)",
+            }}
+          />
+          {/* Blob 3 — subtle silver, top-right */}
+          <div
+            className="hero-blob-3 absolute"
+            style={{
+              width: "500px",
+              height: "400px",
+              right: "20%",
+              top: "5%",
+              background: "radial-gradient(ellipse at center, rgba(180,200,180,0.04) 0%, transparent 70%)",
+              filter: "blur(50px)",
+            }}
+          />
+          {/* Blob 4 — accent green, mid */}
+          <div
+            className="hero-blob-2 absolute"
+            style={{
+              width: "400px",
+              height: "400px",
+              left: "30%",
+              top: "40%",
+              background: "radial-gradient(ellipse at center, rgba(57,255,20,0.06) 0%, transparent 65%)",
+              filter: "blur(80px)",
+              animationDelay: "-8s",
+            }}
+          />
+        </div>
+
         {/* Noise/grain overlay */}
         <div
-          className="absolute inset-0 pointer-events-none opacity-[0.04] z-10"
+          className="absolute inset-0 pointer-events-none opacity-[0.035] z-10"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
             backgroundRepeat: "repeat",
             backgroundSize: "128px",
           }}
-        />
-
-        {/* Green radial glow */}
-        <div className="absolute inset-0 pointer-events-none z-0"
-          style={{ background: "radial-gradient(circle 600px at 25% 60%, rgba(57,255,20,0.07) 0%, transparent 70%)" }}
         />
 
         {/* Left 65%: Giant stacked italic type — auto-cycling */}
