@@ -214,7 +214,9 @@ export default function HomeV3() {
         <span className="text-zinc-800">|</span>
         <span className="text-[#39FF14]">V3 — CINEMATIC BENTO</span>
         <span className="text-zinc-800">|</span>
-        <Link href="/v4" className="hover:text-[#39FF14] transition-colors">V4 →</Link>
+        <Link href="/v4" className="hover:text-[#39FF14] transition-colors">V4</Link>
+        <span className="text-zinc-800">|</span>
+        <Link href="/v5" className="hover:text-[#39FF14] transition-colors">V5 →</Link>
       </div>
 
       {/* ── TOP TICKER ── */}

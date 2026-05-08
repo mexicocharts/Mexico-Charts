@@ -81,6 +81,8 @@ export default function Home() {
         <Link href="/v3" className="underline hover:text-white transition-colors">Ver V3 →</Link>
         <span className="text-primary/30">|</span>
         <Link href="/v4" className="underline hover:text-white transition-colors">Ver V4 →</Link>
+        <span className="text-primary/30">|</span>
+        <Link href="/v5" className="underline hover:text-white transition-colors">Ver V5 →</Link>
       </div>
 
       {/* NAVIGATION */}

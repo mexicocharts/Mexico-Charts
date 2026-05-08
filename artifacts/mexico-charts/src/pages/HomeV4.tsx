@@ -98,6 +98,8 @@ export default function HomeV4() {
         <Link href="/v3" className="hover:text-white transition-colors duration-300">V3</Link>
         <span className="text-white/10">·</span>
         <span style={{ color: GREEN }}>V4 — DARK LUXURY</span>
+        <span className="text-white/10">·</span>
+        <Link href="/v5" className="hover:text-white transition-colors duration-300">V5 →</Link>
       </div>
 
       {/* ── NAV ── */}
