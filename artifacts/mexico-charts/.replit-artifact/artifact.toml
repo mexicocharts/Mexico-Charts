@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Mexico Charts"
+version = "1.0.0"
+id = "artifacts/mexico-charts"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22896
+
+[services.development]
+run = "pnpm --filter @workspace/mexico-charts run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mexico-charts", "run", "build" ]
+publicDir = "artifacts/mexico-charts/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22896"
+BASE_PATH = "/"
