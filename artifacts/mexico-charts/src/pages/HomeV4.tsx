@@ -215,7 +215,11 @@ export default function HomeV4() {
             <span style={{ color: GREEN }}>▲</span>
           </span>
           <div className="flex-1" />
-          <span className="text-zinc-600 flex-shrink-0 tabular-nums">{clock}</span>
+          <span className="text-zinc-600 flex-shrink-0 tabular-nums">
+            {new Date().toLocaleDateString("es-MX", { weekday: "short", day: "2-digit", month: "short", year: "numeric" }).toUpperCase()}
+            {" · "}
+            {clock}
+          </span>
         </div>
 
         {/* Bottom row: logo + nav */}
@@ -223,11 +227,7 @@ export default function HomeV4() {
           <Link href="/v4" data-testid="link-logo">
             <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-90" />
           </Link>
-          <div className="flex items-center gap-4 text-[10px] text-zinc-600 uppercase tracking-widest">
-            {["CHARTS","ARTISTAS","TOURING","STREAMING","REPORTES"].map(item => (
-              <a key={item} href="#" className="hover:text-white transition-colors hidden md:block">{item}</a>
-            ))}
-          </div>
+          <div className="flex-1" />
           <div className="flex items-center gap-3">
             <a href="#" data-testid="link-social-ig" className="text-zinc-700 hover:text-white transition-colors"><SiInstagram className="w-3 h-3" /></a>
             <a href="#" data-testid="link-social-x"  className="text-zinc-700 hover:text-white transition-colors"><SiX className="w-3 h-3" /></a>
@@ -303,7 +303,7 @@ export default function HomeV4() {
         </div>
 
         {/* RIGHT 35%: Live feed */}
-        <div className="w-[320px] flex-shrink-0 flex flex-col" style={{ maxHeight: "600px" }} data-testid="live-feed">
+        <div className="w-[35%] min-w-[240px] flex-shrink-0 flex flex-col" style={{ maxHeight: "600px" }} data-testid="live-feed">
           <div
             className="px-3 py-1.5 border-b text-[9px] uppercase tracking-widest text-zinc-600 flex items-center gap-2"
             style={{ borderColor: "rgba(57,255,20,0.1)", background: "#010101" }}
