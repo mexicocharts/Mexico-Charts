@@ -1,12 +1,85 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Search, Menu, Globe, Mail } from "lucide-react";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
 import { Music } from "lucide-react";
 import useEmblaCarousel from "embla-carousel-react";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+
+const HERO_ARTISTS = [
+  {
+    rank: "#1",
+    line1: "PESO",
+    line2: "PLUMA",
+    listeners: "32.4M OYENTES MENSUALES",
+    growth: "+18% ESTA SEMANA",
+    countries: "60+ PAÍSES",
+    tag: "CORRIDOS TUMBADOS",
+    featuredTag: "TOURING",
+    featuredRank: "01",
+    featuredTitle: "ÉXODO\nTOUR",
+    featuredArtist: "PESO PLUMA",
+    featuredDesc: "Análisis completo del tour más importante de la música mexicana en 2024.",
+  },
+  {
+    rank: "#2",
+    line1: "FUERZA",
+    line2: "REGIDA",
+    listeners: "12.4M OYENTES MENSUALES",
+    growth: "+31% ESTA SEMANA",
+    countries: "45+ PAÍSES",
+    tag: "CORRIDOS TUMBADOS",
+    featuredTag: "STREAMING",
+    featuredRank: "02",
+    featuredTitle: "MÚSICO\nLOGO",
+    featuredArtist: "FUERZA REGIDA",
+    featuredDesc: "El álbum que consolidó a Fuerza Regida como la banda más escuchada de su género.",
+  },
+  {
+    rank: "#3",
+    line1: "NATANAEL",
+    line2: "CANO",
+    listeners: "11.7M OYENTES MENSUALES",
+    growth: "+22% ESTA SEMANA",
+    countries: "38+ PAÍSES",
+    tag: "CORRIDOS TUMBADOS",
+    featuredTag: "CHARTS",
+    featuredRank: "03",
+    featuredTitle: "PA'\nTODOS",
+    featuredArtist: "NATANAEL CANO",
+    featuredDesc: "El pionero del movimiento corridos tumbados y su impacto en la música global.",
+  },
+  {
+    rank: "#4",
+    line1: "JUNIOR",
+    line2: "H",
+    listeners: "9.8M OYENTES MENSUALES",
+    growth: "+15% ESTA SEMANA",
+    countries: "32+ PAÍSES",
+    tag: "REGIONAL MEXICANO",
+    featuredTag: "ARTISTA",
+    featuredRank: "04",
+    featuredTitle: "EL\nAZUL",
+    featuredArtist: "JUNIOR H",
+    featuredDesc: "De las calles de Sonora al mundo: el ascenso imparable de Junior H en streaming.",
+  },
+  {
+    rank: "#5",
+    line1: "CARIN",
+    line2: "LEÓN",
+    listeners: "7.1M OYENTES MENSUALES",
+    growth: "+28% ESTA SEMANA",
+    countries: "28+ PAÍSES",
+    tag: "REGIONAL MEXICANO",
+    featuredTag: "TOURING",
+    featuredRank: "05",
+    featuredTitle: "BOCA\nCHUECA",
+    featuredArtist: "CARIN LEÓN",
+    featuredDesc: "El sonido nortec que conquistó las radios latinas y los festivales internacionales.",
+  },
+];
 
 const TICKER_ITEMS = [
   "PESO PLUMA — ÉXODO TOUR — 32.4M OYENTES",
@@ -113,9 +186,19 @@ const COLORS = [
 
 export default function HomeV3() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [heroIndex, setHeroIndex] = useState(0);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "start", dragFree: true });
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroIndex(i => (i + 1) % HERO_ARTISTS.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const hero = HERO_ARTISTS[heroIndex];
 
   const tickerContent = TICKER_ITEMS.join("   ·   ");
   const statsContent = STATS_TICKER.map(s => `${s}   ·`).join("   ");
@@ -218,113 +301,142 @@ export default function HomeV3() {
           style={{ background: "radial-gradient(circle 600px at 25% 60%, rgba(57,255,20,0.07) 0%, transparent 70%)" }}
         />
 
-        {/* Left 65%: Giant stacked italic type */}
-        <div className="relative z-20 flex flex-col justify-center px-8 lg:px-16 pt-12 pb-24 lg:w-[65%] w-full">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className="text-[11px] font-black uppercase tracking-[0.25em] text-[#39FF14] mb-6 opacity-80">
-              #1 EN MÉXICO — MAYO 2024
-            </div>
+        {/* Left 65%: Giant stacked italic type — auto-cycling */}
+        <div className="relative z-20 flex flex-col justify-center px-8 lg:px-16 pt-12 pb-24 lg:w-[65%] w-full overflow-hidden">
 
-            <h1
-              className="font-black italic uppercase leading-[0.86] tracking-tighter text-white select-none"
-              style={{ fontSize: "clamp(80px, 14vw, 200px)" }}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={heroIndex}
+              initial={{ opacity: 0, y: 32 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
             >
-              <span className="block">PESO</span>
-              <span
-                className="block animate-glow-pulse-text"
-                style={{ color: "#39FF14" }}
-              >
-                PLUMA
-              </span>
-            </h1>
-
-            <div className="mt-10 flex flex-wrap gap-3">
-              <div
-                className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-[#39FF14]"
-                style={{ borderColor: "rgba(57,255,20,0.3)", background: "rgba(57,255,20,0.06)" }}
-              >
-                32.4M OYENTES MENSUALES
+              <div className="text-[11px] font-black uppercase tracking-[0.25em] text-[#39FF14] mb-6 opacity-80">
+                {hero.rank} EN MÉXICO — {hero.tag}
               </div>
-              <div
-                className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-white"
-                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}
-              >
-                +18% ESTA SEMANA
-              </div>
-              <div
-                className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-white"
-                style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}
-              >
-                60+ PAÍSES
-              </div>
-            </div>
 
-            <div className="mt-10">
-              <button
-                className="bg-[#39FF14] text-black font-black text-sm uppercase tracking-widest px-8 py-4 hover:bg-white transition-colors animate-glow-pulse"
-                data-testid="btn-hero-cta"
+              <h1
+                className="font-black italic uppercase leading-[0.86] tracking-tighter text-white select-none"
+                style={{ fontSize: "clamp(64px, 12vw, 180px)" }}
               >
-                EXPLORAR REPORTES →
-              </button>
-            </div>
-          </motion.div>
+                <span className="block">{hero.line1}</span>
+                <span
+                  className="block animate-glow-pulse-text"
+                  style={{ color: "#39FF14" }}
+                >
+                  {hero.line2}
+                </span>
+              </h1>
 
-          {/* Carousel dots */}
+              <div className="mt-10 flex flex-wrap gap-3">
+                <div
+                  className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-[#39FF14]"
+                  style={{ borderColor: "rgba(57,255,20,0.3)", background: "rgba(57,255,20,0.06)" }}
+                >
+                  {hero.listeners}
+                </div>
+                <div
+                  className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-white"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}
+                >
+                  {hero.growth}
+                </div>
+                <div
+                  className="px-4 py-2 border text-xs font-black uppercase tracking-widest text-white"
+                  style={{ borderColor: "rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)" }}
+                >
+                  {hero.countries}
+                </div>
+              </div>
+
+              <div className="mt-10">
+                <button
+                  className="bg-[#39FF14] text-black font-black text-sm uppercase tracking-widest px-8 py-4 hover:bg-white transition-colors animate-glow-pulse"
+                  data-testid="btn-hero-cta"
+                >
+                  EXPLORAR REPORTES →
+                </button>
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Dot indicators — clickable, show active */}
           <div className="absolute bottom-8 left-8 lg:left-16 flex gap-2 items-center">
-            <div className="w-6 h-1.5 bg-[#39FF14] animate-glow-pulse" />
-            <div className="w-1.5 h-1.5 bg-zinc-700" />
-            <div className="w-1.5 h-1.5 bg-zinc-700" />
+            {HERO_ARTISTS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setHeroIndex(i)}
+                className="transition-all duration-300"
+                style={{
+                  width: i === heroIndex ? "24px" : "6px",
+                  height: "6px",
+                  background: i === heroIndex ? "#39FF14" : "rgba(255,255,255,0.2)",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                }}
+                aria-label={`Artista ${i + 1}`}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Right 35%: Featured card */}
-        <div className="hidden lg:flex lg:w-[35%] flex-col relative border-l border-white/5"
+        {/* Right 35%: Featured card — also cycles */}
+        <div className="hidden lg:flex lg:w-[35%] flex-col relative border-l border-white/5 overflow-hidden"
           style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #050505 100%)" }}
         >
-          {/* Giant rank bg number */}
-          <div
-            className="absolute bottom-0 right-0 font-black italic text-white select-none pointer-events-none leading-none"
-            style={{ fontSize: "220px", opacity: 0.04, lineHeight: 1 }}
-          >
-            01
-          </div>
-
-          <div className="relative z-10 flex flex-col h-full p-10 justify-between">
-            <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600">
-              REPORTE DESTACADO
-            </div>
-
-            <div className="mt-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`right-${heroIndex}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="absolute inset-0 flex flex-col"
+            >
+              {/* Giant rank bg number */}
               <div
-                className="inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1.5 mb-6"
-                style={{ background: "rgba(57,255,20,0.1)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.2)" }}
+                className="absolute bottom-0 right-0 font-black italic text-white select-none pointer-events-none leading-none"
+                style={{ fontSize: "220px", opacity: 0.04, lineHeight: 1, color: "#39FF14" }}
               >
-                TOURING
+                {hero.featuredRank}
               </div>
-              <div className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-2">
-                #1 EN MÉXICO
+
+              <div className="relative z-10 flex flex-col h-full p-10 justify-between">
+                <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600">
+                  REPORTE DESTACADO
+                </div>
+
+                <div className="mt-auto">
+                  <div
+                    className="inline-block text-[10px] font-black uppercase tracking-widest px-3 py-1.5 mb-6"
+                    style={{ background: "rgba(57,255,20,0.1)", color: "#39FF14", border: "1px solid rgba(57,255,20,0.2)" }}
+                  >
+                    {hero.featuredTag}
+                  </div>
+                  <div className="text-zinc-500 text-xs font-black uppercase tracking-widest mb-2">
+                    {hero.rank} EN MÉXICO
+                  </div>
+                  <h2 className="text-4xl font-black uppercase text-white leading-tight tracking-tight mb-1 whitespace-pre-line">
+                    {hero.featuredTitle}
+                  </h2>
+                  <p className="text-[#39FF14] font-black text-lg uppercase tracking-wider mb-6">
+                    {hero.featuredArtist}
+                  </p>
+                  <p className="text-zinc-500 text-xs font-medium leading-relaxed mb-8 max-w-[200px]">
+                    {hero.featuredDesc}
+                  </p>
+                  <button
+                    className="text-xs font-black uppercase tracking-widest text-white border border-white/20 px-5 py-3 hover:border-[#39FF14] hover:text-[#39FF14] transition-colors"
+                    data-testid="btn-hero-report"
+                  >
+                    VER REPORTE →
+                  </button>
+                </div>
               </div>
-              <h2 className="text-4xl font-black uppercase text-white leading-tight tracking-tight mb-1">
-                ÉXODO<br />TOUR
-              </h2>
-              <p className="text-[#39FF14] font-black text-lg uppercase tracking-wider mb-6">
-                PESO PLUMA
-              </p>
-              <p className="text-zinc-500 text-xs font-medium leading-relaxed mb-8 max-w-[200px]">
-                Análisis completo del tour más importante de la música mexicana en 2024.
-              </p>
-              <button
-                className="text-xs font-black uppercase tracking-widest text-white border border-white/20 px-5 py-3 hover:border-[#39FF14] hover:text-[#39FF14] transition-colors"
-                data-testid="btn-hero-report"
-              >
-                VER REPORTE →
-              </button>
-            </div>
-          </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </section>
 
