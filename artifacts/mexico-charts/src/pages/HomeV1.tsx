@@ -85,8 +85,12 @@ export default function HomeV1() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-black">
       {/* Version badge */}
-      <div className="bg-primary/10 border-b border-primary/20 text-center py-2 text-xs font-bold text-primary uppercase tracking-widest">
-        Mockup V1 — <Link href="/" className="underline hover:text-white transition-colors">Ver V2 →</Link>
+      <div className="bg-primary/10 border-b border-primary/20 text-center py-2 text-xs font-bold text-primary uppercase tracking-widest flex items-center justify-center gap-4">
+        <span>Mockup V1</span>
+        <span className="text-primary/30">|</span>
+        <Link href="/" className="underline hover:text-white transition-colors">Ver V2 →</Link>
+        <span className="text-primary/30">|</span>
+        <Link href="/v3" className="underline hover:text-white transition-colors">Ver V3 →</Link>
       </div>
 
       {/* Navigation */}

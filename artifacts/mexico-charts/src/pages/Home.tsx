@@ -71,7 +71,16 @@ export default function Home() {
 
   return (
     <div className="min-h-[100dvh] bg-[#050505] text-zinc-300 selection:bg-primary selection:text-black font-sans">
-      
+
+      {/* Version banner */}
+      <div className="bg-primary/10 border-b border-primary/20 text-center py-2 text-xs font-bold text-primary uppercase tracking-widest flex items-center justify-center gap-4">
+        <Link href="/v1" className="underline hover:text-white transition-colors">← Ver V1</Link>
+        <span className="text-primary/30">|</span>
+        <span>Mockup V2</span>
+        <span className="text-primary/30">|</span>
+        <Link href="/v3" className="underline hover:text-white transition-colors">Ver V3 →</Link>
+      </div>
+
       {/* NAVIGATION */}
       <nav className="sticky top-0 z-50 w-full border-b border-white/10 bg-[#050505]/90 backdrop-blur-md" data-testid="navigation">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
