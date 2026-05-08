@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import { ArrowUpRight, ArrowDownRight, Play, TrendingUp, BarChart3, Disc, ChevronRight, Clock } from "lucide-react";
+import { useArtistImages } from "@/hooks/useArtistImages";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -82,6 +84,14 @@ const CHART_HISTORY = [
 ];
 
 export default function HomeV1() {
+  const heroArtist = HOT_100[0].artist.split(/[,&]/)[0].trim();
+  const artistNames = useMemo(
+    () => [heroArtist, ...TRENDING_ARTISTS.map(a => a.name)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const artistImages = useArtistImages(artistNames);
+
   return (
     <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-black">
       {/* Version badge */}
@@ -158,8 +168,17 @@ export default function HomeV1() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-8 items-start md:items-center relative z-10">
-              <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 bg-gradient-to-br from-zinc-800 to-black border border-primary/30 flex items-center justify-center group-hover:border-primary transition-colors duration-500">
-                <Play className="w-12 h-12 text-primary ml-2 group-hover:scale-110 transition-transform duration-500" />
+              <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 relative overflow-hidden border border-primary/30 group-hover:border-primary transition-colors duration-500">
+                {artistImages[heroArtist] ? (
+                  <>
+                    <img src={artistImages[heroArtist]!} alt={heroArtist} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                  </>
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-black flex items-center justify-center">
+                    <Play className="w-12 h-12 text-primary ml-2 group-hover:scale-110 transition-transform duration-500" />
+                  </div>
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -280,9 +299,17 @@ export default function HomeV1() {
                     transition={{ delay: i * 0.1 }}
                     className="flex items-center gap-4 bg-card border border-border p-4 hover:border-primary/50 transition-colors group"
                   >
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${artist.color} flex items-center justify-center text-white font-display font-bold text-xl flex-shrink-0 group-hover:scale-110 transition-transform`}>
-                      {artist.name.charAt(0)}
-                    </div>
+                    {artistImages[artist.name] ? (
+                      <img
+                        src={artistImages[artist.name]!}
+                        alt={artist.name}
+                        className="w-12 h-12 rounded-full object-cover flex-shrink-0 group-hover:scale-110 transition-transform border border-white/10"
+                      />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${artist.color} flex items-center justify-center text-white font-display font-bold text-xl flex-shrink-0 group-hover:scale-110 transition-transform`}>
+                        {artist.name.charAt(0)}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
                         <h4 className="font-bold text-white truncate">{artist.name}</h4>

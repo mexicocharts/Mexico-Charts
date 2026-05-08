@@ -53,6 +53,9 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      "/api": "http://localhost:8080",
+    },
   },
   preview: {
     port,

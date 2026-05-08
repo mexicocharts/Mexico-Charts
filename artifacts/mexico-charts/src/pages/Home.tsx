@@ -1,4 +1,5 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { Search, Menu, Users, FileText, Database, Globe, Users2, Diamond, ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
@@ -65,6 +66,8 @@ const REPORTES = [
 export default function Home() {
   const [activeTab, setActiveTab] = useState("SPOTIFY");
   const [searchQuery, setSearchQuery] = useState("");
+  const artistNames = useMemo(() => [...TOP_10.map(a => a.name), ...ASCENSO.map(a => a.name)], []);
+  const artistImages = useArtistImages(artistNames);
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "start", slidesToScroll: 1 });
   const scrollPrev = useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
@@ -267,7 +270,11 @@ export default function Home() {
                     className="flex items-center gap-4 group p-2 hover:bg-white/5 rounded transition-colors"
                   >
                     <div className="text-xl font-black text-zinc-600 w-6 text-center">{artist.rank}</div>
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${COLORS[idx % COLORS.length]} flex-shrink-0 border border-white/10 shadow-[0_0_10px_rgba(0,0,0,0.5)]`}></div>
+                    {artistImages[artist.name] ? (
+                      <img src={artistImages[artist.name]!} alt={artist.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0 border border-white/10 shadow-[0_0_10px_rgba(0,0,0,0.5)]" />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${COLORS[idx % COLORS.length]} flex-shrink-0 border border-white/10 shadow-[0_0_10px_rgba(0,0,0,0.5)]`} />
+                    )}
                     <div className="min-w-0">
                       <div className="text-white font-bold truncate group-hover:text-primary transition-colors">{artist.name}</div>
                       <div className="text-xs text-zinc-500 truncate">{artist.listeners}</div>
@@ -298,7 +305,11 @@ export default function Home() {
                       className="flex items-center gap-4 bg-[#0a0a0a] border border-white/5 p-3 hover:border-primary/30 transition-colors"
                     >
                       <div className="text-lg font-black text-zinc-600 w-4 text-center">{artist.rank}</div>
-                      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${COLORS[(idx + 3) % COLORS.length]} flex-shrink-0 border border-white/10`}></div>
+                      {artistImages[artist.name] ? (
+                        <img src={artistImages[artist.name]!} alt={artist.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-white/10" />
+                      ) : (
+                        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${COLORS[(idx + 3) % COLORS.length]} flex-shrink-0 border border-white/10`} />
+                      )}
                       <div className="text-white font-bold flex-1 truncate">{artist.name}</div>
                       <div className="bg-primary/10 border border-primary/20 text-primary text-xs font-bold px-2 py-1 rounded">
                         {artist.growth}

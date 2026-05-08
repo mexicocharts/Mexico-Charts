@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
@@ -91,6 +92,13 @@ export default function HomeV5() {
     return () => clearInterval(t);
   }, []);
 
+  const allArtistNames = useMemo(() => [
+    ...HOT_ARTISTS.map(a => a.name),
+    ...ASCENSO.map(a => a.name),
+    ...FEATURED.map(a => a.artist),
+  ], []);
+  const artistImages = useArtistImages(allArtistNames);
+
   const feat = FEATURED[featuredIdx];
 
   return (
@@ -163,6 +171,27 @@ export default function HomeV5() {
           />
         </AnimatePresence>
 
+        {/* Artist portrait – right side, fade left */}
+        <AnimatePresence mode="wait">
+          {artistImages[feat.artist] && (
+            <motion.div
+              key={`portrait-${featuredIdx}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
+              style={{
+                backgroundImage: `url(${artistImages[feat.artist]})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center top",
+                maskImage: "linear-gradient(to right, transparent 0%, black 40%)",
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 40%)",
+              }}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Noise/texture overlay */}
         <div className="absolute inset-0" style={{ background: "rgba(0,0,0,0.25)", backdropFilter: "none" }} />
 
@@ -233,7 +262,9 @@ export default function HomeV5() {
             className="flex-shrink-0 relative rounded-xl overflow-hidden cursor-pointer group"
             style={{
               width: 160, height: 240,
-              background: `linear-gradient(160deg, ${a.from} 0%, ${a.to} 100%)`,
+              background: artistImages[a.name]
+                ? `url(${artistImages[a.name]}) center/cover no-repeat`
+                : `linear-gradient(160deg, ${a.from} 0%, ${a.to} 100%)`,
               scrollSnapAlign: "start",
             }}
             data-testid={`hot-card-${a.rank}`}
@@ -264,7 +295,9 @@ export default function HomeV5() {
             className="flex-shrink-0 relative rounded-xl overflow-hidden cursor-pointer group"
             style={{
               width: 200, height: 120,
-              background: `linear-gradient(120deg, ${a.from} 0%, ${a.to} 100%)`,
+              background: artistImages[a.name]
+                ? `url(${artistImages[a.name]}) center/cover no-repeat`
+                : `linear-gradient(120deg, ${a.from} 0%, ${a.to} 100%)`,
               scrollSnapAlign: "start",
             }}
           >
