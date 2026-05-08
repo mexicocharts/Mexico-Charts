@@ -1,8 +1,8 @@
-import React from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { ArrowUpRight, ArrowDownRight, Play, TrendingUp, BarChart3, Disc, ChevronRight } from "lucide-react";
-import logoPath from "@assets/Photoroom_20260506_124847_1778252228697.png";
+import { ArrowUpRight, ArrowDownRight, Play, TrendingUp, BarChart3, Disc, ChevronRight, Clock } from "lucide-react";
+
+const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
 const HOT_100 = [
   { rank: 1, title: "La Bebé (Remix)", artist: "Yng Lvcas & Peso Pluma", genre: "Corridos Tumbados", streams: "48.2M", trend: "up" },
@@ -21,7 +21,7 @@ const HOT_100 = [
   { rank: 14, title: "Cayó La Noche", artist: "Grupo Firme", genre: "Banda", streams: "21.9M", trend: "up" },
   { rank: 15, title: "Por Siempre", artist: "Remmy Valenzuela", genre: "Banda", streams: "20.5M", trend: "new" },
   { rank: 16, title: "La Tóxica", artist: "Farruko", genre: "Urbano Latino", streams: "19.8M", trend: "down" },
-  { rank: 17, title: "Llamadas", artist: "Cuánto Es Suficiente — Natanael Cano", genre: "Corridos Tumbados", streams: "18.7M", trend: "up" },
+  { rank: 17, title: "Llamadas", artist: "Natanael Cano", genre: "Corridos Tumbados", streams: "18.7M", trend: "up" },
   { rank: 18, title: "Amor Tumbado", artist: "Natanael Cano & Adán Cruz", genre: "Corridos Tumbados", streams: "17.6M", trend: "down" },
   { rank: 19, title: "Fuerte", artist: "Feid", genre: "Urbano Latino", streams: "16.9M", trend: "new" },
   { rank: 20, title: "Volví", artist: "Aventura & Bad Bunny", genre: "Bachata", streams: "15.4M", trend: "down" },
@@ -46,6 +46,41 @@ const GENRES = [
   { name: "Norteño", song: "Mundo de Caramelo", streams: "74.1M" },
 ];
 
+const CHART_HISTORY = [
+  {
+    week: "Semana 18",
+    date: "29 abr – 5 may",
+    number1: "Ella Baila Sola",
+    artist: "Eslabon Armado & Peso Pluma",
+    totalStreams: "2.1B",
+    bigMover: { title: "Por Las Noches", movement: "+14", trend: "up" },
+  },
+  {
+    week: "Semana 17",
+    date: "22 abr – 28 abr",
+    number1: "Ella Baila Sola",
+    artist: "Eslabon Armado & Peso Pluma",
+    totalStreams: "1.98B",
+    bigMover: { title: "El Punto", movement: "+9", trend: "up" },
+  },
+  {
+    week: "Semana 16",
+    date: "15 abr – 21 abr",
+    number1: "AMG",
+    artist: "Peso Pluma, Gabito Ballesteros & Junior H",
+    totalStreams: "1.87B",
+    bigMover: { title: "Igual Que Un Ángel", movement: "+22", trend: "up" },
+  },
+  {
+    week: "Semana 15",
+    date: "8 abr – 14 abr",
+    number1: "AMG",
+    artist: "Peso Pluma, Gabito Ballesteros & Junior H",
+    totalStreams: "1.79B",
+    bigMover: { title: "Mundo de Caramelo", movement: "+18", trend: "up" },
+  },
+];
+
 export default function Home() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-black">
@@ -53,14 +88,14 @@ export default function Home() {
       <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl" data-testid="navigation">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group" data-testid="link-logo">
-            <img src={logoPath} alt="Mexico Charts Logo" className="h-12 object-contain group-hover:scale-105 transition-transform duration-300" />
+            <img src={logoUrl} alt="Mexico Charts Logo" className="h-12 object-contain group-hover:scale-105 transition-transform duration-300" />
           </Link>
           <div className="hidden md:flex items-center gap-8 font-display font-semibold tracking-wide uppercase text-sm">
             <Link href="/" className="text-primary hover:text-primary/80 transition-colors" data-testid="link-nav-inicio">Inicio</Link>
             <Link href="#charts" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-nav-charts">Charts</Link>
             <Link href="#artistas" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-nav-artistas">Artistas</Link>
             <Link href="#generos" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-nav-generos">Géneros</Link>
-            <Link href="#noticias" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-nav-noticias">Noticias</Link>
+            <Link href="#historial" className="text-zinc-400 hover:text-white transition-colors" data-testid="link-nav-historial">Historial</Link>
           </div>
           <button className="md:hidden text-white" data-testid="button-mobile-menu">
             <BarChart3 className="w-6 h-6" />
@@ -74,21 +109,21 @@ export default function Home() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary rounded-full mix-blend-screen filter blur-[128px]" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-zinc-600 rounded-full mix-blend-screen filter blur-[128px]" />
         </div>
-        
+
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-4xl">
-            <motion.h1 
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="text-6xl md:text-8xl font-display font-bold uppercase leading-none tracking-tighter"
             >
-              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">La Referencia</span><br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">De La </span> 
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500">La Referencia</span><br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500">De La </span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-green-300 drop-shadow-[0_0_15px_rgba(57,255,20,0.3)]">Música</span><br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">Mexicana</span>
+              <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-gray-300 to-gray-500">Mexicana</span>
             </motion.h1>
-            <motion.p 
+            <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
@@ -98,7 +133,7 @@ export default function Home() {
             </motion.p>
           </div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
@@ -108,7 +143,7 @@ export default function Home() {
             <div className="absolute -right-10 -top-10 text-[200px] font-display font-black text-white/5 leading-none select-none pointer-events-none group-hover:text-primary/10 transition-colors duration-500">
               #1
             </div>
-            
+
             <div className="flex flex-col md:flex-row gap-8 items-start md:items-center relative z-10">
               <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 bg-gradient-to-br from-zinc-800 to-black border border-primary/30 flex items-center justify-center group-hover:border-primary transition-colors duration-500">
                 <Play className="w-12 h-12 text-primary ml-2 group-hover:scale-110 transition-transform duration-500" />
@@ -117,7 +152,7 @@ export default function Home() {
                 <div className="flex items-center gap-3 mb-2">
                   <span className="bg-primary text-black px-3 py-1 text-xs font-bold uppercase tracking-wider">Número 1 Semanal</span>
                   <span className="text-zinc-400 text-sm flex items-center gap-1">
-                    <TrendingUp className="w-4 h-4 text-primary" /> ▲ subió
+                    <TrendingUp className="w-4 h-4 text-primary" /> subió
                   </span>
                 </div>
                 <h2 className="text-4xl md:text-5xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2">{HOT_100[0].title}</h2>
@@ -175,7 +210,7 @@ export default function Home() {
 
             <div className="space-y-2">
               {HOT_100.map((track, i) => (
-                <motion.div 
+                <motion.div
                   key={track.rank}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -187,11 +222,11 @@ export default function Home() {
                   <div className="w-12 text-center">
                     <span className="text-3xl font-display font-bold text-zinc-600 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-b group-hover:from-white group-hover:to-gray-400 transition-colors">{track.rank}</span>
                   </div>
-                  
+
                   <div className="w-20 hidden sm:flex justify-center text-xs font-bold">
                     {track.trend === "up" && <span className="text-primary flex items-center gap-1"><ArrowUpRight className="w-4 h-4" /> subió</span>}
                     {track.trend === "down" && <span className="text-red-500 flex items-center gap-1"><ArrowDownRight className="w-4 h-4" /> bajó</span>}
-                    {track.trend === "new" && <span className="text-blue-400 flex items-center gap-1"> NUEVO</span>}
+                    {track.trend === "new" && <span className="text-blue-400">NUEVO</span>}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -209,7 +244,7 @@ export default function Home() {
                 </motion.div>
               ))}
             </div>
-            
+
             <button className="w-full mt-6 py-4 border border-border text-white font-bold uppercase tracking-widest hover:bg-primary hover:text-black hover:border-primary transition-colors sm:hidden" data-testid="button-view-all-charts-mobile">
               Ver Top Completo
             </button>
@@ -217,7 +252,7 @@ export default function Home() {
 
           {/* Sidebar */}
           <div className="w-full lg:w-[400px] flex flex-col gap-12">
-            
+
             {/* Trending Artists */}
             <div id="artistas" data-testid="section-artistas">
               <h3 className="text-2xl font-display font-bold text-white mb-6 uppercase border-b border-border pb-4 flex items-center gap-2">
@@ -225,7 +260,7 @@ export default function Home() {
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                 {TRENDING_ARTISTS.map((artist, i) => (
-                  <motion.div 
+                  <motion.div
                     key={artist.name}
                     initial={{ opacity: 0, x: 20 }}
                     whileInView={{ opacity: 1, x: 0 }}
@@ -257,7 +292,7 @@ export default function Home() {
               </h3>
               <div className="space-y-4">
                 {GENRES.map((genre, i) => (
-                  <motion.div 
+                  <motion.div
                     key={genre.name}
                     initial={{ opacity: 0, scale: 0.95 }}
                     whileInView={{ opacity: 1, scale: 1 }}
@@ -284,24 +319,94 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Chart History Teaser */}
+      <section id="historial" className="py-24 border-t border-border bg-[#070707]" data-testid="section-historial">
+        <div className="container mx-auto px-4">
+          <div className="flex items-end justify-between mb-10 pb-4 border-b border-border">
+            <div>
+              <h2 className="text-4xl font-display font-bold text-white flex items-center gap-3">
+                <Clock className="text-primary w-8 h-8" />
+                HISTORIAL <span className="text-primary drop-shadow-[0_0_10px_rgba(57,255,20,0.3)]">DE CHARTS</span>
+              </h2>
+              <p className="text-zinc-500 mt-2 font-mono text-sm">Semanas anteriores — movimientos y tendencias</p>
+            </div>
+            <button className="hidden sm:flex items-center gap-2 text-sm text-white hover:text-primary transition-colors uppercase font-bold tracking-wider" data-testid="button-view-full-history">
+              Ver Historial Completo <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {CHART_HISTORY.map((week, i) => (
+              <motion.div
+                key={week.week}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-card border border-border p-6 group hover:border-primary/40 transition-colors duration-300 cursor-pointer"
+                data-testid={`card-history-week-${i}`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-mono text-primary uppercase tracking-wider font-bold">{week.week}</span>
+                  <span className="text-xs text-zinc-600 font-mono">{week.date}</span>
+                </div>
+
+                <div className="mb-4">
+                  <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1">Número 1</div>
+                  <h4 className="text-lg font-display font-bold text-white leading-tight group-hover:text-primary transition-colors">{week.number1}</h4>
+                  <p className="text-xs text-zinc-500 mt-0.5 truncate">{week.artist}</p>
+                </div>
+
+                <div className="border-t border-border/50 pt-4 mt-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1">Mayor Movimiento</div>
+                    <div className="flex items-center gap-1">
+                      <ArrowUpRight className="w-3 h-3 text-primary flex-shrink-0" />
+                      <span className="text-xs text-zinc-300 truncate">{week.bigMover.title}</span>
+                    </div>
+                    <span className="text-xs font-bold text-primary">{week.bigMover.movement} posiciones</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[10px] text-zinc-600 uppercase tracking-widest mb-1">Total</div>
+                    <span className="text-sm font-display font-bold text-zinc-300">{week.totalStreams}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="mt-8 py-5 border border-dashed border-zinc-800 text-center text-zinc-600 font-mono text-sm hover:border-primary/40 hover:text-zinc-400 transition-colors cursor-pointer group"
+            data-testid="button-load-more-history"
+          >
+            <span className="group-hover:text-primary transition-colors">Ver semanas anteriores</span>
+            <ChevronRight className="inline w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+          </motion.div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-border bg-[#050505] pt-16 pb-8" data-testid="footer">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-8 mb-12">
             <div className="text-center md:text-left">
-              <img src={logoPath} alt="Mexico Charts" className="h-16 object-contain mb-4 mx-auto md:mx-0 grayscale hover:grayscale-0 transition-all duration-500" />
+              <img src={logoUrl} alt="Mexico Charts" className="h-16 object-contain mb-4 mx-auto md:mx-0 grayscale hover:grayscale-0 transition-all duration-500" />
               <p className="text-zinc-400 font-display font-bold tracking-widest uppercase text-sm">La Referencia de la Música Mexicana</p>
             </div>
-            
+
             <div className="flex flex-wrap justify-center gap-6 font-mono text-sm text-zinc-500 uppercase tracking-wider">
               <Link href="#charts" className="hover:text-primary transition-colors" data-testid="link-footer-charts">Charts</Link>
               <Link href="#artistas" className="hover:text-primary transition-colors" data-testid="link-footer-artistas">Artistas</Link>
               <Link href="#generos" className="hover:text-primary transition-colors" data-testid="link-footer-generos">Géneros</Link>
+              <Link href="#historial" className="hover:text-primary transition-colors" data-testid="link-footer-historial">Historial</Link>
               <Link href="#acerca" className="hover:text-primary transition-colors" data-testid="link-footer-acerca">Acerca de</Link>
               <Link href="#contacto" className="hover:text-primary transition-colors" data-testid="link-footer-contacto">Contacto</Link>
             </div>
           </div>
-          
+
           <div className="border-t border-border/50 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-zinc-600">
             <p>© 2026 Mexico Charts. Todos los derechos reservados.</p>
             <div className="flex gap-4">
