@@ -579,7 +579,7 @@ export default function HomeV3() {
         </div>
 
         <div
-          className="grid gap-3"
+          className="flex flex-col gap-3 lg:grid"
           style={{
             gridTemplateColumns: "repeat(3, 1fr)",
             gridTemplateRows: "auto",
@@ -874,7 +874,7 @@ export default function HomeV3() {
                 </a>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {NOTICIAS.map((n, idx) => (
                   <div key={idx} className="border border-white/5 p-4 hover:border-[rgba(57,255,20,0.2)] transition-colors cursor-pointer group/news">
                     <div
@@ -953,7 +953,7 @@ export default function HomeV3() {
         className="py-16 border-t border-white/5 bg-[#080808] overflow-hidden"
         data-testid="section-platform-charts"
       >
-        <div className="max-w-[1400px] mx-auto px-6 mb-8 flex items-end justify-between">
+        <div className="max-w-[1400px] mx-auto px-6 mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600 mb-1">
               CHARTS POR PLATAFORMA
