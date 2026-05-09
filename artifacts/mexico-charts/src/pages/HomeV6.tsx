@@ -462,43 +462,53 @@ export default function HomeV6() {
               viewport={{ once:true, margin:"-40px" }}
               transition={{ duration:0.5, delay: idx * 0.055, ease:[0.16,1,0.3,1] }}
               whileHover={reduced ? {} : { scale:1.04, y:-4, transition:{ duration:0.28, ease:[0.16,1,0.3,1] } }}
-              className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl"
+              className="flex-shrink-0 relative cursor-pointer"
               style={{
                 width:150, height:228, scrollSnapAlign:"start",
-                background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
+                borderRadius:"1rem",
                 boxShadow:"0 4px 28px rgba(0,0,0,0.7)",
               }}
               data-testid={`strip-card-${a.rank}`}
             >
-              {/* Hover glow overlay */}
-              <motion.div
-                className="absolute inset-0 rounded-2xl pointer-events-none"
-                initial={{ opacity:0 }}
-                whileHover={{ opacity:1 }}
-                transition={{ duration:0.25 }}
-                style={{ boxShadow:`inset 0 0 0 1px ${a.accent}40, 0 0 24px ${a.accent}22` }}
-              />
+              {/* Static clip container — overflow-hidden lives here, NOT on the animated motion.div,
+                  so GPU compositing from framer-motion never interferes with border-radius clipping */}
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{
+                  borderRadius:"1rem",
+                  background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
+                }}
+              >
+                {/* Hover glow overlay */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity:0 }}
+                  whileHover={{ opacity:1 }}
+                  transition={{ duration:0.25 }}
+                  style={{ boxShadow:`inset 0 0 0 1px ${a.accent}40, 0 0 24px ${a.accent}22` }}
+                />
 
-              {/* Brightness shift on hover via CSS */}
-              <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
-              {/* Inner top highlight */}
-              <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
-              {/* Cinematic grading overlay — unifies image warmth across all artists */}
-              {photo && <div className="absolute inset-0 pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
+                {/* Brightness shift on hover via CSS */}
+                <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
+                {/* Inner top highlight */}
+                <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
+                {/* Cinematic grading overlay — unifies image warmth across all artists */}
+                {photo && <div className="absolute inset-0 pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
 
-              {/* Rank watermark */}
-              <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
-                {String(a.rank).padStart(2,"0")}
-              </div>
+                {/* Rank watermark */}
+                <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
+                  {String(a.rank).padStart(2,"0")}
+                </div>
 
-              {/* Genre accent dot */}
-              <div className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background:a.accent, boxShadow:`0 0 6px ${a.accent}` }} />
+                {/* Genre accent dot */}
+                <div className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background:a.accent, boxShadow:`0 0 6px ${a.accent}` }} />
 
-              {/* Bottom info */}
-              <div className="absolute bottom-0 left-0 right-0 rounded-b-2xl p-3" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)" }}>
-                <div className="font-black text-sm uppercase leading-tight text-white mb-0.5">{a.name}</div>
-                <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.48)" }}>{a.genre}</div>
-                <div className="text-[11px] font-black" style={{ color:a.accent }}>{a.streams}</div>
+                {/* Bottom info */}
+                <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)" }}>
+                  <div className="font-black text-sm uppercase leading-tight text-white mb-0.5">{a.name}</div>
+                  <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.48)" }}>{a.genre}</div>
+                  <div className="text-[11px] font-black" style={{ color:a.accent }}>{a.streams}</div>
+                </div>
               </div>
             </motion.div>
           );
