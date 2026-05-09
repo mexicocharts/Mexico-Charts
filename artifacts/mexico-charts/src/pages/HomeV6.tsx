@@ -10,11 +10,11 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 /* ─── DATA ──────────────────────────────────────────────────── */
 
 const HERO_ARTISTS = [
-  { rank:"#1", line1:"PESO",     line2:"PLUMA",  listeners:"32.4M OYENTES", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#2", line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M OYENTES", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#3", line1:"NATANAEL", line2:"CANO",   listeners:"11.7M OYENTES", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#4", line1:"JUNIOR",   line2:"H",      listeners:"9.8M OYENTES",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO" },
-  { rank:"#5", line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M OYENTES",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO" },
+  { rank:"#1", line1:"PESO",     line2:"PLUMA",  listeners:"32.4M OYENTES", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#0f0035", mid:"#4c1d95", to:"#5b21b6" },
+  { rank:"#2", line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M OYENTES", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#3d0000", mid:"#7f1d1d", to:"#991b1b" },
+  { rank:"#3", line1:"NATANAEL", line2:"CANO",   listeners:"11.7M OYENTES", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#001f1f", mid:"#0f766e", to:"#0d9488" },
+  { rank:"#4", line1:"JUNIOR",   line2:"H",      listeners:"9.8M OYENTES",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO", from:"#0a1a0a", mid:"#166534", to:"#16a34a" },
+  { rank:"#5", line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M OYENTES",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO", from:"#1c0900", mid:"#92400e", to:"#b45309" },
 ];
 const HERO_NAMES = ["Peso Pluma","Fuerza Regida","Natanael Cano","Junior H","Carin León"];
 
@@ -175,92 +175,81 @@ export default function HomeV6() {
       </nav>
 
       {/* ══════════════════════════════════════════════════════════
-          CINEMATIC HERO — V3 energy, full-bleed single panel
+          HERO — V5 colored gradient style
       ══════════════════════════════════════════════════════════ */}
-      <section className="relative w-full min-h-[100svh] flex items-center overflow-hidden" style={{ background:"#050505" }} data-testid="section-hero">
+      <section className="relative overflow-hidden" style={{ height:"66vh", minHeight:"460px" }} data-testid="section-hero">
 
-        {/* Glow blobs */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div style={{ position:"absolute", width:900, height:700, left:"-10%", top:"10%", background:"radial-gradient(ellipse, rgba(57,255,20,0.10) 0%, transparent 70%)", filter:"blur(60px)" }} />
-          <div style={{ position:"absolute", width:500, height:500, right:"5%", bottom:"-5%", background:"radial-gradient(ellipse, rgba(57,255,20,0.06) 0%, transparent 70%)", filter:"blur(80px)" }} />
-        </div>
+        {/* Animated gradient background */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`bg-${heroIndex}`}
+            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+            transition={{ duration:0.7 }}
+            className="absolute inset-0"
+            style={{ background:`linear-gradient(135deg, ${hero.from} 0%, ${hero.mid} 50%, ${hero.to} 100%)` }}
+          />
+        </AnimatePresence>
 
-        {/* Artist portrait — fades from right */}
+        {/* Artist portrait — right side, fades left */}
         <AnimatePresence mode="wait">
           {img(HERO_NAMES[heroIndex]) && (
             <motion.div
               key={`portrait-${heroIndex}`}
               initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-              transition={{ duration:0.8 }}
-              className="absolute right-0 top-0 bottom-0 pointer-events-none"
+              transition={{ duration:0.85 }}
+              className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
               style={{
-                zIndex:1, width:"60%",
                 backgroundImage:`url(${img(HERO_NAMES[heroIndex])})`,
                 backgroundSize:"cover", backgroundPosition:"center top",
-                maskImage:"linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 52%)",
-                WebkitMaskImage:"linear-gradient(to right, transparent 0%, rgba(0,0,0,0.4) 20%, black 52%)",
+                maskImage:"linear-gradient(to right, transparent 0%, black 40%)",
+                WebkitMaskImage:"linear-gradient(to right, transparent 0%, black 40%)",
               }}
             />
           )}
         </AnimatePresence>
 
-        {/* Left green accent strip */}
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#39FF14]" style={{ zIndex:3 }} />
+        {/* Dark overlay */}
+        <div className="absolute inset-0" style={{ background:"rgba(0,0,0,0.28)" }} />
 
-        {/* Noise */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ zIndex:2, backgroundImage:`url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize:"128px" }} />
+        {/* Large rank watermark */}
+        <div className="absolute right-8 bottom-0 font-black leading-none select-none pointer-events-none" style={{ fontSize:"clamp(8rem, 22vw, 18rem)", color:"rgba(255,255,255,0.06)", lineHeight:0.85 }}>
+          {hero.rank.replace("#","")}
+        </div>
 
-        {/* Text content */}
-        <div className="relative w-full max-w-[680px] px-10 lg:px-16 py-24" style={{ zIndex:4 }}>
+        {/* Content */}
+        <div className="relative h-full flex flex-col justify-end px-6 md:px-10 pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={heroIndex}
-              initial={{ opacity:0, y:32 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-20 }}
-              transition={{ duration:0.5, ease:[0.16,1,0.3,1] }}
+              initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
+              transition={{ duration:0.55, ease:"easeOut" }}
             >
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-[11px] font-black uppercase tracking-[0.25em]" style={{ color:"#39FF14" }}>{hero.rank} EN MÉXICO</span>
-                <span className="text-white/15">·</span>
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-600">{hero.tag}</span>
+              <div className="text-[10px] font-black uppercase tracking-[0.3em] mb-3" style={{ color:"#39FF14" }}>
+                {hero.rank} EN MÉXICO · {hero.tag}
               </div>
-
-              <h1 className="font-black italic uppercase leading-[0.85] tracking-tighter text-white select-none mb-10" style={{ fontSize:"clamp(58px, 13vw, 180px)" }}>
-                <span className="block">{hero.line1}</span>
-                <span className="block animate-glow-pulse-text" style={{ color:"#39FF14" }}>{hero.line2}</span>
+              <h1 className="font-black uppercase leading-none tracking-[-0.02em] mb-3 text-white" style={{ fontSize:"clamp(2.8rem, 9vw, 8rem)" }}>
+                {hero.line1} {hero.line2}
               </h1>
-
-              <div className="flex flex-wrap gap-3 mb-10">
-                {[
-                  { label:hero.listeners, green:true },
-                  { label:hero.growth + " ESTA SEMANA", green:false },
-                  { label:hero.countries, green:false },
-                ].map(({ label, green }, i) => (
-                  <div key={i} className="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-full"
-                    style={{
-                      background: green ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.04)",
-                      border:`1px solid ${green ? "rgba(57,255,20,0.25)" : "rgba(255,255,255,0.1)"}`,
-                      color: green ? "#39FF14" : "white",
-                    }}
-                  >{label}</div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-4 flex-wrap">
-                <button className="bg-[#39FF14] text-black font-black text-sm uppercase tracking-widest px-7 py-3.5 rounded-full hover:bg-white transition-colors animate-glow-pulse" data-testid="btn-hero-cta">
-                  VER REPORTE →
+              <p className="text-sm text-white/60 uppercase tracking-[0.15em] mb-6">
+                {hero.listeners} · {hero.countries}
+              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button className="px-6 py-2.5 text-xs font-black uppercase tracking-[0.1em] rounded-full text-black transition-opacity hover:opacity-90" style={{ background:"#39FF14" }} data-testid="btn-hero-cta">
+                  Ver Charts
                 </button>
-                <button className="text-xs font-black uppercase tracking-widest px-7 py-3.5 rounded-full border border-white/15 text-white hover:border-[#39FF14] hover:text-[#39FF14] transition-colors">
-                  EXPLORAR ARTISTAS
+                <button className="px-6 py-2.5 text-xs font-black uppercase tracking-[0.1em] rounded-full border border-white/30 text-white hover:bg-white/10 transition-colors">
+                  Ver Perfil
                 </button>
+                <span className="ml-2 text-sm font-black" style={{ color:"#39FF14" }}>{hero.growth} esta semana</span>
               </div>
             </motion.div>
           </AnimatePresence>
 
           {/* Dot indicators */}
-          <div className="absolute bottom-8 left-10 lg:left-16 flex gap-2 items-center">
+          <div className="absolute bottom-8 right-6 md:right-10 flex items-center gap-2">
             {HERO_ARTISTS.map((_, i) => (
               <button key={i} onClick={() => setHeroIndex(i)} className="transition-all duration-300 rounded-full"
-                style={{ width:i===heroIndex?24:6, height:6, background:i===heroIndex?"#39FF14":"rgba(255,255,255,0.2)", border:"none", padding:0, cursor:"pointer" }}
+                style={{ width:i===heroIndex?20:6, height:6, background:i===heroIndex?"#39FF14":"rgba(255,255,255,0.3)", border:"none", padding:0, cursor:"pointer" }}
                 aria-label={`Artista ${i+1}`}
               />
             ))}
