@@ -39,12 +39,12 @@ const TOP_STRIP = [
 ];
 
 const GENRES = [
-  { name:"Corridos Tumbados", streams:"48.3M", artists:48, accent:"#A855F7" },
-  { name:"Regional Mexicano",  streams:"31.2M", artists:62, accent:"rgba(168,85,247,0.80)" },
-  { name:"Norteño",            streams:"18.7M", artists:34, accent:"rgba(168,85,247,0.62)" },
-  { name:"Banda",              streams:"14.2M", artists:29, accent:"rgba(168,85,247,0.48)" },
-  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, accent:"rgba(168,85,247,0.36)" },
-  { name:"Pop Urbano",         streams:"6.8M",  artists:18, accent:"rgba(168,85,247,0.26)" },
+  { name:"Corridos Tumbados", streams:"48.3M", artists:48, accent:"#39FF14" },
+  { name:"Regional Mexicano",  streams:"31.2M", artists:62, accent:"rgba(57,255,20,0.78)" },
+  { name:"Norteño",            streams:"18.7M", artists:34, accent:"rgba(57,255,20,0.60)" },
+  { name:"Banda",              streams:"14.2M", artists:29, accent:"rgba(57,255,20,0.46)" },
+  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, accent:"rgba(57,255,20,0.35)" },
+  { name:"Pop Urbano",         streams:"6.8M",  artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
 const ASCENSO = [
@@ -56,10 +56,10 @@ const ASCENSO = [
 ];
 
 const GIRAS = [
-  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", accent:"#A855F7" },
-  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  accent:"rgba(168,85,247,0.72)" },
-  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  accent:"rgba(168,85,247,0.52)" },
-  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  accent:"rgba(168,85,247,0.36)" },
+  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", accent:"#39FF14" },
+  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  accent:"rgba(57,255,20,0.65)" },
+  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  accent:"rgba(57,255,20,0.48)" },
+  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  accent:"rgba(57,255,20,0.34)" },
 ];
 
 const TICKER_ITEMS = [
