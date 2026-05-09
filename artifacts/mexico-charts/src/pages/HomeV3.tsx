@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Menu, Globe, Mail } from "lucide-react";
@@ -199,6 +200,14 @@ export default function HomeV3() {
   }, []);
 
   const hero = HERO_ARTISTS[heroIndex];
+
+  const artistNames = useMemo(() => TOP_ARTISTAS.map(a => a.name), []);
+  const artistImages = useArtistImages(artistNames);
+
+  const getArtistImage = (name: string): string | null =>
+    artistImages[name] ??
+    Object.entries(artistImages).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1] ??
+    null;
 
   const tickerContent = TICKER_ITEMS.join("   ·   ");
   const statsContent = STATS_TICKER.map(s => `${s}   ·`).join("   ");
@@ -436,6 +445,29 @@ export default function HomeV3() {
         <div className="hidden lg:flex lg:w-[35%] flex-col relative border-l border-white/5 overflow-hidden"
           style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #050505 100%)" }}
         >
+          {/* Artist portrait background — fades in per slide */}
+          <AnimatePresence mode="wait">
+            {getArtistImage(hero.featuredArtist) && (
+              <motion.div
+                key={`portrait-${heroIndex}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.7 }}
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundImage: `url(${getArtistImage(hero.featuredArtist)})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center top",
+                  maskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, black 50%, transparent 100%)",
+                }}
+              />
+            )}
+          </AnimatePresence>
+          {/* Dark overlay so text stays readable over the photo */}
+          <div className="absolute inset-0 pointer-events-none" style={{ background: "rgba(5,5,5,0.55)" }} />
+
           <AnimatePresence mode="wait">
             <motion.div
               key={`right-${heroIndex}`}
@@ -578,10 +610,19 @@ export default function HomeV3() {
 
                     <div className="relative z-10 flex items-center gap-4 w-full">
                       <div className="text-2xl font-black text-zinc-700 w-10 font-mono">{artist.rank}</div>
-                      <div
-                        className={`w-9 h-9 rounded-full bg-gradient-to-br ${COLORS[idx]} flex-shrink-0`}
-                        style={{ border: "1px solid rgba(255,255,255,0.08)" }}
-                      />
+                      {artistImages[artist.name] ? (
+                        <img
+                          src={artistImages[artist.name]!}
+                          alt={artist.name}
+                          className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
+                          style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                        />
+                      ) : (
+                        <div
+                          className={`w-9 h-9 rounded-full bg-gradient-to-br ${COLORS[idx]} flex-shrink-0`}
+                          style={{ border: "1px solid rgba(255,255,255,0.08)" }}
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-black truncate group-hover/row:text-[#39FF14] transition-colors">
                           {artist.name}
@@ -931,10 +972,19 @@ export default function HomeV3() {
                       {TOP_ARTISTAS.map((artist, idx) => (
                         <div key={idx} className="flex items-center gap-3">
                           <span className="text-sm font-black text-zinc-700 w-5 font-mono">{idx + 1}</span>
-                          <div
-                            className={`w-7 h-7 rounded-full bg-gradient-to-br ${COLORS[idx]} flex-shrink-0`}
-                            style={{ border: "1px solid rgba(255,255,255,0.06)" }}
-                          />
+                          {artistImages[artist.name] ? (
+                            <img
+                              src={artistImages[artist.name]!}
+                              alt={artist.name}
+                              className="w-7 h-7 rounded-full flex-shrink-0 object-cover"
+                              style={{ border: "1px solid rgba(255,255,255,0.06)" }}
+                            />
+                          ) : (
+                            <div
+                              className={`w-7 h-7 rounded-full bg-gradient-to-br ${COLORS[idx]} flex-shrink-0`}
+                              style={{ border: "1px solid rgba(255,255,255,0.06)" }}
+                            />
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="text-white font-bold text-xs truncate">{artist.name}</div>
                             <div className="text-[10px] text-zinc-600">{artist.listeners} oyentes</div>
