@@ -476,13 +476,21 @@ export default function HomeV6() {
                   so GPU compositing from framer-motion never interferes with border-radius clipping */}
               <div
                 className="absolute inset-0 overflow-hidden"
-                style={{
-                  borderRadius:"1rem",
-                  background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-                }}
+                style={{ borderRadius:"1rem" }}
               >
-                {/* Dark edge vignette — kills bright photo content at card borders */}
-                <div className="absolute inset-0 pointer-events-none" style={{ borderRadius:"1rem", boxShadow:"inset 0 0 0 3px rgba(3,3,3,1), inset 0 0 22px rgba(0,0,0,0.72)" }} />
+                {/* Photo layer — separate div so CSS filter only darkens the image, not the overlays */}
+                <div className="absolute inset-0" style={{
+                  background: photo
+                    ? `url(${photo}) center top / cover no-repeat`
+                    : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
+                  filter: photo ? "brightness(0.70) saturate(0.55) contrast(1.08)" : undefined,
+                }} />
+
+                {/* Radial edge vignette — crushes bright photo content at the perimeter */}
+                {photo && <div className="absolute inset-0 pointer-events-none" style={{
+                  background:"radial-gradient(ellipse 78% 82% at 50% 40%, transparent 22%, rgba(0,0,0,0.60) 65%, rgba(0,0,0,0.92) 100%)"
+                }} />}
+
                 {/* Hover glow overlay */}
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
@@ -496,8 +504,6 @@ export default function HomeV6() {
                 <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
                 {/* Inner top highlight */}
                 <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
-                {/* Cinematic grading overlay — unifies image warmth across all artists */}
-                {photo && <div className="absolute inset-0 pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
 
                 {/* Rank watermark */}
                 <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
