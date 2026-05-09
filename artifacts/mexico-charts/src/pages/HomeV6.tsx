@@ -480,11 +480,11 @@ export default function HomeV6() {
               />
 
               {/* Brightness shift on hover via CSS */}
-              <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300 rounded-2xl" />
+              <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
               {/* Inner top highlight */}
               <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
               {/* Cinematic grading overlay — unifies image warmth across all artists */}
-              {photo && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
+              {photo && <div className="absolute inset-0 pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
 
               {/* Rank watermark */}
               <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
