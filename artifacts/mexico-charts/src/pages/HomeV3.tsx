@@ -350,6 +350,29 @@ export default function HomeV3() {
           />
         </div>
 
+        {/* Artist portrait — right side, fades left, visible on all screen sizes */}
+        <AnimatePresence mode="wait">
+          {getArtistImage(hero.featuredArtist) && (
+            <motion.div
+              key={`hero-portrait-${heroIndex}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.7 }}
+              className="absolute right-0 top-0 bottom-0 pointer-events-none"
+              style={{
+                zIndex: 5,
+                width: "55%",
+                backgroundImage: `url(${getArtistImage(hero.featuredArtist)})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center top",
+                maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 30%, black 60%)",
+                WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 30%, black 60%)",
+              }}
+            />
+          )}
+        </AnimatePresence>
+
         {/* Noise/grain overlay */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.035] z-10"
