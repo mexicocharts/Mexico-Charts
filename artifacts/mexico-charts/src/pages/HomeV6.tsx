@@ -479,6 +479,8 @@ export default function HomeV6() {
                   background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
                 }}
               >
+                {/* Dark edge vignette — kills bright photo content at card borders */}
+                <div className="absolute inset-0 pointer-events-none" style={{ borderRadius:"1rem", boxShadow:"inset 0 0 0 3px rgba(3,3,3,1), inset 0 0 22px rgba(0,0,0,0.72)" }} />
                 {/* Hover glow overlay */}
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
