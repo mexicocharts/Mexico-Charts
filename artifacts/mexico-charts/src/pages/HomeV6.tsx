@@ -17,49 +17,49 @@ const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='h
 /* ─── DATA ──────────────────────────────────────────────────── */
 
 const HERO_ARTISTS = [
-  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#0f0035", mid:"#4c1d95", to:"#5b21b6" },
-  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#3d0000", mid:"#7f1d1d", to:"#991b1b" },
-  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS", from:"#001f1f", mid:"#0f766e", to:"#0d9488" },
-  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO", from:"#0a1a0a", mid:"#166534", to:"#16a34a" },
-  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO", from:"#1c0900", mid:"#92400e", to:"#b45309" },
+  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO" },
+  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO" },
 ];
 const HERO_NAMES = HERO_ARTISTS.map(a => a.name);
 
 const TOP_STRIP = [
-  { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", from:"#040e04", to:"#0d240d", accent:"#39FF14" },
-  { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", from:"#0e0404", to:"#241010", accent:"#7A4A3A" },
-  { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", from:"#040e0e", to:"#0d2020", accent:"#2E7070" },
-  { rank:4,  name:"Junior H",         genre:"Reg. Mexicano",  streams:"9.8M",  from:"#0e0e04", to:"#221e08", accent:"#7A6230" },
-  { rank:5,  name:"Carin León",       genre:"Reg. Mexicano",  streams:"7.1M",  from:"#06060e", to:"#0e1028", accent:"#3A4A78" },
-  { rank:6,  name:"Luis R Conriquez", genre:"Norteño",        streams:"7.6M",  from:"#08040e", to:"#160a2a", accent:"#5A3A80" },
-  { rank:7,  name:"Grupo Frontera",   genre:"Norteño",        streams:"6.2M",  from:"#0e0404", to:"#280a0a", accent:"#6A3030" },
-  { rank:8,  name:"Xavi",            genre:"Corridos Tumb.", streams:"5.4M",  from:"#060608", to:"#101018", accent:"#4A4870" },
-  { rank:9,  name:"Eslabon Armado",   genre:"Reg. Mexicano",  streams:"5.1M",  from:"#040e08", to:"#0a2014", accent:"#2A5A40" },
-  { rank:10, name:"Chino Pacas",      genre:"Corridos Tumb.", streams:"4.8M",  from:"#0a0a04", to:"#1e1a08", accent:"#6A5828" },
+  { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", accent:"#39FF14" },
+  { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", accent:"rgba(57,255,20,0.62)" },
+  { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", accent:"rgba(57,255,20,0.48)" },
+  { rank:4,  name:"Junior H",         genre:"Reg. Mexicano",  streams:"9.8M",  accent:"rgba(255,255,255,0.42)" },
+  { rank:5,  name:"Carin León",       genre:"Reg. Mexicano",  streams:"7.1M",  accent:"rgba(255,255,255,0.35)" },
+  { rank:6,  name:"Luis R Conriquez", genre:"Norteño",        streams:"7.6M",  accent:"rgba(255,255,255,0.28)" },
+  { rank:7,  name:"Grupo Frontera",   genre:"Norteño",        streams:"6.2M",  accent:"rgba(255,255,255,0.23)" },
+  { rank:8,  name:"Xavi",            genre:"Corridos Tumb.", streams:"5.4M",  accent:"rgba(255,255,255,0.20)" },
+  { rank:9,  name:"Eslabon Armado",   genre:"Reg. Mexicano",  streams:"5.1M",  accent:"rgba(255,255,255,0.18)" },
+  { rank:10, name:"Chino Pacas",      genre:"Corridos Tumb.", streams:"4.8M",  accent:"rgba(255,255,255,0.15)" },
 ];
 
 const GENRES = [
-  { name:"Corridos Tumbados", streams:"48.3M", artists:48, from:"#040e04", to:"#0e280e", accent:"#39FF14" },
-  { name:"Regional Mexicano",  streams:"31.2M", artists:62, from:"#0e0a04", to:"#201808", accent:"#7A6230" },
-  { name:"Norteño",            streams:"18.7M", artists:34, from:"#04060e", to:"#0c1028", accent:"#3A4A78" },
-  { name:"Banda",              streams:"14.2M", artists:29, from:"#08040e", to:"#160c2c", accent:"#5A3A80" },
-  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, from:"#0e0404", to:"#240a0a", accent:"#6A3030" },
-  { name:"Pop Urbano",         streams:"6.8M",  artists:18, from:"#04080e", to:"#0a1420", accent:"#2E7070" },
+  { name:"Corridos Tumbados", streams:"48.3M", artists:48, accent:"#39FF14" },
+  { name:"Regional Mexicano",  streams:"31.2M", artists:62, accent:"rgba(57,255,20,0.78)" },
+  { name:"Norteño",            streams:"18.7M", artists:34, accent:"rgba(57,255,20,0.60)" },
+  { name:"Banda",              streams:"14.2M", artists:29, accent:"rgba(57,255,20,0.46)" },
+  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, accent:"rgba(57,255,20,0.35)" },
+  { name:"Pop Urbano",         streams:"6.8M",  artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
 const ASCENSO = [
   { name:"Tito Double P",    growth:"+78%", bar:78, accent:"#39FF14" },
-  { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"#28A80E" },
-  { name:"Marca Registrada", growth:"+56%", bar:56, accent:"#1A7818" },
-  { name:"Clave Especial",   growth:"+49%", bar:49, accent:"#5A3A80" },
-  { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"#3A3A60" },
+  { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"rgba(57,255,20,0.72)" },
+  { name:"Marca Registrada", growth:"+56%", bar:56, accent:"rgba(57,255,20,0.52)" },
+  { name:"Clave Especial",   growth:"+49%", bar:49, accent:"rgba(57,255,20,0.36)" },
+  { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"rgba(57,255,20,0.24)" },
 ];
 
 const GIRAS = [
-  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", from:"#040e04", to:"#0e2a0e", accent:"#39FF14" },
-  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  from:"#0e0404", to:"#240a0a", accent:"#6A3030" },
-  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  from:"#0e0a04", to:"#201808", accent:"#7A6230" },
-  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  from:"#04080e", to:"#0a1820", accent:"#2E7070" },
+  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", accent:"#39FF14" },
+  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  accent:"rgba(57,255,20,0.65)" },
+  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  accent:"rgba(57,255,20,0.48)" },
+  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  accent:"rgba(57,255,20,0.34)" },
 ];
 
 const TICKER_ITEMS = [
@@ -288,31 +288,23 @@ export default function HomeV6() {
       ══════════════════════════════════════════════════════════ */}
       <section ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px" }} data-testid="section-hero">
 
-        {/* Gradient background — crossfade on change */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`bg-${heroIndex}`}
-            initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-            transition={{ duration:0.8 }}
-            className="absolute inset-0"
-            style={{ background:`linear-gradient(135deg, ${hero.from} 0%, ${hero.mid} 55%, ${hero.to} 100%)` }}
-          />
-        </AnimatePresence>
+        {/* Base — obsidian black */}
+        <div className="absolute inset-0" style={{ background:"#050505" }} />
 
-        {/* Ambient glow orbs — slow loop */}
+        {/* Green atmospheric glow — brand identity */}
         {!reduced && (
           <>
             <motion.div
               className="absolute pointer-events-none"
-              style={{ width:600, height:600, left:"-10%", top:"10%", borderRadius:"50%", background:`radial-gradient(circle, ${hero.to}44 0%, transparent 70%)`, filter:"blur(80px)" }}
-              animate={{ x:[0,40,0], y:[0,-30,0], scale:[1,1.15,1], opacity:[0.5,0.8,0.5] }}
-              transition={{ duration:9, repeat:Infinity, ease:"easeInOut" }}
+              style={{ width:720, height:720, left:"-15%", top:"0%", borderRadius:"50%", background:"radial-gradient(circle, rgba(57,255,20,0.055) 0%, transparent 65%)", filter:"blur(90px)" }}
+              animate={{ x:[0,35,0], y:[0,-25,0], scale:[1,1.12,1], opacity:[0.7,1,0.7] }}
+              transition={{ duration:11, repeat:Infinity, ease:"easeInOut" }}
             />
             <motion.div
               className="absolute pointer-events-none"
-              style={{ width:400, height:400, right:"5%", bottom:"0%", borderRadius:"50%", background:`radial-gradient(circle, ${hero.mid}33 0%, transparent 70%)`, filter:"blur(60px)" }}
-              animate={{ x:[0,-25,0], y:[0,20,0], scale:[1,1.2,1], opacity:[0.3,0.6,0.3] }}
-              transition={{ duration:12, repeat:Infinity, ease:"easeInOut", delay:3 }}
+              style={{ width:500, height:500, right:"0%", bottom:"-10%", borderRadius:"50%", background:"radial-gradient(circle, rgba(57,255,20,0.035) 0%, transparent 65%)", filter:"blur(80px)" }}
+              animate={{ x:[0,-20,0], y:[0,18,0], scale:[1,1.18,1], opacity:[0.4,0.65,0.4] }}
+              transition={{ duration:14, repeat:Infinity, ease:"easeInOut", delay:4 }}
             />
           </>
         )}
@@ -455,7 +447,7 @@ export default function HomeV6() {
               className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl"
               style={{
                 width:150, height:228, scrollSnapAlign:"start",
-                background: photo ? `url(${photo}) center top / cover no-repeat` : `linear-gradient(160deg, ${a.from} 0%, ${a.to} 100%)`,
+                background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
                 boxShadow:"0 2px 12px rgba(0,0,0,0.4)",
               }}
               data-testid={`strip-card-${a.rank}`}
@@ -517,9 +509,9 @@ export default function HomeV6() {
               className="relative overflow-hidden cursor-pointer rounded-xl"
               style={{
                 height:112,
-                background:`linear-gradient(135deg, ${g.from} 0%, ${g.to} 100%)`,
-                border:`1px solid ${g.accent}20`,
-                boxShadow:`0 2px 16px rgba(0,0,0,0.35)`,
+                background:"linear-gradient(135deg, #090909 0%, #111111 100%)",
+                border:`1px solid ${g.accent}22`,
+                boxShadow:`0 2px 16px rgba(0,0,0,0.4)`,
               }}
             >
               {/* Inner noise */}
@@ -602,7 +594,7 @@ export default function HomeV6() {
                         <div className="text-xl font-black text-zinc-800 w-8 font-mono shrink-0">{String(a.rank).padStart(2,"0")}</div>
                         {photo
                           ? <img src={photo} alt={a.name} className="w-9 h-9 rounded-full object-cover shrink-0 transition-all duration-300 group-hover/row:brightness-110" style={{ border:`1px solid ${a.accent}30` }} />
-                          : <div className="w-9 h-9 rounded-full shrink-0" style={{ background:`linear-gradient(135deg,${a.from},${a.to})`, border:`1px solid ${a.accent}30` }} />
+                          : <div className="w-9 h-9 rounded-full shrink-0" style={{ background:"#1c1c1c", border:`1px solid ${a.accent}30` }} />
                         }
                         <div className="flex-1 min-w-0">
                           <div className="text-white font-black text-sm truncate group-hover/row:text-[#39FF14] transition-colors duration-200">{a.name}</div>
@@ -706,9 +698,9 @@ export default function HomeV6() {
             className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-xl"
             style={{
               width:272, height:162, scrollSnapAlign:"start",
-              background:`linear-gradient(140deg, ${g.from} 0%, ${g.to} 100%)`,
-              border:`1px solid ${g.accent}1e`,
-              boxShadow:"0 2px 16px rgba(0,0,0,0.4)",
+              background:"linear-gradient(140deg, #080808 0%, #131313 100%)",
+              border:`1px solid ${g.accent}20`,
+              boxShadow:"0 2px 20px rgba(0,0,0,0.5)",
             }}
           >
             <div className="absolute inset-0 opacity-[0.045] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
