@@ -26,40 +26,40 @@ const HERO_ARTISTS = [
 const HERO_NAMES = HERO_ARTISTS.map(a => a.name);
 
 const TOP_STRIP = [
-  { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", from:"#071a07", to:"#194d19", accent:"#39FF14" },
-  { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", from:"#1a0700", to:"#4d1500", accent:"#FF6B35" },
-  { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", from:"#001a1a", to:"#004040", accent:"#00E5CC" },
-  { rank:4,  name:"Junior H",         genre:"Reg. Mexicano",  streams:"9.8M",  from:"#1a0a00", to:"#4d2200", accent:"#FFB703" },
-  { rank:5,  name:"Carin León",       genre:"Reg. Mexicano",  streams:"7.1M",  from:"#00001a", to:"#000040", accent:"#4D9DFF" },
-  { rank:6,  name:"Luis R Conriquez", genre:"Norteño",        streams:"7.6M",  from:"#1a001a", to:"#400040", accent:"#E040FB" },
-  { rank:7,  name:"Grupo Frontera",   genre:"Norteño",        streams:"6.2M",  from:"#1a0000", to:"#400000", accent:"#FF4D4D" },
-  { rank:8,  name:"Xavi",            genre:"Corridos Tumb.", streams:"5.4M",  from:"#0a0a1a", to:"#1a1a40", accent:"#A78BFA" },
-  { rank:9,  name:"Eslabon Armado",   genre:"Reg. Mexicano",  streams:"5.1M",  from:"#001a0a", to:"#004020", accent:"#34D399" },
-  { rank:10, name:"Chino Pacas",      genre:"Corridos Tumb.", streams:"4.8M",  from:"#1a1000", to:"#403000", accent:"#FBBF24" },
+  { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", from:"#040e04", to:"#0d240d", accent:"#39FF14" },
+  { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", from:"#0e0404", to:"#241010", accent:"#7A4A3A" },
+  { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", from:"#040e0e", to:"#0d2020", accent:"#2E7070" },
+  { rank:4,  name:"Junior H",         genre:"Reg. Mexicano",  streams:"9.8M",  from:"#0e0e04", to:"#221e08", accent:"#7A6230" },
+  { rank:5,  name:"Carin León",       genre:"Reg. Mexicano",  streams:"7.1M",  from:"#06060e", to:"#0e1028", accent:"#3A4A78" },
+  { rank:6,  name:"Luis R Conriquez", genre:"Norteño",        streams:"7.6M",  from:"#08040e", to:"#160a2a", accent:"#5A3A80" },
+  { rank:7,  name:"Grupo Frontera",   genre:"Norteño",        streams:"6.2M",  from:"#0e0404", to:"#280a0a", accent:"#6A3030" },
+  { rank:8,  name:"Xavi",            genre:"Corridos Tumb.", streams:"5.4M",  from:"#060608", to:"#101018", accent:"#4A4870" },
+  { rank:9,  name:"Eslabon Armado",   genre:"Reg. Mexicano",  streams:"5.1M",  from:"#040e08", to:"#0a2014", accent:"#2A5A40" },
+  { rank:10, name:"Chino Pacas",      genre:"Corridos Tumb.", streams:"4.8M",  from:"#0a0a04", to:"#1e1a08", accent:"#6A5828" },
 ];
 
 const GENRES = [
-  { name:"Corridos Tumbados", streams:"48.3M", artists:48, from:"#071a07", to:"#194d19", accent:"#39FF14" },
-  { name:"Regional Mexicano",  streams:"31.2M", artists:62, from:"#1a0a00", to:"#4d2200", accent:"#FFB703" },
-  { name:"Norteño",            streams:"18.7M", artists:34, from:"#00001a", to:"#000040", accent:"#4D9DFF" },
-  { name:"Banda",              streams:"14.2M", artists:29, from:"#1a0014", to:"#400036", accent:"#E040FB" },
-  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, from:"#1a0000", to:"#400000", accent:"#FF4D4D" },
-  { name:"Pop Urbano",         streams:"6.8M",  artists:18, from:"#001a1a", to:"#004040", accent:"#00E5CC" },
+  { name:"Corridos Tumbados", streams:"48.3M", artists:48, from:"#040e04", to:"#0e280e", accent:"#39FF14" },
+  { name:"Regional Mexicano",  streams:"31.2M", artists:62, from:"#0e0a04", to:"#201808", accent:"#7A6230" },
+  { name:"Norteño",            streams:"18.7M", artists:34, from:"#04060e", to:"#0c1028", accent:"#3A4A78" },
+  { name:"Banda",              streams:"14.2M", artists:29, from:"#08040e", to:"#160c2c", accent:"#5A3A80" },
+  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, from:"#0e0404", to:"#240a0a", accent:"#6A3030" },
+  { name:"Pop Urbano",         streams:"6.8M",  artists:18, from:"#04080e", to:"#0a1420", accent:"#2E7070" },
 ];
 
 const ASCENSO = [
   { name:"Tito Double P",    growth:"+78%", bar:78, accent:"#39FF14" },
-  { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"#FFB703" },
-  { name:"Marca Registrada", growth:"+56%", bar:56, accent:"#4D9DFF" },
-  { name:"Clave Especial",   growth:"+49%", bar:49, accent:"#E040FB" },
-  { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"#FF4D4D" },
+  { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"#28A80E" },
+  { name:"Marca Registrada", growth:"+56%", bar:56, accent:"#1A7818" },
+  { name:"Clave Especial",   growth:"+49%", bar:49, accent:"#5A3A80" },
+  { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"#3A3A60" },
 ];
 
 const GIRAS = [
-  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", from:"#071a07", to:"#194d19", accent:"#39FF14" },
-  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  from:"#1a0000", to:"#400000", accent:"#FF4D4D" },
-  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  from:"#1a0a00", to:"#4d2200", accent:"#FFB703" },
-  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  from:"#001a1a", to:"#004040", accent:"#00E5CC" },
+  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", from:"#040e04", to:"#0e2a0e", accent:"#39FF14" },
+  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  from:"#0e0404", to:"#240a0a", accent:"#6A3030" },
+  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  from:"#0e0a04", to:"#201808", accent:"#7A6230" },
+  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  from:"#04080e", to:"#0a1820", accent:"#2E7070" },
 ];
 
 const TICKER_ITEMS = [
@@ -664,10 +664,10 @@ export default function HomeV6() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/[0.05]">
               {[
-                { icon:<SiSpotify className="w-5 h-5"/>, color:"#1DB954", name:"Spotify",     streams:"32.4M", share:"48%" },
-                { icon:<SiYoutube className="w-5 h-5"/>, color:"#FF0000", name:"YouTube",     streams:"18.2M", share:"28%" },
-                { icon:<SiApple className="w-5 h-5"/>,   color:"#fa57c1", name:"Apple Music", streams:"9.1M",  share:"14%" },
-                { icon:<Music className="w-5 h-5"/>,     color:"#A238FF", name:"Deezer",      streams:"6.5M",  share:"10%" },
+                { icon:<SiSpotify className="w-5 h-5"/>, color:"#39FF14", name:"Spotify",     streams:"32.4M", share:"48%" },
+                { icon:<SiYoutube className="w-5 h-5"/>, color:"#6A3030", name:"YouTube",     streams:"18.2M", share:"28%" },
+                { icon:<SiApple className="w-5 h-5"/>,   color:"#5A3A5A", name:"Apple Music", streams:"9.1M",  share:"14%" },
+                { icon:<Music className="w-5 h-5"/>,     color:"#3A3A60", name:"Deezer",      streams:"6.5M",  share:"10%" },
               ].map(p => (
                 <motion.div
                   key={p.name}

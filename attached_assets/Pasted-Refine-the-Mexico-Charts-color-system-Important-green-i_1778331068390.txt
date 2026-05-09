@@ -1,0 +1,52 @@
+Refine the Mexico Charts color system.
+
+Important: green is the primary brand color, but DO NOT make everything green.
+
+The goal is not “more green.”
+The goal is a more controlled, premium palette where green feels powerful because the rest of the site is restrained.
+
+Keep the core palette:
+
+* Obsidian black / near-black backgrounds
+* White typography
+* Muted gray secondary text
+* Electric emerald green as the primary brand accent
+* Deep purple only as a subtle atmospheric secondary color
+
+Reduce the number of competing colors.
+
+Current issue:
+Some sections use too many saturated colors at once, which makes the site feel slightly too busy/gaming-like.
+
+Fix:
+
+* Desaturate strong orange, cyan, red, magenta, and blue areas.
+* Replace bright rainbow-style cards with darker cinematic tones.
+* Use green for highlights, active states, key numbers, CTAs, ticker, borders, and important accents.
+* Use purple only for depth, atmosphere, hero glow, or subtle background gradients.
+* Keep colored variety only where it helps differentiate content, but make those colors darker, smokier, and less saturated.
+
+Do NOT:
+
+* Turn every card green.
+* Make the whole site monochrome green.
+* Remove all color personality.
+* Make it look flat or boring.
+* Overuse green glows everywhere.
+* Make it look like crypto, gaming, or esports.
+
+Specific direction:
+
+* Genre cards can still have different moods, but they should feel like dark cinematic territories, not bright colorful blocks.
+* Touring cards should feel like stage lighting: dark, premium, subtle, with controlled green accents.
+* Artist cards can keep photography/color from the images, but UI overlays should stay mostly black/gray/white/green.
+* Data visualizations should prioritize green intensity, opacity, and line weight instead of random rainbow colors.
+* Buttons should mostly use green or dark glass styles.
+* Keep the site feeling expensive, editorial, and music-culture focused.
+
+Target feeling:
+Black and green should be the recognizable Mexico Charts identity.
+Purple should add atmosphere.
+Other colors should be rare, muted, and supportive.
+
+The final result should feel more premium, less busy, less rainbow, and more brand-owned — without becoming “everything green.”
