@@ -184,15 +184,6 @@ export default function HomeV6() {
       data-testid="page-v6"
     >
 
-      {/* ── VERSION BANNER ── */}
-      <div className="border-b border-white/5 py-1.5 text-[10px] font-bold text-zinc-700 uppercase tracking-widest flex items-center justify-center gap-3">
-        {([["V1","/v1"],["V2","/"],["V3","/v3"],["V4","/v4"],["V5","/v5"]] as [string,string][]).map(([l,h]) => (
-          <Link key={l} href={h} className="hover:text-[#39FF14] transition-colors duration-200">{l}</Link>
-        ))}
-        <span className="text-zinc-800">|</span>
-        <span style={{ color:"#39FF14" }}>V6 — HYBRID</span>
-      </div>
-
       {/* ── GREEN TICKER — pause on hover ── */}
       <div
         className="bg-[#39FF14] overflow-hidden py-2 cursor-default"
@@ -838,13 +829,7 @@ export default function HomeV6() {
               </div>
             ))}
           </div>
-          <div className="flex flex-col md:flex-row items-center justify-between pt-6 gap-4" style={{ borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-            <div className="flex gap-3 items-center text-[10px] font-bold uppercase tracking-widest">
-              {([["V1","/v1"],["V2","/"],["V3","/v3"],["V4","/v4"],["V5","/v5"]] as [string,string][]).map(([l,h]) => (
-                <Link key={l} href={h} className="text-zinc-700 hover:text-[#39FF14] transition-colors">{l}</Link>
-              ))}
-              <span style={{ color:"#39FF14" }}>V6</span>
-            </div>
+          <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.04)" }}>
             <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2024 Mexico Charts. Todos los derechos reservados.</p>
           </div>
         </div>
