@@ -201,13 +201,23 @@ export default function HomeV3() {
 
   const hero = HERO_ARTISTS[heroIndex];
 
-  const artistNames = useMemo(() => TOP_ARTISTAS.map(a => a.name), []);
+  const artistNames = useMemo(() => {
+    const heroNames = HERO_ARTISTS.map(a => a.featuredArtist);
+    const topNames = TOP_ARTISTAS.map(a => a.name);
+    return [...new Set([...topNames, ...heroNames])];
+  }, []);
   const artistImages = useArtistImages(artistNames);
 
+  const artistImageByLower = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const [k, v] of Object.entries(artistImages)) {
+      if (v) map[k.toLowerCase()] = v;
+    }
+    return map;
+  }, [artistImages]);
+
   const getArtistImage = (name: string): string | null =>
-    artistImages[name] ??
-    Object.entries(artistImages).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1] ??
-    null;
+    artistImageByLower[name.toLowerCase()] ?? null;
 
   const tickerContent = TICKER_ITEMS.join("   ·   ");
   const statsContent = STATS_TICKER.map(s => `${s}   ·`).join("   ");
