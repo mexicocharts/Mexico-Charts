@@ -467,6 +467,8 @@ export default function HomeV6() {
                 width:150, height:228, scrollSnapAlign:"start",
                 borderRadius:"1rem",
                 boxShadow:"0 4px 28px rgba(0,0,0,0.7)",
+                border:"3px solid #050505",
+                boxSizing:"border-box" as const,
               }}
               data-testid={`strip-card-${a.rank}`}
             >
