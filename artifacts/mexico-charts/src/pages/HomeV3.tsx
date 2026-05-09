@@ -369,7 +369,7 @@ export default function HomeV3() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.7 }}
-              className="lg:hidden absolute right-0 top-0 bottom-0 pointer-events-none"
+              className="xl:hidden absolute right-0 top-0 bottom-0 pointer-events-none"
               style={{
                 zIndex: 5,
                 width: "55%",
@@ -394,7 +394,7 @@ export default function HomeV3() {
         />
 
         {/* Left 65%: Giant stacked italic type — auto-cycling */}
-        <div className="relative z-20 flex flex-col justify-center px-8 lg:px-16 pt-12 pb-24 lg:w-[65%] w-full overflow-hidden">
+        <div className="relative z-20 flex flex-col justify-center px-8 xl:px-16 pt-12 pb-24 xl:w-[65%] w-full overflow-hidden">
 
           <AnimatePresence mode="wait">
             <motion.div
@@ -454,7 +454,7 @@ export default function HomeV3() {
           </AnimatePresence>
 
           {/* Dot indicators — clickable, show active */}
-          <div className="absolute bottom-8 left-8 lg:left-16 flex gap-2 items-center">
+          <div className="absolute bottom-8 left-8 xl:left-16 flex gap-2 items-center">
             {HERO_ARTISTS.map((_, i) => (
               <button
                 key={i}
@@ -475,7 +475,7 @@ export default function HomeV3() {
         </div>
 
         {/* Right 35%: Featured card — also cycles */}
-        <div className="hidden lg:flex lg:w-[35%] flex-col relative border-l border-white/5 overflow-hidden"
+        <div className="hidden xl:flex xl:w-[35%] flex-col relative border-l border-white/5 overflow-hidden"
           style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #050505 100%)" }}
         >
           {/* Artist portrait background — fades in per slide */}
