@@ -178,7 +178,8 @@ export default function HomeV6() {
 
   return (
     <div
-      className="min-h-[100dvh] bg-[#050505] text-zinc-300 overflow-x-hidden selection:bg-[#39FF14] selection:text-black"
+      className="min-h-[100dvh] text-zinc-300 overflow-x-hidden selection:bg-[#39FF14] selection:text-black"
+      style={{ background:"radial-gradient(ellipse 100% 50% at 50% 0%, rgba(57,255,20,0.028) 0%, transparent 60%), #050505" }}
       data-testid="page-v6"
     >
 
@@ -328,8 +329,9 @@ export default function HomeV6() {
           )}
         </AnimatePresence>
 
-        {/* Dark scrim */}
-        <div className="absolute inset-0 bg-black/30" />
+        {/* Cinematic vignette — directional layered */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background:"linear-gradient(to right, rgba(5,5,5,0.92) 0%, rgba(5,5,5,0.55) 42%, rgba(5,5,5,0.15) 68%, transparent 85%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background:"linear-gradient(to bottom, rgba(5,5,5,0.5) 0%, transparent 28%, rgba(5,5,5,0.55) 75%, #050505 100%)" }} />
 
         {/* Film grain */}
         <div
@@ -363,7 +365,7 @@ export default function HomeV6() {
               </div>
               <h1
                 className="font-black uppercase leading-[0.88] tracking-tight text-white mb-4"
-                style={{ fontSize:"clamp(2.6rem, 9vw, 7.5rem)", textShadow:"0 2px 40px rgba(0,0,0,0.5)" }}
+                style={{ fontSize:"clamp(2.6rem, 9vw, 7.5rem)", textShadow:"0 2px 80px rgba(0,0,0,0.98), 0 0 200px rgba(0,0,0,0.8)" }}
               >
                 {hero.line1} {hero.line2}
               </h1>
@@ -410,8 +412,8 @@ export default function HomeV6() {
 
       {/* ── STATS TICKER ── */}
       <div
-        className="border-y border-white/[0.05] bg-[#080808] overflow-hidden py-3"
-        style={{ whiteSpace:"nowrap" }}
+        className="border-b border-white/[0.05] bg-[#080808] overflow-hidden py-3"
+        style={{ whiteSpace:"nowrap", borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)" }}
         onMouseEnter={() => setTickerPaused(true)}
         onMouseLeave={() => setTickerPaused(false)}
       >
@@ -443,12 +445,12 @@ export default function HomeV6() {
               whileInView={{ opacity:1, y:0 }}
               viewport={{ once:true, margin:"-40px" }}
               transition={{ duration:0.5, delay: idx * 0.055, ease:[0.16,1,0.3,1] }}
-              whileHover={reduced ? {} : { scale:1.04, transition:{ duration:0.25 } }}
+              whileHover={reduced ? {} : { scale:1.04, y:-4, transition:{ duration:0.28, ease:[0.16,1,0.3,1] } }}
               className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-2xl"
               style={{
                 width:150, height:228, scrollSnapAlign:"start",
                 background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-                boxShadow:"0 2px 12px rgba(0,0,0,0.4)",
+                boxShadow:"0 4px 28px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
               }}
               data-testid={`strip-card-${a.rank}`}
             >
@@ -463,6 +465,8 @@ export default function HomeV6() {
 
               {/* Brightness shift on hover via CSS */}
               <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300 rounded-2xl" />
+              {/* Inner top highlight */}
+              <div className="absolute top-0 left-0 right-0 h-px rounded-t-2xl pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.12), transparent)" }} />
 
               {/* Rank watermark */}
               <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
@@ -509,9 +513,9 @@ export default function HomeV6() {
               className="relative overflow-hidden cursor-pointer rounded-xl"
               style={{
                 height:112,
-                background:"linear-gradient(135deg, #090909 0%, #111111 100%)",
-                border:`1px solid ${g.accent}22`,
-                boxShadow:`0 2px 16px rgba(0,0,0,0.4)`,
+                background:"linear-gradient(160deg, #0d0d0d 0%, #0a0a0a 100%)",
+                border:`1px solid ${g.accent}1e`,
+                boxShadow:`0 4px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)`,
               }}
             >
               {/* Inner noise */}
@@ -564,7 +568,7 @@ export default function HomeV6() {
 
           {/* TOP ARTISTAS */}
           <FadeUp delay={0.05}>
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-[#0a0a0a] p-6" data-testid="bento-top-artistas">
+            <div className="relative overflow-hidden rounded-xl p-6" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }} data-testid="bento-top-artistas">
               <div className="absolute inset-0 opacity-[0.025] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
               <div className="absolute -bottom-6 -right-4 font-black italic text-[110px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>TOP</div>
               <div className="relative z-10">
@@ -611,7 +615,7 @@ export default function HomeV6() {
 
           {/* EN ASCENSO */}
           <FadeUp delay={0.1}>
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-[#0a0a0a] p-6" data-testid="bento-artistas-ascenso">
+            <div className="relative overflow-hidden rounded-xl p-6" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }} data-testid="bento-artistas-ascenso">
               <div className="absolute inset-0 opacity-[0.025] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
               <div className="absolute -bottom-4 -right-2 font-black italic text-[100px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>↑</div>
               <div className="relative z-10 flex flex-col">
@@ -668,8 +672,8 @@ export default function HomeV6() {
                 >
                   <motion.span
                     style={{ color:p.color }}
-                    whileHover={reduced ? {} : { scale:1.1 }}
-                    transition={{ duration:0.2 }}
+                    whileHover={reduced ? {} : { scale:1.18, filter:`drop-shadow(0 0 7px ${p.color}90)` }}
+                    transition={{ duration:0.25 }}
                   >{p.icon}</motion.span>
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-zinc-600 font-bold">{p.name}</div>
@@ -698,9 +702,9 @@ export default function HomeV6() {
             className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-xl"
             style={{
               width:272, height:162, scrollSnapAlign:"start",
-              background:"linear-gradient(140deg, #080808 0%, #131313 100%)",
-              border:`1px solid ${g.accent}20`,
-              boxShadow:"0 2px 20px rgba(0,0,0,0.5)",
+              background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)",
+              border:`1px solid ${g.accent}1c`,
+              boxShadow:`0 6px 36px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)`,
             }}
           >
             <div className="absolute inset-0 opacity-[0.045] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
@@ -732,7 +736,7 @@ export default function HomeV6() {
         <section className="px-6 lg:px-12 py-6">
           <div
             className="relative overflow-hidden rounded-2xl p-8 flex flex-col md:flex-row items-center gap-6 justify-between"
-            style={{ background:"linear-gradient(135deg, rgba(57,255,20,0.055) 0%, rgba(57,255,20,0.015) 100%)", border:"1px solid rgba(57,255,20,0.14)" }}
+            style={{ background:"linear-gradient(135deg, rgba(57,255,20,0.06) 0%, rgba(57,255,20,0.012) 100%)", border:"1px solid rgba(57,255,20,0.16)", boxShadow:"0 0 60px rgba(57,255,20,0.05), inset 0 1px 0 rgba(57,255,20,0.1)" }}
           >
             <div className="absolute inset-0 opacity-[0.04] rounded-2xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"128px" }} />
             <div className="relative z-10">
@@ -762,7 +766,7 @@ export default function HomeV6() {
       </FadeUp>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-white/[0.05] bg-[#030303] pt-16 pb-8 px-6 lg:px-12 relative overflow-hidden" data-testid="footer">
+      <footer className="border-t pt-16 pb-8 px-6 lg:px-12 relative overflow-hidden" style={{ background:"linear-gradient(to bottom, #060606 0%, #030303 100%)", borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)" }} data-testid="footer">
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
           <span className="font-black uppercase italic text-white leading-none whitespace-nowrap" style={{ fontSize:"clamp(60px,14vw,180px)", opacity:0.013, letterSpacing:"-0.03em" }}>MEXICO CHARTS</span>
         </div>

@@ -1,0 +1,94 @@
+The color direction is now correct. Keep the strict Mexico Charts palette:
+
+* black
+* charcoal
+* soft white
+* gray
+* emerald green
+
+Do NOT reintroduce purple, orange, cyan, blue, red, magenta, or rainbow cards.
+
+Now focus on the final premium polish: depth, atmosphere, and cinematic layering.
+
+Goal:
+Make the current monochrome green/black version feel less flat and more expensive, cinematic, and atmospheric.
+
+Do NOT redesign the layout.
+Do NOT change the color system.
+Do NOT make everything brighter green.
+Do NOT add new colors.
+
+Improve with:
+
+1. Subtle atmospheric depth
+
+* Add soft dark gradients behind major sections.
+* Add very subtle green ambient glow in selected areas.
+* Add cinematic vignettes around section edges.
+* Add soft shadow layering behind panels and cards.
+
+2. Texture
+
+* Add very subtle film grain/noise across the site.
+* Keep it elegant and barely visible.
+* Do not make it dirty, rough, or distracting.
+
+3. Panels and cards
+
+* Make panels feel more dimensional using:
+  subtle borders,
+  inner shadows,
+  glass-like transparency,
+  soft highlights,
+  low-opacity green glow.
+* Keep the cards mostly black/charcoal.
+* Use green only as controlled accents.
+
+4. Hero refinement
+
+* Keep the current hero.
+* Add more cinematic lighting depth between the text, background, and artist image.
+* Make the background feel layered, not flat.
+* Keep the image grayscale/green-tinted, not colorful.
+
+5. Section transitions
+
+* Add soft fade/blur transitions between sections.
+* Make scrolling feel like moving through one cinematic environment.
+* Keep motion smooth, slow, and premium.
+
+6. Hover states
+
+* Add subtle hover effects:
+  slight lift,
+  soft glow,
+  image brightness shift,
+  border highlight,
+  text movement.
+* Avoid bouncy or flashy animations.
+
+7. Data visuals
+
+* Keep data mostly green/white/gray.
+* Use opacity, line weight, and glow intensity to create hierarchy.
+* Do not use other colors for platform icons or chart states.
+
+8. Final feeling
+   The site should feel like:
+
+* a luxury music intelligence platform
+* a cinematic editorial experience
+* a premium black/green brand universe
+* modern, restrained, and expensive
+
+Not:
+
+* flat
+* plain
+* gaming
+* crypto
+* rainbow
+* over-glowing
+* over-animated
+
+Keep the current identity. Just make it feel deeper, smoother, more atmospheric, and more premium.
