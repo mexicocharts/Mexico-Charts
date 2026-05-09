@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
+import { slugify } from "@/lib/utils";
 import {
   motion, AnimatePresence,
   useScroll, useTransform,
@@ -393,13 +394,16 @@ export default function HomeV6() {
                 >
                   Ver Charts →
                 </motion.button>
-                <motion.button
-                  whileHover={reduced ? {} : { scale:1.03, borderColor:"rgba(255,255,255,0.5)" }}
-                  whileTap={reduced ? {} : { scale:0.97 }}
-                  className="px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full border border-white/25 text-white backdrop-blur-sm"
-                >
-                  Ver Perfil
-                </motion.button>
+                <Link href={`/artist/${slugify(hero.name)}`}>
+                  <motion.span
+                    whileHover={reduced ? {} : { scale:1.03, borderColor:"rgba(255,255,255,0.5)" }}
+                    whileTap={reduced ? {} : { scale:0.97 }}
+                    className="inline-block px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full border border-white/25 text-white backdrop-blur-sm cursor-pointer"
+                    data-testid="btn-hero-profile"
+                  >
+                    Ver Perfil
+                  </motion.span>
+                </Link>
               </div>
             </motion.div>
           </AnimatePresence>
@@ -446,16 +450,20 @@ export default function HomeV6() {
         {TOP_STRIP.map((a, idx) => {
           const photo = img(a.name);
           return (
-            <motion.div
+            <Link
               key={a.rank}
+              href={`/artist/${slugify(a.name)}`}
+              style={{ flexShrink:0, scrollSnapAlign:"start", display:"block" }}
+            >
+            <motion.div
               initial={reduced ? { opacity:1 } : { opacity:0, y:16 }}
               whileInView={{ opacity:1, y:0 }}
               viewport={{ once:true, margin:"-40px" }}
               transition={{ duration:0.5, delay: idx * 0.055, ease:[0.16,1,0.3,1] }}
               whileHover={reduced ? {} : { scale:1.04, y:-4, transition:{ duration:0.28, ease:[0.16,1,0.3,1] } }}
-              className="flex-shrink-0 relative cursor-pointer"
+              className="relative cursor-pointer"
               style={{
-                width:150, height:228, scrollSnapAlign:"start",
+                width:150, height:228,
                 borderRadius:"1rem",
                 boxShadow:"0 4px 28px rgba(0,0,0,0.7)",
               }}
@@ -515,6 +523,7 @@ export default function HomeV6() {
                 </div>
               </div>
             </motion.div>
+            </Link>
           );
         })}
       </Shelf>
@@ -623,8 +632,8 @@ export default function HomeV6() {
                   {TOP_STRIP.slice(0,5).map((a) => {
                     const photo = img(a.name);
                     return (
+                      <Link key={a.rank} href={`/artist/${slugify(a.name)}`} style={{ display:"block" }}>
                       <motion.div
-                        key={a.rank}
                         variants={fadeUpVariants}
                         whileHover={reduced ? {} : { x:3, transition:{ duration:0.2 } }}
                         className="flex items-center gap-3 cursor-pointer group/row"
@@ -640,6 +649,7 @@ export default function HomeV6() {
                         </div>
                         <div className="text-xs font-black font-mono shrink-0 px-2 py-1 rounded-full transition-all duration-200 group-hover/row:scale-105" style={{ color:a.accent, background:`${a.accent}0e`, border:`1px solid ${a.accent}20` }}>{a.streams}</div>
                       </motion.div>
+                      </Link>
                     );
                   })}
                 </motion.div>

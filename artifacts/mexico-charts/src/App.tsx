@@ -9,6 +9,7 @@ import HomeV3 from "@/pages/HomeV3";
 import HomeV4 from "@/pages/HomeV4";
 import HomeV5 from "@/pages/HomeV5";
 import HomeV6 from "@/pages/HomeV6";
+import ArtistDetail from "@/pages/ArtistDetail";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={HomeV6} />
+      <Route path="/artist/:slug" component={ArtistDetail} />
       <Route path="/v1" component={HomeV1} />
       <Route path="/v3" component={HomeV3} />
       <Route path="/v4" component={HomeV4} />
