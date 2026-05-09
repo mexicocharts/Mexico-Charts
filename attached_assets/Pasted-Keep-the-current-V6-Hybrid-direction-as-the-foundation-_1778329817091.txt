@@ -1,0 +1,87 @@
+Keep the current V6 Hybrid direction as the foundation. This is the winning design direction.
+
+Now polish it from a strong mockup into a 10/10 premium, living music platform.
+
+DO NOT redesign from scratch.
+DO NOT change the core identity.
+DO NOT remove the blurred cinematic hero direction.
+DO NOT turn it back into a dashboard.
+
+Focus on refinement, motion, depth, and premium interaction.
+
+Primary goal:
+Make Mexico Charts feel like a cinematic, editorial, data-powered music platform — not a static mockup.
+
+Improve the site with:
+
+1. Hero section polish
+
+* Add subtle parallax depth between the blurred artist image, background gradient, typography, and ranking number.
+* Add soft animated grain/noise.
+* Add slow ambient glow movement in the purple/black gradient.
+* Make the hero feel alive but not distracting.
+* Keep the current clean, mysterious, premium look.
+
+2. Navigation and ticker
+
+* Make the green top ticker move smoothly and continuously.
+* Add pause-on-hover.
+* Keep it readable and not too fast.
+* Add subtle separators between items.
+* Make the nav feel more premium with smoother hover states and active-page transitions.
+
+3. Artist cards
+
+* Add refined hover effects: slight scale, glow, image brightness shift, and text lift.
+* Keep cards clean and not overly animated.
+* Add smooth horizontal scroll behavior on mobile and desktop.
+* Make each artist card feel clickable and collectible.
+
+4. Genre territory blocks
+
+* Keep the colored genre blocks, but add more depth:
+  subtle gradients, inner glow, soft noise, and hover movement.
+* Do not oversaturate the colors.
+* Keep black as the dominant color of the site.
+
+5. Data sections
+
+* Animate numbers counting up on first view.
+* Animate progress bars on scroll.
+* Add subtle section reveal animations.
+* Keep all data easy to read.
+
+6. Touring and platform sections
+
+* Make these feel premium and structured, not generic cards.
+* Add subtle color-coded accents.
+* Add hover states and smooth transitions.
+* Keep spacing clean and editorial.
+
+7. Overall motion system
+
+* Add scroll reveal animations.
+* Add parallax only where it improves depth.
+* Add reduced-motion support for accessibility.
+* Keep animations smooth, slow, and expensive-feeling.
+* Avoid bouncy, cartoonish, gamer, or crypto-style motion.
+
+8. Mobile polish
+
+* Make the mobile layout feel intentional, not just stacked.
+* Improve spacing, horizontal scroll sections, and section titles.
+* Ensure text is never too large or cut off.
+* Make the hero look premium on mobile.
+
+9. Brand refinement
+
+* Keep the tone futuristic, cinematic, editorial, and music-culture focused.
+* Avoid looking like an admin dashboard, SaaS site, esports layout, or crypto interface.
+* Maintain the balance:
+  60% premium editorial music platform
+  40% addictive chart/product ecosystem.
+
+Final target:
+The site should feel like Spotify Wrapped, Apple Music editorial, Boiler Room, and a luxury music magazine merged into one Mexico-focused charts platform.
+
+This should become a polished 10/10 version of V6 Hybrid, not a new concept.
