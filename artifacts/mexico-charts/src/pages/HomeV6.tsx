@@ -470,12 +470,15 @@ export default function HomeV6() {
               }}
               data-testid={`strip-card-${a.rank}`}
             >
-              {/* Clip container: overflow+radius+mask is the proven Safari fix for white fringe */}
+              {/* Clip container: overflow+radius+mask is the proven Safari fix for white fringe.
+                  Mask is 99% white so it's visually identical to no-mask but forces Safari's
+                  mask renderer which eliminates the border-radius anti-aliasing fringe. */}
               <div
                 className="absolute inset-0 overflow-hidden"
                 style={{
                   borderRadius:"1rem",
-                  WebkitMaskImage:"-webkit-radial-gradient(white, black)",
+                  WebkitMaskImage:"radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)",
+                  maskImage:"radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)",
                 }}
               >
                 {/* Photo in its own div so the filter only touches the image */}
@@ -483,12 +486,12 @@ export default function HomeV6() {
                   background: photo
                     ? `url(${photo}) center top / cover no-repeat`
                     : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-                  filter: photo ? "brightness(0.65) saturate(0.50) contrast(1.10)" : undefined,
+                  filter: photo ? "brightness(0.86) saturate(0.68) contrast(1.08)" : undefined,
                 }} />
 
-                {/* Strong edge vignette — makes every card edge near-black */}
+                {/* Subtle edge darkening — just enough to blend card edges with background */}
                 {photo && <div className="absolute inset-0 pointer-events-none" style={{
-                  background:"radial-gradient(ellipse 62% 68% at 50% 38%, transparent 8%, rgba(0,0,0,0.82) 52%, rgba(0,0,0,1) 80%)"
+                  background:"radial-gradient(ellipse 85% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.82) 100%)"
                 }} />}
 
                 {/* Hover glow — inset only, no outward bleed */}
