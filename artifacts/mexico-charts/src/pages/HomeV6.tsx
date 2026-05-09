@@ -116,12 +116,13 @@ function FadeUp({ children, delay = 0, className = "" }: { children: React.React
 
 function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="py-7">
+    <section className="py-7 relative">
+      <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)" }} />
       <FadeUp>
         <div className="flex items-center gap-3 px-6 lg:px-12 mb-5">
           <span style={{ color:"#39FF14" }}>{icon}</span>
-          <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{label}</h2>
-          <div className="flex-1 h-px bg-white/5 ml-2" />
+          <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{label}</h2>
+          <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
         </div>
       </FadeUp>
       <div
@@ -307,6 +308,20 @@ export default function HomeV6() {
               animate={{ x:[0,-20,0], y:[0,18,0], scale:[1,1.18,1], opacity:[0.4,0.65,0.4] }}
               transition={{ duration:14, repeat:Infinity, ease:"easeInOut", delay:4 }}
             />
+            {/* Left-side cinematic fog diffusion */}
+            <motion.div
+              className="absolute pointer-events-none"
+              style={{ width:520, height:680, left:"2%", top:"8%", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(57,255,20,0.018) 0%, transparent 68%)", filter:"blur(72px)" }}
+              animate={{ x:[0,16,0], y:[0,24,0], opacity:[0.45,0.8,0.45] }}
+              transition={{ duration:19, repeat:Infinity, ease:"easeInOut", delay:3 }}
+            />
+            {/* Subtle mid-hero depth layer */}
+            <motion.div
+              className="absolute pointer-events-none"
+              style={{ width:360, height:360, left:"28%", top:"20%", borderRadius:"50%", background:"radial-gradient(ellipse, rgba(57,255,20,0.012) 0%, transparent 70%)", filter:"blur(55px)" }}
+              animate={{ x:[0,-12,0], y:[0,14,0], opacity:[0.3,0.6,0.3] }}
+              transition={{ duration:23, repeat:Infinity, ease:"easeInOut", delay:7 }}
+            />
           </>
         )}
 
@@ -324,6 +339,7 @@ export default function HomeV6() {
                 backgroundSize:"cover", backgroundPosition:"center top",
                 maskImage:"linear-gradient(to right, transparent 0%, black 38%)",
                 WebkitMaskImage:"linear-gradient(to right, transparent 0%, black 38%)",
+                filter:"saturate(0.58) contrast(1.1) brightness(0.83)",
               }}
             />
           )}
@@ -467,6 +483,8 @@ export default function HomeV6() {
               <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300 rounded-2xl" />
               {/* Inner top highlight */}
               <div className="absolute top-0 left-0 right-0 h-px rounded-t-2xl pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.12), transparent)" }} />
+              {/* Cinematic grading overlay — unifies image warmth across all artists */}
+              {photo && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
 
               {/* Rank watermark */}
               <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
@@ -479,7 +497,7 @@ export default function HomeV6() {
               {/* Bottom info */}
               <div className="absolute bottom-0 left-0 right-0 rounded-b-2xl p-3" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)" }}>
                 <div className="font-black text-sm uppercase leading-tight text-white mb-0.5">{a.name}</div>
-                <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.38)" }}>{a.genre}</div>
+                <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.48)" }}>{a.genre}</div>
                 <div className="text-[11px] font-black" style={{ color:a.accent }}>{a.streams}</div>
               </div>
             </motion.div>
@@ -490,12 +508,13 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           GENRE TERRITORIES — color blocks + depth
       ══════════════════════════════════════════════════════════ */}
-      <section className="py-7 px-6 lg:px-12" data-testid="section-generos">
+      <section className="py-7 px-6 lg:px-12 relative" data-testid="section-generos">
+        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(57,255,20,0.1), transparent)" }} />
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><Music className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">Territorios de Género</h2>
-            <div className="flex-1 h-px bg-white/5 ml-2" />
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Territorios de Género</h2>
+            <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
         <motion.div
@@ -536,7 +555,7 @@ export default function HomeV6() {
               <div className="relative h-full flex flex-col justify-between p-4 pl-5">
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
-                  <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.28)" }}>{g.artists} artistas activos</div>
+                  <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>{g.artists} artistas activos</div>
                 </div>
                 <div className="flex items-end justify-between">
                   <div className="text-lg font-black" style={{ color:g.accent }}>{g.streams}</div>
@@ -556,12 +575,13 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           DATA BENTO — editorial depth
       ══════════════════════════════════════════════════════════ */}
-      <section className="py-7 px-6 lg:px-12" data-testid="section-bento">
+      <section className="py-7 px-6 lg:px-12 relative" data-testid="section-bento">
+        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)" }} />
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><TrendingUp className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">Estadísticas · Mayo 2024</h2>
-            <div className="flex-1 h-px bg-white/5 ml-2" />
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Estadísticas · Mayo 2024</h2>
+            <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -574,7 +594,7 @@ export default function HomeV6() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600 mb-0.5">PLATAFORMAS COMBINADAS</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">PLATAFORMAS COMBINADAS</div>
                     <h3 className="text-base font-black uppercase text-white">TOP ARTISTAS <span style={{ color:"#39FF14" }}>MÉXICO</span></h3>
                   </div>
                   <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</a>
@@ -597,7 +617,7 @@ export default function HomeV6() {
                       >
                         <div className="text-xl font-black text-zinc-800 w-8 font-mono shrink-0">{String(a.rank).padStart(2,"0")}</div>
                         {photo
-                          ? <img src={photo} alt={a.name} className="w-9 h-9 rounded-full object-cover shrink-0 transition-all duration-300 group-hover/row:brightness-110" style={{ border:`1px solid ${a.accent}30` }} />
+                          ? <img src={photo} alt={a.name} className="w-9 h-9 rounded-full object-cover shrink-0 transition-all duration-300 group-hover/row:brightness-105" style={{ border:`1px solid ${a.accent}30`, filter:"saturate(0.68) contrast(1.08) brightness(0.86)" }} />
                           : <div className="w-9 h-9 rounded-full shrink-0" style={{ background:"#1c1c1c", border:`1px solid ${a.accent}30` }} />
                         }
                         <div className="flex-1 min-w-0">
@@ -620,7 +640,7 @@ export default function HomeV6() {
               <div className="absolute -bottom-4 -right-2 font-black italic text-[100px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>↑</div>
               <div className="relative z-10 flex flex-col">
                 <div className="mb-5">
-                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600 mb-0.5">CRECIMIENTO MENSUAL</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">CRECIMIENTO MENSUAL</div>
                   <h3 className="text-base font-black uppercase text-white">EN <span style={{ color:"#39FF14" }}>ASCENSO</span></h3>
                 </div>
                 <div className="flex flex-col gap-4">
@@ -643,7 +663,7 @@ export default function HomeV6() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-700 uppercase tracking-wider mt-5 font-bold">Crecimiento en Spotify · Semana 19</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Crecimiento en Spotify · Semana 19</p>
               </div>
             </div>
           </FadeUp>
@@ -654,9 +674,9 @@ export default function HomeV6() {
       {/* ── PLATFORM STRIP ── */}
       <FadeUp>
         <section className="px-6 lg:px-12 py-4" data-testid="platform-strip">
-          <div className="rounded-xl border border-white/[0.06] bg-[#080808] overflow-hidden">
+          <div className="rounded-xl overflow-hidden" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 6px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
             <div className="px-6 py-3 border-b border-white/[0.05]">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600">STREAMS POR PLATAFORMA · SEMANA 19</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS POR PLATAFORMA · SEMANA 19</h2>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/[0.05]">
               {[
@@ -718,9 +738,9 @@ export default function HomeV6() {
             <div className="absolute right-4 top-3 font-black text-6xl leading-none select-none pointer-events-none" style={{ color:"rgba(255,255,255,0.055)" }}>{g.artist[0]}</div>
             <div className="relative h-full flex flex-col justify-between p-5">
               <div>
-                <div className="text-[9px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color:"rgba(255,255,255,0.32)" }}>{g.dates}</div>
+                <div className="text-[9px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color:"rgba(255,255,255,0.42)" }}>{g.dates}</div>
                 <div className="font-black text-lg uppercase leading-tight text-white">{g.artist}</div>
-                <div className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>{g.tour}</div>
+                <div className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.48)" }}>{g.tour}</div>
               </div>
               <div className="flex items-end justify-between">
                 <div className="text-sm font-black" style={{ color:g.accent, textShadow:`0 0 12px ${g.accent}70` }}>{g.gross} estimado</div>
