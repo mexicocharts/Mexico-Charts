@@ -467,40 +467,40 @@ export default function HomeV6() {
                 width:150, height:228, scrollSnapAlign:"start",
                 borderRadius:"1rem",
                 boxShadow:"0 4px 28px rgba(0,0,0,0.7)",
-                border:"3px solid #050505",
-                boxSizing:"border-box" as const,
               }}
               data-testid={`strip-card-${a.rank}`}
             >
-              {/* Static clip container — overflow-hidden lives here, NOT on the animated motion.div,
-                  so GPU compositing from framer-motion never interferes with border-radius clipping */}
+              {/* Clip container: overflow+radius+mask is the proven Safari fix for white fringe */}
               <div
                 className="absolute inset-0 overflow-hidden"
-                style={{ borderRadius:"1rem" }}
+                style={{
+                  borderRadius:"1rem",
+                  WebkitMaskImage:"-webkit-radial-gradient(white, black)",
+                }}
               >
-                {/* Photo layer — separate div so CSS filter only darkens the image, not the overlays */}
+                {/* Photo in its own div so the filter only touches the image */}
                 <div className="absolute inset-0" style={{
                   background: photo
                     ? `url(${photo}) center top / cover no-repeat`
                     : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-                  filter: photo ? "brightness(0.70) saturate(0.55) contrast(1.08)" : undefined,
+                  filter: photo ? "brightness(0.65) saturate(0.50) contrast(1.10)" : undefined,
                 }} />
 
-                {/* Radial edge vignette — crushes bright photo content at the perimeter */}
+                {/* Strong edge vignette — makes every card edge near-black */}
                 {photo && <div className="absolute inset-0 pointer-events-none" style={{
-                  background:"radial-gradient(ellipse 78% 82% at 50% 40%, transparent 22%, rgba(0,0,0,0.60) 65%, rgba(0,0,0,0.92) 100%)"
+                  background:"radial-gradient(ellipse 62% 68% at 50% 38%, transparent 8%, rgba(0,0,0,0.82) 52%, rgba(0,0,0,1) 80%)"
                 }} />}
 
-                {/* Hover glow overlay */}
+                {/* Hover glow — inset only, no outward bleed */}
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
                   initial={{ opacity:0 }}
                   whileHover={{ opacity:1 }}
                   transition={{ duration:0.25 }}
-                  style={{ boxShadow:`inset 0 0 0 1px ${a.accent}40, 0 0 24px ${a.accent}22` }}
+                  style={{ boxShadow:`inset 0 0 0 1px ${a.accent}55` }}
                 />
 
-                {/* Brightness shift on hover via CSS */}
+                {/* Brightness shift on hover */}
                 <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
                 {/* Inner top highlight */}
                 <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
