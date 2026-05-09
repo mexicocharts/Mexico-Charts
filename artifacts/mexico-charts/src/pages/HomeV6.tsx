@@ -466,7 +466,7 @@ export default function HomeV6() {
               style={{
                 width:150, height:228, scrollSnapAlign:"start",
                 background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-                boxShadow:"0 4px 28px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
+                boxShadow:"0 4px 28px rgba(0,0,0,0.7)",
               }}
               data-testid={`strip-card-${a.rank}`}
             >
@@ -482,7 +482,7 @@ export default function HomeV6() {
               {/* Brightness shift on hover via CSS */}
               <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300 rounded-2xl" />
               {/* Inner top highlight */}
-              <div className="absolute top-0 left-0 right-0 h-px rounded-t-2xl pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.12), transparent)" }} />
+              <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
               {/* Cinematic grading overlay — unifies image warmth across all artists */}
               {photo && <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ background:"rgba(6,12,8,0.26)", mixBlendMode:"multiply" }} />}
 
