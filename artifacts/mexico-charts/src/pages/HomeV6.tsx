@@ -656,10 +656,10 @@ export default function HomeV6() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/[0.05]">
               {[
-                { icon:<SiSpotify className="w-5 h-5"/>, color:"#39FF14", name:"Spotify",     streams:"32.4M", share:"48%" },
-                { icon:<SiYoutube className="w-5 h-5"/>, color:"#6A3030", name:"YouTube",     streams:"18.2M", share:"28%" },
-                { icon:<SiApple className="w-5 h-5"/>,   color:"#5A3A5A", name:"Apple Music", streams:"9.1M",  share:"14%" },
-                { icon:<Music className="w-5 h-5"/>,     color:"#3A3A60", name:"Deezer",      streams:"6.5M",  share:"10%" },
+                { icon:<SiSpotify className="w-5 h-5"/>, color:"#1DB954", name:"Spotify",     streams:"32.4M", share:"48%" },
+                { icon:<SiYoutube className="w-5 h-5"/>, color:"#FF0000", name:"YouTube",     streams:"18.2M", share:"28%" },
+                { icon:<SiApple className="w-5 h-5"/>,   color:"#FC3C44", name:"Apple Music", streams:"9.1M",  share:"14%" },
+                { icon:<Music className="w-5 h-5"/>,     color:"#EF5466", name:"Deezer",      streams:"6.5M",  share:"10%" },
               ].map(p => (
                 <motion.div
                   key={p.name}
