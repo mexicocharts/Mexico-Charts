@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "tlxTy1L_jNzfkX_2Wd6tY"
+uri = "file://artifacts/mexico-charts-mobile/assets/images/icon.png"
+type = "image"
+title = "generated_image"

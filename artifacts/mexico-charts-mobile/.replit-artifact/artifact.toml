@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/mobile/"
+title = "Mexico Charts Mobile"
+version = "1.0.0"
+id = "artifacts/mexico-charts-mobile"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/mobile/" ]
+localPort = 23425
+
+[services.development]
+run = "pnpm --filter @workspace/mexico-charts-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mexico-charts-mobile", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/mexico-charts-mobile", "run", "serve" ]
+
+[services.env]
+PORT = "23425"
+BASE_PATH = "/mobile/"
