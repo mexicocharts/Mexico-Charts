@@ -350,7 +350,7 @@ export default function HomeV3() {
           />
         </div>
 
-        {/* Artist portrait — right side, fades left, visible on all screen sizes */}
+        {/* Artist portrait — mobile only (desktop uses the right featured panel instead) */}
         <AnimatePresence mode="wait">
           {getArtistImage(hero.featuredArtist) && (
             <motion.div
@@ -359,7 +359,7 @@ export default function HomeV3() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.7 }}
-              className="absolute right-0 top-0 bottom-0 pointer-events-none"
+              className="lg:hidden absolute right-0 top-0 bottom-0 pointer-events-none"
               style={{
                 zIndex: 5,
                 width: "55%",
