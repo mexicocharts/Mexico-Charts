@@ -88,12 +88,18 @@ export default function IndustryLanding() {
       ══════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden" style={{ minHeight: 440 }}>
         <motion.div className="absolute pointer-events-none overflow-hidden"
-          style={{ right: 0, top: 0, bottom: 0, width: "min(58vw, 640px)", zIndex: 1 }}
-          initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
+          style={{ right: 0, top: 0, bottom: 0, width: "min(68vw, 780px)", zIndex: 1 }}
+          initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1] }}>
           <img src={globeImg} alt="Globo terráqueo con México destacado"
             className="absolute h-full w-auto"
             style={{ mixBlendMode: "screen", right: 0, top: 0 }} />
+          {/* left-edge fade — blends globe into page bg */}
+          <div className="absolute inset-y-0 left-0 pointer-events-none"
+            style={{ width: "55%", background: "linear-gradient(to right, #080808 0%, #080808 20%, rgba(8,8,8,0.7) 55%, transparent 100%)" }} />
+          {/* bottom fade */}
+          <div className="absolute inset-x-0 bottom-0 pointer-events-none"
+            style={{ height: "30%", background: "linear-gradient(to top, #080808 0%, transparent 100%)" }} />
         </motion.div>
 
         <div className="absolute top-0 left-0 pointer-events-none"
