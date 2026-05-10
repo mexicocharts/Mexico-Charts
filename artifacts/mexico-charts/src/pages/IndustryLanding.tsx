@@ -88,11 +88,11 @@ export default function IndustryLanding() {
       ══════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden" style={{ minHeight: 440 }}>
         <motion.div className="absolute pointer-events-none"
-          style={{ right: "-4vw", top: "50%", transform: "translateY(-52%)", width: "min(58vw, 540px)", height: "min(58vw, 540px)", zIndex: 1 }}
+          style={{ right: "-6vw", top: "-8%", width: "min(62vw, 580px)", height: "min(62vw, 580px)", zIndex: 1 }}
           initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
           <img src={globeImg} alt="Globo terráqueo con México destacado" className="w-full h-full object-contain"
-            style={{ filter: "drop-shadow(0 0 60px rgba(57,255,20,0.25))" }} />
+            style={{ mixBlendMode: "screen", filter: "drop-shadow(0 0 40px rgba(57,255,20,0.3))" }} />
         </motion.div>
 
         <div className="absolute top-0 left-0 pointer-events-none"
