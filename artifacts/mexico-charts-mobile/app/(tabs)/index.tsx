@@ -24,7 +24,10 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const HERO_ARTISTS = TOP_ARTISTS.slice(0, 5);
 const TOP_10 = TOP_ARTISTS.slice(0, 10);
 
-const HOME_NAMES = TOP_10.map((a) => a.name);
+const HOME_NAMES = [
+  ...TOP_10.map((a) => a.name),
+  ...ASCENSO.map((a) => a.name),
+];
 
 const NEON = "#39FF14";
 const BG = "#050505";
@@ -147,7 +150,7 @@ function GenreCard({ genre }: { genre: typeof GENRES[0] }) {
   );
 }
 
-function AscensoRow({ item }: { item: typeof ASCENSO[0] }) {
+function AscensoRow({ item, photo }: { item: typeof ASCENSO[0]; photo: string | null }) {
   const barFillStyle: ViewStyle = {
     height: 4,
     borderRadius: 2,
@@ -156,6 +159,11 @@ function AscensoRow({ item }: { item: typeof ASCENSO[0] }) {
   };
   return (
     <View style={styles.ascensoRow}>
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.ascensoAvatar} />
+      ) : (
+        <InitialAvatar initial={item.name.charAt(0)} size={36} accent={item.accent} fontSize={14} />
+      )}
       <Text style={styles.ascensoName} numberOfLines={1}>{item.name}</Text>
       <View style={styles.ascensoBarBg}>
         <View style={barFillStyle} />
@@ -288,7 +296,7 @@ export default function HomeScreen() {
           <SectionHeader icon="arrow-up-right" label="EN ASCENSO · ESTA SEMANA" />
           <View style={{ paddingHorizontal: 16, gap: 10 }}>
             {ASCENSO.map((a) => (
-              <AscensoRow key={a.name} item={a} />
+              <AscensoRow key={a.name} item={a} photo={imageMap[a.name] ?? null} />
             ))}
           </View>
         </View>
@@ -540,6 +548,11 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
+  },
+  ascensoAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   ascensoName: {
     color: "#E4E4E7",
