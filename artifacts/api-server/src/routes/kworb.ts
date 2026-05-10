@@ -526,7 +526,10 @@ router.get("/kworb/batch-streams", async (req, res) => {
         if (!stats) {
           try {
             stats = await fetchArtistStats(slug);
-            statsCache.set(slug, { data: stats, cachedAt: Date.now() });
+            // Mirror artist-stats cache policy: 24h for real data, 1h for all-null
+            const hasData = !!(stats.spotify || stats.youtube || stats.chartPositions);
+            const ttl = hasData ? CACHE_TTL : 60 * 60 * 1000;
+            statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
           } catch {
             result[name] = null;
             return;
