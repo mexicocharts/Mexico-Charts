@@ -384,8 +384,10 @@ export default function HomeV6() {
           </Link>
 
           <div className="hidden lg:flex items-center gap-0.5">
-            {["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"].map((item, i) => (
-              <a key={item} href="#"
+            {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"] as const).map((item, i) => {
+              const href = item === "ARTISTAS" ? "/artists" : "#";
+              return (
+              <Link key={item} href={href}
                 className="px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250"
                 style={{
                   background: i===0 ? "#39FF14" : "transparent",
@@ -393,8 +395,9 @@ export default function HomeV6() {
                 }}
                 onMouseEnter={e => { if (i!==0) (e.currentTarget as HTMLElement).style.color="rgba(255,255,255,0.75)"; }}
                 onMouseLeave={e => { if (i!==0) (e.currentTarget as HTMLElement).style.color="rgba(255,255,255,0.35)"; }}
-              >{item}</a>
-            ))}
+              >{item}</Link>
+              );
+            })}
           </div>
 
           <div className="hidden lg:flex items-center gap-3">
@@ -421,9 +424,12 @@ export default function HomeV6() {
               className="lg:hidden overflow-hidden border-t border-white/5 bg-[#050505]"
             >
               <div className="px-6 py-4 flex flex-col gap-4">
-                {["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"].map(item => (
-                  <a key={item} href="#" className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400 hover:text-[#39FF14] transition-colors">{item}</a>
-                ))}
+                {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"] as const).map(item => {
+                  const href = item === "ARTISTAS" ? "/artists" : "#";
+                  return (
+                    <Link key={item} href={href} className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400 hover:text-[#39FF14] transition-colors">{item}</Link>
+                  );
+                })}
                 <div className="flex gap-4 pt-2 border-t border-white/5">
                   <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiInstagram className="w-4 h-4" /></a>
                   <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiX className="w-4 h-4" /></a>
@@ -821,7 +827,7 @@ export default function HomeV6() {
                     <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">PLATAFORMAS COMBINADAS</div>
                     <h3 className="text-base font-black uppercase text-white">TOP ARTISTAS <span style={{ color:"#39FF14" }}>MÉXICO</span></h3>
                   </div>
-                  <a href="#" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</a>
+                  <Link href="/artists" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</Link>
                 </div>
                 <motion.div
                   className="flex flex-col gap-3"
