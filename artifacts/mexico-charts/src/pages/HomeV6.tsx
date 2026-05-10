@@ -8,6 +8,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { Search, Menu, TrendingUp, MapPin, Music, Mail } from "lucide-react";
+import { useArtistsWeekly, rankAccent } from "@/services/dataProvider";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
@@ -15,18 +16,17 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 /* ─── NOISE SVG ──────────────────────────────────────────────── */
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
-/* ─── DATA ──────────────────────────────────────────────────── */
+/* ─── DEFAULT DATA (shown while sheets aren't configured yet) ─── */
 
-const HERO_ARTISTS = [
+const DEFAULT_HERO_ARTISTS = [
   { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
   { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
   { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
   { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO" },
   { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO" },
 ];
-const HERO_NAMES = HERO_ARTISTS.map(a => a.name);
 
-const TOP_STRIP = [
+const DEFAULT_TOP_STRIP = [
   { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", accent:"#39FF14" },
   { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", accent:"rgba(57,255,20,0.62)" },
   { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", accent:"rgba(57,255,20,0.48)" },
@@ -48,12 +48,20 @@ const GENRES = [
   { name:"Pop Urbano",         streams:"6.8M",  artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
-const ASCENSO = [
+const DEFAULT_ASCENSO = [
   { name:"Tito Double P",    growth:"+78%", bar:78, accent:"#39FF14" },
   { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"rgba(57,255,20,0.72)" },
   { name:"Marca Registrada", growth:"+56%", bar:56, accent:"rgba(57,255,20,0.52)" },
   { name:"Clave Especial",   growth:"+49%", bar:49, accent:"rgba(57,255,20,0.36)" },
   { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"rgba(57,255,20,0.24)" },
+];
+
+const ASCENSO_ACCENTS = [
+  "#39FF14",
+  "rgba(57,255,20,0.72)",
+  "rgba(57,255,20,0.52)",
+  "rgba(57,255,20,0.36)",
+  "rgba(57,255,20,0.24)",
 ];
 
 const GIRAS = [
@@ -63,23 +71,24 @@ const GIRAS = [
   { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  accent:"rgba(57,255,20,0.34)" },
 ];
 
-const TICKER_ITEMS = [
-  "PESO PLUMA",
-  "32.4M OYENTES",
-  "ÉXODO TOUR",
-  "FUERZA REGIDA",
-  "12.4M OYENTES",
-  "MUSICOLOGO",
-  "NATANAEL CANO",
-  "11.7M OYENTES",
-  "CORRIDOS TUMBADOS",
-  "JUNIOR H",
-  "9.8M OYENTES",
-  "EL AZUL",
-  "CARIN LEÓN",
-  "7.1M OYENTES",
-  "BOCA CHUECA",
+const DEFAULT_TICKER_ITEMS = [
+  "PESO PLUMA", "32.4M OYENTES", "ÉXODO TOUR",
+  "FUERZA REGIDA", "12.4M OYENTES", "MUSICOLOGO",
+  "NATANAEL CANO", "11.7M OYENTES", "CORRIDOS TUMBADOS",
+  "JUNIOR H", "9.8M OYENTES", "EL AZUL",
+  "CARIN LEÓN", "7.1M OYENTES", "BOCA CHUECA",
 ];
+
+/* ── Helper: split artist name into display lines ── */
+function splitName(name: string): { line1: string; line2: string } {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return { line1: parts[0].toUpperCase(), line2: "" };
+  const mid = Math.ceil(parts.length / 2);
+  return {
+    line1: parts.slice(0, mid).join(" ").toUpperCase(),
+    line2: parts.slice(mid).join(" ").toUpperCase(),
+  };
+}
 
 /* ─── MOTION VARIANTS ───────────────────────────────────────── */
 
@@ -145,6 +154,59 @@ export default function HomeV6() {
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
 
+  /* ── Sheet data ── */
+  const { data: weeklyArtists, isEmpty: sheetsEmpty } = useArtistsWeekly();
+
+  /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
+  const TOP_STRIP = useMemo(() => {
+    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_TOP_STRIP;
+    return weeklyArtists.slice(0, 10).map(a => ({
+      rank: a.mexicoRank,
+      name: a.name,
+      genre: a.genre.length > 14 ? a.genre.substring(0, 13) + "." : a.genre,
+      streams: a.listeners,
+      accent: a.accent,
+    }));
+  }, [weeklyArtists, sheetsEmpty]);
+
+  const HERO_ARTISTS = useMemo(() => {
+    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_HERO_ARTISTS;
+    return weeklyArtists.slice(0, 5).map(a => {
+      const { line1, line2 } = splitName(a.name);
+      return {
+        rank: `#${a.mexicoRank}`,
+        name: a.name,
+        line1,
+        line2,
+        listeners: a.listeners,
+        growth: a.growth,
+        countries: a.countriesRaw > 0 ? `${a.countriesRaw}+ PAÍSES` : "—",
+        tag: a.genre.toUpperCase(),
+      };
+    });
+  }, [weeklyArtists, sheetsEmpty]);
+
+  const ASCENSO = useMemo(() => {
+    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_ASCENSO;
+    const rising = [...weeklyArtists]
+      .filter(a => a.growthRaw > 0)
+      .sort((a, b) => b.growthRaw - a.growthRaw)
+      .slice(0, 5);
+    if (rising.length === 0) return DEFAULT_ASCENSO;
+    const maxGrowth = rising[0].growthRaw;
+    return rising.map((a, idx) => ({
+      name: a.name,
+      growth: a.growth,
+      bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
+      accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
+    }));
+  }, [weeklyArtists, sheetsEmpty]);
+
+  const TICKER_ITEMS = useMemo(() => {
+    if (sheetsEmpty || TOP_STRIP.length === 0) return DEFAULT_TICKER_ITEMS;
+    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} OYENTES`]);
+  }, [TOP_STRIP, sheetsEmpty]);
+
   /* Scroll parallax for hero */
   const { scrollYProgress: heroScroll } = useScroll({
     target: heroRef,
@@ -158,15 +220,15 @@ export default function HomeV6() {
   useEffect(() => {
     const t = setInterval(() => setHeroIndex(i => (i + 1) % HERO_ARTISTS.length), 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [HERO_ARTISTS.length]);
 
   /* Artist images */
   const allNames = useMemo(() => [
-    ...HERO_NAMES,
+    ...HERO_ARTISTS.map(a => a.name),
     ...TOP_STRIP.map(a => a.name),
     ...ASCENSO.map(a => a.name),
     ...GIRAS.map(a => a.artist),
-  ], []);
+  ], [HERO_ARTISTS, TOP_STRIP, ASCENSO]);
   const artistImages = useArtistImages(allNames);
   const imgMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -176,7 +238,7 @@ export default function HomeV6() {
     return m;
   }, [artistImages]);
   const img = (name: string) => imgMap[name.toLowerCase()] ?? null;
-  const hero = HERO_ARTISTS[heroIndex];
+  const hero = HERO_ARTISTS[heroIndex] ?? HERO_ARTISTS[0];
 
   return (
     <div

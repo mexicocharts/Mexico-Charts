@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
+import { useArtistsWeekly, findArtistBySlug } from "@/services/dataProvider";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -349,9 +350,36 @@ export default function ArtistDetail() {
   const slug = params.slug ?? "";
   const reduced = useReducedMotion();
 
-  const artist = ARTISTS[slug] ?? buildFallback(
+  /* ── Sheet data overlay ── */
+  const { data: weeklyArtists, isEmpty: sheetsEmpty } = useArtistsWeekly();
+  const sheetArtist = useMemo(
+    () => (!sheetsEmpty ? findArtistBySlug(weeklyArtists, slug) : undefined),
+    [weeklyArtists, sheetsEmpty, slug]
+  );
+
+  /* ── Base artist data (hardcoded profile + rich detail) ── */
+  const displayName = sheetArtist?.name ?? (
+    ARTISTS[slug]?.name ??
     slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
   );
+  const baseArtist = ARTISTS[slug] ?? buildFallback(displayName);
+
+  /* ── Merge sheet stats over base data when available ── */
+  const artist: ArtistData = useMemo(() => {
+    if (!sheetArtist) return baseArtist;
+    return {
+      ...baseArtist,
+      name: sheetArtist.name,
+      rank: sheetArtist.mexicoRank,
+      listeners: sheetArtist.listeners,
+      listenersRaw: sheetArtist.listenersRaw / 1_000_000,
+      growth: sheetArtist.growth,
+      genre: sheetArtist.genre || baseArtist.genre,
+      subgenre: sheetArtist.subgenre || baseArtist.subgenre,
+      countries: sheetArtist.countriesRaw > 0 ? `${sheetArtist.countriesRaw}+` : baseArtist.countries,
+      accent: sheetArtist.accent,
+    };
+  }, [sheetArtist, baseArtist]);
 
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
