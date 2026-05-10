@@ -13,6 +13,7 @@ import ArtistDetail from "@/pages/ArtistDetail";
 import ArtistRoster from "@/pages/ArtistRoster";
 import InsightIFPI2026 from "@/pages/InsightIFPI2026";
 import IndustryLanding from "@/pages/IndustryLanding";
+import Certifications from "@/pages/Certifications";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/" component={HomeV6} />
       <Route path="/artists" component={ArtistRoster} />
       <Route path="/industria" component={IndustryLanding} />
+      <Route path="/industry/certifications" component={Certifications} />
       <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
       <Route path="/artist/:slug" component={ArtistDetail} />
       <Route path="/v1" component={HomeV1} />

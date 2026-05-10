@@ -1,0 +1,348 @@
+I want to add AMPROFON certifications to Mexico Charts in a serious, careful, and legally safer way.
+
+IMPORTANT:
+Do not recreate AMPROFON’s full public database as if it belongs to Mexico Charts.
+Do not make this look like an official AMPROFON product.
+Do not copy AMPROFON’s design, logos, graphics, charts, wording, or layout.
+
+Mexico Charts should only organize and present selected public certification facts with clear attribution.
+
+MAIN GOAL:
+Add Mexican artist certifications awarded in Mexico to Mexico Charts.
+
+This should focus on:
+- Mexican artists
+- Mexican groups
+- Mexican-origin acts
+- collaborations that include at least one Mexican artist
+- certifications awarded in Mexico by AMPROFON
+
+Do NOT include the entire global/foreign artist certification database.
+Do NOT include non-Mexican artists unless the credited artist line includes a Mexican artist or Mexican group.
+
+SOURCE:
+AMPROFON
+
+Required source wording:
+“Fuente: AMPROFON.”
+
+Required disclaimer:
+“Mexico Charts organiza y presenta información pública sobre certificaciones otorgadas en México. Mexico Charts no está afiliado a AMPROFON y no emite certificaciones oficiales.”
+
+Longer disclaimer for footer/methodology:
+“Las certificaciones mostradas corresponden a información pública atribuida a AMPROFON. Mexico Charts presenta una vista editorial y organizada enfocada en artistas mexicanos y colaboraciones con participación mexicana. Mexico Charts no reproduce el sitio oficial de AMPROFON, no utiliza sus elementos visuales protegidos y no emite certificaciones oficiales.”
+
+DATA COLUMNS TO KEEP:
+Do not remove certification details.
+
+Every row should keep these fields:
+
+ARTISTA
+TÍTULO
+DISQUERA
+FORMATO
+CERTIFICACIÓN
+NIVEL DE CERTIFICACIÓN
+ÚLTIMA CERTIFICACIÓN
+
+Do not rename the original data fields in the raw dataset.
+For display, you may show friendlier labels:
+- Artista
+- Título
+- Disquera
+- Formato
+- Certificación
+- Nivel
+- Última certificación
+
+SITE STRUCTURE:
+
+Create this central page:
+
+Route:
+/industry/certifications
+
+Page title:
+Certificaciones en México
+
+Subtitle:
+Certificaciones otorgadas en México a artistas mexicanos y colaboraciones con participación mexicana.
+
+Source line near top:
+Fuente: AMPROFON
+
+Disclaimer near bottom:
+Mexico Charts organiza y presenta información pública sobre certificaciones otorgadas en México. Mexico Charts no está afiliado a AMPROFON y no emite certificaciones oficiales.
+
+PURPOSE OF THE PAGE:
+This page should act as a filtered Mexico Charts certification archive, not a copy of AMPROFON’s full database.
+
+It should allow users to explore certifications awarded in Mexico to Mexican artists and collaborations with Mexican participation.
+
+PAGE SECTIONS:
+
+1. Hero Section
+
+Eyebrow:
+INDUSTRIA / CERTIFICACIONES
+
+Headline:
+CERTIFICACIONES EN MÉXICO
+
+Subheadline:
+Un archivo filtrado de certificaciones otorgadas en México a artistas mexicanos y colaboraciones con participación mexicana.
+
+Small source text:
+Fuente: AMPROFON
+
+Visual style:
+Match the current Mexico Charts identity:
+- black background
+- charcoal cards
+- neon green accents
+- white typography
+- muted gray secondary text
+- rounded dark cards
+- subtle borders
+- soft glow
+- premium data/editorial look
+
+Do not make it look like a basic spreadsheet dump.
+
+2. Summary Stat Cards
+
+Add stat cards using the filtered Mexican certification dataset:
+
+- Total de certificaciones
+- Certificaciones Diamante
+- Certificaciones Platino
+- Certificaciones Oro
+- Álbumes certificados
+- Singles certificados
+- Última actualización
+
+Important:
+If a row has “DIAMANTE & PLATINO & ORO,” count it carefully by parsing each certification type.
+Example:
+CERTIFICACIÓN: DIAMANTE & PLATINO & ORO
+NIVEL DE CERTIFICACIÓN: 1 & 2 & 1
+This means:
+Diamante: 1
+Platino: 2
+Oro: 1
+
+If parsing is not ready yet, show simpler totals first and leave detailed breakdown for later.
+
+3. Filters
+
+Add filters/search:
+
+- Search by artist
+- Search by title
+- Filter by certification: Diamante / Platino / Oro
+- Filter by format: Single Track / Album
+- Filter by label/disquera
+- Filter by year from “Última certificación”
+- Toggle:
+  Mexican artists only
+  Mexican collaborations
+
+4. Main Table
+
+Display a clean, responsive table with these columns:
+
+ARTISTA
+TÍTULO
+FORMATO
+CERTIFICACIÓN
+NIVEL DE CERTIFICACIÓN
+ÚLTIMA CERTIFICACIÓN
+DISQUERA
+
+Mobile view:
+Use stacked cards instead of a cramped table.
+
+Each mobile card should show:
+
+Artist
+Title
+Certification badge
+Format
+Level
+Latest certification date
+Label
+
+Certification badge styling:
+- Diamante: premium bright/white-green glow
+- Platino: silver/green glow
+- Oro: muted gold or warm neutral, but do not overuse gold
+- Mixed certifications should show combined badges or text clearly
+
+5. Artist Page Integration
+
+Add a “Certificaciones en México” module to artist profile pages.
+
+The artist page should pull rows from the same central certification dataset.
+
+Do not duplicate data manually.
+
+Artist page module should show:
+- Total certification rows for that artist
+- Highest certification level found
+- Latest certification date
+- A short table/list of certified titles
+- Link to full certifications page
+
+Module title:
+Certificaciones en México
+
+Source line:
+Fuente: AMPROFON
+
+Disclaimer mini-line:
+Mexico Charts no emite certificaciones oficiales.
+
+6. Dataset Logic
+
+Use one central certifications dataset.
+
+The structure should be:
+
+central certifications dataset
+↓
+/industry/certifications page uses all filtered Mexican rows
+↓
+artist pages pull matching rows for each artist
+
+Do not manually hardcode each artist’s certifications inside individual pages.
+
+7. Filtering Rules
+
+Keep a row if:
+- The main artist is Mexican
+- The artist line includes a Mexican artist
+- The credited collaboration includes at least one Mexican artist/group
+- The act is strongly associated with Mexican music and should be covered by Mexico Charts
+
+Exclude a row if:
+- The artist line contains only non-Mexican artists
+- It is a foreign artist certified in Mexico with no Mexican collaborator
+- It is not relevant to Mexico Charts’ Mexican artist focus
+
+Important:
+These are certifications awarded in Mexico.
+Do not imply they are global certifications.
+Do not imply they are U.S., Spain, Argentina, or worldwide certifications.
+
+Use wording like:
+“certificaciones otorgadas en México”
+“certificaciones en México”
+“certificaciones atribuidas a AMPROFON”
+
+Avoid wording like:
+“Mexico Charts certified”
+“official Mexico Charts certifications”
+“global certifications”
+“sales worldwide”
+
+8. Legal / Attribution Safety
+
+Add a visible source line on the certifications page:
+“Fuente: AMPROFON.”
+
+Add a methodology/disclaimer block:
+“Mexico Charts organiza y presenta información pública sobre certificaciones otorgadas en México. Mexico Charts no está afiliado a AMPROFON y no emite certificaciones oficiales.”
+
+Add an external source link button:
+“Ver fuente”
+
+Do not:
+- use AMPROFON logo unless explicitly permitted
+- copy AMPROFON website design
+- copy AMPROFON charts or graphics
+- copy long text from AMPROFON
+- recreate their full database without filtering
+- make the page look official or affiliated
+- remove source attribution
+
+9. Navigation Placement
+
+Add this under the Industry section.
+
+Suggested nav:
+Industry → Certificaciones
+
+Route:
+/industry/certifications
+
+Do not place this as a huge homepage section.
+
+Optional homepage teaser only if it fits naturally:
+Title:
+Certificaciones en México
+
+Text:
+Explora certificaciones otorgadas en México a artistas mexicanos y colaboraciones con participación mexicana.
+
+CTA:
+Ver certificaciones
+
+But keep it small. Do not clutter the homepage.
+
+10. Design Requirements
+
+The page must feel premium and serious.
+
+Use:
+- black / charcoal backgrounds
+- neon green accents
+- subtle glow
+- clean cards
+- sticky filters if possible
+- responsive table/cards
+- bold typography
+- compact but readable data layout
+
+Avoid:
+- spreadsheet-looking design
+- generic dashboard clutter
+- bright white backgrounds
+- random colors
+- gold-heavy design
+- AMPROFON visual imitation
+- overdesigned badges
+- fake charts or fake totals
+
+11. Data Handling
+
+Keep the original uploaded spreadsheet/data available as raw source internally.
+
+Create a filtered dataset for display.
+
+Recommended internal data files:
+- all_amprofon_certifications_raw
+- mexican_certifications_filtered
+- mexican_artist_matching_list
+- certification_summary_by_artist
+
+If there are ambiguous rows, create a review list instead of guessing.
+
+Example:
+Some collaborations may include artists where nationality/association is unclear. Put those in a “review needed” list internally.
+
+Do not publish uncertain rows unless marked clearly or manually approved.
+
+12. Final Output Needed
+
+Please build or prepare:
+
+- /industry/certifications page
+- central certification dataset
+- filters/search
+- responsive certification table
+- artist page certification module
+- source/disclaimer block
+- safe attribution language
+- no AMPROFON branding imitation
+
+The overall goal is to make Mexico Charts feel like a serious Mexican music data platform while clearly crediting AMPROFON and avoiding any implication that Mexico Charts issues official certifications.

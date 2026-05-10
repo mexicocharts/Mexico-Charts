@@ -419,13 +419,13 @@ export default function IndustryLanding() {
         </FadeUp>
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
           {[
-            { icon: Music2,   title: "Música Grabada",          sub: "Mercado, ingresos, crecimiento y rankings globales.", locked: false },
-            { icon: Radio,    title: "Streaming",                sub: "Plataformas, consumo digital, suscripciones y tendencias.", locked: true },
-            { icon: Layers,   title: "Música en Vivo",           sub: "Conciertos, touring, venues, ticketing y datos de la industria.", locked: true },
-            { icon: Globe,    title: "Música Mexicana Global",   sub: "El crecimiento del regional mexicano y nuevos géneros.", locked: true },
-            { icon: MapPin,   title: "Ecosistemas por Ciudad",   sub: "CDMX, Guadalajara, Monterrey, Tijuana, Hermosillo y más.", locked: true },
-            { icon: Users,    title: "Artistas Independientes",  sub: "Retos, oportunidades, distribución, sellos y más.", locked: true },
-          ].map(({ icon: Icon, title, sub, locked }, i) => (
+            { icon: Music2,   title: "Música Grabada",          sub: "Mercado, ingresos, crecimiento y rankings globales.", locked: false, href: "/insights/mexico-top-10-ifpi-2026" },
+            { icon: BarChart3, title: "Certificaciones",         sub: "3,155 certificaciones AMPROFON otorgadas en México a artistas mexicanos.", locked: false, href: "/industry/certifications" },
+            { icon: Radio,    title: "Streaming",                sub: "Plataformas, consumo digital, suscripciones y tendencias.", locked: true, href: "#" },
+            { icon: Layers,   title: "Música en Vivo",           sub: "Conciertos, touring, venues, ticketing y datos de la industria.", locked: true, href: "#" },
+            { icon: Globe,    title: "Música Mexicana Global",   sub: "El crecimiento del regional mexicano y nuevos géneros.", locked: true, href: "#" },
+            { icon: MapPin,   title: "Ecosistemas por Ciudad",   sub: "CDMX, Guadalajara, Monterrey, Tijuana, Hermosillo y más.", locked: true, href: "#" },
+          ].map(({ icon: Icon, title, sub, locked, href }, i) => (
             <FadeUp key={i} delay={i * 0.03}>
               {locked ? (
                 <div className="relative overflow-hidden rounded-xl p-6 h-full opacity-45"
@@ -438,7 +438,7 @@ export default function IndustryLanding() {
                   <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "system-ui" }}>{sub}</p>
                 </div>
               ) : (
-                <Link href="/insights/mexico-top-10-ifpi-2026">
+                <Link href={href}>
                   <div className="relative overflow-hidden rounded-xl p-6 h-full cursor-pointer group"
                     style={{ background: "#0e0e0e", border: `1px solid rgba(57,255,20,0.14)` }}>
                     <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
