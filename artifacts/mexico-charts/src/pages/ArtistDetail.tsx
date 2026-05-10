@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
-import { useArtistsWeekly, findArtistBySlug } from "@/services/dataProvider";
+import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
 } from "recharts";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe } from "lucide-react";
-import { SiSpotify, SiYoutube, SiApple } from "react-icons/si";
+import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { slugify } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ interface ArtistData {
   accent: string;
   bio: string;
   listenerHistory: { month: string; listeners: number }[];
-  platformStreams: { platform: string; streams: string; streamsNum: number; color: string; icon: "spotify" | "youtube" | "apple" | "deezer" }[];
+  platformStreams: { platform: string; streams: string; streamsNum: number; color: string; icon: "spotify" | "youtube" | "apple" | "deezer" | "tiktok" | "instagram" }[];
   genreBreakdown: { genre: string; pct: number }[];
   tours: { name: string; dates: string; gross: string; cities: number }[];
   topSongs: { title: string; streams: string }[];
@@ -311,11 +311,11 @@ function buildFallback(name: string): ArtistData {
       { month: "Nov", listeners: 3.8 }, { month: "Dic", listeners: 4.0 },
     ],
     platformStreams: [
-      { platform: "Spotify",     streams: "2.1M", streamsNum: 2.1, color: "#1DB954", icon: "spotify" },
-      { platform: "YouTube",     streams: "1.2M", streamsNum: 1.2, color: "#FF0000", icon: "youtube" },
-      { platform: "Apple Music", streams: "0.5M", streamsNum: 0.5, color: "#FF2D55", icon: "apple" },
-      { platform: "Deezer",      streams: "0.2M", streamsNum: 0.2, color: "#A238FF", icon: "deezer" },
-    ],
+      { platform: "Spotify",     streams: "2.1M", streamsNum: 2.1, color: "#1DB954", icon: "spotify"   },
+      { platform: "YouTube",     streams: "1.2M", streamsNum: 1.2, color: "#FF0000", icon: "youtube"   },
+      { platform: "Apple Music", streams: "0.5M", streamsNum: 0.5, color: "#FF2D55", icon: "apple"     },
+      { platform: "Deezer",      streams: "0.2M", streamsNum: 0.2, color: "#A238FF", icon: "deezer"    },
+    ] as ArtistData["platformStreams"],
     genreBreakdown: [
       { genre: "Regional Mexicano",  pct: 55 },
       { genre: "Corridos Tumbados", pct: 30 },
@@ -328,9 +328,11 @@ function buildFallback(name: string): ArtistData {
 
 /* ─── PLATFORM ICON ──────────────────────────────────────────── */
 function PlatformIcon({ icon, color }: { icon: ArtistData["platformStreams"][0]["icon"]; color: string }) {
-  if (icon === "spotify") return <SiSpotify className="w-5 h-5" style={{ color }} />;
-  if (icon === "youtube") return <SiYoutube className="w-5 h-5" style={{ color }} />;
-  if (icon === "apple")   return <SiApple   className="w-5 h-5" style={{ color }} />;
+  if (icon === "spotify")   return <SiSpotify   className="w-5 h-5" style={{ color }} />;
+  if (icon === "youtube")   return <SiYoutube   className="w-5 h-5" style={{ color }} />;
+  if (icon === "apple")     return <SiApple     className="w-5 h-5" style={{ color }} />;
+  if (icon === "tiktok")    return <SiTiktok    className="w-5 h-5" style={{ color }} />;
+  if (icon === "instagram") return <SiInstagram className="w-5 h-5" style={{ color }} />;
   return <Music className="w-5 h-5" style={{ color }} />;
 }
 
@@ -353,6 +355,7 @@ export default function ArtistDetail() {
 
   /* ── Sheet data overlay ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
+  const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
   const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
   const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
   const sheetArtist = useMemo(
@@ -367,28 +370,64 @@ export default function ArtistDetail() {
   );
   const baseArtist = ARTISTS[slug] ?? buildFallback(displayName);
 
-  /* ── Merge sheet stats over base data when available ── */
+  /* ── Metadata lookup (by display name — artist_key match happens inside) ── */
+  const metaArtist = useMemo(
+    () => lookupArtistMetadata(undefined, displayName, metaByKey, metaByName),
+    [displayName, metaByKey, metaByName]
+  );
+
+  /* ── Merge: sheet stats → metadata stats → hardcoded base (priority order) ── */
   const artist: ArtistData = useMemo(() => {
-    if (!sheetArtist) return baseArtist;
-    return {
-      ...baseArtist,
-      name: sheetArtist.name,
-      rank: sheetArtist.mexicoRank,
-      listeners: sheetArtist.listeners,
-      listenersRaw: sheetArtist.listenersRaw / 1_000_000,
-      growth: sheetArtist.growth,
-      genre: sheetArtist.genre || baseArtist.genre,
-      subgenre: sheetArtist.subgenre || baseArtist.subgenre,
-      countries: sheetArtist.countriesRaw > 0 ? `${sheetArtist.countriesRaw}+` : baseArtist.countries,
-      accent: sheetArtist.accent,
-    };
-  }, [sheetArtist, baseArtist]);
+    // 1. Start from base
+    let merged: ArtistData = baseArtist;
+    // 2. Overlay Spotify chart stats (rank, growth, genre, countries, accent)
+    if (sheetArtist) {
+      merged = {
+        ...merged,
+        name: sheetArtist.name,
+        rank: sheetArtist.mexicoRank,
+        listeners: sheetArtist.listeners,
+        listenersRaw: sheetArtist.listenersRaw / 1_000_000,
+        growth: sheetArtist.growth,
+        genre: sheetArtist.genre || merged.genre,
+        subgenre: sheetArtist.subgenre || merged.subgenre,
+        countries: sheetArtist.countriesRaw > 0 ? `${sheetArtist.countriesRaw}+` : merged.countries,
+        accent: sheetArtist.accent,
+      };
+    }
+    // 3. Overlay metadata Spotify listener count (most accurate source)
+    if (metaArtist && metaArtist.spotifyListeners > 0) {
+      merged = {
+        ...merged,
+        listeners: metaArtist.spotifyListenersFmt,
+        listenersRaw: metaArtist.spotifyListeners / 1_000_000,
+      };
+    }
+    return merged;
+  }, [sheetArtist, baseArtist, metaArtist]);
+
+  /* ── Live platform/social stats from metadata (replaces hardcoded bar chart) ── */
+  const livePlatforms: ArtistData["platformStreams"] = useMemo(() => {
+    if (!metaArtist) return artist.platformStreams;
+    const rows: ArtistData["platformStreams"] = [];
+    if (metaArtist.spotifyListeners > 0)
+      rows.push({ platform: "Spotify",   streams: metaArtist.spotifyListenersFmt,     streamsNum: metaArtist.spotifyListeners / 1_000_000,     color: "#1DB954", icon: "spotify"   });
+    if (metaArtist.youtubeSubscribers > 0)
+      rows.push({ platform: "YouTube",   streams: metaArtist.youtubeSubscribersFmt,   streamsNum: metaArtist.youtubeSubscribers / 1_000_000,   color: "#FF0000", icon: "youtube"   });
+    if (metaArtist.tiktokFollowers > 0)
+      rows.push({ platform: "TikTok",    streams: metaArtist.tiktokFollowersFmt,      streamsNum: metaArtist.tiktokFollowers / 1_000_000,      color: "#69C9D0", icon: "tiktok"    });
+    if (metaArtist.instagramFollowers > 0)
+      rows.push({ platform: "Instagram", streams: metaArtist.instagramFollowersFmt,   streamsNum: metaArtist.instagramFollowers / 1_000_000,   color: "#E1306C", icon: "instagram" });
+    if (metaArtist.deezerFans > 0)
+      rows.push({ platform: "Deezer",    streams: metaArtist.deezerFansFmt,           streamsNum: metaArtist.deezerFans / 1_000_000,           color: "#A238FF", icon: "deezer"    });
+    return rows.length > 0 ? rows : artist.platformStreams;
+  }, [metaArtist, artist.platformStreams]);
 
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
   const photo = artistImages[artist.name] ?? null;
 
-  const maxPlatform = Math.max(...artist.platformStreams.map(p => p.streamsNum));
+  const maxPlatform = Math.max(...livePlatforms.map(p => p.streamsNum));
 
   return (
     <div
@@ -583,22 +622,26 @@ export default function ArtistDetail() {
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-5">
                   <Music className="w-4 h-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams por Plataforma</h2>
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Audiencia por Plataforma</h2>
                 </div>
-                <ResponsiveContainer width="100%" height={180}>
-                  <BarChart data={artist.platformStreams} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                <ResponsiveContainer width="100%" height={Math.max(160, livePlatforms.length * 36)}>
+                  <BarChart data={livePlatforms} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
                     <XAxis type="number" hide />
                     <YAxis dataKey="platform" type="category" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} width={80} />
-                    <Tooltip formatter={(v: number) => [`${v.toFixed(1)}M`, "Streams"]} contentStyle={{ background: "#0d0d0d", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }} labelStyle={{ color: "rgba(255,255,255,0.5)" }} />
+                    <Tooltip
+                      formatter={(v: number) => [v >= 1 ? `${v.toFixed(1)}M` : `${Math.round(v * 1000)}K`, "Audiencia"]}
+                      contentStyle={{ background: "#0d0d0d", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                      labelStyle={{ color: "rgba(255,255,255,0.5)" }}
+                    />
                     <Bar dataKey="streamsNum" radius={4} maxBarSize={18}>
-                      {artist.platformStreams.map((p) => (
+                      {livePlatforms.map((p) => (
                         <Cell key={p.platform} fill={p.color} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="flex flex-col gap-2 mt-4">
-                  {artist.platformStreams.map(p => (
+                  {livePlatforms.map(p => (
                     <div key={p.platform} className="flex items-center gap-3">
                       <PlatformIcon icon={p.icon} color={p.color} />
                       <div className="flex-1">

@@ -8,7 +8,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { Search, Menu, TrendingUp, MapPin, Music, Mail } from "lucide-react";
-import { useArtistsWeekly } from "@/services/dataProvider";
+import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
 
@@ -200,39 +200,58 @@ export default function HomeV6() {
 
   /* ── Sheet data ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
+  const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
 
   /* ── Loading/error state only relevant when a URL is actually configured ── */
   const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
   const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
 
+  /* ── Helper: enrich a listener string with real metadata where available ── */
+  function enrichListeners(name: string, fallback: string): string {
+    const meta = lookupArtistMetadata(undefined, name, metaByKey, metaByName);
+    return (meta && meta.spotifyListeners > 0) ? meta.spotifyListenersFmt : fallback;
+  }
+
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
-    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_TOP_STRIP;
-    return weeklyArtists.slice(0, 10).map(a => ({
-      rank: a.mexicoRank,
-      name: a.name,
-      genre: a.genre.length > 14 ? a.genre.substring(0, 13) + "." : a.genre,
-      streams: a.listeners,
-      accent: a.accent,
+    const base = (sheetsEmpty || weeklyArtists.length === 0)
+      ? DEFAULT_TOP_STRIP
+      : weeklyArtists.slice(0, 10).map(a => ({
+          rank: a.mexicoRank,
+          name: a.name,
+          genre: a.genre.length > 14 ? a.genre.substring(0, 13) + "." : a.genre,
+          streams: a.listeners,
+          accent: a.accent,
+        }));
+    // Overlay real listener counts from metadata
+    return base.map(a => ({
+      ...a,
+      streams: enrichListeners(a.name, a.streams),
     }));
-  }, [weeklyArtists, sheetsEmpty]);
+  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const HERO_ARTISTS = useMemo(() => {
-    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_HERO_ARTISTS;
-    return weeklyArtists.slice(0, 5).map(a => {
-      const { line1, line2 } = splitName(a.name);
-      return {
-        rank: `#${a.mexicoRank}`,
-        name: a.name,
-        line1,
-        line2,
-        listeners: a.listeners,
-        growth: a.growth,
-        countries: a.countriesRaw > 0 ? `${a.countriesRaw}+ PAÍSES` : "—",
-        tag: a.genre.toUpperCase(),
-      };
-    });
-  }, [weeklyArtists, sheetsEmpty]);
+    const base = (sheetsEmpty || weeklyArtists.length === 0)
+      ? DEFAULT_HERO_ARTISTS
+      : weeklyArtists.slice(0, 5).map(a => {
+          const { line1, line2 } = splitName(a.name);
+          return {
+            rank: `#${a.mexicoRank}`,
+            name: a.name,
+            line1,
+            line2,
+            listeners: a.listeners,
+            growth: a.growth,
+            countries: a.countriesRaw > 0 ? `${a.countriesRaw}+ PAÍSES` : "—",
+            tag: a.genre.toUpperCase(),
+          };
+        });
+    // Overlay real listener counts from metadata
+    return base.map(a => ({
+      ...a,
+      listeners: enrichListeners(a.name, a.listeners),
+    }));
+  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const ASCENSO = useMemo(() => {
     if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_ASCENSO;
