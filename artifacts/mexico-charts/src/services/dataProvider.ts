@@ -86,11 +86,24 @@ function formatCountries(n: number): string {
 /* ── Eligibility filter ── */
 /**
  * Returns true for rows that should be shown publicly.
- * Excludes any status containing "exclud" OR "review" to handle variants like
- * "excluded", "review", "review-candidate", "under_review", etc.
+ * Handles multiple column conventions used across chart tabs:
+ *   - `eligibility_status`: legacy / metadata sheet ("approved" | "excluded" | "review")
+ *   - `status`: artists_daily_mx tab ("APPROVED" | "EXCLUDED" | "REVIEW")
+ *   - `include_on_site`: artists_daily_mx / albums_weekly_mx / songs tabs ("True"/"TRUE" = include)
+ * If none of these columns are present the row is included (weekly artists tab has no status col).
  */
-function isEligible(row: { eligibility_status?: string }): boolean {
-  const status = (row.eligibility_status ?? "").toLowerCase().trim();
+function isEligible(row: {
+  eligibility_status?: string;
+  status?: string;
+  include_on_site?: string;
+}): boolean {
+  // include_on_site takes priority when present
+  const ios = (row.include_on_site ?? "").toLowerCase().trim();
+  if (ios === "true") return true;
+  if (ios === "false") return false;
+
+  // Fall back to status / eligibility_status
+  const status = (row.status ?? row.eligibility_status ?? "").toLowerCase().trim();
   if (status === "") return true; // blank = no restriction
   return !status.includes("exclud") && !status.includes("review");
 }
@@ -99,21 +112,30 @@ function isEligible(row: { eligibility_status?: string }): boolean {
 
 function normalizeArtist(raw: RawChartArtist): ChartArtist | null {
   const mexicoRank = parseInt(raw.mexico_charts_rank, 10);
-  if (!mexicoRank || !raw.artist_name?.trim()) return null;
+  // Sheet uses "artist" column; fall back to legacy "artist_name" if present
+  const name = (raw.artist ?? raw.artist_name ?? "").trim();
+  if (!mexicoRank || !name) return null;
 
   const listenersRaw = parseListeners(raw.monthly_listeners);
   const growthRaw = parseGrowthPct(raw.listeners_change_pct);
   const countriesRaw = parseCountries(raw.country_count);
 
+  // Genre: prefer explicit genre col, then eligibility_type (daily tab), then artist_type (weekly tab)
+  const genre =
+    raw.genre?.trim() ||
+    raw.eligibility_type?.trim() ||
+    raw.artist_type?.trim() ||
+    "Regional Mexicano";
+
   return {
     mexicoRank,
     sourceRank: parseInt(raw.source_chart_rank, 10) || mexicoRank,
-    name: raw.artist_name.trim(),
+    name,
     listeners: formatListeners(listenersRaw),
     listenersRaw,
     growth: formatGrowth(growthRaw),
     growthRaw,
-    genre: raw.genre?.trim() ?? "Regional Mexicano",
+    genre,
     subgenre: raw.subgenre?.trim() ?? "",
     countries: formatCountries(countriesRaw),
     countriesRaw,
@@ -140,17 +162,21 @@ function normalizeSong(raw: RawChartSong): ChartSong | null {
 
 function normalizeAlbum(raw: RawChartAlbum): ChartAlbum | null {
   const mexicoRank = parseInt(raw.mexico_charts_rank, 10);
-  if (!mexicoRank || !raw.album_name?.trim()) return null;
+  // Sheet uses "album" column; fall back to legacy "album_name" if present
+  const title = (raw.album ?? raw.album_name ?? "").trim();
+  // Sheet uses "primary_artist"; fall back to "artist_name" or "artist_credit"
+  const artist = (raw.primary_artist ?? raw.artist_name ?? raw.artist_credit ?? "").trim();
+  if (!mexicoRank || !title) return null;
 
   const streamsRaw = parseListeners(raw.streams);
 
   return {
     mexicoRank,
     sourceRank: parseInt(raw.source_chart_rank, 10) || mexicoRank,
-    artist: raw.artist_name?.trim() ?? "—",
-    title: raw.album_name.trim(),
+    artist: artist || "—",
+    title,
     streams: formatListeners(streamsRaw),
-    genre: raw.genre?.trim() ?? "",
+    genre: raw.genre?.trim() ?? raw.eligibility_category?.trim() ?? "",
   };
 }
 

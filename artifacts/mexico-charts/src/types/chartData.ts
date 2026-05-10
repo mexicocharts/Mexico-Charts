@@ -10,13 +10,18 @@
 export interface RawChartArtist {
   mexico_charts_rank: string;        // Filtered rank shown on Mexico Charts
   source_chart_rank: string;         // Original Spotify chart rank
-  artist_name: string;               // Display name
-  monthly_listeners?: string;        // e.g. "32400000" or "32.4M"
-  listeners_change_pct?: string;     // e.g. "+18%" or "18"
-  genre?: string;                    // e.g. "Corridos Tumbados"
-  subgenre?: string;                 // e.g. "Regional Mexicano"
-  country_count?: string;            // e.g. "60"
-  eligibility_status?: string;       // "approved" | "excluded" | "review"
+  artist: string;                    // Display name (artists_weekly_mx / artists_daily_mx)
+  artist_type?: string;              // e.g. "Mexican-American / Regional Mexican" (weekly tab)
+  eligibility_type?: string;         // e.g. "Mexican / Regional Mexican" (daily tab)
+  status?: string;                   // "APPROVED" | "EXCLUDED" | "REVIEW" (daily tab)
+  include_on_site?: string;          // "True" | "False" (daily tab)
+  // Listener / growth stats come from artist_metadata sheet, not chart tabs
+  monthly_listeners?: string;
+  listeners_change_pct?: string;
+  genre?: string;
+  subgenre?: string;
+  country_count?: string;
+  eligibility_status?: string;
   [key: string]: string | undefined;
 }
 
@@ -29,6 +34,7 @@ export interface RawChartSong {
   streams?: string;
   streams_change_pct?: string;
   genre?: string;
+  include_on_site?: string;          // "TRUE" | "FALSE"
   eligibility_status?: string;
   [key: string]: string | undefined;
 }
@@ -36,10 +42,15 @@ export interface RawChartSong {
 export interface RawChartAlbum {
   mexico_charts_rank: string;
   source_chart_rank: string;
-  artist_name: string;
-  album_name: string;
+  primary_artist: string;            // Primary artist name (albums_weekly_mx)
+  artist_credit?: string;            // Full credit string (may include features)
+  artist_name?: string;              // Fallback if sheet uses this column
+  album: string;                     // Album title (albums_weekly_mx)
+  album_name?: string;               // Fallback if sheet uses this column
   streams?: string;
   genre?: string;
+  eligibility_category?: string;     // e.g. "Mexican"
+  include_on_site?: string;          // "TRUE" | "FALSE"
   eligibility_status?: string;
   [key: string]: string | undefined;
 }

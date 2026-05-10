@@ -18,14 +18,18 @@
    "https://docs.google.com/spreadsheets/d/SHEET_ID/pub?gid=SHEET_GID&single=true&output=csv"
 ───────────────────────────────────────────────────────────────────────────── */
 
+const MASTER_SHEET_ID = "1lnqsIqI3mi3eC7iD6H7QThS-tzZ4thyyHcYNfX3Vdts";
+const gvizCSV = (sheet: string) =>
+  `https://docs.google.com/spreadsheets/d/${MASTER_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${sheet}`;
+
 export const SHEET_SOURCES = {
   // ── Spotify chart rankings (mexico_charts_master_replit_fetch_workbook) ──
-  artistsWeekly: "", // artists_weekly_mx tab  ← paste CSV URL here
-  artistsDaily:  "", // artists_daily_mx tab   ← paste CSV URL here
-  songsWeekly:   "", // songs_weekly_mx tab    ← paste CSV URL here
-  songsDaily:    "", // songs_daily_mx tab     ← paste CSV URL here
-  albumsWeekly:  "", // albums_weekly_mx tab   ← paste CSV URL here
-  viralDaily:    "", // songs_viral_mx tab     ← paste CSV URL here
+  artistsWeekly: gvizCSV("artists_weekly_mx"),
+  artistsDaily:  gvizCSV("artists_daily_mx"),
+  songsWeekly:   gvizCSV("songs_weekly_mx"),
+  songsDaily:    gvizCSV("songs_daily_mx"),
+  albumsWeekly:  gvizCSV("albums_weekly_mx"),
+  viralDaily:    gvizCSV("songs_viral_mx"),
 
   // ── Artist metadata / stats database (mexico_charts_artist_metadata_database) ──
   // Publish the "artist_metadata" tab as CSV and paste the URL below.
