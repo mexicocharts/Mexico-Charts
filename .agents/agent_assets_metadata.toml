@@ -6,3 +6,9 @@ id = "tlxTy1L_jNzfkX_2Wd6tY"
 uri = "file://artifacts/mexico-charts-mobile/assets/images/icon.png"
 type = "image"
 title = "generated_image"
+
+[[generated]]
+id = "vWzhi0r08vn6RLoLCaVwK"
+uri = "file://artifacts/mexico-charts/public/globe-mexico.png"
+type = "image"
+title = "generated_image"
