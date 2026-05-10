@@ -915,43 +915,82 @@ export default function HomeV6() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════
-          IFPI INSIGHT TEASER
+          IFPI INSIGHT BANNER
       ══════════════════════════════════════════════════════════ */}
       <FadeUp>
         <section className="px-6 lg:px-12 py-3" data-testid="ifpi-teaser">
-          <Link href="/industria">
+          <Link href="/insights/mexico-top-10-ifpi-2026">
             <motion.div
-              whileHover={reduced ? {} : { y: -2, borderColor: "rgba(57,255,20,0.28)", transition: { duration: 0.22 } }}
+              whileHover={reduced ? {} : { y: -2, transition: { duration: 0.22 } }}
               className="relative overflow-hidden rounded-xl cursor-pointer"
               style={{
-                background: "linear-gradient(110deg, #0d0d0d 0%, #0a0a0a 100%)",
-                border: "1px solid rgba(57,255,20,0.13)",
-                boxShadow: "0 0 32px rgba(57,255,20,0.04), inset 0 1px 0 rgba(57,255,20,0.06)",
+                background: "#060806",
+                border: "1px solid rgba(57,255,20,0.18)",
+                boxShadow: "0 0 48px rgba(57,255,20,0.06), inset 0 1px 0 rgba(57,255,20,0.08)",
+                minHeight: 88,
               }}
             >
-              <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-              {/* Subtle green glow in top-left corner */}
-              <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.07) 0%, transparent 70%)" }} />
+              {/* IFPI cover image — right side, fades left */}
+              <div
+                className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
+                style={{
+                  backgroundImage: `url(${`${import.meta.env.BASE_URL}ifpi-cover.jpg`})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center top",
+                  maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, black 80%)",
+                  WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, black 80%)",
+                  filter: "saturate(0.3) brightness(0.45)",
+                  opacity: 0.9,
+                }}
+              />
 
-              <div className="relative z-10 flex items-center justify-between gap-6 px-6 py-5">
-                {/* Left: eyebrow + headline */}
+              {/* Full overlay gradient */}
+              <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to right, #060806 40%, rgba(6,8,6,0.55) 70%, rgba(6,8,6,0.15) 100%)" }} />
+
+              {/* Noise */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+
+              {/* Green glow bloom */}
+              <div className="absolute -top-12 -left-12 w-56 h-56 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.09) 0%, transparent 65%)" }} />
+
+              {/* Top banner stripe */}
+              <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.1))" }} />
+
+              <div className="relative z-10 flex items-center justify-between gap-4 px-6 py-5">
+                {/* Left: badge + headline */}
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-[3px] h-10 rounded-full shrink-0" style={{ background: "#39FF14" }} />
+                  {/* Publication badge */}
+                  <div
+                    className="hidden sm:flex flex-col items-center justify-center shrink-0 rounded-lg px-3 py-2 text-center"
+                    style={{ background: "rgba(57,255,20,0.08)", border: "1px solid rgba(57,255,20,0.2)", minWidth: 52 }}
+                  >
+                    <span className="text-[8px] font-black uppercase tracking-[0.18em] leading-none" style={{ color: "rgba(57,255,20,0.7)" }}>IFPI</span>
+                    <span className="text-base font-black leading-none text-white mt-0.5">2026</span>
+                  </div>
+
                   <div className="min-w-0">
-                    <div className="text-[9px] font-black uppercase tracking-[0.3em] mb-1.5" style={{ color: "#39FF14" }}>
-                      Insight · IFPI 2026
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span
+                        className="inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-[0.2em]"
+                        style={{ background: "#39FF14", color: "#000" }}
+                      >
+                        Nuevo Informe
+                      </span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        Música Grabada · Global
+                      </span>
                     </div>
-                    <div className="text-sm font-black uppercase tracking-tight text-white leading-tight">
-                      México entra al Top 10 Global
+                    <div className="text-sm font-black uppercase tracking-tight text-white leading-snug">
+                      México entra al <span style={{ color: "#39FF14" }}>Top 10</span> mundial
                     </div>
-                    <div className="text-[10px] mt-1 font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      Mercado de música grabada · Por primera vez en la historia
+                    <div className="text-[10px] mt-0.5 font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>
+                      Por primera vez en la historia · IFPI Global Music Report
                     </div>
                   </div>
                 </div>
 
                 {/* Center: three stats */}
-                <div className="hidden md:flex items-center gap-6 shrink-0">
+                <div className="hidden md:flex items-center gap-5 shrink-0">
                   {[
                     { v: "#10",    l: "mercado global" },
                     { v: "+13.3%", l: "crecimiento 2025" },
@@ -959,14 +998,14 @@ export default function HomeV6() {
                   ].map(s => (
                     <div key={s.l} className="text-center">
                       <div className="text-lg font-black leading-none" style={{ color: "#39FF14", letterSpacing: "-0.02em" }}>{s.v}</div>
-                      <div className="text-[8px] font-black uppercase tracking-[0.16em] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>{s.l}</div>
+                      <div className="text-[8px] font-black uppercase tracking-[0.16em] mt-1" style={{ color: "rgba(255,255,255,0.28)" }}>{s.l}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Right: arrow */}
+                {/* Right: CTA */}
                 <motion.span
-                  className="text-[10px] font-black uppercase tracking-[0.2em] shrink-0 flex items-center gap-1.5"
+                  className="text-[10px] font-black uppercase tracking-[0.2em] shrink-0 flex items-center gap-1.5 whitespace-nowrap"
                   style={{ color: "#39FF14" }}
                   whileHover={reduced ? {} : { x: 3 }}
                 >
