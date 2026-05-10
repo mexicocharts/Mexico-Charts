@@ -8,7 +8,7 @@ import {
   useReducedMotion,
 } from "framer-motion";
 import { Search, Menu, TrendingUp, MapPin, Music, Mail } from "lucide-react";
-import { useArtistsWeekly, rankAccent } from "@/services/dataProvider";
+import { useArtistsWeekly } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
 

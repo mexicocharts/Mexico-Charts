@@ -193,8 +193,7 @@ async function fetchAlbums(url: string): Promise<{ albums: ChartAlbum[]; configu
 function toResult<T>(
   data: { data: T[]; configured: boolean } | undefined,
   isLoading: boolean,
-  isError: boolean,
-  key: string
+  isError: boolean
 ): ChartResult<T> {
   const items = data?.data ?? [];
   return {
@@ -216,7 +215,7 @@ export function useArtistsWeekly(): ChartResult<ChartArtist> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "artistsWeekly");
+  return toResult(data, isLoading, isError);
 }
 
 export function useArtistsDaily(): ChartResult<ChartArtist> {
@@ -229,7 +228,7 @@ export function useArtistsDaily(): ChartResult<ChartArtist> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "artistsDaily");
+  return toResult(data, isLoading, isError);
 }
 
 export function useSongsWeekly(): ChartResult<ChartSong> {
@@ -242,7 +241,7 @@ export function useSongsWeekly(): ChartResult<ChartSong> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "songsWeekly");
+  return toResult(data, isLoading, isError);
 }
 
 export function useSongsDaily(): ChartResult<ChartSong> {
@@ -255,7 +254,7 @@ export function useSongsDaily(): ChartResult<ChartSong> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "songsDaily");
+  return toResult(data, isLoading, isError);
 }
 
 export function useAlbumsWeekly(): ChartResult<ChartAlbum> {
@@ -268,7 +267,7 @@ export function useAlbumsWeekly(): ChartResult<ChartAlbum> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "albumsWeekly");
+  return toResult(data, isLoading, isError);
 }
 
 export function useViralDaily(): ChartResult<ChartSong> {
@@ -281,7 +280,7 @@ export function useViralDaily(): ChartResult<ChartSong> {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  return toResult(data, isLoading, isError, "viralDaily");
+  return toResult(data, isLoading, isError);
 }
 
 /* ── Utility: look up an artist by name or slug ── */
