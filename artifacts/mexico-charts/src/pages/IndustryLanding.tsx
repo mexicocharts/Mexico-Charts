@@ -53,19 +53,19 @@ function DramaticGlobe() {
     <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%", overflow: "visible" }}>
       <defs>
         <radialGradient id="globeGlow" cx="50%" cy="45%" r="55%">
-          <stop offset="0%"   stopColor="#39FF14" stopOpacity="0.12" />
-          <stop offset="55%"  stopColor="#39FF14" stopOpacity="0.03" />
+          <stop offset="0%"   stopColor="#39FF14" stopOpacity="0.35" />
+          <stop offset="55%"  stopColor="#39FF14" stopOpacity="0.10" />
           <stop offset="100%" stopColor="#39FF14" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="mexicoGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stopColor="#39FF14" stopOpacity="0.9" />
-          <stop offset="50%"  stopColor="#39FF14" stopOpacity="0.35" />
+          <stop offset="0%"   stopColor="#39FF14" stopOpacity="1" />
+          <stop offset="45%"  stopColor="#39FF14" stopOpacity="0.55" />
           <stop offset="100%" stopColor="#39FF14" stopOpacity="0" />
         </radialGradient>
         <radialGradient id="sphereShade" cx="35%" cy="35%" r="65%">
           <stop offset="0%"   stopColor="#1a1a1a" stopOpacity="0" />
-          <stop offset="70%"  stopColor="#000"    stopOpacity="0.35" />
-          <stop offset="100%" stopColor="#000"    stopOpacity="0.65" />
+          <stop offset="70%"  stopColor="#000"    stopOpacity="0.25" />
+          <stop offset="100%" stopColor="#000"    stopOpacity="0.5" />
         </radialGradient>
         <clipPath id="globeClip">
           <circle cx={cx} cy={cy} r={R} />
@@ -86,7 +86,7 @@ function DramaticGlobe() {
       <circle cx={cx} cy={cy} r={R} fill="#0a0f0a" stroke="#39FF14" strokeWidth="0.5" strokeOpacity="0.2" />
 
       {/* Grid lines inside globe */}
-      <g clipPath="url(#globeClip)" opacity="0.18">
+      <g clipPath="url(#globeClip)" opacity="0.45">
         {/* Latitude lines */}
         {[-60,-40,-20,0,20,40,60].map((lat, i) => {
           const y = cy + (lat / 90) * R;
@@ -111,10 +111,10 @@ function DramaticGlobe() {
       {/* Mexico territory shape */}
       <path clipPath="url(#globeClip)"
         d="M182 148 L194 144 L208 149 L216 158 L220 167 L215 175 L222 181 L226 190 L218 197 L208 193 L200 200 L193 208 L186 200 L178 190 L170 183 L163 174 L159 164 L163 155 Z"
-        fill="#39FF14" fillOpacity="0.28" stroke="#39FF14" strokeWidth="1.2" strokeOpacity="0.7" />
+        fill="#39FF14" fillOpacity="0.55" stroke="#39FF14" strokeWidth="1.5" strokeOpacity="1" />
 
       {/* Mexico glow */}
-      <ellipse cx={mexico.x} cy={mexico.y} rx={34} ry={22} fill="url(#mexicoGlow)" opacity="0.55" />
+      <ellipse cx={mexico.x} cy={mexico.y} rx={38} ry={26} fill="url(#mexicoGlow)" opacity="0.85" />
 
       {/* Connection lines from Mexico to other markets */}
       {markets.map((m, i) => (
@@ -204,63 +204,75 @@ export default function IndustryLanding() {
       </div>
 
       {/* ════════════════════════════════════════════
-          HERO — headline left, globe right
+          HERO — globe always-visible, absolute right
       ════════════════════════════════════════════ */}
-      <section className="relative px-6 lg:px-10 pt-12 pb-10 overflow-hidden">
+      <section className="relative overflow-hidden" style={{ minHeight: 420 }}>
+
+        {/* Globe — always visible, absolutely pinned to right */}
+        <motion.div
+          className="absolute pointer-events-none"
+          style={{ right: "-4vw", top: "50%", transform: "translateY(-50%)", width: "min(55vw, 520px)", height: "min(55vw, 520px)", zIndex: 1 }}
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}>
+          <DramaticGlobe />
+        </motion.div>
+
+        {/* Left-edge green glow */}
         <div className="absolute top-0 left-0 pointer-events-none"
-          style={{ width: "40vw", height: "50vh", background: "radial-gradient(ellipse at 0% 0%, rgba(57,255,20,0.04) 0%, transparent 65%)", zIndex: 0 }} />
+          style={{ width: "35vw", height: "100%", background: "radial-gradient(ellipse at 0% 50%, rgba(57,255,20,0.06) 0%, transparent 65%)", zIndex: 0 }} />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 items-center max-w-[1200px]">
-
-          {/* LEFT */}
-          <div>
-            <FadeUp>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-5" style={{ color: G }}>Industria / Mercado</p>
-            </FadeUp>
-            <FadeUp delay={0.05}>
-              <h1 className="font-black uppercase leading-[0.88] mb-6"
-                style={{ fontSize: "clamp(2.4rem, 5vw, 5rem)", letterSpacing: "-0.03em" }}>
-                México ya es<br />
-                <em className="not-italic" style={{ color: G }}>Top 10</em> Global<br />
-                en música grabada
-              </h1>
-            </FadeUp>
-            <FadeUp delay={0.09}>
-              <p className="text-sm leading-relaxed mb-7" style={{ color: "rgba(255,255,255,0.72)", maxWidth: 520, fontFamily: "system-ui" }}>
-                México forma parte de los 10 mercados de música grabada más grandes del mundo. Según IFPI, en 2025 se mantuvo en el puesto{" "}
-                <strong style={{ color: "#fff" }}>#10</strong> tras crecer{" "}
-                <strong style={{ color: G }}>13.3%</strong> en ingresos de música grabada.
-              </p>
-            </FadeUp>
-            <FadeUp delay={0.12}>
-              <div className="flex items-center gap-4 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.4)" }}>Fuentes:</span>
-                <a href="https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: G }}>
-                  IFPI Global Music Report 2026 <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-                <span style={{ color: "rgba(255,255,255,0.15)" }}>·</span>
-                <a href="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: "rgba(255,255,255,0.5)" }}>
-                  AMPROFON Reporte Música México <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-              </div>
-            </FadeUp>
-          </div>
-
-          {/* RIGHT — globe + badge */}
-          <FadeUp delay={0.07} className="hidden lg:flex flex-col items-center gap-4">
-            <div style={{ width: 300, height: 300 }}>
-              <DramaticGlobe />
-            </div>
-            <div className="rounded-xl px-8 py-4 text-center w-full"
-              style={{ background: "rgba(57,255,20,0.05)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 0 40px rgba(57,255,20,0.07)" }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.28em] mb-1" style={{ color: "rgba(255,255,255,0.45)" }}>Ranking Global</div>
-              <div className="font-black leading-none" style={{ fontSize: "3.2rem", color: G, letterSpacing: "-0.05em", textShadow: "0 0 40px rgba(57,255,20,0.35)" }}>#10</div>
-              <div className="text-[11px] font-black uppercase tracking-[0.22em] mt-1" style={{ color: "rgba(255,255,255,0.65)" }}>México</div>
+        {/* Content — sits above globe with dark shadow so it's legible */}
+        <div className="relative z-10 px-6 lg:px-10 pt-12 pb-10" style={{ maxWidth: 620 }}>
+          <FadeUp>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-5" style={{ color: G }}>Industria / Mercado</p>
+          </FadeUp>
+          <FadeUp delay={0.05}>
+            <h1 className="font-black uppercase leading-[0.9] mb-6"
+              style={{ fontSize: "clamp(2rem, 3.6vw, 4rem)", letterSpacing: "-0.03em" }}>
+              México ya es<br />
+              <em className="not-italic" style={{ color: G }}>Top 10</em><br />
+              Global en<br />
+              música grabada
+            </h1>
+          </FadeUp>
+          <FadeUp delay={0.09}>
+            <p className="text-sm leading-relaxed mb-7" style={{ color: "rgba(255,255,255,0.75)", maxWidth: 480, fontFamily: "system-ui" }}>
+              México forma parte de los 10 mercados de música grabada más grandes del mundo. Según IFPI, en 2025 se mantuvo en el puesto{" "}
+              <strong style={{ color: "#fff" }}>#10</strong> tras crecer{" "}
+              <strong style={{ color: G }}>13.3%</strong> en ingresos de música grabada.
+            </p>
+          </FadeUp>
+          <FadeUp delay={0.12}>
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.4)" }}>Fuentes:</span>
+              <a href="https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: G }}>
+                IFPI Global Music Report 2026 <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+              <span style={{ color: "rgba(255,255,255,0.15)" }}>·</span>
+              <a href="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: "rgba(255,255,255,0.55)" }}>
+                AMPROFON Reporte Música México <ExternalLink className="w-2.5 h-2.5" />
+              </a>
             </div>
           </FadeUp>
         </div>
+
+        {/* #10 badge — anchored bottom-right of section, always visible */}
+        <motion.div
+          className="absolute z-10"
+          style={{ right: "5vw", bottom: 24 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.3 }}>
+          <div className="rounded-xl px-6 py-4 text-center"
+            style={{ background: "rgba(8,8,8,0.82)", backdropFilter: "blur(12px)", border: "1px solid rgba(57,255,20,0.28)", boxShadow: "0 0 40px rgba(57,255,20,0.12)" }}>
+            <div className="text-[8px] font-black uppercase tracking-[0.28em] mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Ranking Global</div>
+            <div className="font-black leading-none" style={{ fontSize: "2.8rem", color: G, letterSpacing: "-0.05em", textShadow: "0 0 30px rgba(57,255,20,0.45)" }}>#10</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] mt-1" style={{ color: "rgba(255,255,255,0.7)" }}>México</div>
+          </div>
+        </motion.div>
       </section>
 
       {/* ════════════════════════════════════════════
