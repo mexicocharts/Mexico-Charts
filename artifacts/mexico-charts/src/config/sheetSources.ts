@@ -31,7 +31,7 @@ export const SHEET_SOURCES = {
   // Publish the "artist_metadata" tab as CSV and paste the URL below.
   // This is NOT a chart — it adds extra stats (social, streams, label, etc.)
   // to chart artists. Ranks always come from the Spotify chart tabs above.
-  artistMetadata: "", // artist_metadata tab   ← paste CSV URL here
+  artistMetadata: "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata",
 } as const;
 
 export type SheetKey = keyof typeof SHEET_SOURCES;
