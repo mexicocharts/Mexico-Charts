@@ -809,7 +809,7 @@ export default function ArtistDetail() {
       <footer className="border-t py-6 px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="max-w-[1200px] mx-auto flex items-center justify-between flex-wrap gap-4">
           <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-60" />
-          <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
+          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>

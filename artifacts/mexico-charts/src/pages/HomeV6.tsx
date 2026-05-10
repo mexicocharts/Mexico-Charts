@@ -570,7 +570,7 @@ export default function HomeV6() {
                   whileHover={reduced ? {} : { scale:1.03 }}
                   whileTap={reduced ? {} : { scale:0.97 }}
                   className="px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full text-black"
-                  style={{ background:"#39FF14", boxShadow:"0 0 20px rgba(57,255,20,0.35)" }}
+                  style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.26)" }}
                   data-testid="btn-hero-cta"
                 >
                   Ver Charts →
@@ -883,7 +883,7 @@ export default function HomeV6() {
                           viewport={{ once:true }}
                           transition={{ duration:1.4, delay: idx * 0.12, ease:[0.16,1,0.3,1] }}
                           className="h-full rounded-full"
-                          style={{ background:`linear-gradient(90deg, ${a.accent}, ${a.accent}60)`, boxShadow:`0 0 8px ${a.accent}50` }}
+                          style={{ background:`linear-gradient(90deg, ${a.accent}, ${a.accent}60)`, boxShadow:`0 0 6px ${a.accent}38` }}
                         />
                       </div>
                     </div>
@@ -938,7 +938,7 @@ export default function HomeV6() {
         <section className="px-6 lg:px-12 py-6">
           <div
             className="relative overflow-hidden rounded-2xl p-8 flex flex-col md:flex-row items-center gap-6 justify-between"
-            style={{ background:"linear-gradient(135deg, rgba(57,255,20,0.06) 0%, rgba(57,255,20,0.012) 100%)", border:"1px solid rgba(57,255,20,0.16)", boxShadow:"0 0 60px rgba(57,255,20,0.05), inset 0 1px 0 rgba(57,255,20,0.1)" }}
+            style={{ background:"linear-gradient(135deg, rgba(57,255,20,0.045) 0%, rgba(57,255,20,0.008) 100%)", border:"1px solid rgba(57,255,20,0.12)", boxShadow:"0 0 50px rgba(57,255,20,0.038), inset 0 1px 0 rgba(57,255,20,0.08)" }}
           >
             <div className="absolute inset-0 opacity-[0.04] rounded-2xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"128px" }} />
             <div className="relative z-10">
@@ -959,7 +959,7 @@ export default function HomeV6() {
                 whileHover={reduced ? {} : { scale:1.03 }}
                 whileTap={reduced ? {} : { scale:0.97 }}
                 className="text-black font-black text-xs uppercase tracking-widest px-6 py-3 rounded-full whitespace-nowrap"
-                style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.3)" }}
+                style={{ background:"#39FF14", boxShadow:"0 0 16px rgba(57,255,20,0.22)" }}
                 data-testid="btn-newsletter"
               >SUSCRIBIRME</motion.button>
             </div>
@@ -977,10 +977,10 @@ export default function HomeV6() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
               <img src={logoUrl} alt="Mexico Charts" className="h-9 object-contain mb-4 opacity-90" />
-              <p className="text-zinc-600 text-xs leading-relaxed max-w-[200px]">La fuente líder de estadísticas de la música mexicana en el mundo.</p>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">La fuente líder de estadísticas de la música mexicana en el mundo.</p>
               <div className="flex gap-4 mt-4">
                 {([SiInstagram,SiX,SiTiktok,SiYoutube] as React.ElementType[]).map((Icon,i) => (
-                  <a key={i} href="#" className="text-zinc-700 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
+                  <a key={i} href="#" className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
                 ))}
               </div>
             </div>
@@ -990,15 +990,15 @@ export default function HomeV6() {
               { title:"Compañía", links:["Acerca de","Metodología","Contacto","Privacidad"] },
             ].map(col => (
               <div key={col.title}>
-                <h4 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-600 mb-4">{col.title}</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400 mb-4">{col.title}</h4>
                 <ul className="flex flex-col gap-2.5">
-                  {col.links.map(link => <li key={link}><a href="#" className="text-zinc-700 hover:text-zinc-300 transition-colors duration-200 text-xs">{link}</a></li>)}
+                  {col.links.map(link => <li key={link}><a href="#" className="text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-xs">{link}</a></li>)}
                 </ul>
               </div>
             ))}
           </div>
-          <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-            <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
+          <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

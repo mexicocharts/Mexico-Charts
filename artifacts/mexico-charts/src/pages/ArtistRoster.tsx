@@ -74,104 +74,111 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.28, delay: Math.min(index * 0.015, 0.3), ease: "easeOut" }}
+      transition={{ duration: 0.32, delay: Math.min(index * 0.015, 0.3), ease: [0.16, 1, 0.3, 1] }}
       layout
     >
       <Link href={`/artist/${slug}`}>
         <div
           className="group relative rounded-xl overflow-hidden cursor-pointer h-full flex flex-col"
           style={{
-            background: "linear-gradient(160deg,#0d0d0d 0%,#080808 100%)",
+            background: "linear-gradient(160deg,#0e0e0e 0%,#080808 100%)",
             border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.55)",
-            transition: "border-color 0.25s, box-shadow 0.25s, transform 0.2s",
+            boxShadow: "0 4px 28px rgba(0,0,0,0.6)",
+            transition: "border-color 0.3s, box-shadow 0.3s, transform 0.25s",
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement;
-            el.style.borderColor = `${color}44`;
-            el.style.boxShadow = `0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px ${color}22`;
-            el.style.transform = "translateY(-2px)";
+            el.style.borderColor = `${color}38`;
+            el.style.boxShadow = `0 14px 52px rgba(0,0,0,0.8), 0 0 0 1px ${color}18`;
+            el.style.transform = "translateY(-3px)";
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement;
             el.style.borderColor = "rgba(255,255,255,0.07)";
-            el.style.boxShadow = "0 4px 24px rgba(0,0,0,0.55)";
+            el.style.boxShadow = "0 4px 28px rgba(0,0,0,0.6)";
             el.style.transform = "translateY(0)";
           }}
         >
-          {/* Noise texture */}
-          <div className="absolute inset-0 opacity-[0.022] pointer-events-none rounded-xl" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+          {/* Noise texture overlay */}
+          <div className="absolute inset-0 opacity-[0.028] pointer-events-none rounded-xl z-10" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
 
-          {/* Top accent band */}
-          <div className="h-1 w-full flex-shrink-0" style={{ background: `linear-gradient(90deg, ${color}cc, ${color}33)` }} />
-
-          {/* Avatar area */}
-          <div
-            className="relative flex items-center justify-center flex-shrink-0"
-            style={{ height: 100, background: `radial-gradient(circle at 50% 100%, ${color}12 0%, transparent 70%)` }}
-          >
+          {/* Cinematic photo / avatar hero area */}
+          <div className="relative flex-shrink-0 overflow-hidden" style={{ height: 148 }}>
             {showPhoto ? (
-              <img
-                src={photoUrl!}
-                alt={name}
-                loading="lazy"
-                className="rounded-full object-cover"
-                style={{
-                  width: 64,
-                  height: 64,
-                  border: `1.5px solid ${color}44`,
-                  boxShadow: `0 0 16px ${color}33`,
-                }}
-                onError={handleImgError}
-              />
+              <>
+                {/* Full-bleed photo */}
+                <div
+                  className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
+                  style={{
+                    backgroundImage: `url(${photoUrl})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center top",
+                    filter: "brightness(0.78) saturate(0.60) contrast(1.08)",
+                  }}
+                />
+                {/* Invisible img for error detection */}
+                <img src={photoUrl!} alt="" className="hidden" onError={handleImgError} />
+                {/* Cinematic edge vignette */}
+                <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 80% at 50% 30%, transparent 35%, rgba(0,0,0,0.40) 75%, rgba(0,0,0,0.72) 100%)" }} />
+                {/* Bottom fade into card body */}
+                <div className="absolute bottom-0 left-0 right-0" style={{ height: "60%", background: "linear-gradient(to top, rgba(10,10,10,1) 0%, rgba(10,10,10,0.65) 45%, transparent 100%)" }} />
+                {/* Subtle top accent glow */}
+                <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${color}50, transparent)` }} />
+              </>
             ) : (
-              <div
-                className="flex items-center justify-center rounded-full font-black text-3xl select-none"
-                style={{
-                  width: 60,
-                  height: 60,
-                  background: `linear-gradient(135deg, ${color}22, ${color}08)`,
-                  border: `1.5px solid ${color}44`,
-                  color,
-                  textShadow: `0 0 20px ${color}88`,
-                }}
-              >
-                {initial}
-              </div>
+              <>
+                {/* Atmospheric dark background */}
+                <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 50% 65%, ${color}12 0%, transparent 60%), linear-gradient(160deg, #121212 0%, #080808 100%)` }} />
+                {/* Large initial letter */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span
+                    className="font-black text-5xl select-none transition-transform duration-500 group-hover:scale-110"
+                    style={{ color, textShadow: `0 0 40px ${color}55, 0 0 100px ${color}18`, opacity: 0.88 }}
+                  >
+                    {initial}
+                  </span>
+                </div>
+                {/* Top accent line */}
+                <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${color}50, transparent)` }} />
+                {/* Bottom fade */}
+                <div className="absolute bottom-0 left-0 right-0" style={{ height: "45%", background: "linear-gradient(to top, rgba(10,10,10,0.98) 0%, transparent 100%)" }} />
+              </>
             )}
+            {/* Genre accent dot — top right */}
+            <div className="absolute top-3 right-3 z-10 w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 7px ${color}90` }} />
           </div>
 
-          {/* Info */}
-          <div className="flex-1 flex flex-col p-4 pt-2 relative z-10">
+          {/* Info panel */}
+          <div className="flex-1 flex flex-col px-4 pb-4 pt-3 relative z-10">
             <h3
-              className="font-black text-sm uppercase tracking-wide text-white mb-0.5 truncate group-hover:text-white transition-colors"
+              className="font-black text-sm uppercase tracking-wide text-white mb-1.5 truncate leading-tight"
               title={name}
             >
               {name}
             </h3>
 
-            <div className="flex items-center gap-1.5 mb-1">
+            <div className="flex items-center gap-1.5 mb-1.5">
               <span
                 className="text-[10px] font-black uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full"
-                style={{ background: `${color}18`, color, border: `1px solid ${color}33` }}
+                style={{ background: `${color}14`, color, border: `1px solid ${color}28` }}
               >
                 {genre || "—"}
               </span>
             </div>
 
             {country && (
-              <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-2">
+              <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1">
                 <Globe className="w-2.5 h-2.5 flex-shrink-0" />
                 <span className="truncate">{country}</span>
               </div>
             )}
 
             {label && (
-              <div className="text-[10px] text-zinc-600 truncate mb-2">{label}</div>
+              <div className="text-[10px] text-zinc-600 truncate mb-1.5">{label}</div>
             )}
 
             {/* Stats row */}
-            <div className="mt-auto grid grid-cols-2 gap-1 pt-2 border-t border-white/[0.05]">
+            <div className="mt-auto grid grid-cols-2 gap-1 pt-2 border-t border-white/[0.06]">
               {spotifyListenersFmt && spotifyListenersFmt !== "—" && (
                 <div className="flex items-center gap-1">
                   <SiSpotify className="w-2.5 h-2.5 flex-shrink-0" style={{ color: "#1DB954" }} />
@@ -527,7 +534,7 @@ export default function ArtistRoster() {
         <Link href="/">
           <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-40 hover:opacity-70 transition-opacity" />
         </Link>
-        <div className="text-[10px] uppercase tracking-widest text-zinc-700">
+        <div className="text-[10px] uppercase tracking-widest text-zinc-500">
           © 2026 Mexico Charts — Todos los derechos reservados
         </div>
       </footer>
