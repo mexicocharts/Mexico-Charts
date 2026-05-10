@@ -2,7 +2,11 @@ import { Router } from "express";
 
 const router = Router();
 
-const ARTIST_IMAGES: Record<string, string> = {
+/* ── In-memory image cache (lives for the process lifetime) ── */
+const imageCache = new Map<string, string | null>();
+
+/* ── Seed with known-good Spotify CDN URLs for the biggest names ── */
+const SEED: Record<string, string> = {
   "Peso Pluma":         "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebe5283f5b671cf618b82a2696",
   "Fuerza Regida":      "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebce436c411ab2436c7ab2c04d",
   "Natanael Cano":      "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb0d4838ef7ef6c0f889266f60",
@@ -22,8 +26,38 @@ const ARTIST_IMAGES: Record<string, string> = {
   "Marca MP":           "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb31b1b084ec2994040aec37d0",
   "Grupo Firme":        "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb7ab0eb0c8b52f4639b167363",
 };
+for (const [name, url] of Object.entries(SEED)) {
+  imageCache.set(name.toLowerCase(), url);
+}
 
-router.get("/spotify/artist-images", (req, res) => {
+/* ── Fetch one artist image from Deezer (free, no auth required) ── */
+async function fetchDeezerImage(name: string): Promise<string | null> {
+  try {
+    const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=5`;
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const data = await resp.json() as {
+      data?: Array<{ name: string; picture_medium?: string; picture_xl?: string }>;
+    };
+    const items = data.data ?? [];
+    if (!items.length) return null;
+
+    // Prefer exact match (case-insensitive), then fall back to first result
+    const nameLower = name.toLowerCase();
+    const exact = items.find((a) => a.name.toLowerCase() === nameLower);
+    const best = exact ?? items[0];
+
+    // Use the largest available image; skip the generic placeholder
+    const img = best.picture_xl || best.picture_medium || null;
+    if (!img || img.includes("250x250-000000")) return null;
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+/* ── Route: GET /api/spotify/artist-images?names=A,B,C ── */
+router.get("/spotify/artist-images", async (req, res) => {
   const namesParam = req.query.names as string;
   if (!namesParam?.trim()) {
     res.status(400).json({ error: "names query parameter is required" });
@@ -32,10 +66,31 @@ router.get("/spotify/artist-images", (req, res) => {
 
   const names = namesParam.split(",").map((n) => n.trim()).filter(Boolean);
   const results: Record<string, string | null> = {};
+  const toFetch: string[] = [];
+
+  // Serve cached entries immediately
   for (const name of names) {
-    results[name] = ARTIST_IMAGES[name] ?? null;
+    const key = name.toLowerCase();
+    if (imageCache.has(key)) {
+      results[name] = imageCache.get(key)!;
+    } else {
+      toFetch.push(name);
+    }
   }
 
+  // Fetch uncached artists from Deezer in parallel (batches of 10)
+  for (let i = 0; i < toFetch.length; i += 10) {
+    const batch = toFetch.slice(i, i + 10);
+    const fetched = await Promise.all(
+      batch.map(async (name) => ({ name, url: await fetchDeezerImage(name) }))
+    );
+    for (const { name, url } of fetched) {
+      imageCache.set(name.toLowerCase(), url);
+      results[name] = url;
+    }
+  }
+
+  res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
   res.json(results);
 });
 
