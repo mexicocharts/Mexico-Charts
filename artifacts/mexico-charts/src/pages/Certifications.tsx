@@ -10,6 +10,12 @@ import SiteNav from "@/components/SiteNav";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
+const BASE = import.meta.env.BASE_URL;
+const CERT_IMG: Record<string, string> = {
+  DIAMANTE: `${BASE}cert-diamond.png`,
+  PLATINO:  `${BASE}cert-platinum.png`,
+  ORO:      `${BASE}cert-gold.png`,
+};
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const PAGE_SIZE = 60;
@@ -69,28 +75,17 @@ function CertBadge({ cert }: { cert: string }) {
   const parts = parseCerts(cert);
   return (
     <div className="flex flex-wrap gap-1">
-      {parts.map(p => {
-        const isDiam = p === "DIAMANTE";
-        const isPlat = p === "PLATINO";
-        const bg = isDiam
-          ? "rgba(57,255,20,0.12)"
-          : isPlat
-          ? "rgba(192,192,220,0.1)"
-          : "rgba(210,175,100,0.1)";
-        const border = isDiam
-          ? `1px solid rgba(57,255,20,0.45)`
-          : isPlat
-          ? "1px solid rgba(192,192,220,0.35)"
-          : "1px solid rgba(210,175,100,0.35)";
-        const color = isDiam ? G : isPlat ? "#c0c0dc" : "#d2af64";
-        const glow = isDiam ? `0 0 10px rgba(57,255,20,0.22)` : "none";
-        return (
-          <span key={p} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-[0.14em]"
-            style={{ background: bg, border, color, boxShadow: glow }}>
-            {isDiam ? "◆" : isPlat ? "◈" : "◉"} {p === "DIAMANTE" ? "Diamante" : p === "PLATINO" ? "Platino" : "Oro"}
-          </span>
-        );
-      })}
+      {parts.map(p => (
+        <img
+          key={p}
+          src={CERT_IMG[p]}
+          alt={p}
+          title={p === "DIAMANTE" ? "Diamante" : p === "PLATINO" ? "Platino" : "Oro"}
+          width={36}
+          height={36}
+          style={{ objectFit: "contain", display: "block" }}
+        />
+      ))}
     </div>
   );
 }
@@ -303,17 +298,22 @@ export default function Certifications() {
         {/* Filter chips */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Cert filter */}
-          {(["DIAMANTE", "PLATINO", "ORO"] as const).map(c => (
-            <button key={c} onClick={() => setFilterCert(filterCert === c ? "" : c)}
-              className="px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-[0.14em] transition-all"
-              style={{
-                background: filterCert === c ? (c === "DIAMANTE" ? "rgba(57,255,20,0.15)" : c === "PLATINO" ? "rgba(192,192,220,0.15)" : "rgba(210,175,100,0.15)") : "rgba(255,255,255,0.06)",
-                border: filterCert === c ? (c === "DIAMANTE" ? `1px solid rgba(57,255,20,0.5)` : c === "PLATINO" ? "1px solid rgba(192,192,220,0.4)" : "1px solid rgba(210,175,100,0.4)") : "1px solid rgba(255,255,255,0.1)",
-                color: filterCert === c ? (c === "DIAMANTE" ? G : c === "PLATINO" ? "#c0c0dc" : "#d2af64") : "rgba(255,255,255,0.5)",
-              }}>
-              {c === "DIAMANTE" ? "◆ Diamante" : c === "PLATINO" ? "◈ Platino" : "◉ Oro"}
-            </button>
-          ))}
+          {(["DIAMANTE", "PLATINO", "ORO"] as const).map(c => {
+            const active = filterCert === c;
+            const label = c === "DIAMANTE" ? "Diamante" : c === "PLATINO" ? "Platino" : "Oro";
+            return (
+              <button key={c} onClick={() => setFilterCert(active ? "" : c)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.14em] transition-all"
+                style={{
+                  background: active ? `${G}12` : "rgba(255,255,255,0.06)",
+                  border: active ? `1px solid ${G}45` : "1px solid rgba(255,255,255,0.1)",
+                  color: active ? G : "rgba(255,255,255,0.5)",
+                }}>
+                <img src={CERT_IMG[c]} alt={label} width={18} height={18} style={{ objectFit: "contain", display: "block" }} />
+                {label}
+              </button>
+            );
+          })}
 
           {/* Format filter */}
           {(["Álbum", "Single"] as const).map(f => (
