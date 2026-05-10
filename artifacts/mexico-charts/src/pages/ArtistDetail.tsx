@@ -513,7 +513,7 @@ export default function ArtistDetail() {
                     <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Canciones más escuchadas</h2>
                   </div>
                   {kworbStats?.spotify && (
-                    <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · spotify</div>
+                    <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Spotify</div>
                   )}
                 </div>
                 <div className="flex flex-col gap-3">
@@ -552,7 +552,7 @@ export default function ArtistDetail() {
                   <Play className="w-4 h-4" style={{ color: artist.accent }} />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams Totales de por Vida</h2>
                   <div className="ml-auto flex flex-col items-end gap-0.5">
-                    <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">fuente: kworb.net</span>
+                    <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Spotify · YouTube</span>
                     {lastUpdatedLabel && (
                       <span className="text-[9px] text-zinc-600 font-medium" data-testid="kworb-last-updated">
                         Actualizado {lastUpdatedLabel}
@@ -630,7 +630,7 @@ export default function ArtistDetail() {
                 <div className="flex items-center gap-3 mb-5">
                   <Music className="w-4 h-4" style={{ color: artist.accent }} />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Posiciones en México · Canciones Actuales</h2>
-                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · itunes</div>
+                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">iTunes · Apple Music</div>
                 </div>
                 {/* Header row */}
                 <div className="grid gap-x-3 mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-700" style={{ gridTemplateColumns: "1fr 40px 40px 40px 40px 40px" }}>
@@ -691,7 +691,7 @@ export default function ArtistDetail() {
               <SiYoutube className="w-4 h-4 text-red-500" />
               <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top Videos en YouTube</h2>
               <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.07)" }} />
-              <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb</div>
+              <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">YouTube</div>
             </div>
             <div className="flex flex-col gap-2">
               {kworbStats.youtube.topVideos.slice(0, 8).map((v, i) => (
