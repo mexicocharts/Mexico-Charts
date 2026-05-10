@@ -415,6 +415,8 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
 
     const song = raw.slice(0, firstPlatformIdx).replace(/\n/g, " ").trim();
     if (!song || song.length > 80 || song.length < 1) continue;
+    // Filter out album/compilation entries (kworb labels them "Album: X")
+    if (/^Album:/i.test(song) || /^Álbum:/i.test(song)) continue;
 
     const entry: ChartPosition = { song };
     let hasMexico = false;
@@ -433,11 +435,11 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
       const mxMatch = section.match(/#(\d+)\s*Mexico/);
       if (mxMatch) {
         const pos = parseInt(mxMatch[1], 10);
-        if (field === "spotifyMx")     entry.spotifyMx     = pos;
-        else if (field === "appleMusicMx") entry.appleMusicMx = pos;
-        else if (field === "youtubeMx")    entry.youtubeMx    = pos;
-        else if (field === "itunesMx")     entry.itunesMx     = pos;
-        else if (field === "deezerMx")     entry.deezerMx     = pos;
+        if (field === "spotifyMx")         entry.spotifyMx     = pos;
+        else if (field === "appleMusicMx") entry.appleMusicMx  = pos;
+        else if (field === "youtubeMx")    entry.youtubeMx     = pos;
+        else if (field === "itunesMx")     entry.itunesMx      = pos;
+        else if (field === "deezerMx")     entry.deezerMx      = pos;
         hasMexico = true;
       }
     }
@@ -447,7 +449,16 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
     }
   }
 
-  return positions.length > 0 ? positions.slice(0, 10) : null;
+  // Deduplicate by normalized song title (kworb sometimes repeats entries)
+  const seen = new Set<string>();
+  const deduped = positions.filter(p => {
+    const key = p.song.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  return deduped.length > 0 ? deduped.slice(0, 10) : null;
 }
 
 /* ── Fetch full stats for one artist ───────────────────────────────────── */
