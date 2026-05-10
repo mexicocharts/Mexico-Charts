@@ -180,7 +180,7 @@ export default function ArtistCertifications({ artistName }: Props) {
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 {["Título", "Formato", "Certificación", "Nivel", "Fecha", "Disquera"].map(h => (
-                  <th key={h} className="px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700">{h}</th>
+                  <th key={h} className={`px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700${h === "Certificación" ? " text-center" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -195,7 +195,7 @@ export default function ArtistCertifications({ artistName }: Props) {
                     <span className="block truncate">{row.titulo}</span>
                   </td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
-                  <td className="px-5 py-2.5"><div className="flex justify-center" style={{ transform: "translateX(-10px)" }}><CertBadge cert={row.certificacion} /></div></td>
+                  <td className="px-5 py-2.5 text-center"><div className="flex justify-center"><CertBadge cert={row.certificacion} /></div></td>
                   <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: G }}>
                     {row.nivel}
                   </td>
