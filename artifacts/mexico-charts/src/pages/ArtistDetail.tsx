@@ -5,10 +5,10 @@ import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMeta
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, BarChart, Bar, Cell,
+  ResponsiveContainer,
 } from "recharts";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
-import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
+import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
@@ -348,16 +348,6 @@ function buildFallback(name: string): ArtistData {
   };
 }
 
-/* ─── PLATFORM ICON ──────────────────────────────────────────── */
-function PlatformIcon({ icon, color }: { icon: ArtistData["platformStreams"][0]["icon"]; color: string }) {
-  if (icon === "spotify")   return <SiSpotify   className="w-5 h-5" style={{ color }} />;
-  if (icon === "youtube")   return <SiYoutube   className="w-5 h-5" style={{ color }} />;
-  if (icon === "apple")     return <SiApple     className="w-5 h-5" style={{ color }} />;
-  if (icon === "tiktok")     return <SiTiktok     className="w-5 h-5" style={{ color }} />;
-  if (icon === "instagram")  return <SiInstagram  className="w-5 h-5" style={{ color }} />;
-  if (icon === "soundcloud") return <SiSoundcloud className="w-5 h-5" style={{ color }} />;
-  return <Music className="w-5 h-5" style={{ color }} />;
-}
 
 /* ─── CUSTOM TOOLTIP ─────────────────────────────────────────── */
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
@@ -439,26 +429,6 @@ export default function ArtistDetail() {
     return merged;
   }, [sheetArtist, baseArtist, metaArtist]);
 
-  /* ── Live platform/social stats — built from the unified artist profile ── */
-  const livePlatforms: ArtistData["platformStreams"] = useMemo(() => {
-    // artist now carries all metadata fields; use them to build a rich platform bar
-    const m = metaArtist;
-    if (!m) return artist.platformStreams;
-    const rows: ArtistData["platformStreams"] = [];
-    if (m.spotifyListeners > 0)
-      rows.push({ platform: "Spotify",    streams: m.spotifyListenersFmt,     streamsNum: m.spotifyListeners / 1_000_000,    color: "#1DB954", icon: "spotify"    });
-    if (m.youtubeSubscribers > 0)
-      rows.push({ platform: "YouTube",    streams: m.youtubeSubscribersFmt,   streamsNum: m.youtubeSubscribers / 1_000_000,  color: "#FF0000", icon: "youtube"    });
-    if (m.tiktokFollowers > 0)
-      rows.push({ platform: "TikTok",     streams: m.tiktokFollowersFmt,      streamsNum: m.tiktokFollowers / 1_000_000,     color: "#69C9D0", icon: "tiktok"     });
-    if (m.instagramFollowers > 0)
-      rows.push({ platform: "Instagram",  streams: m.instagramFollowersFmt,   streamsNum: m.instagramFollowers / 1_000_000,  color: "#E1306C", icon: "instagram"  });
-    if (m.deezerFans > 0)
-      rows.push({ platform: "Deezer",     streams: m.deezerFansFmt,           streamsNum: m.deezerFans / 1_000_000,          color: "#A238FF", icon: "deezer"     });
-    if (m.soundcloudFollowers > 0)
-      rows.push({ platform: "SoundCloud", streams: m.soundcloudFollowersFmt,  streamsNum: m.soundcloudFollowers / 1_000_000, color: "#FF5500", icon: "soundcloud" });
-    return rows.length > 0 ? rows : artist.platformStreams;
-  }, [metaArtist, artist.platformStreams]);
 
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
@@ -479,7 +449,6 @@ export default function ArtistDetail() {
     return [];
   }, [kworbStats]);
 
-  const maxPlatform = Math.max(...livePlatforms.map(p => p.streamsNum));
 
   return (
     <div
@@ -655,141 +624,44 @@ export default function ArtistDetail() {
         </motion.section>
 
         {/* ══════════════════════════════════════════════════════════
-            PLATFORM + GENRE — 2 COL
-            Platform breakdown only renders when backed by real metadata.
-            Fake hardcoded platform numbers are suppressed so they don't
-            contradict the real kworb lifetime stream totals.
+            TOP TRACKS — standalone full-width card
         ══════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-          {/* STREAMING BY PLATFORM — only when real metadata is available */}
-          {metaArtist && <motion.section
+        {topTracks.length > 0 && (
+          <motion.section
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.65, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
-            data-testid="section-platforms"
+            data-testid="section-top-tracks"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6 h-full"
+              className="relative overflow-hidden rounded-2xl p-6"
               style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <Music className="w-4 h-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Audiencia por Plataforma</h2>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <span style={{ color: artist.accent }}><Music className="w-4 h-4" /></span>
+                    <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Canciones más escuchadas</h2>
+                  </div>
+                  {kworbStats?.spotify && (
+                    <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · spotify</div>
+                  )}
                 </div>
-                <ResponsiveContainer width="100%" height={Math.max(160, livePlatforms.length * 36)}>
-                  <BarChart data={livePlatforms} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="platform" type="category" tick={{ fill: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} width={80} />
-                    <Tooltip
-                      formatter={(v: number) => [v >= 1 ? `${v.toFixed(1)}M` : `${Math.round(v * 1000)}K`, "Audiencia"]}
-                      contentStyle={{ background: "#0d0d0d", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
-                      labelStyle={{ color: "rgba(255,255,255,0.5)" }}
-                    />
-                    <Bar dataKey="streamsNum" radius={4} maxBarSize={18}>
-                      {livePlatforms.map((p) => (
-                        <Cell key={p.platform} fill={p.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <div className="flex flex-col gap-2 mt-4">
-                  {livePlatforms.map(p => (
-                    <div key={p.platform} className="flex items-center gap-3">
-                      <PlatformIcon icon={p.icon} color={p.color} />
-                      <div className="flex-1">
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-zinc-400 font-bold">{p.platform}</span>
-                          <span className="font-black text-white">{p.streams}</span>
-                        </div>
-                        <div className="h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            whileInView={{ width: `${(p.streamsNum / maxPlatform) * 100}%` }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                            className="h-full rounded-full"
-                            style={{ background: p.color }}
-                          />
-                        </div>
-                      </div>
+                <div className="flex flex-col gap-3">
+                  {topTracks.map((s, i) => (
+                    <div key={i} className="flex items-center gap-4 py-1 border-b border-white/[0.04] last:border-0">
+                      <span className="text-zinc-700 font-black text-sm w-5 shrink-0">{i + 1}</span>
+                      <span className="flex-1 text-zinc-200 text-sm font-medium truncate">{s.title}</span>
+                      <span className="text-sm font-black shrink-0" style={{ color: artist.accent }}>{s.streams}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
-          </motion.section>}
-
-          {/* GENRE BREAKDOWN */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.65, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-            data-testid="section-genre-breakdown"
-          >
-            <div
-              className="relative overflow-hidden rounded-2xl p-6 h-full"
-              style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
-            >
-              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-              <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <span style={{ color: artist.accent }}><Music className="w-4 h-4" /></span>
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Distribución de Género</h2>
-                </div>
-                <div className="flex flex-col gap-4">
-                  {artist.genreBreakdown.map((g, idx) => {
-                    const opacity = 1 - idx * 0.18;
-                    const color = artist.accent === "#39FF14" ? `rgba(57,255,20,${opacity})` : artist.accent;
-                    return (
-                      <div key={g.genre}>
-                        <div className="flex justify-between mb-1.5">
-                          <span className="text-sm font-bold text-zinc-300">{g.genre}</span>
-                          <span className="text-sm font-black" style={{ color }}>{g.pct}%</span>
-                        </div>
-                        <div className="h-2 bg-white/[0.05] rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            whileInView={{ width: `${g.pct}%` }}
-                            viewport={{ once: true }}
-                            transition={{ duration: 1.2, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
-                            className="h-full rounded-full"
-                            style={{ background: `linear-gradient(90deg, ${color}, ${color}70)`, boxShadow: `0 0 8px ${color}50` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Top Tracks — real kworb data when available, hardcoded fallback */}
-                {topTracks.length > 0 && (
-                  <div className="mt-6 pt-5 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600">Canciones más escuchadas</div>
-                      {kworbStats?.spotify && (
-                        <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · spotify</div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-2.5">
-                      {topTracks.map((s, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                          <span className="text-zinc-700 font-black text-xs w-4">{i + 1}</span>
-                          <span className="flex-1 text-zinc-300 text-sm font-medium truncate">{s.title}</span>
-                          <span className="text-xs font-black" style={{ color: artist.accent }}>{s.streams}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
           </motion.section>
-        </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════
             KWORB — LIFETIME STREAMS HERO

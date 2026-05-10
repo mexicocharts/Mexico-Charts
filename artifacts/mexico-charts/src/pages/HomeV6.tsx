@@ -10,7 +10,7 @@ import {
 import { Search, Menu, TrendingUp, Music, Mail } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
+import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -41,12 +41,12 @@ const DEFAULT_TOP_STRIP = [
 ];
 
 const GENRES = [
-  { name:"Corridos Tumbados", streams:"48.3M", artists:48, accent:"#39FF14" },
-  { name:"Regional Mexicano",  streams:"31.2M", artists:62, accent:"rgba(57,255,20,0.78)" },
-  { name:"Norteño",            streams:"18.7M", artists:34, accent:"rgba(57,255,20,0.60)" },
-  { name:"Banda",              streams:"14.2M", artists:29, accent:"rgba(57,255,20,0.46)" },
-  { name:"Hip-Hop Mexicano",   streams:"9.6M",  artists:21, accent:"rgba(57,255,20,0.35)" },
-  { name:"Pop Urbano",         streams:"6.8M",  artists:18, accent:"rgba(57,255,20,0.26)" },
+  { name:"Corridos Tumbados", artists:48, accent:"#39FF14" },
+  { name:"Regional Mexicano",  artists:62, accent:"rgba(57,255,20,0.78)" },
+  { name:"Norteño",            artists:34, accent:"rgba(57,255,20,0.60)" },
+  { name:"Banda",              artists:29, accent:"rgba(57,255,20,0.46)" },
+  { name:"Hip-Hop Mexicano",   artists:21, accent:"rgba(57,255,20,0.35)" },
+  { name:"Pop Urbano",         artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
 const DEFAULT_ASCENSO = [
@@ -289,6 +289,42 @@ export default function HomeV6() {
       accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
     }));
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
+
+  /* ── Genre artist counts — live from chart roster, fallback to GENRES const ── */
+  const genreArtistCounts = useMemo(() => {
+    if (sheetsEmpty || weeklyArtists.length === 0) return null;
+    const counts: Record<string, number> = {};
+    for (const a of weeklyArtists) {
+      const combined = `${a.genre} ${a.subgenre}`.toLowerCase();
+      if (combined.includes("corrido"))                                   counts["Corridos Tumbados"]  = (counts["Corridos Tumbados"]  ?? 0) + 1;
+      else if (combined.includes("regional"))                             counts["Regional Mexicano"]   = (counts["Regional Mexicano"]   ?? 0) + 1;
+      else if (combined.includes("norteño") || combined.includes("norteno")) counts["Norteño"]          = (counts["Norteño"]             ?? 0) + 1;
+      else if (combined.includes("banda"))                                counts["Banda"]               = (counts["Banda"]               ?? 0) + 1;
+      else if (combined.includes("hip") || combined.includes("rap"))     counts["Hip-Hop Mexicano"]    = (counts["Hip-Hop Mexicano"]    ?? 0) + 1;
+      else if (combined.includes("pop") || combined.includes("urbano"))  counts["Pop Urbano"]          = (counts["Pop Urbano"]          ?? 0) + 1;
+    }
+    return counts;
+  }, [weeklyArtists, sheetsEmpty]);
+
+  /* ── Platform totals — summed from artist metadata (real lifetime numbers) ── */
+  function fmtBig(n: number): string {
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    return String(n);
+  }
+
+  const platformTotals = useMemo(() => {
+    let spotify = 0;
+    let youtube = 0;
+    for (const m of metaByKey.values()) {
+      spotify += m.spotifyStreams;
+      youtube += m.youtubeViews;
+    }
+    return {
+      spotifyFmt: spotify > 0 ? fmtBig(spotify) : null,
+      youtubeFmt: youtube > 0 ? fmtBig(youtube) : null,
+    };
+  }, [metaByKey]);
 
   const TICKER_ITEMS = useMemo(() => {
     // Always derive from TOP_STRIP (which is already metadata-enriched for both
@@ -778,17 +814,16 @@ export default function HomeV6() {
               <div className="relative h-full flex flex-col justify-between p-4 pl-5">
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
-                  <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>{g.artists} artistas activos</div>
+                  <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>
+                    {(genreArtistCounts?.[g.name] ?? g.artists)} artistas activos
+                  </div>
                 </div>
-                <div className="flex items-end justify-between">
-                  <div className="text-lg font-black" style={{ color:g.accent }}>{g.streams}</div>
-                  <motion.span
-                    className="text-[9px] uppercase tracking-widest font-black"
-                    initial={{ opacity:0 }}
-                    whileHover={{ opacity:1 }}
-                    style={{ color:g.accent }}
-                  >VER →</motion.span>
-                </div>
+                <motion.span
+                  className="text-[9px] uppercase tracking-widest font-black self-end"
+                  initial={{ opacity:0 }}
+                  whileHover={{ opacity:1 }}
+                  style={{ color:g.accent }}
+                >VER →</motion.span>
               </div>
             </motion.div>
           ))}
@@ -901,20 +936,31 @@ export default function HomeV6() {
       <FadeUp>
         <section className="px-6 lg:px-12 py-4" data-testid="platform-strip">
           <div className="rounded-xl overflow-hidden" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 6px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
-            <div className="px-6 py-3 border-b border-white/[0.05]">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS POR PLATAFORMA · SEMANA 19</h2>
+            <div className="px-6 py-3 border-b border-white/[0.05] flex items-center justify-between">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS TOTALES · BASE DE DATOS</h2>
+              <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Fuente: base de datos</span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-white/[0.05]">
-              {[
-                { icon:<SiSpotify className="w-5 h-5"/>, color:"#1DB954", name:"Spotify",     streams:"32.4M", share:"48%" },
-                { icon:<SiYoutube className="w-5 h-5"/>, color:"#FF0000", name:"YouTube",     streams:"18.2M", share:"28%" },
-                { icon:<SiApple className="w-5 h-5"/>,   color:"#FF2D55", name:"Apple Music", streams:"9.1M",  share:"14%" },
-                { icon:<Music className="w-5 h-5"/>,     color:"#A238FF", name:"Deezer",      streams:"6.5M",  share:"10%" },
-              ].map(p => (
+            <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
+              {([
+                {
+                  icon: <SiSpotify className="w-5 h-5" />,
+                  color: "#1DB954",
+                  name: "Spotify",
+                  streams: platformTotals.spotifyFmt ?? "675.5B",
+                  label: "streams totales",
+                },
+                {
+                  icon: <SiYoutube className="w-5 h-5" />,
+                  color: "#FF0000",
+                  name: "YouTube",
+                  streams: platformTotals.youtubeFmt ?? "434B",
+                  label: "vistas totales",
+                },
+              ] as const).map(p => (
                 <motion.div
                   key={p.name}
                   whileHover={reduced ? {} : { backgroundColor:"rgba(255,255,255,0.02)", transition:{ duration:0.2 } }}
-                  className="flex items-center gap-3 px-5 py-4 cursor-pointer"
+                  className="flex items-center gap-4 px-6 py-5 cursor-default"
                 >
                   <motion.span
                     style={{ color:p.color }}
@@ -923,8 +969,8 @@ export default function HomeV6() {
                   >{p.icon}</motion.span>
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-zinc-600 font-bold">{p.name}</div>
-                    <div className="text-base font-black text-white">{p.streams}</div>
-                    <div className="text-[10px] font-black" style={{ color:"#39FF14" }}>{p.share}</div>
+                    <div className="text-xl font-black text-white leading-tight">{p.streams}</div>
+                    <div className="text-[10px] font-bold text-zinc-600 mt-0.5">{p.label}</div>
                   </div>
                 </motion.div>
               ))}
