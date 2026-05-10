@@ -7,9 +7,10 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
 } from "recharts";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
 import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useKworbStats } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -437,6 +438,17 @@ export default function ArtistDetail() {
   const artistImages = useArtistImages(names);
   const photo = artistImages[artist.name] ?? null;
 
+  /* ── Kworb lifetime streaming stats ── */
+  const { data: kworbStats } = useKworbStats(artist.name);
+
+  /* ── Top tracks: prefer kworb real data, fall back to hardcoded ── */
+  const topTracks = useMemo(() => {
+    if (kworbStats?.spotify?.topTracks?.length) {
+      return kworbStats.spotify.topTracks.map(t => ({ title: t.title, streams: t.streamsFmt }));
+    }
+    return artist.topSongs;
+  }, [kworbStats, artist.topSongs]);
+
   const maxPlatform = Math.max(...livePlatforms.map(p => p.streamsNum));
 
   return (
@@ -721,12 +733,17 @@ export default function ArtistDetail() {
                   })}
                 </div>
 
-                {/* Top Songs */}
-                {artist.topSongs.length > 0 && (
+                {/* Top Tracks — real kworb data when available, hardcoded fallback */}
+                {topTracks.length > 0 && (
                   <div className="mt-6 pt-5 border-t border-white/[0.06]">
-                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600 mb-3">Canciones más escuchadas</div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-600">Canciones más escuchadas</div>
+                      {kworbStats?.spotify && (
+                        <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · spotify</div>
+                      )}
+                    </div>
                     <div className="flex flex-col gap-2.5">
-                      {artist.topSongs.map((s, i) => (
+                      {topTracks.map((s, i) => (
                         <div key={i} className="flex items-center gap-3">
                           <span className="text-zinc-700 font-black text-xs w-4">{i + 1}</span>
                           <span className="flex-1 text-zinc-300 text-sm font-medium truncate">{s.title}</span>
@@ -740,6 +757,190 @@ export default function ArtistDetail() {
             </div>
           </motion.section>
         </div>
+
+        {/* ══════════════════════════════════════════════════════════
+            KWORB — LIFETIME STREAMS HERO
+        ══════════════════════════════════════════════════════════ */}
+        {(kworbStats?.spotify || kworbStats?.youtube) && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-kworb-streams"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-6"
+              style={{ background: "linear-gradient(160deg,#0a0f0a 0%,#090909 100%)", border: `1px solid ${artist.accent}18`, boxShadow: `0 8px 48px rgba(0,0,0,0.65), 0 0 0 1px ${artist.accent}08, inset 0 1px 0 rgba(255,255,255,0.04)` }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}40, transparent)` }} />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-6">
+                  <Play className="w-4 h-4" style={{ color: artist.accent }} />
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams Totales de por Vida</h2>
+                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">fuente: kworb.net</div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {kworbStats.spotify && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
+                      </div>
+                      <div
+                        className="text-4xl font-black leading-none tracking-tight"
+                        style={{ color: artist.accent, textShadow: `0 0 40px ${artist.accent}30` }}
+                      >
+                        {kworbStats.spotify.totalStreamsFmt}
+                      </div>
+                      <div className="text-[11px] text-zinc-600 mt-1">streams de por vida</div>
+                      <div className="flex items-center gap-4 mt-2">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Diario</div>
+                          <div className="text-xs font-black text-zinc-400">{kworbStats.spotify.dailyStreamsFmt}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
+                          <div className="text-xs font-black text-zinc-400">{kworbStats.spotify.trackCount}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {kworbStats.youtube && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <SiYoutube className="w-4 h-4 text-red-500" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
+                      </div>
+                      <div className="text-4xl font-black leading-none tracking-tight text-red-400">
+                        {kworbStats.youtube.totalViewsFmt}
+                      </div>
+                      <div className="text-[11px] text-zinc-600 mt-1">vistas totales</div>
+                      <div className="flex items-center gap-4 mt-2">
+                        <div>
+                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Promedio diario</div>
+                          <div className="text-xs font-black text-zinc-400">{kworbStats.youtube.dailyAvgFmt}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            KWORB — MEXICO CHART POSITIONS
+        ══════════════════════════════════════════════════════════ */}
+        {kworbStats?.chartPositions && kworbStats.chartPositions.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-chart-positions"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-6"
+              style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-5">
+                  <Music className="w-4 h-4" style={{ color: artist.accent }} />
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Posiciones en México · Canciones Actuales</h2>
+                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb · itunes</div>
+                </div>
+                {/* Header row */}
+                <div className="grid gap-x-3 mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-700" style={{ gridTemplateColumns: "1fr 40px 40px 40px 40px 40px" }}>
+                  <span>Canción</span>
+                  <span className="text-center">SP</span>
+                  <span className="text-center">AM</span>
+                  <span className="text-center">YT</span>
+                  <span className="text-center">IT</span>
+                  <span className="text-center">DZ</span>
+                </div>
+                <div className="flex flex-col gap-0">
+                  {kworbStats.chartPositions.map((cp, i) => (
+                    <div
+                      key={i}
+                      className="grid gap-x-3 py-2 items-center"
+                      style={{
+                        gridTemplateColumns: "1fr 40px 40px 40px 40px 40px",
+                        borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined,
+                      }}
+                    >
+                      <span className="text-sm text-zinc-300 font-medium truncate pr-2">{cp.song}</span>
+                      {(["spotifyMx", "appleMusicMx", "youtubeMx", "itunesMx", "deezerMx"] as const).map((key) => {
+                        const val = cp[key];
+                        const isTop3 = val !== undefined && val <= 3;
+                        return (
+                          <span
+                            key={key}
+                            className="text-center text-xs font-black"
+                            style={{ color: val === undefined ? "rgba(255,255,255,0.08)" : isTop3 ? artist.accent : "rgba(255,255,255,0.45)" }}
+                          >
+                            {val === undefined ? "—" : `#${val}`}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-4 text-[9px] text-zinc-700 font-bold uppercase tracking-wider">
+                  <span>SP=Spotify</span><span>AM=Apple Music</span><span>YT=YouTube</span><span>IT=iTunes</span><span>DZ=Deezer</span>
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            KWORB — TOP YOUTUBE VIDEOS
+        ══════════════════════════════════════════════════════════ */}
+        {kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-youtube-videos"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <SiYoutube className="w-4 h-4 text-red-500" />
+              <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top Videos en YouTube</h2>
+              <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.07)" }} />
+              <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">kworb</div>
+            </div>
+            <div className="flex flex-col gap-2">
+              {kworbStats.youtube.topVideos.slice(0, 8).map((v, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex items-center gap-4 rounded-xl px-4 py-3"
+                  style={{ background: "linear-gradient(160deg,#0d0d0d,#090909)", border: "1px solid rgba(255,255,255,0.05)" }}
+                >
+                  <span className="text-zinc-700 font-black text-sm w-5 flex-shrink-0">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-zinc-300 font-medium truncate">{v.title}</div>
+                    {v.published && (
+                      <div className="text-[10px] text-zinc-700 mt-0.5">{v.published}</div>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
+                    <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.section>
+        )}
 
         {/* ══════════════════════════════════════════════════════════
             TOUR DATES

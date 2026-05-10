@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 
@@ -57,10 +58,11 @@ interface CardProps {
   tiktokFollowersFmt: string;
   youtubeSubscribersFmt: string;
   photoUrl?: string | null;
+  totalStreamsFmt?: string | null;
   index: number;
 }
 
-function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, index }: CardProps) {
+function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, totalStreamsFmt, index }: CardProps) {
   const slug = slugify(name);
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
@@ -203,6 +205,13 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
                   <span className="text-[10px] text-zinc-400 truncate">{youtubeSubscribersFmt}</span>
                 </div>
               )}
+              {totalStreamsFmt && (
+                <div className="flex items-center gap-1 col-span-2 pt-1 mt-0.5 border-t border-white/[0.04]">
+                  <SiSpotify className="w-2.5 h-2.5 flex-shrink-0" style={{ color: "#1DB954" }} />
+                  <span className="text-[10px] font-black truncate" style={{ color }}>{totalStreamsFmt}</span>
+                  <span className="text-[9px] text-zinc-700 font-bold uppercase tracking-wider">streams totales</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -245,9 +254,10 @@ export default function ArtistRoster() {
   const [genreFilter, setGenreFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
 
-  /* Collect all artist display names for the image batch fetch */
+  /* Collect all artist display names for image + kworb batch fetches */
   const allNames = useMemo(() => Array.from(byKey.values()).map(a => a.displayName), [byKey]);
   const artistImages = useArtistImages(allNames);
+  const { data: kworbStreams } = useBatchKworbStreams(allNames);
 
   /* Derive sorted array from map */
   const allArtists = useMemo(() => {
@@ -509,21 +519,31 @@ export default function ArtistRoster() {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
           >
             <AnimatePresence mode="popLayout">
-              {filtered.map((artist, i) => (
-                <ArtistCard
-                  key={artist.artistKey}
-                  name={artist.displayName}
-                  genre={artist.genre}
-                  country={artist.country}
-                  label={artist.label}
-                  spotifyListenersFmt={artist.spotifyListenersFmt}
-                  instagramFollowersFmt={artist.instagramFollowersFmt}
-                  tiktokFollowersFmt={artist.tiktokFollowersFmt}
-                  youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
-                  photoUrl={artistImages[artist.displayName]}
-                  index={i}
-                />
-              ))}
+              {filtered.map((artist, i) => {
+                const rawStreams = kworbStreams?.[artist.displayName];
+                let totalStreamsFmt: string | null = null;
+                if (rawStreams && rawStreams > 0) {
+                  if (rawStreams >= 1_000_000_000) totalStreamsFmt = `${(rawStreams / 1_000_000_000).toFixed(1)}B`;
+                  else if (rawStreams >= 1_000_000) totalStreamsFmt = `${(rawStreams / 1_000_000).toFixed(1)}M`;
+                  else if (rawStreams >= 1_000) totalStreamsFmt = `${Math.round(rawStreams / 1_000)}K`;
+                }
+                return (
+                  <ArtistCard
+                    key={artist.artistKey}
+                    name={artist.displayName}
+                    genre={artist.genre}
+                    country={artist.country}
+                    label={artist.label}
+                    spotifyListenersFmt={artist.spotifyListenersFmt}
+                    instagramFollowersFmt={artist.instagramFollowersFmt}
+                    tiktokFollowersFmt={artist.tiktokFollowersFmt}
+                    youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
+                    photoUrl={artistImages[artist.displayName]}
+                    totalStreamsFmt={totalStreamsFmt}
+                    index={i}
+                  />
+                );
+              })}
             </AnimatePresence>
           </motion.div>
         )}
