@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
+import { useLocation } from "wouter";
 import { slugify } from "@/lib/utils";
 import {
   motion, AnimatePresence,
@@ -180,6 +181,51 @@ function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode
         {children}
       </div>
     </section>
+  );
+}
+
+/* ─── INDUSTRIA DROPDOWN (desktop nav) ───────────────────────── */
+
+const INDUSTRIA_SUB = [
+  { label: "Industria",       href: "/industria" },
+  { label: "Certificaciones", href: "/industry/certifications" },
+];
+
+function IndustriaDropdown() {
+  const [open, setOpen] = useState(false);
+  const [loc] = useLocation();
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const active = loc.startsWith("/industria") || loc.startsWith("/industry");
+
+  function show() { if (timer.current) clearTimeout(timer.current); setOpen(true); }
+  function hide() { timer.current = setTimeout(() => setOpen(false), 120); }
+
+  return (
+    <div className="relative" onMouseEnter={show} onMouseLeave={hide}>
+      <button className="flex items-center gap-0.5 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250 cursor-pointer"
+        style={{ background: "transparent", color: active ? "#39FF14" : "rgba(255,255,255,0.35)", border: "none" }}>
+        INDUSTRIA
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" className="ml-0.5 opacity-50"><path d="M2 3.5l2.5 2.5L7 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </button>
+      {open && (
+        <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-44 rounded-xl overflow-hidden py-1"
+          style={{ background: "#111", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.7)", zIndex: 100 }}>
+          {INDUSTRIA_SUB.map(sub => {
+            const subActive = loc === sub.href || loc.startsWith(sub.href + "/");
+            return (
+              <Link key={sub.href} href={sub.href}>
+                <span className="block px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] transition-all cursor-pointer"
+                  style={{ color: subActive ? "#39FF14" : "rgba(255,255,255,0.55)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color="#fff"; (e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.05)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color=subActive?"#39FF14":"rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background="transparent"; }}>
+                  {subActive && <span style={{ color: "#39FF14" }}>› </span>}{sub.label}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -439,6 +485,11 @@ export default function HomeV6() {
           <div className="hidden lg:flex items-center gap-0.5">
             {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map((item, i) => {
               const href = item === "ARTISTAS" ? "/artists" : item === "INDUSTRIA" ? "/industria" : "#";
+              if (item === "INDUSTRIA") {
+                return (
+                  <IndustriaDropdown key={item} />
+                );
+              }
               return (
               <Link key={item} href={href}
                 className="px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250"

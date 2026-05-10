@@ -5,6 +5,7 @@ import {
   Globe, BarChart3, Headphones, Star, Music2, Radio,
   MapPin, Users, ExternalLink, Home, ChevronRight, Lock, Smartphone
 } from "lucide-react";
+import SiteNav from "@/components/SiteNav";
 
 const logoUrl       = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const ifpiCover     = `${import.meta.env.BASE_URL}ifpi-cover.jpg`;
@@ -25,8 +26,6 @@ function FadeUp({ children, delay = 0, className = "" }: { children: React.React
 }
 
 
-const NAV_ITEMS = ["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const;
-
 /* Horizontal bar component */
 function DataBar({ pct, color = G, delay = 0 }: { pct: number; color?: string; delay?: number }) {
   return (
@@ -46,35 +45,7 @@ export default function IndustryLanding() {
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
 
-      {/* ── NAV ── */}
-      <header className="sticky top-0 z-50"
-        style={{ background: "rgba(8,8,8,0.95)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
-        <div className="flex items-center justify-between px-6 lg:px-10 h-14">
-          <Link href="/"><img src={logoUrl} alt="Mexico Charts" className="h-8 object-contain opacity-90 cursor-pointer" /></Link>
-          <nav className="hidden lg:flex items-center gap-7">
-            {NAV_ITEMS.map(item => {
-              const href = item === "ARTISTAS" ? "/artists" : item === "INDUSTRIA" ? "/industria" : item === "INICIO" ? "/" : "#";
-              const active = item === "INDUSTRIA";
-              return (
-                <Link key={item} href={href}>
-                  <span className="relative text-[11px] font-black uppercase tracking-[0.2em] cursor-pointer transition-colors"
-                    style={{ color: active ? G : "rgba(255,255,255,0.42)" }}>
-                    {item}
-                    {active && <span className="absolute -bottom-[18px] left-0 right-0 h-[2px] rounded-full" style={{ background: G }} />}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.28)" }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: G }} />En vivo
-            </div>
-            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.55)" }}>MX</div>
-          </div>
-        </div>
-      </header>
+      <SiteNav />
 
       {/* ── BREADCRUMB ── */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
