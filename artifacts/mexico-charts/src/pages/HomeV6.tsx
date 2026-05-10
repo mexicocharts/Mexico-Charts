@@ -290,18 +290,26 @@ export default function HomeV6() {
     }));
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
-  /* ── Genre artist counts — live from chart roster, fallback to GENRES const ── */
+  /* ── Genre artist counts — per-label matching, all six buckets initialized to 0 ── */
   const genreArtistCounts = useMemo(() => {
     if (sheetsEmpty || weeklyArtists.length === 0) return null;
-    const counts: Record<string, number> = {};
+    const counts: Record<string, number> = {
+      "Corridos Tumbados": 0,
+      "Regional Mexicano": 0,
+      "Norteño": 0,
+      "Banda": 0,
+      "Hip-Hop Mexicano": 0,
+      "Pop Urbano": 0,
+    };
     for (const a of weeklyArtists) {
-      const combined = `${a.genre} ${a.subgenre}`.toLowerCase();
-      if (combined.includes("corrido"))                                   counts["Corridos Tumbados"]  = (counts["Corridos Tumbados"]  ?? 0) + 1;
-      else if (combined.includes("regional"))                             counts["Regional Mexicano"]   = (counts["Regional Mexicano"]   ?? 0) + 1;
-      else if (combined.includes("norteño") || combined.includes("norteno")) counts["Norteño"]          = (counts["Norteño"]             ?? 0) + 1;
-      else if (combined.includes("banda"))                                counts["Banda"]               = (counts["Banda"]               ?? 0) + 1;
-      else if (combined.includes("hip") || combined.includes("rap"))     counts["Hip-Hop Mexicano"]    = (counts["Hip-Hop Mexicano"]    ?? 0) + 1;
-      else if (combined.includes("pop") || combined.includes("urbano"))  counts["Pop Urbano"]          = (counts["Pop Urbano"]          ?? 0) + 1;
+      const g  = (a.genre    ?? "").toLowerCase();
+      const sg = (a.subgenre ?? "").toLowerCase();
+      if (g.includes("corrido") || sg.includes("corrido"))                                           counts["Corridos Tumbados"]++;
+      if (g.includes("regional") || sg.includes("regional"))                                         counts["Regional Mexicano"]++;
+      if (g.includes("norteño") || sg.includes("norteño") || g.includes("norteno") || sg.includes("norteno")) counts["Norteño"]++;
+      if (g.includes("banda") || sg.includes("banda"))                                               counts["Banda"]++;
+      if (g.includes("hip") || sg.includes("hip") || g.includes("rap") || sg.includes("rap"))       counts["Hip-Hop Mexicano"]++;
+      if (g.includes("pop") || sg.includes("pop") || g.includes("urbano") || sg.includes("urbano")) counts["Pop Urbano"]++;
     }
     return counts;
   }, [weeklyArtists, sheetsEmpty]);
@@ -815,7 +823,7 @@ export default function HomeV6() {
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
                   <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>
-                    {(genreArtistCounts?.[g.name] ?? g.artists)} artistas activos
+                    {genreArtistCounts !== null ? genreArtistCounts[g.name] : g.artists} artistas activos
                   </div>
                 </div>
                 <motion.span
@@ -946,14 +954,14 @@ export default function HomeV6() {
                   icon: <SiSpotify className="w-5 h-5" />,
                   color: "#1DB954",
                   name: "Spotify",
-                  streams: platformTotals.spotifyFmt ?? "675.5B",
+                  streams: platformTotals.spotifyFmt ?? "—",
                   label: "streams totales",
                 },
                 {
                   icon: <SiYoutube className="w-5 h-5" />,
                   color: "#FF0000",
                   name: "YouTube",
-                  streams: platformTotals.youtubeFmt ?? "434B",
+                  streams: platformTotals.youtubeFmt ?? "—",
                   label: "vistas totales",
                 },
               ] as const).map(p => (
