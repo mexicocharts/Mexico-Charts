@@ -300,25 +300,35 @@ export default function HomeV6() {
     "Pop":               ["pop", "pop urbano", "latin pop", "pop latino"],
   };
 
-  const genreArtistCounts = useMemo(() => {
+  const genreStats = useMemo(() => {
     if (metaByKey.size === 0) return null;
-    const counts: Record<string, number> = {
-      "Corridos Tumbados": 0,
-      "Regional Mexicano": 0,
-      "Norteño": 0,
-      "Banda": 0,
-      "Hip-Hop Mexicano": 0,
-      "Pop": 0,
+    const init = () => ({ artists: 0, streams: 0, listeners: 0 });
+    const stats: Record<string, { artists: number; streams: number; listeners: number }> = {
+      "Corridos Tumbados": init(),
+      "Regional Mexicano": init(),
+      "Norteño":           init(),
+      "Banda":             init(),
+      "Hip-Hop Mexicano":  init(),
+      "Pop":               init(),
     };
     for (const m of metaByKey.values()) {
       const g  = m.genre.toLowerCase().trim();
       const sg = m.subgenre.toLowerCase().trim();
       for (const [label, synonyms] of Object.entries(GENRE_SYNONYMS)) {
-        if (synonyms.some(s => g === s || sg === s)) counts[label]++;
+        if (synonyms.some(s => g === s || sg === s)) {
+          stats[label].artists++;
+          stats[label].streams   += m.spotifyStreams;
+          stats[label].listeners += m.spotifyListeners;
+        }
       }
     }
-    return counts;
+    return stats;
   }, [metaByKey]);
+
+  const genreArtistCounts = useMemo(
+    () => genreStats ? Object.fromEntries(Object.entries(genreStats).map(([k, v]) => [k, v.artists])) : null,
+    [genreStats],
+  );
 
   /* ── Platform totals — summed from artist metadata (real lifetime numbers) ── */
   function fmtBig(n: number): string {
@@ -829,15 +839,23 @@ export default function HomeV6() {
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
                   <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>
-                    {genreArtistCounts !== null ? `${genreArtistCounts[g.name]} artistas activos` : "—"}
+                    {genreArtistCounts !== null ? `${genreArtistCounts[g.name]} artistas` : "—"}
                   </div>
                 </div>
-                <motion.span
-                  className="text-[9px] uppercase tracking-widest font-black self-end"
-                  initial={{ opacity:0 }}
-                  whileHover={{ opacity:1 }}
-                  style={{ color:g.accent }}
-                >VER →</motion.span>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-lg font-black leading-none text-white">
+                      {genreStats ? fmtBig(genreStats[g.name].streams) : "—"}
+                    </div>
+                    <div className="text-[9px] uppercase tracking-widest mt-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>streams spotify</div>
+                  </div>
+                  <motion.span
+                    className="text-[9px] uppercase tracking-widest font-black"
+                    initial={{ opacity:0 }}
+                    whileHover={{ opacity:1 }}
+                    style={{ color:g.accent }}
+                  >VER →</motion.span>
+                </div>
               </div>
             </motion.div>
           ))}
