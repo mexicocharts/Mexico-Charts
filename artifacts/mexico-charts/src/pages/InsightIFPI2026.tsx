@@ -335,9 +335,15 @@ export default function InsightIFPI2026() {
         <Link href="/">
           <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-50 cursor-pointer hover:opacity-80 transition-opacity" />
         </Link>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
-          © 2026 Mexico Charts
-        </p>
+        <Link href="/industria">
+          <motion.span
+            whileHover={{ x: 2 }}
+            className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer flex items-center gap-1.5"
+            style={{ color: "rgba(255,255,255,0.28)" }}
+          >
+            Ver sección Industria →
+          </motion.span>
+        </Link>
       </footer>
 
     </div>

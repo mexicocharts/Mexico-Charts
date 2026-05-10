@@ -437,8 +437,8 @@ export default function HomeV6() {
           </Link>
 
           <div className="hidden lg:flex items-center gap-0.5">
-            {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"] as const).map((item, i) => {
-              const href = item === "ARTISTAS" ? "/artists" : "#";
+            {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map((item, i) => {
+              const href = item === "ARTISTAS" ? "/artists" : item === "INDUSTRIA" ? "/industria" : "#";
               return (
               <Link key={item} href={href}
                 className="px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250"
@@ -477,8 +477,8 @@ export default function HomeV6() {
               className="lg:hidden overflow-hidden border-t border-white/5 bg-[#050505]"
             >
               <div className="px-6 py-4 flex flex-col gap-4">
-                {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","TOURING"] as const).map(item => {
-                  const href = item === "ARTISTAS" ? "/artists" : "#";
+                {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map(item => {
+                  const href = item === "ARTISTAS" ? "/artists" : item === "INDUSTRIA" ? "/industria" : "#";
                   return (
                     <Link key={item} href={href} className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400 hover:text-[#39FF14] transition-colors">{item}</Link>
                   );
@@ -867,7 +867,7 @@ export default function HomeV6() {
       ══════════════════════════════════════════════════════════ */}
       <FadeUp>
         <section className="px-6 lg:px-12 py-3" data-testid="ifpi-teaser">
-          <Link href="/insights/mexico-top-10-ifpi-2026">
+          <Link href="/industria">
             <motion.div
               whileHover={reduced ? {} : { y: -2, borderColor: "rgba(57,255,20,0.28)", transition: { duration: 0.22 } }}
               className="relative overflow-hidden rounded-xl cursor-pointer"
