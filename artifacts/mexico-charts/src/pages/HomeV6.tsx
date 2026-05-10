@@ -7,7 +7,7 @@ import {
   useScroll, useTransform,
   useReducedMotion,
 } from "framer-motion";
-import { Search, Menu, TrendingUp, MapPin, Music, Mail } from "lucide-react";
+import { Search, Menu, TrendingUp, Music, Mail } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
@@ -65,12 +65,6 @@ const ASCENSO_ACCENTS = [
   "rgba(57,255,20,0.24)",
 ];
 
-const GIRAS = [
-  { artist:"Peso Pluma",     tour:"Éxodo Tour",       dates:"Jun – Dic 2024", gross:"$60M+", accent:"#39FF14" },
-  { artist:"Grupo Frontera", tour:"No Se Va Tour",    dates:"Jul – Nov 2024", gross:"$28M",  accent:"rgba(57,255,20,0.65)" },
-  { artist:"Carin León",     tour:"Latinoamérica 24", dates:"Ago – Oct 2024", gross:"$19M",  accent:"rgba(57,255,20,0.48)" },
-  { artist:"Natanael Cano",  tour:"CT Tour 2024",     dates:"Sep – Dic 2024", gross:"$12M",  accent:"rgba(57,255,20,0.34)" },
-];
 
 const DEFAULT_TICKER_ITEMS = [
   "PESO PLUMA", "32.4M OYENTES", "ÉXODO TOUR",
@@ -324,7 +318,6 @@ export default function HomeV6() {
     ...HERO_ARTISTS.map(a => a.name),
     ...TOP_STRIP.map(a => a.name),
     ...ASCENSO.map(a => a.name),
-    ...GIRAS.map(a => a.artist),
   ], [HERO_ARTISTS, TOP_STRIP, ASCENSO]);
   const artistImages = useArtistImages(allNames);
   const imgMap = useMemo(() => {
@@ -622,10 +615,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {["250+ ARTISTAS","150+ REPORTES","10M+ DATOS","60+ PAÍSES","250K SEGUIDORES","SEMANA 19","MAYO 2024"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","CHARTS SEMANALES"].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {["250+ ARTISTAS","150+ REPORTES","10M+ DATOS","60+ PAÍSES","250K SEGUIDORES","SEMANA 19","MAYO 2024"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","CHARTS SEMANALES"].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>
@@ -810,7 +803,7 @@ export default function HomeV6() {
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><TrendingUp className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Estadísticas · Mayo 2024</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Estadísticas · 2026</h2>
             <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
@@ -940,50 +933,6 @@ export default function HomeV6() {
         </section>
       </FadeUp>
 
-      {/* ══════════════════════════════════════════════════════════
-          GIRAS SHELF — premium touring cards
-      ══════════════════════════════════════════════════════════ */}
-      <Shelf label="Próximas Giras · Artistas Mexicanos" icon={<MapPin className="w-4 h-4" />}>
-        {GIRAS.map((g, i) => (
-          <motion.div
-            key={i}
-            initial={reduced ? { opacity:1 } : { opacity:0, y:12 }}
-            whileInView={{ opacity:1, y:0 }}
-            viewport={{ once:true }}
-            transition={{ duration:0.5, delay:i*0.07 }}
-            whileHover={reduced ? {} : { scale:1.03, y:-3, transition:{ duration:0.22 } }}
-            className="flex-shrink-0 relative overflow-hidden cursor-pointer rounded-xl"
-            style={{
-              width:272, height:162, scrollSnapAlign:"start",
-              background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)",
-              border:`1px solid ${g.accent}1c`,
-              boxShadow:`0 6px 36px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04)`,
-            }}
-          >
-            <div className="absolute inset-0 opacity-[0.045] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
-            <motion.div
-              className="absolute inset-0 rounded-xl pointer-events-none"
-              initial={{ opacity:0 }}
-              whileHover={{ opacity:1 }}
-              transition={{ duration:0.3 }}
-              style={{ background:`radial-gradient(ellipse at 10% 50%, ${g.accent}18, transparent 60%)`, boxShadow:`inset 0 0 0 1px ${g.accent}28` }}
-            />
-            <div className="absolute right-4 top-3 font-black text-6xl leading-none select-none pointer-events-none" style={{ color:"rgba(255,255,255,0.055)" }}>{g.artist[0]}</div>
-            <div className="relative h-full flex flex-col justify-between p-5">
-              <div>
-                <div className="text-[9px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color:"rgba(255,255,255,0.42)" }}>{g.dates}</div>
-                <div className="font-black text-lg uppercase leading-tight text-white">{g.artist}</div>
-                <div className="text-[11px] mt-0.5" style={{ color:"rgba(255,255,255,0.48)" }}>{g.tour}</div>
-              </div>
-              <div className="flex items-end justify-between">
-                <div className="text-sm font-black" style={{ color:g.accent, textShadow:`0 0 12px ${g.accent}70` }}>{g.gross} estimado</div>
-                <div className="text-[9px] font-black uppercase tracking-widest" style={{ color:g.accent }}>VER →</div>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </Shelf>
-
       {/* ── NEWSLETTER ── */}
       <FadeUp>
         <section className="px-6 lg:px-12 py-6">
@@ -1049,7 +998,7 @@ export default function HomeV6() {
             ))}
           </div>
           <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.04)" }}>
-            <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2024 Mexico Charts. Todos los derechos reservados.</p>
+            <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>

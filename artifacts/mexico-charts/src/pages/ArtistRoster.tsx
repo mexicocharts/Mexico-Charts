@@ -528,7 +528,7 @@ export default function ArtistRoster() {
           <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-40 hover:opacity-70 transition-opacity" />
         </Link>
         <div className="text-[10px] uppercase tracking-widest text-zinc-700">
-          © 2024 Mexico Charts — Todos los derechos reservados
+          © 2026 Mexico Charts — Todos los derechos reservados
         </div>
       </footer>
     </div>

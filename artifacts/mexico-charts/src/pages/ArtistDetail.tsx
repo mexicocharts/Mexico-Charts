@@ -84,10 +84,7 @@ const ARTISTS: Record<string, ArtistData> = {
       { genre: "Pop Urbano",         pct: 12 },
       { genre: "Trap Latino",        pct: 6  },
     ],
-    tours: [
-      { name: "Éxodo Tour",       dates: "Jun – Dic 2024", gross: "$60M+", cities: 42 },
-      { name: "Double P Tour",    dates: "Ene – Mar 2025", gross: "$38M",  cities: 28 },
-    ],
+    tours: [],
     topSongs: [
       { title: "Ella Baila Sola", streams: "4.2B" },
       { title: "Bzrp Music Sessions #55", streams: "3.8B" },
@@ -134,10 +131,7 @@ const ARTISTS: Record<string, ArtistData> = {
       { genre: "Pop Urbano",         pct: 9  },
       { genre: "Banda",              pct: 4  },
     ],
-    tours: [
-      { name: "Raíz Tour",         dates: "Jul – Nov 2024", gross: "$24M",  cities: 30 },
-      { name: "Pa Las Baby's Tour", dates: "Feb – May 2025", gross: "$18M", cities: 22 },
-    ],
+    tours: [],
     topSongs: [
       { title: "Harley Quinn", streams: "1.1B" },
       { title: "PRC",          streams: "980M" },
@@ -184,9 +178,7 @@ const ARTISTS: Record<string, ArtistData> = {
       { genre: "Regional Mexicano",  pct: 8  },
       { genre: "Pop Urbano",         pct: 4  },
     ],
-    tours: [
-      { name: "CT Tour 2024", dates: "Sep – Dic 2024", gross: "$12M", cities: 18 },
-    ],
+    tours: [],
     topSongs: [
       { title: "Amor Tumbado",   streams: "1.8B" },
       { title: "El Drip",        streams: "1.2B" },
@@ -233,9 +225,7 @@ const ARTISTS: Record<string, ArtistData> = {
       { genre: "Banda",              pct: 10 },
       { genre: "Pop Urbano",         pct: 6  },
     ],
-    tours: [
-      { name: "Hielo Tour", dates: "Oct – Dic 2024", gross: "$9M", cities: 14 },
-    ],
+    tours: [],
     topSongs: [
       { title: "Mente en Blanco", streams: "980M" },
       { title: "Chuy",            streams: "760M" },
@@ -282,9 +272,7 @@ const ARTISTS: Record<string, ArtistData> = {
       { genre: "Banda",              pct: 20 },
       { genre: "Pop Urbano",         pct: 8  },
     ],
-    tours: [
-      { name: "Latinoamérica 24", dates: "Ago – Oct 2024", gross: "$19M", cities: 24 },
-    ],
+    tours: [],
     topSongs: [
       { title: "Que Vuelvas",          streams: "820M" },
       { title: "Primera Cita",         streams: "640M" },
@@ -602,7 +590,7 @@ export default function ArtistDetail() {
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <TrendingUp className="w-4 h-4" style={{ color: artist.accent }} />
-                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Oyentes Mensuales · 2024</h2>
+                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Oyentes Mensuales · 2026</h2>
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={artist.listenerHistory} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
@@ -821,7 +809,7 @@ export default function ArtistDetail() {
       <footer className="border-t py-6 px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="max-w-[1200px] mx-auto flex items-center justify-between flex-wrap gap-4">
           <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-60" />
-          <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2024 Mexico Charts. Todos los derechos reservados.</p>
+          <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>
