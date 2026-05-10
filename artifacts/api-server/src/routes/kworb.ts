@@ -687,7 +687,8 @@ function clearSchedulerTimers() {
 
 function scheduleNextWindow() {
   clearSchedulerTimers();
-  refreshStatus.todayUpdated = false;
+  // NOTE: do NOT reset todayUpdated here — it must stay true until the next
+  // polling window actually opens so /refresh-status reflects it all day.
   const ms = msUntilNextETTime(12, 0);
   refreshStatus.nextPollAt   = Date.now() + ms;
   const hrs = (ms / 3_600_000).toFixed(1);
@@ -718,7 +719,7 @@ async function doPoll(): Promise<void> {
 
 function startPollingWindow() {
   clearSchedulerTimers();
-  refreshStatus.todayUpdated = false;
+  refreshStatus.todayUpdated = false; // reset at the start of each new day's window
   console.log(`[kworb:scheduler] Polling window open (12pm–9:15pm ET)`);
 
   // Final forced refresh at 9:15pm ET regardless of whether we already detected a change
