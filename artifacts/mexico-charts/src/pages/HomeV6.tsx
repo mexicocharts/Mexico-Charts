@@ -471,6 +471,29 @@ export default function HomeV6() {
           style={{ y: textY, zIndex:4 }}
         >
           <AnimatePresence mode="wait">
+            {showLoadingState ? (
+              /* ── HERO SKELETON — shown when sheet URL configured + data loading ── */
+              <motion.div
+                key="hero-skeleton"
+                initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+                transition={{ duration:0.3 }}
+                className="flex flex-col gap-3"
+                data-testid="hero-skeleton"
+              >
+                <div className="h-3 w-24 rounded animate-pulse" style={{ background:"rgba(57,255,20,0.18)" }} />
+                <div className="h-16 w-2/3 rounded-lg animate-pulse" style={{ background:"rgba(255,255,255,0.07)" }} />
+                <div className="h-16 w-1/2 rounded-lg animate-pulse" style={{ background:"rgba(255,255,255,0.05)", animationDelay:"0.1s" }} />
+                <div className="flex gap-3 mt-2">
+                  <div className="h-3 w-28 rounded animate-pulse" style={{ background:"rgba(255,255,255,0.06)" }} />
+                  <div className="h-3 w-20 rounded animate-pulse" style={{ background:"rgba(255,255,255,0.06)", animationDelay:"0.07s" }} />
+                  <div className="h-3 w-24 rounded animate-pulse" style={{ background:"rgba(57,255,20,0.1)", animationDelay:"0.14s" }} />
+                </div>
+                <div className="flex gap-3 mt-2">
+                  <div className="h-9 w-32 rounded-full animate-pulse" style={{ background:"rgba(57,255,20,0.2)" }} />
+                  <div className="h-9 w-28 rounded-full animate-pulse" style={{ background:"rgba(255,255,255,0.06)", animationDelay:"0.1s" }} />
+                </div>
+              </motion.div>
+            ) : (
             <motion.div
               key={`text-${heroIndex}`}
               initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-14 }}
@@ -516,6 +539,7 @@ export default function HomeV6() {
                 </Link>
               </div>
             </motion.div>
+            )}
           </AnimatePresence>
 
           {/* Dot indicators */}

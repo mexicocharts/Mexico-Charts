@@ -82,10 +82,15 @@ function formatCountries(n: number): string {
 }
 
 /* ── Eligibility filter ── */
-/** Returns true for rows that should be shown publicly */
+/**
+ * Returns true for rows that should be shown publicly.
+ * Excludes any status containing "exclud" OR "review" to handle variants like
+ * "excluded", "review", "review-candidate", "under_review", etc.
+ */
 function isEligible(row: { eligibility_status?: string }): boolean {
   const status = (row.eligibility_status ?? "").toLowerCase().trim();
-  return status !== "excluded" && status !== "review";
+  if (status === "") return true; // blank = no restriction
+  return !status.includes("exclud") && !status.includes("review");
 }
 
 /* ── Normalizers ── */
@@ -151,6 +156,8 @@ function normalizeAlbum(raw: RawChartAlbum): ChartAlbum | null {
 
 async function fetchArtists(url: string): Promise<{ artists: ChartArtist[]; configured: boolean }> {
   const result = await fetchSheetCSV<RawChartArtist>(url);
+  // Propagate fetch/parse failures so React Query sets isError = true
+  if (result.configured && result.error) throw new Error(result.error);
   const artists = result.rows
     .filter(isEligible)
     .map(normalizeArtist)
@@ -161,6 +168,7 @@ async function fetchArtists(url: string): Promise<{ artists: ChartArtist[]; conf
 
 async function fetchSongs(url: string): Promise<{ songs: ChartSong[]; configured: boolean }> {
   const result = await fetchSheetCSV<RawChartSong>(url);
+  if (result.configured && result.error) throw new Error(result.error);
   const songs = result.rows
     .filter(isEligible)
     .map(normalizeSong)
@@ -171,6 +179,7 @@ async function fetchSongs(url: string): Promise<{ songs: ChartSong[]; configured
 
 async function fetchAlbums(url: string): Promise<{ albums: ChartAlbum[]; configured: boolean }> {
   const result = await fetchSheetCSV<RawChartAlbum>(url);
+  if (result.configured && result.error) throw new Error(result.error);
   const albums = result.rows
     .filter(isEligible)
     .map(normalizeAlbum)
