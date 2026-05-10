@@ -1,0 +1,83 @@
+I uploaded a master Excel workbook for Mexico Charts called:
+
+`mexico_charts_master_replit_fetch_workbook.xlsx`
+
+This file is the temporary data source/database for Mexico Charts until Chartmetric API access is approved.
+
+Purpose:
+This workbook contains cleaned and filtered Spotify chart data for Mexico Charts. The data has already been filtered so the public website only shows Mexican, Mexican-American, or Mexico-associated artists/content.
+
+Important:
+Do not treat this as random Excel data. This is the temporary Mexico Charts backend/data source.
+
+Main chart tabs to use:
+
+* `artists_daily_mx`
+* `artists_weekly_mx`
+* `songs_daily_mx`
+* `songs_weekly_mx`
+* `albums_weekly_mx`
+* `songs_viral_mx`
+
+Supporting tabs:
+
+* `artist_eligibility` = roster of approved Mexico Charts artists
+* `source_audit` = source notes
+* `published_csv_urls` = where I will paste Google Sheets CSV links
+* `replit_config_example` = example config structure
+* `README` = explanation of the workbook
+
+Please build the site so each chart section fetches from its matching data tab.
+
+The frontend should NOT hardcode chart data directly into components.
+
+Expected setup:
+
+1. I will upload this workbook into Google Sheets.
+2. Each chart tab will be published as a CSV.
+3. I will paste each published CSV URL into the `published_csv_urls` tab or into a Replit config file.
+4. Replit should fetch each CSV URL and render the correct chart.
+
+Use this structure:
+
+```ts
+export const SHEET_SOURCES = {
+  artistsDaily: "CSV_URL_FOR_artists_daily_mx",
+  artistsWeekly: "CSV_URL_FOR_artists_weekly_mx",
+  songsDaily: "CSV_URL_FOR_songs_daily_mx",
+  songsWeekly: "CSV_URL_FOR_songs_weekly_mx",
+  albumsWeekly: "CSV_URL_FOR_albums_weekly_mx",
+  viralDaily: "CSV_URL_FOR_songs_viral_mx",
+};
+```
+
+Please create a reusable Google Sheets CSV fetch service.
+
+Suggested files:
+
+```txt
+src/services/googleSheetsData.ts
+src/services/dataProvider.ts
+src/config/sheetSources.ts
+src/types/chartData.ts
+```
+
+Requirements:
+
+* Fetch CSV data from Google Sheets.
+* Parse it with PapaParse or another CSV parser.
+* Normalize numbers correctly.
+* Preserve both ranking systems:
+
+  * `source_chart_rank` = original Spotify chart rank
+  * `mexico_charts_rank` = filtered Mexico Charts rank
+* For songs, use:
+
+  * `display_artist_names_mexico_only` for public display
+  * `artist_names_source` for original Spotify credit/reference
+* Add loading states.
+* Add error states.
+* Do not show excluded or review-candidate data unless I specifically ask for it later.
+* Keep the data layer modular so when Chartmetric API access is approved, we can replace Google Sheets with the real API without rebuilding the frontend.
+
+This workbook is basically the temporary Mexico Charts API.
