@@ -290,7 +290,16 @@ export default function HomeV6() {
     }));
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
-  /* ── Genre artist counts — per-label matching, all six buckets initialized to 0 ── */
+  /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
+  const GENRE_SYNONYMS: Record<string, string[]> = {
+    "Corridos Tumbados": ["corridos tumbados", "corrido tumbado", "corridos"],
+    "Regional Mexicano": ["regional mexicano", "regional mexican", "regional mexicana"],
+    "Norteño":           ["norteño", "norteno", "norteña", "norteñas"],
+    "Banda":             ["banda", "banda sinaloense", "grupero banda"],
+    "Hip-Hop Mexicano":  ["hip hop mexicano", "hip-hop mexicano", "hip hop", "hip-hop", "rap mexicano"],
+    "Pop Urbano":        ["pop urbano", "latin pop", "pop latino"],
+  };
+
   const genreArtistCounts = useMemo(() => {
     if (sheetsEmpty || weeklyArtists.length === 0) return null;
     const counts: Record<string, number> = {
@@ -302,14 +311,11 @@ export default function HomeV6() {
       "Pop Urbano": 0,
     };
     for (const a of weeklyArtists) {
-      const g  = (a.genre    ?? "").toLowerCase();
-      const sg = (a.subgenre ?? "").toLowerCase();
-      if (g.includes("corrido") || sg.includes("corrido"))                                           counts["Corridos Tumbados"]++;
-      if (g.includes("regional") || sg.includes("regional"))                                         counts["Regional Mexicano"]++;
-      if (g.includes("norteño") || sg.includes("norteño") || g.includes("norteno") || sg.includes("norteno")) counts["Norteño"]++;
-      if (g.includes("banda") || sg.includes("banda"))                                               counts["Banda"]++;
-      if (g.includes("hip") || sg.includes("hip") || g.includes("rap") || sg.includes("rap"))       counts["Hip-Hop Mexicano"]++;
-      if (g.includes("pop") || sg.includes("pop") || g.includes("urbano") || sg.includes("urbano")) counts["Pop Urbano"]++;
+      const g  = (a.genre    ?? "").toLowerCase().trim();
+      const sg = (a.subgenre ?? "").toLowerCase().trim();
+      for (const [label, synonyms] of Object.entries(GENRE_SYNONYMS)) {
+        if (synonyms.some(s => g === s || sg === s)) counts[label]++;
+      }
     }
     return counts;
   }, [weeklyArtists, sheetsEmpty]);
@@ -823,7 +829,7 @@ export default function HomeV6() {
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
                   <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>
-                    {genreArtistCounts !== null ? genreArtistCounts[g.name] : g.artists} artistas activos
+                    {genreArtistCounts !== null ? `${genreArtistCounts[g.name]} artistas activos` : "—"}
                   </div>
                 </div>
                 <motion.span
