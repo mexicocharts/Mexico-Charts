@@ -23,6 +23,32 @@ const ALL_GENRES = ["TODOS", "CORRIDOS", "REG. MEX.", "NORTEÑO", "BANDA"];
 
 const ALL_NAMES = TOP_ARTISTS.map((a) => a.name);
 
+function InitialAvatar({ initial, size, fontSize }: { initial: string; size: number; fontSize?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#1A1A1A",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          color: "#E4E4E7",
+          fontFamily: "Inter_700Bold",
+          fontSize: fontSize ?? Math.round(size * 0.4),
+          letterSpacing: 0,
+        }}
+      >
+        {initial.toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
 function ArtistRow({
   artist,
   index,
@@ -65,9 +91,7 @@ function ArtistRow({
       {photo ? (
         <Image source={{ uri: photo }} style={styles.rowPhoto} />
       ) : (
-        <View style={styles.rowPhotoPlaceholder}>
-          <Feather name="user" size={18} color="#52525B" />
-        </View>
+        <InitialAvatar initial={artist.name.charAt(0)} size={44} fontSize={18} />
       )}
 
       <View style={{ flex: 1 }}>
@@ -305,14 +329,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-  },
-  rowPhotoPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#1A1A1A",
-    alignItems: "center",
-    justifyContent: "center",
   },
   rowName: {
     color: "#E4E4E7",

@@ -66,7 +66,9 @@ export default function ArtistDetailScreen() {
             <Image source={{ uri: photo }} style={styles.heroImage} resizeMode="cover" />
           ) : (
             <View style={styles.heroImagePlaceholder}>
-              <Feather name="user" size={60} color="#52525B" />
+              <Text style={{ color: "rgba(255,255,255,0.15)", fontFamily: "Inter_700Bold", fontSize: 130, lineHeight: 140 }}>
+                {name ? name.charAt(0).toUpperCase() : "?"}
+              </Text>
             </View>
           )}
           {/* Gradient overlay */}

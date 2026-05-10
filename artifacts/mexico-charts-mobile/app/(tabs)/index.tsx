@@ -29,13 +29,46 @@ const HOME_NAMES = TOP_10.map((a) => a.name);
 const NEON = "#39FF14";
 const BG = "#050505";
 
+function InitialAvatar({ initial, size, accent, fontSize }: { initial: string; size: number; accent?: string; fontSize?: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: "#1A1A1A",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: accent ?? "rgba(255,255,255,0.15)",
+      }}
+    >
+      <Text
+        style={{
+          color: accent ?? "#E4E4E7",
+          fontFamily: "Inter_700Bold",
+          fontSize: fontSize ?? size * 0.4,
+          letterSpacing: 0,
+        }}
+      >
+        {initial.toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
 function HeroArtistCard({ artist, photo }: { artist: Artist; photo: string | null }) {
+  const initial = artist.name.charAt(0);
   return (
     <View style={[styles.heroCard, { width: SCREEN_WIDTH }]}>
       {photo ? (
         <Image source={{ uri: photo }} style={styles.heroPhoto} resizeMode="cover" />
       ) : (
-        <View style={styles.heroPhotoPlaceholder} />
+        <View style={[styles.heroPhotoPlaceholder, { alignItems: "center", justifyContent: "center" }]}>
+          <Text style={{ color: "rgba(255,255,255,0.18)", fontFamily: "Inter_700Bold", fontSize: 120, lineHeight: 130 }}>
+            {initial.toUpperCase()}
+          </Text>
+        </View>
       )}
       <View style={styles.heroOverlay} />
       <View style={styles.heroGradientLeft} />
@@ -93,9 +126,7 @@ function Top10Card({ artist, photo }: { artist: Artist; photo: string | null }) 
       {photo ? (
         <Image source={{ uri: photo }} style={styles.top10Photo} />
       ) : (
-        <View style={[styles.top10PhotoPlaceholder, { borderColor: artist.accent }]}>
-          <Feather name="user" size={22} color={artist.accent} />
-        </View>
+        <InitialAvatar initial={artist.name.charAt(0)} size={80} accent={artist.accent} fontSize={30} />
       )}
       <Text style={styles.top10Name} numberOfLines={1}>{artist.name}</Text>
       <Text style={styles.top10Genre} numberOfLines={1}>{artist.genre}</Text>
@@ -448,16 +479,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    marginTop: 4,
-  },
-  top10PhotoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#1A1A1A",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
     marginTop: 4,
   },
   top10Name: {
