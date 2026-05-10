@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { db, artistImages } from "@workspace/db";
-import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -22,8 +21,9 @@ function getCached(key: string): string | null | undefined {
   return undefined;                                                      // not cached
 }
 function setCached(key: string, url: string | null): void {
-  if (url) { imageCache.set(key, url); missCache.delete(key); persistToDb(key, url); }
-  else      { missCache.set(key, Date.now()); }
+  const k = key.toLowerCase().trim();
+  if (url) { imageCache.set(k, url); missCache.delete(k); persistToDb(k, url); }
+  else      { missCache.set(k, Date.now()); }
 }
 
 /* ── Persist a real URL to the DB (fire-and-forget) ── */
@@ -102,8 +102,8 @@ async function seedCacheFromDb(): Promise<void> {
   try {
     const rows = await db.select().from(artistImages);
     for (const row of rows) {
-      // DB rows only contain real URLs (never nulls), so populate imageCache directly.
-      imageCache.set(row.artistKey, row.imageUrl);
+      // Normalize key on read so lookups always match (all stored under lowercase).
+      imageCache.set(row.artistKey.toLowerCase().trim(), row.imageUrl);
     }
   } catch {
     // Non-fatal — in-memory seed + Deezer fallback still works
