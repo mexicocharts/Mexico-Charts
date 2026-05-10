@@ -189,6 +189,7 @@ function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode
 const INDUSTRIA_SUB = [
   { label: "Industria",       href: "/industria" },
   { label: "Certificaciones", href: "/industry/certifications" },
+  { label: "Música Grabada",  href: "/insights/mexico-top-10-ifpi-2026" },
 ];
 
 function IndustriaDropdown() {

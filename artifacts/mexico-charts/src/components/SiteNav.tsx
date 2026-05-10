@@ -6,8 +6,9 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
 
 const INDUSTRIA_ITEMS = [
-  { label: "Industria", href: "/industria" },
+  { label: "Industria",      href: "/industria" },
   { label: "Certificaciones", href: "/industry/certifications" },
+  { label: "Música Grabada", href: "/insights/mexico-top-10-ifpi-2026" },
 ];
 
 const NAV = [
