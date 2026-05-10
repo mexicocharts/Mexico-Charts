@@ -21,7 +21,7 @@ const GENRE_COLORS: Record<string, string> = {
   "Norteño": "#86efac",
   "Banda": "#a3e635",
   "Hip-Hop Mexicano": "#facc15",
-  "Pop Urbano": "#fb923c",
+  "Pop": "#fb923c",
   "Grupero": "#f472b6",
   "Balada": "#818cf8",
   "Rock Mexicano": "#f87171",

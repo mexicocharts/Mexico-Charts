@@ -46,7 +46,7 @@ const GENRES = [
   { name:"Norteño",            artists:34, accent:"rgba(57,255,20,0.60)" },
   { name:"Banda",              artists:29, accent:"rgba(57,255,20,0.46)" },
   { name:"Hip-Hop Mexicano",   artists:21, accent:"rgba(57,255,20,0.35)" },
-  { name:"Pop Urbano",         artists:18, accent:"rgba(57,255,20,0.26)" },
+  { name:"Pop",                artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
 const DEFAULT_ASCENSO = [
@@ -297,7 +297,7 @@ export default function HomeV6() {
     "Norteño":           ["norteño", "norteno", "norteña", "norteñas"],
     "Banda":             ["banda", "banda sinaloense", "grupero banda"],
     "Hip-Hop Mexicano":  ["hip hop mexicano", "hip-hop mexicano", "hip hop", "hip-hop", "rap mexicano"],
-    "Pop Urbano":        ["pop urbano", "latin pop", "pop latino"],
+    "Pop":               ["pop", "pop urbano", "latin pop", "pop latino"],
   };
 
   const genreArtistCounts = useMemo(() => {
@@ -308,7 +308,7 @@ export default function HomeV6() {
       "Norteño": 0,
       "Banda": 0,
       "Hip-Hop Mexicano": 0,
-      "Pop Urbano": 0,
+      "Pop": 0,
     };
     for (const m of metaByKey.values()) {
       const g  = m.genre.toLowerCase().trim();
@@ -1046,7 +1046,7 @@ export default function HomeV6() {
             </div>
             {[
               { title:"Explorar",  links:["Charts","Artistas","Touring","Streaming","Noticias"] },
-              { title:"Géneros",   links:["Corridos Tumbados","Regional Mexicano","Banda","Norteño","Pop Urbano"] },
+              { title:"Géneros",   links:["Corridos Tumbados","Regional Mexicano","Banda","Norteño","Pop"] },
               { title:"Compañía", links:["Acerca de","Metodología","Contacto","Privacidad"] },
             ].map(col => (
               <div key={col.title}>
