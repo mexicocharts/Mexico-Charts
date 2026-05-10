@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
+const CHUNK_SIZE = 20;
+
 function getBaseUrl(): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (!domain) {
@@ -11,16 +13,33 @@ function getBaseUrl(): string {
   return `https://${domain}`;
 }
 
+async function fetchChunk(
+  names: string[],
+  baseUrl: string
+): Promise<Record<string, string | null>> {
+  if (!baseUrl || names.length === 0) return {};
+  const query = names.map(encodeURIComponent).join(",");
+  const res = await fetch(`${baseUrl}/api/spotify/artist-images?names=${query}`);
+  if (!res.ok) return {};
+  return res.json() as Promise<Record<string, string | null>>;
+}
+
 async function fetchArtistImages(
   names: string[]
 ): Promise<Record<string, string | null>> {
   if (names.length === 0) return {};
   const baseUrl = getBaseUrl();
   if (!baseUrl) return Object.fromEntries(names.map((n) => [n, null]));
-  const query = names.map(encodeURIComponent).join(",");
-  const res = await fetch(`${baseUrl}/api/spotify/artist-images?names=${query}`);
-  if (!res.ok) throw new Error(`Failed to fetch artist images: ${res.status}`);
-  return res.json() as Promise<Record<string, string | null>>;
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < names.length; i += CHUNK_SIZE) {
+    chunks.push(names.slice(i, i + CHUNK_SIZE));
+  }
+
+  const results = await Promise.all(chunks.map((c) => fetchChunk(c, baseUrl)));
+  const merged: Record<string, string | null> = {};
+  for (const r of results) Object.assign(merged, r);
+  return merged;
 }
 
 export function useArtistImages(names: string[]): Record<string, string | null> {

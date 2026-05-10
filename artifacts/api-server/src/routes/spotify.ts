@@ -2,8 +2,27 @@ import { Router } from "express";
 
 const router = Router();
 
-/* ── In-memory image cache (lives for the process lifetime) ── */
-const imageCache = new Map<string, string | null>();
+/* ── Two-tier cache ──────────────────────────────────────────────────────────
+   imageCache : key → real CDN URL   (permanent — only stored when a real URL is found)
+   missCache  : key → timestamp      (temporary — retry nulls after MISS_TTL ms)
+   This prevents rate-limit / transient failures during startup warm-up from
+   permanently suppressing images for artists that do have Deezer entries.
+─────────────────────────────────────────────────────────────────────────── */
+const imageCache = new Map<string, string>();
+const missCache  = new Map<string, number>();
+const MISS_TTL   = 5 * 60 * 1000; // 5 minutes before retrying a null result
+
+/* ── Helpers ── */
+function getCached(key: string): string | null | undefined {
+  if (imageCache.has(key)) return imageCache.get(key)!;                // real URL
+  const missAt = missCache.get(key);
+  if (missAt !== undefined && Date.now() - missAt < MISS_TTL) return null; // recent miss
+  return undefined;                                                      // not cached
+}
+function setCached(key: string, url: string | null): void {
+  if (url) { imageCache.set(key, url); missCache.delete(key); }
+  else      { missCache.set(key, Date.now()); }
+}
 
 /* ── Seed with known-good Spotify CDN URLs for the biggest names ── */
 const SEED: Record<string, string> = {
@@ -47,55 +66,30 @@ async function fetchDeezerImage(name: string): Promise<string | null> {
     const exact = items.find((a) => a.name.toLowerCase() === nameLower);
     const best = exact ?? items[0];
 
+    // picture_xl is 1000×1000; picture_medium is 250×250 — both are real CDN images.
+    // Only reject the placeholder, which has an EMPTY hash (double-slash) like:
+    //   .../images/artist//250x250-000000-80-0-0.jpg
     const img = best.picture_xl || best.picture_medium || null;
-    // Reject Deezer's generic grey placeholder
-    if (!img || img.includes("250x250-000000") || img.includes("/noimage/")) return null;
+    if (!img || img.includes("/artist//") || img.includes("/noimage/")) return null;
     return img;
   } catch {
     return null;
   }
 }
 
-/* ── Warm the cache for a list of names (runs at startup, silently) ── */
-async function warmCache(names: string[]): Promise<void> {
-  const toFetch = names.filter((n) => !imageCache.has(n.toLowerCase()));
-  for (let i = 0; i < toFetch.length; i += 10) {
-    const batch = toFetch.slice(i, i + 10);
-    const results = await Promise.all(
-      batch.map(async (name) => ({ name, url: await fetchDeezerImage(name) }))
-    );
-    for (const { name, url } of results) {
-      imageCache.set(name.toLowerCase(), url);
-    }
-  }
+/* ── Fetch & cache one name (respects the miss TTL) ── */
+async function resolveImage(name: string): Promise<string | null> {
+  const key = name.toLowerCase();
+  const cached = getCached(key);
+  if (cached !== undefined) return cached;
+  const url = await fetchDeezerImage(name);
+  setCached(key, url);
+  return url;
 }
 
-/* ── Fetch all artist names from the metadata sheet and pre-warm ── */
+/* ── Warm the cache from the artist metadata sheet on startup ── */
 const METADATA_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
-
-async function warmCacheFromSheet(): Promise<void> {
-  try {
-    const resp = await fetch(METADATA_SHEET_URL);
-    if (!resp.ok) return;
-    const csv = await resp.text();
-    // Parse CSV header line then extract artist_name column
-    const lines = csv.split("\n");
-    if (!lines.length) return;
-    const headers = parseCSVRow(lines[0]).map((h) => h.toLowerCase().trim());
-    const nameIdx = headers.indexOf("artist_name");
-    if (nameIdx < 0) return;
-    const names: string[] = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = parseCSVRow(lines[i]);
-      const name = cols[nameIdx]?.trim();
-      if (name) names.push(name);
-    }
-    await warmCache(names);
-  } catch {
-    // Non-fatal — fall back to on-demand fetching
-  }
-}
 
 function parseCSVRow(line: string): string[] {
   const result: string[] = [];
@@ -116,8 +110,44 @@ function parseCSVRow(line: string): string[] {
   return result;
 }
 
-// Kick off cache warming in background — does not block server startup
-void warmCacheFromSheet();
+async function warmCacheFromSheet(): Promise<void> {
+  try {
+    const resp = await fetch(METADATA_SHEET_URL);
+    if (!resp.ok) return;
+    const csv = await resp.text();
+    const lines = csv.split("\n");
+    if (!lines.length) return;
+    const headers = parseCSVRow(lines[0]).map((h) => h.toLowerCase().trim());
+    const nameIdx = headers.indexOf("artist_name");
+    if (nameIdx < 0) return;
+    const names: string[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVRow(lines[i]);
+      const name = cols[nameIdx]?.trim();
+      if (name) names.push(name);
+    }
+    // Fetch uncached artists in serial batches of 5 to avoid Deezer rate limits.
+    // IMPORTANT: only store REAL image URLs — do NOT cache nulls here.
+    // Rate-limited / transient failures during warm-up must not pollute missCache,
+    // so the route handler can retry them fresh on the first actual user request.
+    const uncached = names.filter((n) => getCached(n.toLowerCase()) === undefined);
+    for (let i = 0; i < uncached.length; i += 5) {
+      const batch = uncached.slice(i, i + 5);
+      const results = await Promise.all(batch.map((n) => fetchDeezerImage(n)));
+      for (let j = 0; j < batch.length; j++) {
+        const url = results[j];
+        if (url) imageCache.set(batch[j].toLowerCase(), url); // only store real URLs
+      }
+      // Pause between batches to stay within Deezer's rate limit
+      if (i + 5 < uncached.length) await new Promise((r) => setTimeout(r, 300));
+    }
+  } catch {
+    // Non-fatal — on-demand fallback handles any artists not warmed
+  }
+}
+
+// Kick off background cache warming 2 s after startup (gives server time to bind)
+setTimeout(() => void warmCacheFromSheet(), 2000);
 
 /* ── Route: GET /api/spotify/artist-images?names=A,B,C ── */
 router.get("/spotify/artist-images", async (req, res) => {
@@ -132,22 +162,21 @@ router.get("/spotify/artist-images", async (req, res) => {
   const toFetch: string[] = [];
 
   for (const name of names) {
-    const key = name.toLowerCase();
-    if (imageCache.has(key)) {
-      results[name] = imageCache.get(key)!;
+    const cached = getCached(name.toLowerCase());
+    if (cached !== undefined) {
+      results[name] = cached;
     } else {
       toFetch.push(name);
     }
   }
 
-  // Fetch any still-uncached artists (safety net for artists added after startup)
+  // Resolve any uncached artists (or expired misses) in parallel batches
   for (let i = 0; i < toFetch.length; i += 10) {
     const batch = toFetch.slice(i, i + 10);
     const fetched = await Promise.all(
-      batch.map(async (name) => ({ name, url: await fetchDeezerImage(name) }))
+      batch.map(async (name) => ({ name, url: await resolveImage(name) }))
     );
     for (const { name, url } of fetched) {
-      imageCache.set(name.toLowerCase(), url);
       results[name] = url;
     }
   }
