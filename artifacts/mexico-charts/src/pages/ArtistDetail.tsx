@@ -36,6 +36,13 @@ interface ArtistData {
   genreBreakdown: { genre: string; pct: number }[];
   tours: { name: string; dates: string; gross: string; cities: number }[];
   topSongs: { title: string; streams: string }[];
+  // Metadata-sourced social/platform stats (populated when metadata sheet matches)
+  spotifyFollowers?: string;
+  youtubeSubscribers?: string;
+  tiktokFollowers?: string;
+  instagramFollowers?: string;
+  deezerFans?: string;
+  soundcloudFollowers?: string;
 }
 
 const ARTISTS: Record<string, ArtistData> = {
@@ -371,13 +378,16 @@ export default function ArtistDetail() {
   );
   const baseArtist = ARTISTS[slug] ?? buildFallback(displayName);
 
-  /* ── Metadata lookup (by display name — artist_key match happens inside) ── */
+  /* ── Metadata lookup — try slug-derived key first, then normalized name ── */
+  // The artist_key in the sheet uses space-separated lowercase (e.g. "fuerza regida"),
+  // which matches the slug with hyphens replaced by spaces.
+  const slugAsKey = slug.replace(/-/g, " ");
   const metaArtist = useMemo(
-    () => lookupArtistMetadata(undefined, displayName, metaByKey, metaByName),
-    [displayName, metaByKey, metaByName]
+    () => lookupArtistMetadata(slugAsKey, displayName, metaByKey, metaByName),
+    [slugAsKey, displayName, metaByKey, metaByName]
   );
 
-  /* ── Merge: sheet stats → metadata stats → hardcoded base (priority order) ── */
+  /* ── Merge: base → chart sheet → metadata (priority order, highest last) ── */
   const artist: ArtistData = useMemo(() => {
     // 1. Start from base
     let merged: ArtistData = baseArtist;
@@ -396,33 +406,42 @@ export default function ArtistDetail() {
         accent: sheetArtist.accent,
       };
     }
-    // 3. Overlay metadata Spotify listener count (most accurate source)
-    if (metaArtist && metaArtist.spotifyListeners > 0) {
+    // 3. Overlay all available metadata stats onto the profile object
+    if (metaArtist) {
       merged = {
         ...merged,
-        listeners: metaArtist.spotifyListenersFmt,
-        listenersRaw: metaArtist.spotifyListeners / 1_000_000,
+        // Spotify
+        ...(metaArtist.spotifyListeners > 0   && { listeners: metaArtist.spotifyListenersFmt, listenersRaw: metaArtist.spotifyListeners / 1_000_000 }),
+        ...(metaArtist.spotifyFollowers > 0   && { spotifyFollowers: metaArtist.spotifyFollowersFmt }),
+        // Social/platform stats
+        ...(metaArtist.youtubeSubscribers > 0 && { youtubeSubscribers: metaArtist.youtubeSubscribersFmt }),
+        ...(metaArtist.tiktokFollowers > 0    && { tiktokFollowers: metaArtist.tiktokFollowersFmt }),
+        ...(metaArtist.instagramFollowers > 0 && { instagramFollowers: metaArtist.instagramFollowersFmt }),
+        ...(metaArtist.deezerFans > 0         && { deezerFans: metaArtist.deezerFansFmt }),
+        ...(metaArtist.soundcloudFollowers > 0 && { soundcloudFollowers: metaArtist.soundcloudFollowersFmt }),
       };
     }
     return merged;
   }, [sheetArtist, baseArtist, metaArtist]);
 
-  /* ── Live platform/social stats from metadata (replaces hardcoded bar chart) ── */
+  /* ── Live platform/social stats — built from the unified artist profile ── */
   const livePlatforms: ArtistData["platformStreams"] = useMemo(() => {
-    if (!metaArtist) return artist.platformStreams;
+    // artist now carries all metadata fields; use them to build a rich platform bar
+    const m = metaArtist;
+    if (!m) return artist.platformStreams;
     const rows: ArtistData["platformStreams"] = [];
-    if (metaArtist.spotifyListeners > 0)
-      rows.push({ platform: "Spotify",   streams: metaArtist.spotifyListenersFmt,     streamsNum: metaArtist.spotifyListeners / 1_000_000,     color: "#1DB954", icon: "spotify"   });
-    if (metaArtist.youtubeSubscribers > 0)
-      rows.push({ platform: "YouTube",   streams: metaArtist.youtubeSubscribersFmt,   streamsNum: metaArtist.youtubeSubscribers / 1_000_000,   color: "#FF0000", icon: "youtube"   });
-    if (metaArtist.tiktokFollowers > 0)
-      rows.push({ platform: "TikTok",    streams: metaArtist.tiktokFollowersFmt,      streamsNum: metaArtist.tiktokFollowers / 1_000_000,      color: "#69C9D0", icon: "tiktok"    });
-    if (metaArtist.instagramFollowers > 0)
-      rows.push({ platform: "Instagram", streams: metaArtist.instagramFollowersFmt,   streamsNum: metaArtist.instagramFollowers / 1_000_000,   color: "#E1306C", icon: "instagram" });
-    if (metaArtist.deezerFans > 0)
-      rows.push({ platform: "Deezer",      streams: metaArtist.deezerFansFmt,          streamsNum: metaArtist.deezerFans / 1_000_000,          color: "#A238FF", icon: "deezer"      });
-    if (metaArtist.soundcloudFollowers > 0)
-      rows.push({ platform: "SoundCloud",  streams: metaArtist.soundcloudFollowersFmt, streamsNum: metaArtist.soundcloudFollowers / 1_000_000, color: "#FF5500", icon: "soundcloud"  });
+    if (m.spotifyListeners > 0)
+      rows.push({ platform: "Spotify",    streams: m.spotifyListenersFmt,     streamsNum: m.spotifyListeners / 1_000_000,    color: "#1DB954", icon: "spotify"    });
+    if (m.youtubeSubscribers > 0)
+      rows.push({ platform: "YouTube",    streams: m.youtubeSubscribersFmt,   streamsNum: m.youtubeSubscribers / 1_000_000,  color: "#FF0000", icon: "youtube"    });
+    if (m.tiktokFollowers > 0)
+      rows.push({ platform: "TikTok",     streams: m.tiktokFollowersFmt,      streamsNum: m.tiktokFollowers / 1_000_000,     color: "#69C9D0", icon: "tiktok"     });
+    if (m.instagramFollowers > 0)
+      rows.push({ platform: "Instagram",  streams: m.instagramFollowersFmt,   streamsNum: m.instagramFollowers / 1_000_000,  color: "#E1306C", icon: "instagram"  });
+    if (m.deezerFans > 0)
+      rows.push({ platform: "Deezer",     streams: m.deezerFansFmt,           streamsNum: m.deezerFans / 1_000_000,          color: "#A238FF", icon: "deezer"     });
+    if (m.soundcloudFollowers > 0)
+      rows.push({ platform: "SoundCloud", streams: m.soundcloudFollowersFmt,  streamsNum: m.soundcloudFollowers / 1_000_000, color: "#FF5500", icon: "soundcloud" });
     return rows.length > 0 ? rows : artist.platformStreams;
   }, [metaArtist, artist.platformStreams]);
 
@@ -551,6 +570,7 @@ export default function ArtistDetail() {
             <p className="text-sm text-white/50 uppercase tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" style={{ color: artist.accent }} />{artist.origin}</span>
               <span>{artist.listeners} OYENTES</span>
+              {artist.spotifyFollowers && <span>{artist.spotifyFollowers} SEGUIDORES</span>}
               <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: artist.accent }} /><span style={{ color: artist.accent }}>{artist.growth} esta semana</span></span>
               <span>{artist.countries} PAÍSES</span>
             </p>
