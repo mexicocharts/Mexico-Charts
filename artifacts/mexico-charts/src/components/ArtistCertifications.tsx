@@ -45,8 +45,8 @@ function CertBadge({ cert }: { cert: string }) {
       src={`${base}${CERT_IMAGES[key]}`}
       alt={label}
       title={label}
-      width={28}
-      height={28}
+      width={44}
+      height={44}
       style={{ objectFit: "contain", display: "block" }}
     />
   );
@@ -195,7 +195,7 @@ export default function ArtistCertifications({ artistName }: Props) {
                     <span className="block truncate">{row.titulo}</span>
                   </td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
-                  <td className="px-5 py-2.5"><CertBadge cert={row.certificacion} /></td>
+                  <td className="px-5 py-2.5"><div className="flex justify-center"><CertBadge cert={row.certificacion} /></div></td>
                   <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: G }}>
                     {row.nivel}
                   </td>
