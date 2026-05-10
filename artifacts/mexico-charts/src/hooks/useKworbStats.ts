@@ -73,6 +73,31 @@ export function useKworbStats(artistName: string) {
   });
 }
 
+/* ── Refresh status (last scheduler run) ─────────────────────────────── */
+export interface KworbRefreshStatus {
+  lastRefreshedAt:  number | null;
+  lastRefreshedFmt: string | null;
+  nextPollAt:       number | null;
+  nextPollFmt:      string | null;
+  todayUpdated:     boolean;
+  artistsUpdated:   number;
+  inProgress:       boolean;
+  totalArtists:     number;
+}
+
+export function useRefreshStatus() {
+  return useQuery<KworbRefreshStatus | null>({
+    queryKey: ["kworbRefreshStatus"],
+    queryFn: async () => {
+      const resp = await fetch("/api/kworb/refresh-status");
+      if (!resp.ok) return null;
+      return resp.json() as Promise<KworbRefreshStatus>;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+}
+
 /* ── Batch total-streams for roster (single API call for all artists) ─── */
 export function useBatchKworbStreams(names: string[]) {
   const key = [...names].sort().join(",");

@@ -10,12 +10,38 @@ import {
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
 import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { useKworbStats } from "@/hooks/useKworbStats";
+import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+
+/* ─── RELATIVE TIME IN SPANISH ───────────────────────────────── */
+function fmtRelativeEs(ts: number | null): string {
+  if (!ts) return "";
+  const now = Date.now();
+  const diffMs = now - ts;
+  const diffMin = Math.floor(diffMs / 60_000);
+  const diffHrs = Math.floor(diffMs / 3_600_000);
+
+  const tsDate = new Date(ts);
+  const todayDate = new Date();
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(todayDate.getDate() - 1);
+
+  const isSameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate();
+
+  if (diffMin < 2)                       return "hace un momento";
+  if (diffMin < 60)                      return `hace ${diffMin} min`;
+  if (diffHrs < 2)                       return "hace 1 hora";
+  if (isSameDay(tsDate, todayDate))      return `hoy · hace ${diffHrs} horas`;
+  if (isSameDay(tsDate, yesterdayDate))  return "ayer";
+  return `hace ${Math.floor(diffMs / 86_400_000)} días`;
+}
 
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -441,6 +467,10 @@ export default function ArtistDetail() {
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
 
+  /* ── Kworb refresh status (last scheduler run) ── */
+  const { data: refreshStatus } = useRefreshStatus();
+  const lastUpdatedLabel = fmtRelativeEs(refreshStatus?.lastRefreshedAt ?? null);
+
   /* ── Top tracks: only real kworb data — never show hardcoded fake tracks ── */
   const topTracks = useMemo(() => {
     if (kworbStats?.spotify?.topTracks?.length) {
@@ -782,7 +812,14 @@ export default function ArtistDetail() {
                 <div className="flex items-center gap-3 mb-6">
                   <Play className="w-4 h-4" style={{ color: artist.accent }} />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams Totales de por Vida</h2>
-                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">fuente: kworb.net</div>
+                  <div className="ml-auto flex flex-col items-end gap-0.5">
+                    <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">fuente: kworb.net</span>
+                    {lastUpdatedLabel && (
+                      <span className="text-[9px] text-zinc-600 font-medium" data-testid="kworb-last-updated">
+                        Actualizado {lastUpdatedLabel}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {kworbStats.spotify && (
