@@ -87,12 +87,13 @@ export default function IndustryLanding() {
           HERO — Globe always visible, absolutely positioned
       ══════════════════════════════════════════════════ */}
       <section className="relative overflow-hidden" style={{ minHeight: 440 }}>
-        <motion.div className="absolute pointer-events-none"
-          style={{ right: "-6vw", top: "-8%", width: "min(62vw, 580px)", height: "min(62vw, 580px)", zIndex: 1 }}
-          initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
+        <motion.div className="absolute pointer-events-none overflow-hidden"
+          style={{ right: 0, top: 0, bottom: 0, width: "min(58vw, 640px)", zIndex: 1 }}
+          initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
-          <img src={globeImg} alt="Globo terráqueo con México destacado" className="w-full h-full object-contain"
-            style={{ mixBlendMode: "screen" }} />
+          <img src={globeImg} alt="Globo terráqueo con México destacado"
+            className="absolute h-full w-auto"
+            style={{ mixBlendMode: "screen", right: 0, top: 0 }} />
         </motion.div>
 
         <div className="absolute top-0 left-0 pointer-events-none"
