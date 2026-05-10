@@ -37,24 +37,18 @@ function CertImage({ cert, size = 28 }: { cert: string; size?: number }) {
 
 function CertBadge({ cert }: { cert: string }) {
   const key = certKey(cert);
-  const mixed = cert.includes("&");
-  const label = key === "DIAMANTE" ? "Diamante" : key === "PLATINO" ? "Platino" : "Oro";
   const base = import.meta.env.BASE_URL;
+  const label = key === "DIAMANTE" ? "Diamante" : key === "PLATINO" ? "Platino" : "Oro";
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-[0.14em] whitespace-nowrap"
-      style={{ background: `${G}12`, color: G, border: `1px solid ${G}28` }}
-    >
-      <img
-        src={`${base}${CERT_IMAGES[key]}`}
-        alt={key}
-        width={13}
-        height={13}
-        style={{ objectFit: "contain", display: "block" }}
-      />
-      {label}{mixed ? " +" : ""}
-    </span>
+    <img
+      src={`${base}${CERT_IMAGES[key]}`}
+      alt={label}
+      title={label}
+      width={28}
+      height={28}
+      style={{ objectFit: "contain", display: "block" }}
+    />
   );
 }
 
