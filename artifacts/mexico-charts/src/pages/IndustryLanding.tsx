@@ -30,7 +30,7 @@ const NAV_ITEMS = ["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"
 /* Horizontal bar component */
 function DataBar({ pct, color = G, delay = 0 }: { pct: number; color?: string; delay?: number }) {
   return (
-    <div className="relative h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+    <div className="relative h-2.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
       <motion.div className="absolute inset-y-0 left-0 rounded-full"
         style={{ background: color }}
         initial={{ width: 0 }} whileInView={{ width: `${pct}%` }}
@@ -165,16 +165,16 @@ export default function IndustryLanding() {
             { icon: Layers,       v: "2×",      l: "Ingresos duplicados\nen cinco años",  src: "AMPROFON",   hi: false },
           ].map(({ icon: Icon, v, l, src, hi }, i) => (
             <FadeUp key={i} delay={i * 0.04}>
-              <div className="relative px-5 py-7"
+              <div className="relative px-5 py-9"
                 style={{ borderRight: i < 4 ? "1px solid rgba(255,255,255,0.07)" : "none", background: hi ? "rgba(57,255,20,0.022)" : "transparent" }}>
-                {hi && <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.05) 0%, transparent 70%)" }} />}
-                <Icon className="w-4 h-4 mb-4 relative z-10" style={{ color: hi ? G : "rgba(255,255,255,0.35)" }} />
-                <div className="font-black leading-none mb-2 relative z-10"
-                  style={{ fontSize: "clamp(1.3rem, 2.2vw, 1.9rem)", letterSpacing: "-0.04em", color: hi ? G : "#fff", textShadow: hi ? `0 0 20px ${G}55` : "none" }}>{v}</div>
+                {hi && <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.07) 0%, transparent 70%)" }} />}
+                <Icon className="w-4 h-4 mb-5 relative z-10" style={{ color: hi ? G : "rgba(255,255,255,0.35)" }} />
+                <div className="font-black leading-none mb-2.5 relative z-10"
+                  style={{ fontSize: "clamp(1.7rem, 2.8vw, 2.6rem)", letterSpacing: "-0.04em", color: hi ? G : "#fff", textShadow: hi ? `0 0 28px ${G}60` : "none" }}>{v}</div>
                 <div className="text-[9px] font-black uppercase tracking-[0.12em] leading-relaxed relative z-10 mb-2"
-                  style={{ color: "rgba(255,255,255,0.55)", whiteSpace: "pre-line" }}>{l}</div>
+                  style={{ color: "rgba(255,255,255,0.5)", whiteSpace: "pre-line" }}>{l}</div>
                 <div className="text-[8px] font-black uppercase tracking-[0.16em]"
-                  style={{ color: hi ? "rgba(57,255,20,0.45)" : "rgba(255,255,255,0.22)" }}>{src}</div>
+                  style={{ color: hi ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.22)" }}>{src}</div>
               </div>
             </FadeUp>
           ))}
@@ -195,20 +195,20 @@ export default function IndustryLanding() {
               <p className="text-[10px] font-black uppercase tracking-[0.28em] mb-6" style={{ color: "rgba(255,255,255,0.35)" }}>
                 Ascenso en el Ranking Global IFPI
               </p>
-              <div className="flex items-end gap-0 mb-4">
+              <div className="flex items-end gap-2 mb-5" style={{ height: 220 }}>
                 {[
-                  { year: "2022", rank: 15, h: 28 },
-                  { year: "2023", rank: 12, h: 50 },
-                  { year: "2024", rank: 10, h: 75 },
-                  { year: "2025", rank: 10, h: 75, cur: true },
+                  { year: "2022", rank: 15, h: 70 },
+                  { year: "2023", rank: 12, h: 120 },
+                  { year: "2024", rank: 10, h: 185 },
+                  { year: "2025", rank: 10, h: 185, cur: true },
                 ].map((d, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="text-[9px] font-black" style={{ color: d.cur ? G : "rgba(255,255,255,0.55)" }}>#{d.rank}</div>
-                    <motion.div className="w-full rounded-t-lg mx-1"
-                      style={{ background: d.cur ? G : "rgba(57,255,20,0.22)", minHeight: 8 }}
+                  <div key={i} className="flex-1 flex flex-col items-center justify-end gap-2 h-full">
+                    <div className="font-black" style={{ fontSize: "clamp(0.75rem,1.2vw,1rem)", letterSpacing: "-0.03em", color: d.cur ? G : "rgba(255,255,255,0.65)" }}>#{d.rank}</div>
+                    <motion.div className="w-full rounded-t-xl"
+                      style={{ background: d.cur ? `linear-gradient(to top, ${G}, ${G}99)` : "rgba(57,255,20,0.18)", boxShadow: d.cur ? `0 0 24px ${G}44` : "none" }}
                       initial={{ height: 0 }} whileInView={{ height: `${d.h}px` }}
                       viewport={{ once: true }}
-                      transition={{ duration: 0.7, delay: i * 0.1, ease: [0.16,1,0.3,1] }} />
+                      transition={{ duration: 0.85, delay: i * 0.1, ease: [0.16,1,0.3,1] }} />
                     <div className="text-[9px] font-black uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.35)" }}>{d.year}</div>
                   </div>
                 ))}
@@ -230,18 +230,16 @@ export default function IndustryLanding() {
                 <p className="text-[10px] font-black uppercase tracking-[0.28em] mb-4" style={{ color: "rgba(255,255,255,0.35)" }}>
                   Norteamérica en el Top 10 Global
                 </p>
-                <div className="flex items-center gap-4 mb-1">
+                <div className="flex items-end gap-3 mb-4">
                   {[
-                    { rank: "#1", country: "Estados Unidos", pct: 100 },
+                    { rank: "#1", country: "EE.UU.", pct: 100 },
                     { rank: "#8", country: "Canadá", pct: 52 },
                     { rank: "#10", country: "México", pct: 40, hi: true },
                   ].map((c, i) => (
                     <div key={i} className="flex-1">
-                      <div className="flex items-baseline gap-1.5 mb-1.5">
-                        <span className="font-black text-sm" style={{ color: c.hi ? G : "#fff", letterSpacing: "-0.03em" }}>{c.rank}</span>
-                        <span className="text-[9px] font-black uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.45)" }}>{c.country}</span>
-                      </div>
-                      <DataBar pct={c.pct} color={c.hi ? G : "rgba(255,255,255,0.3)"} delay={0.2 + i * 0.1} />
+                      <div className="font-black leading-none mb-1" style={{ fontSize: "clamp(1.6rem, 2.4vw, 2.2rem)", letterSpacing: "-0.04em", color: c.hi ? G : "#fff", textShadow: c.hi ? `0 0 20px ${G}55` : "none" }}>{c.rank}</div>
+                      <div className="text-[9px] font-black uppercase tracking-wide mb-2.5" style={{ color: c.hi ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.4)" }}>{c.country}</div>
+                      <DataBar pct={c.pct} color={c.hi ? G : "rgba(255,255,255,0.25)"} delay={0.2 + i * 0.1} />
                     </div>
                   ))}
                 </div>
@@ -297,19 +295,21 @@ export default function IndustryLanding() {
         </FadeUp>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { icon: Smartphone, title: "Consumo digital primario",  body: "El consumo musical en México ocurre principalmente a través de plataformas digitales. El formato físico representa una fracción mínima del mercado total.", src: "AMPROFON" },
-            { icon: Star,       title: "Preferencia por pago",      body: "Los oyentes mexicanos han mostrado una destacada predilección por las suscripciones de pago frente al streaming gratuito, impulsando el revenue de mayor calidad.", src: "AMPROFON" },
-            { icon: Globe,      title: "2° mercado en LATAM",       body: "México es el segundo mayor mercado de música grabada en Latinoamérica, por detrás de Brasil y por encima de Argentina, Colombia y Chile.", src: "AMPROFON" },
-            { icon: TrendingUp, title: "Doble dígito consecutivo",  body: "LATAM registró un crecimiento del 22.5% en 2024 — el tercer mayor crecimiento regional a nivel global, consolidando al continente en el mapa de la industria.", src: "IFPI 2025" },
-          ].map(({ icon: Icon, title, body, src }, i) => (
+            { icon: Smartphone, stat: "92%",    title: "Ingresos digitales",       body: "El streaming representa la gran mayoría del mercado grabado. El físico es una fracción mínima.", src: "AMPROFON" },
+            { icon: Star,       stat: "#2",     title: "Mercado en LATAM",          body: "Solo Brasil supera a México en Latinoamérica. Por encima de Argentina, Colombia y Chile.", src: "AMPROFON" },
+            { icon: TrendingUp, stat: "+22.5%", title: "Crecimiento LATAM 2024",   body: "La región fue la 3ª de mayor crecimiento global. México lidera el avance dentro de la región.", src: "IFPI 2025" },
+            { icon: Layers,     stat: "2×",     title: "Ingresos en 5 años",       body: "Los ingresos de la industria musical mexicana se duplicaron entre 2019 y 2024.", src: "AMPROFON" },
+          ].map(({ icon: Icon, stat, title, body, src }, i) => (
             <FadeUp key={i} delay={i * 0.05}>
-              <div className="relative overflow-hidden rounded-xl p-6 h-full"
+              <div className="relative overflow-hidden rounded-xl p-6 h-full flex flex-col"
                 style={{ background: "#0e0e0e", border: "1px solid rgba(255,255,255,0.09)" }}>
                 <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: NOISE, backgroundSize: "64px" }} />
-                <Icon className="w-5 h-5 mb-4 relative z-10" style={{ color: "rgba(255,255,255,0.4)" }} />
-                <h3 className="text-xs font-black uppercase tracking-tight text-white mb-3 relative z-10">{title}</h3>
-                <p className="text-xs leading-relaxed relative z-10 mb-3" style={{ color: "rgba(255,255,255,0.65)", fontFamily: "system-ui" }}>{body}</p>
-                <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.22)" }}>{src}</div>
+                <Icon className="w-4 h-4 mb-4 relative z-10" style={{ color: "rgba(255,255,255,0.3)" }} />
+                <div className="font-black leading-none mb-3 relative z-10"
+                  style={{ fontSize: "clamp(2rem, 3.2vw, 2.8rem)", letterSpacing: "-0.04em", color: "#fff" }}>{stat}</div>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.14em] mb-2 relative z-10" style={{ color: "rgba(255,255,255,0.65)" }}>{title}</h3>
+                <p className="text-xs leading-relaxed relative z-10 mb-4 flex-1" style={{ color: "rgba(255,255,255,0.45)", fontFamily: "system-ui" }}>{body}</p>
+                <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.2)" }}>{src}</div>
               </div>
             </FadeUp>
           ))}
