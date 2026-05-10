@@ -1,35 +1,58 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Trophy, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useCertifications, artistMatches, type CertRow } from "@/hooks/useCertifications";
 
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
-const DIAMOND_COLOR = "#60a5fa";
-const PLATINO_COLOR = "#94a3b8";
-const ORO_COLOR     = "#b45309";
+const G = "#39FF14";
 
-function levelColor(cert: string) {
+const CERT_IMAGES: Record<string, string> = {
+  DIAMANTE: "cert-diamond.png",
+  PLATINO:  "cert-platinum.png",
+  ORO:      "cert-gold.png",
+};
+
+function certKey(cert: string): "DIAMANTE" | "PLATINO" | "ORO" {
   const u = cert.toUpperCase();
-  if (u.includes("DIAMANTE")) return DIAMOND_COLOR;
-  if (u.includes("PLATINO"))  return PLATINO_COLOR;
-  return ORO_COLOR;
+  if (u.includes("DIAMANTE")) return "DIAMANTE";
+  if (u.includes("PLATINO"))  return "PLATINO";
+  return "ORO";
+}
+
+function CertImage({ cert, size = 28 }: { cert: string; size?: number }) {
+  const key = certKey(cert);
+  const base = import.meta.env.BASE_URL;
+  return (
+    <img
+      src={`${base}${CERT_IMAGES[key]}`}
+      alt={key}
+      width={size}
+      height={size}
+      style={{ objectFit: "contain", display: "block", flexShrink: 0 }}
+    />
+  );
 }
 
 function CertBadge({ cert }: { cert: string }) {
-  const u = cert.toUpperCase();
-  const isDia = u.includes("DIAMANTE");
-  const isPla = u.includes("PLATINO");
+  const key = certKey(cert);
   const mixed = cert.includes("&");
-  const color = isDia ? DIAMOND_COLOR : isPla ? PLATINO_COLOR : ORO_COLOR;
-  const label = isDia ? "Diamante" : isPla ? "Platino" : "Oro";
+  const label = key === "DIAMANTE" ? "Diamante" : key === "PLATINO" ? "Platino" : "Oro";
+  const base = import.meta.env.BASE_URL;
 
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-[0.14em] whitespace-nowrap"
-      style={{ background: `${color}15`, color, border: `1px solid ${color}28` }}
+      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-[0.14em] whitespace-nowrap"
+      style={{ background: `${G}12`, color: G, border: `1px solid ${G}28` }}
     >
+      <img
+        src={`${base}${CERT_IMAGES[key]}`}
+        alt={key}
+        width={13}
+        height={13}
+        style={{ objectFit: "contain", display: "block" }}
+      />
       {label}{mixed ? " +" : ""}
     </span>
   );
@@ -42,14 +65,26 @@ function fmtDate(iso: string) {
   return `${parseInt(d)} ${mo[parseInt(m) - 1]} ${y}`;
 }
 
-function StatCard({ label, value, color }: { label: string; value: string | number; color?: string }) {
+function StatCard({ label, value, certKey: ck }: { label: string; value: string | number; certKey?: "DIAMANTE" | "PLATINO" | "ORO" }) {
+  const base = import.meta.env.BASE_URL;
   return (
     <div
       className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5"
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
     >
-      <div className="text-[9px] uppercase tracking-[0.2em] font-bold text-zinc-600">{label}</div>
-      <div className="text-sm font-black leading-none" style={{ color: color ?? "rgba(255,255,255,0.88)" }}>
+      <div className="flex items-center gap-1 mb-0.5">
+        {ck && (
+          <img
+            src={`${base}${CERT_IMAGES[ck]}`}
+            alt={ck}
+            width={12}
+            height={12}
+            style={{ objectFit: "contain", display: "block" }}
+          />
+        )}
+        <div className="text-[9px] uppercase tracking-[0.2em] font-bold text-zinc-600">{label}</div>
+      </div>
+      <div className="text-sm font-black leading-none" style={{ color: ck ? G : "rgba(255,255,255,0.88)" }}>
         {value}
       </div>
     </div>
@@ -58,7 +93,7 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
 
 type Props = { artistName: string; accent?: string };
 
-export default function ArtistCertifications({ artistName, accent = "#39FF14" }: Props) {
+export default function ArtistCertifications({ artistName }: Props) {
   const { rows, loading } = useCertifications();
 
   const matched: CertRow[] = useMemo(() => {
@@ -73,23 +108,23 @@ export default function ArtistCertifications({ artistName, accent = "#39FF14" }:
   const totalDiamante = matched.reduce((s, r) => s + r.diamante, 0);
   const totalPlatino  = matched.reduce((s, r) => s + r.platino, 0);
   const totalOro      = matched.reduce((s, r) => s + r.oro, 0);
-  const albums        = matched.filter(r => r.formato.toLowerCase().startsWith("álb") || r.formato.toLowerCase().startsWith("alb")).length;
-  const singles       = matched.filter(r => r.formato.toLowerCase() === "single").length;
+  const albums  = matched.filter(r => r.formato.toLowerCase().startsWith("álb") || r.formato.toLowerCase().startsWith("alb")).length;
+  const singles = matched.filter(r => r.formato.toLowerCase() === "single").length;
 
-  const highestLevel = totalDiamante > 0 ? "DIAMANTE" : totalPlatino > 0 ? "PLATINO" : "ORO";
-  const highestColor = totalDiamante > 0 ? DIAMOND_COLOR : totalPlatino > 0 ? PLATINO_COLOR : ORO_COLOR;
+  const highestKey: "DIAMANTE" | "PLATINO" | "ORO" =
+    totalDiamante > 0 ? "DIAMANTE" : totalPlatino > 0 ? "PLATINO" : "ORO";
   const highestCount = totalDiamante > 0 ? totalDiamante : totalPlatino > 0 ? totalPlatino : totalOro;
 
   const latestDate = matched[0]?.fechaISO ?? "";
   const ctaHref = `/industry/certifications?artist=${encodeURIComponent(artistName)}`;
 
   const stats = [
-    { label: "Total", value: matched.length },
-    ...(totalDiamante > 0 ? [{ label: "Diamante", value: totalDiamante, color: DIAMOND_COLOR }] : []),
-    ...(totalPlatino  > 0 ? [{ label: "Platino",  value: totalPlatino,  color: PLATINO_COLOR }] : []),
-    ...(totalOro      > 0 ? [{ label: "Oro",       value: totalOro,      color: ORO_COLOR     }] : []),
-    ...(albums  > 0 ? [{ label: "Álbumes",  value: albums  }] : []),
-    ...(singles > 0 ? [{ label: "Singles",  value: singles }] : []),
+    { label: "Total",     value: matched.length },
+    ...(totalDiamante > 0 ? [{ label: "Diamante", value: totalDiamante, certKey: "DIAMANTE" as const }] : []),
+    ...(totalPlatino  > 0 ? [{ label: "Platino",  value: totalPlatino,  certKey: "PLATINO"  as const }] : []),
+    ...(totalOro      > 0 ? [{ label: "Oro",      value: totalOro,      certKey: "ORO"      as const }] : []),
+    ...(albums  > 0 ? [{ label: "Álbumes", value: albums  }] : []),
+    ...(singles > 0 ? [{ label: "Singles", value: singles }] : []),
     { label: "Última cert.", value: fmtDate(latestDate) },
   ];
 
@@ -105,15 +140,18 @@ export default function ArtistCertifications({ artistName, accent = "#39FF14" }:
         className="relative overflow-hidden rounded-2xl"
         style={{
           background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)",
+          border: `1px solid ${G}18`,
+          boxShadow: `0 8px 48px rgba(0,0,0,0.65), 0 0 0 1px ${G}08, inset 0 1px 0 rgba(255,255,255,0.04)`,
         }}
       >
+        {/* Green top stripe */}
+        <div className="absolute top-0 left-0 right-0 h-[2px] z-10" style={{ background: `linear-gradient(to right, ${G}, rgba(57,255,20,0.1))` }} />
+
         <div className="absolute inset-0 opacity-[0.018] pointer-events-none rounded-2xl" style={{ backgroundImage: NOISE, backgroundSize: "96px" }} />
 
         {/* ── Header ── */}
         <div className="relative z-10 flex items-center gap-3 px-6 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          <Trophy className="w-4 h-4 flex-shrink-0" style={{ color: highestColor }} />
+          <CertImage cert={highestKey} size={22} />
           <div>
             <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-300">Certificaciones en México</h2>
             <p className="text-[9px] text-zinc-600 uppercase tracking-[0.18em] font-bold mt-0.5">
@@ -125,21 +163,19 @@ export default function ArtistCertifications({ artistName, accent = "#39FF14" }:
 
         {/* ── Best cert + stats ── */}
         <div className="relative z-10 flex flex-wrap items-start gap-4 px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-          {/* Highest cert badge */}
+          {/* Highest cert badge — image + count */}
           <div
-            className="flex flex-col items-center justify-center w-[72px] h-[72px] rounded-xl flex-shrink-0 text-center"
-            style={{ background: `${highestColor}10`, border: `1px solid ${highestColor}28` }}
+            className="flex flex-col items-center justify-center w-[80px] h-[80px] rounded-xl flex-shrink-0 text-center gap-1"
+            style={{ background: `${G}08`, border: `1px solid ${G}22` }}
           >
-            <span className="text-[8px] font-black uppercase tracking-[0.1em] leading-none" style={{ color: highestColor }}>
-              {highestLevel}
-            </span>
-            <span className="text-2xl font-black leading-none text-white mt-1">{highestCount}</span>
+            <CertImage cert={highestKey} size={38} />
+            <span className="text-lg font-black leading-none" style={{ color: G }}>{highestCount}</span>
           </div>
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 flex-1 min-w-0">
             {stats.map(s => (
-              <StatCard key={s.label} label={s.label} value={s.value} color={(s as { color?: string }).color} />
+              <StatCard key={s.label} label={s.label} value={s.value} certKey={(s as { certKey?: "DIAMANTE" | "PLATINO" | "ORO" }).certKey} />
             ))}
           </div>
         </div>
@@ -166,7 +202,7 @@ export default function ArtistCertifications({ artistName, accent = "#39FF14" }:
                   </td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
                   <td className="px-5 py-2.5"><CertBadge cert={row.certificacion} /></td>
-                  <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: levelColor(row.certificacion) }}>
+                  <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: G }}>
                     {row.nivel}
                   </td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 whitespace-nowrap">{fmtDate(row.fechaISO)}</td>
@@ -221,7 +257,7 @@ export default function ArtistCertifications({ artistName, accent = "#39FF14" }:
           <Link href={ctaHref}>
             <span
               className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] cursor-pointer whitespace-nowrap transition-opacity hover:opacity-70"
-              style={{ color: accent }}
+              style={{ color: G }}
             >
               Ver todas las certificaciones <ArrowRight className="w-3 h-3" />
             </span>
