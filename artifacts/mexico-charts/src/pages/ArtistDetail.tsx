@@ -441,13 +441,13 @@ export default function ArtistDetail() {
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
 
-  /* ── Top tracks: prefer kworb real data, fall back to hardcoded ── */
+  /* ── Top tracks: only real kworb data — never show hardcoded fake tracks ── */
   const topTracks = useMemo(() => {
     if (kworbStats?.spotify?.topTracks?.length) {
       return kworbStats.spotify.topTracks.map(t => ({ title: t.title, streams: t.streamsFmt }));
     }
-    return artist.topSongs;
-  }, [kworbStats, artist.topSongs]);
+    return [];
+  }, [kworbStats]);
 
   const maxPlatform = Math.max(...livePlatforms.map(p => p.streamsNum));
 
@@ -626,11 +626,14 @@ export default function ArtistDetail() {
 
         {/* ══════════════════════════════════════════════════════════
             PLATFORM + GENRE — 2 COL
+            Platform breakdown only renders when backed by real metadata.
+            Fake hardcoded platform numbers are suppressed so they don't
+            contradict the real kworb lifetime stream totals.
         ══════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* STREAMING BY PLATFORM */}
-          <motion.section
+          {/* STREAMING BY PLATFORM — only when real metadata is available */}
+          {metaArtist && <motion.section
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -688,7 +691,7 @@ export default function ArtistDetail() {
                 </div>
               </div>
             </div>
-          </motion.section>
+          </motion.section>}
 
           {/* GENRE BREAKDOWN */}
           <motion.section

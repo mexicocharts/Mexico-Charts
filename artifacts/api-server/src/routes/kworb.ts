@@ -490,7 +490,11 @@ router.get("/kworb/artist-stats", async (req, res) => {
 
   try {
     const stats = await fetchArtistStats(slug);
-    statsCache.set(slug, { data: stats, cachedAt: Date.now() });
+    // Only cache for full 24h when at least one platform parse succeeded;
+    // cache all-null results for 1h so transient failures self-heal quickly.
+    const hasData = !!(stats.spotify || stats.youtube || stats.chartPositions);
+    const ttl = hasData ? CACHE_TTL : 60 * 60 * 1000; // 24h vs 1h
+    statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
     res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
     res.setHeader("X-Cache", "MISS");
     res.json(stats);
