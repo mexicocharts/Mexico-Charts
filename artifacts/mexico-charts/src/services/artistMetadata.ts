@@ -19,7 +19,8 @@ export interface RawArtistMetadata {
   artist_key?: string;              // Canonical matching key (preferred)
   artist_name?: string;             // Display name
   source_country?: string;          // e.g. "Mexico"
-  genre?: string;                   // e.g. "Corridos Tumbados"
+  genre?: string;                   // Broad Spotify category (e.g. "Latin")
+  subgenre?: string;                // Specific display genre (e.g. "Corridos Tumbados")
   label?: string;                   // Record label
   eligibility_type?: string;        // e.g. "approved", "review"
   eligibility_reason?: string;      // Optional reason text
@@ -52,6 +53,7 @@ export interface ArtistMetadata {
 
   country: string;
   genre: string;
+  subgenre: string;
   label: string;
 
   // Spotify
@@ -129,6 +131,7 @@ function normalizeRow(raw: RawArtistMetadata): ArtistMetadata | null {
 
     country: raw.source_country?.trim() ?? "",
     genre: raw.genre?.trim() ?? "",
+    subgenre: raw.subgenre?.trim() ?? "",
     label: raw.label?.trim() ?? "",
 
     spotifyListeners,

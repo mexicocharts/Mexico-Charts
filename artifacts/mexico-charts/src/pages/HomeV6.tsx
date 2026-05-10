@@ -301,7 +301,7 @@ export default function HomeV6() {
   };
 
   const genreArtistCounts = useMemo(() => {
-    if (sheetsEmpty || weeklyArtists.length === 0) return null;
+    if (metaByKey.size === 0) return null;
     const counts: Record<string, number> = {
       "Corridos Tumbados": 0,
       "Regional Mexicano": 0,
@@ -310,15 +310,15 @@ export default function HomeV6() {
       "Hip-Hop Mexicano": 0,
       "Pop Urbano": 0,
     };
-    for (const a of weeklyArtists) {
-      const g  = (a.genre    ?? "").toLowerCase().trim();
-      const sg = (a.subgenre ?? "").toLowerCase().trim();
+    for (const m of metaByKey.values()) {
+      const g  = m.genre.toLowerCase().trim();
+      const sg = m.subgenre.toLowerCase().trim();
       for (const [label, synonyms] of Object.entries(GENRE_SYNONYMS)) {
         if (synonyms.some(s => g === s || sg === s)) counts[label]++;
       }
     }
     return counts;
-  }, [weeklyArtists, sheetsEmpty]);
+  }, [metaByKey]);
 
   /* ── Platform totals — summed from artist metadata (real lifetime numbers) ── */
   function fmtBig(n: number): string {
