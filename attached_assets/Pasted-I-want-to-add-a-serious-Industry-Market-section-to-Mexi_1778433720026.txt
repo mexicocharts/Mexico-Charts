@@ -1,0 +1,228 @@
+I want to add a serious Industry / Market section to Mexico Charts using two sources:
+
+1. IFPI Global Music Report 2026
+Source URL:
+https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf
+
+2. AMPROFON Mexico music report
+Source URL:
+https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf
+
+IMPORTANT:
+Do not add this as a huge homepage section yet.
+Please create or suggest a dedicated Industry / Market area for Mexico Charts first.
+
+Possible route:
+/industry
+/market
+/reports
+or
+/industry/mexico-recorded-music-market
+
+The goal is to make Mexico Charts feel like a serious Mexican music intelligence platform, not just a charts website.
+
+SECTION NAME OPTIONS:
+- Industry
+- Market
+- Reportes
+- Industria
+- Mercado Musical
+- Mexico Music Market
+
+Please recommend the best naming and route based on the current site structure.
+
+MAIN PURPOSE:
+Create a section that documents the business, growth, and global position of Mexico’s music industry, especially recorded music, streaming, and market growth.
+
+PRIMARY DATA TO INCLUDE:
+
+From IFPI Global Music Report 2026:
+- Mexico is the #10 global recorded music market.
+- Mexico increased recorded music revenues by +13.3% in 2025.
+- This is about recorded music revenue, not touring, Spotify listeners, or artist rankings.
+- Use wording like “mercado de música grabada” whenever possible.
+
+From AMPROFON Mexico report:
+- Mexico moved from #15 in 2022 to #10 in 2024 in IFPI’s global recorded music market ranking.
+- Recorded music revenues in Mexico doubled in only five years.
+- 2024 marked Mexico’s 10th year of sustained recorded music industry growth.
+- Music consumption in Mexico happens mainly through digital platforms.
+- Mexican listeners show strong preference for paid subscriptions.
+- The report frames Mexico as a growing global music market with cultural, digital, and industrial importance.
+
+DO NOT:
+- Do not make this a general Latin America report.
+- Do not make it about all global music.
+- Do not imply Mexico is #10 in every music category.
+- Do not call it a Spotify ranking.
+- Do not mix recorded music revenue with touring revenue.
+- Do not copy charts, graphics, tables, or long paragraphs from IFPI or AMPROFON.
+- Do not reproduce their report design.
+- Summarize and cite only.
+
+CONTENT STRUCTURE:
+
+Create a main Industry / Market landing page with sections like:
+
+1. Hero Section
+
+Eyebrow:
+INDUSTRIA / MERCADO
+
+Headline:
+MÉXICO YA ES TOP 10 GLOBAL EN MÚSICA GRABADA
+
+Subheadline:
+México forma parte de los 10 mercados de música grabada más grandes del mundo. Según IFPI, en 2025 se mantuvo en el puesto #10 tras crecer 13.3% en ingresos de música grabada.
+
+Source line:
+Fuentes: IFPI Global Music Report 2026; AMPROFON Reporte Música México.
+
+Visual direction:
+Use the existing Mexico Charts style:
+- black background
+- neon green accents
+- bold futuristic typography
+- rounded dark cards
+- subtle borders
+- soft glow
+- premium data/editorial style
+
+Optional subtle visual:
+- Mexico map outline
+- globe focused on Mexico
+- abstract data grid
+- simple market-growth visual
+
+2. Main Stat Cards
+
+Create clean stat cards:
+
+#10
+Mercado global de música grabada
+
++13.3%
+Crecimiento de ingresos en 2025
+
+#15 → #10
+Avance global entre 2022 y 2024
+
+10 años
+Crecimiento sostenido de la industria
+
+2x
+Ingresos duplicados en cinco años
+
+3. “Qué significa para México” Section
+
+Add editorial explanation blocks:
+
+Reconocimiento global
+México ya forma parte de los mercados de música grabada más importantes del mundo.
+
+Crecimiento sostenido
+El mercado mexicano ha mantenido una década de expansión, impulsado principalmente por el consumo digital.
+
+Streaming y suscripciones
+El consumo musical en México ocurre principalmente en plataformas digitales, con una fuerte preferencia por suscripciones de paga.
+
+Impacto cultural e industrial
+La música mexicana no solo tiene fuerza cultural: también está consolidando a México como un mercado de alto valor dentro de la industria global.
+
+4. Source Cards / Report Cards
+
+Add two source cards:
+
+IFPI Global Music Report 2026
+Use this for:
+- ranking global
+- 2025 revenue growth
+- Mexico as #10 global recorded music market
+
+AMPROFON Reporte Música México
+Use this for:
+- Mexico-specific market context
+- growth from #15 to #10
+- decade of sustained growth
+- digital consumption
+- subscription preference
+- industry challenges and opportunities
+
+Each source card should have:
+- title
+- short description
+- source label
+- external link button saying “Ver fuente”
+
+5. Future Expandable Pages
+
+Please structure this so we can later add more pages under Industry / Market, such as:
+
+/industry/recorded-music
+For recorded music market revenue, IFPI, AMPROFON, streaming, subscriptions.
+
+/industry/streaming
+For Spotify, YouTube, digital consumption, paid subscriptions, platform trends.
+
+/industry/live
+For concerts, touring, venues, Pollstar, live music business.
+
+/industry/musica-mexicana
+For the global rise of Música Mexicana, regional mexicano, corridos tumbados, export impact.
+
+/industry/cities
+For Mexican music ecosystems by city: CDMX, Guadalajara, Monterrey, Hermosillo, Mazatlán, Tijuana, Xalapa, etc.
+
+/industry/independent-artists
+For independent artists, challenges, opportunities, distribution, labels, management, and professionalization.
+
+6. Homepage Placement
+
+Do not add a large homepage section yet.
+
+If anything is added to the homepage, make it only a small teaser card, not a full section.
+
+Homepage teaser idea:
+
+Title:
+México ya es Top 10 global
+
+Text:
+Explora el crecimiento del mercado mexicano de música grabada y su posición dentro de la industria global.
+
+CTA:
+Ver industria
+
+But only add this if it fits naturally and does not clutter the homepage.
+
+7. Accuracy / Methodology Note
+
+Add a small methodology/source note somewhere on the Industry page:
+
+“Mexico Charts resume datos públicos de reportes de la industria como IFPI y AMPROFON. No reproducimos gráficos, tablas ni elementos visuales protegidos de los reportes originales. Las cifras se presentan con atribución a sus fuentes correspondientes.”
+
+8. Design Rules
+
+Match the current Mexico Charts website.
+This should feel like part of the same platform.
+
+Use:
+- black / charcoal backgrounds
+- neon green highlights
+- white text
+- muted gray secondary text
+- rounded cards
+- clean spacing
+- bold headings
+- editorial data storytelling
+
+Avoid:
+- generic dashboard clutter
+- corporate report design
+- luxury serif typography
+- gold, beige, pink, or unrelated colors
+- too many charts
+- fake data
+- copied IFPI/AMPROFON visuals
+
+Please first suggest the best placement, route, navigation label, and page structure before building the full section.
