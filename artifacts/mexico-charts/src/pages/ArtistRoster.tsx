@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
+import { useArtistImages } from "@/hooks/useArtistImages";
 import { slugify } from "@/lib/utils";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 
@@ -55,13 +56,18 @@ interface CardProps {
   instagramFollowersFmt: string;
   tiktokFollowersFmt: string;
   youtubeSubscribersFmt: string;
+  photoUrl?: string | null;
   index: number;
 }
 
-function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, index }: CardProps) {
+function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, index }: CardProps) {
   const slug = slugify(name);
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
+  const [imgFailed, setImgFailed] = useState(false);
+  const handleImgError = useCallback(() => setImgFailed(true), []);
+
+  const showPhoto = !!photoUrl && !imgFailed;
 
   return (
     <motion.div
@@ -104,19 +110,35 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
             className="relative flex items-center justify-center flex-shrink-0"
             style={{ height: 100, background: `radial-gradient(circle at 50% 100%, ${color}12 0%, transparent 70%)` }}
           >
-            <div
-              className="flex items-center justify-center rounded-full font-black text-3xl select-none"
-              style={{
-                width: 60,
-                height: 60,
-                background: `linear-gradient(135deg, ${color}22, ${color}08)`,
-                border: `1.5px solid ${color}44`,
-                color,
-                textShadow: `0 0 20px ${color}88`,
-              }}
-            >
-              {initial}
-            </div>
+            {showPhoto ? (
+              <img
+                src={photoUrl!}
+                alt={name}
+                loading="lazy"
+                className="rounded-full object-cover"
+                style={{
+                  width: 64,
+                  height: 64,
+                  border: `1.5px solid ${color}44`,
+                  boxShadow: `0 0 16px ${color}33`,
+                }}
+                onError={handleImgError}
+              />
+            ) : (
+              <div
+                className="flex items-center justify-center rounded-full font-black text-3xl select-none"
+                style={{
+                  width: 60,
+                  height: 60,
+                  background: `linear-gradient(135deg, ${color}22, ${color}08)`,
+                  border: `1.5px solid ${color}44`,
+                  color,
+                  textShadow: `0 0 20px ${color}88`,
+                }}
+              >
+                {initial}
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -215,6 +237,10 @@ export default function ArtistRoster() {
   const [search, setSearch] = useState("");
   const [genreFilter, setGenreFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+
+  /* Collect all artist display names for the image batch fetch */
+  const allNames = useMemo(() => Array.from(byKey.values()).map(a => a.displayName), [byKey]);
+  const artistImages = useArtistImages(allNames);
 
   /* Derive sorted array from map */
   const allArtists = useMemo(() => {
@@ -487,6 +513,7 @@ export default function ArtistRoster() {
                   instagramFollowersFmt={artist.instagramFollowersFmt}
                   tiktokFollowersFmt={artist.tiktokFollowersFmt}
                   youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
+                  photoUrl={artistImages[artist.displayName]}
                   index={i}
                 />
               ))}
