@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { db, artistImages } from "@workspace/db";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ function persistToDb(artistKey: string, imageUrl: string): void {
   db.insert(artistImages)
     .values({ artistKey, imageUrl })
     .onConflictDoUpdate({ target: artistImages.artistKey, set: { imageUrl } })
-    .catch(() => {}); // non-fatal
+    .catch((err) => logger.warn({ err, artistKey }, "[images] DB persist failed"));
 }
 
 /* ── Seed with known-good Spotify CDN URLs for the biggest names ── */
@@ -105,8 +106,9 @@ async function seedCacheFromDb(): Promise<void> {
       // Normalize key on read so lookups always match (all stored under lowercase).
       imageCache.set(row.artistKey.toLowerCase().trim(), row.imageUrl);
     }
-  } catch {
-    // Non-fatal — in-memory seed + Deezer fallback still works
+    logger.info({ count: rows.length }, "[images] Seeded in-memory cache from DB");
+  } catch (err) {
+    logger.warn({ err }, "[images] DB seed failed — falling back to Deezer warm-up only");
   }
 }
 
