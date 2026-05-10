@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { db, artistImages } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const router = Router();
 
@@ -20,8 +22,16 @@ function getCached(key: string): string | null | undefined {
   return undefined;                                                      // not cached
 }
 function setCached(key: string, url: string | null): void {
-  if (url) { imageCache.set(key, url); missCache.delete(key); }
+  if (url) { imageCache.set(key, url); missCache.delete(key); persistToDb(key, url); }
   else      { missCache.set(key, Date.now()); }
+}
+
+/* ── Persist a real URL to the DB (fire-and-forget) ── */
+function persistToDb(artistKey: string, imageUrl: string): void {
+  db.insert(artistImages)
+    .values({ artistKey, imageUrl })
+    .onConflictDoUpdate({ target: artistImages.artistKey, set: { imageUrl } })
+    .catch(() => {}); // non-fatal
 }
 
 /* ── Seed with known-good Spotify CDN URLs for the biggest names ── */
@@ -87,6 +97,19 @@ async function resolveImage(name: string): Promise<string | null> {
   return url;
 }
 
+/* ── Seed in-memory cache from DB on startup ── */
+async function seedCacheFromDb(): Promise<void> {
+  try {
+    const rows = await db.select().from(artistImages);
+    for (const row of rows) {
+      // DB rows only contain real URLs (never nulls), so populate imageCache directly.
+      imageCache.set(row.artistKey, row.imageUrl);
+    }
+  } catch {
+    // Non-fatal — in-memory seed + Deezer fallback still works
+  }
+}
+
 /* ── Warm the cache from the artist metadata sheet on startup ── */
 const METADATA_SHEET_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
@@ -136,7 +159,10 @@ async function warmCacheFromSheet(): Promise<void> {
       const results = await Promise.all(batch.map((n) => fetchDeezerImage(n)));
       for (let j = 0; j < batch.length; j++) {
         const url = results[j];
-        if (url) imageCache.set(batch[j].toLowerCase(), url); // only store real URLs
+        if (url) {
+          // setCached handles both in-memory and DB persistence
+          setCached(batch[j], url);
+        }
       }
       // Pause between batches to stay within Deezer's rate limit
       if (i + 5 < uncached.length) await new Promise((r) => setTimeout(r, 300));
@@ -146,8 +172,13 @@ async function warmCacheFromSheet(): Promise<void> {
   }
 }
 
-// Kick off background cache warming 2 s after startup (gives server time to bind)
-setTimeout(() => void warmCacheFromSheet(), 2000);
+// Seed from DB first (instant), then kick off background Deezer warm-up
+seedCacheFromDb().then(() => {
+  // 2 s delay gives the server time to bind before hitting external APIs
+  setTimeout(() => void warmCacheFromSheet(), 2000);
+}).catch(() => {
+  setTimeout(() => void warmCacheFromSheet(), 2000);
+});
 
 /* ── Route: GET /api/spotify/artist-images?names=A,B,C ── */
 router.get("/spotify/artist-images", async (req, res) => {
