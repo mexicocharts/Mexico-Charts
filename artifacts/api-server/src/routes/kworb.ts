@@ -127,8 +127,54 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
 };
 
 /* ── In-memory maps ────────────────────────────────────────────────────── */
-// slug → spotifyId
+// slug → spotifyId — seeded from hardcoded 109 pairs, expanded at startup
 const spotifyIdMap = new Map<string, string>(Object.entries(SPOTIFY_ID_SEED));
+
+/* ── Startup ingestion: parse kworb Spotify artists index ──────────────────
+   kworb.net/spotify/artists.html contains ~3000 rows with hrefs like:
+     /spotify/artist/12GqGscKJx3aE4t07u7eVZ_songs.html
+   We derive the artist slug from the link text and map it to the Spotify ID.
+   Runs once at process start; falls back silently to hardcoded seed if it fails.
+────────────────────────────────────────────────────────────────────────── */
+async function ingestKworbArtistsIndex(): Promise<void> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch("https://kworb.net/spotify/artists.html", {
+      signal: ctrl.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)",
+        "Accept": "text/html",
+      },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return;
+    const html = await resp.text();
+
+    // Each row: <a href="/spotify/artist/{ID}_songs.html">{Artist Name}</a>
+    const RE = /href="\/spotify\/artist\/([A-Za-z0-9]{22})_songs\.html"[^>]*>([^<]+)<\/a>/g;
+    let match: RegExpExecArray | null;
+    let count = 0;
+    while ((match = RE.exec(html)) !== null) {
+      const spotifyId = match[1];
+      const artistName = match[2].trim();
+      if (!artistName || !spotifyId) continue;
+      const slug = toSlug(artistName);
+      if (slug && !spotifyIdMap.has(slug)) {
+        spotifyIdMap.set(slug, spotifyId);
+        count++;
+      }
+    }
+    if (count > 0) {
+      console.log(`[kworb] Ingested ${count} new slug→SpotifyID pairs from artists index (total: ${spotifyIdMap.size})`);
+    }
+  } catch {
+    // Silently fall back to seed map — non-fatal
+  }
+}
+
+// Fire ingestion in background — does not block server startup
+ingestKworbArtistsIndex();
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 interface TrackEntry {
@@ -386,7 +432,12 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
       const section = raw.slice(start, end);
       const mxMatch = section.match(/#(\d+)\s*Mexico/);
       if (mxMatch) {
-        (entry as Record<string, number | string>)[field as string] = parseInt(mxMatch[1], 10);
+        const pos = parseInt(mxMatch[1], 10);
+        if (field === "spotifyMx")     entry.spotifyMx     = pos;
+        else if (field === "appleMusicMx") entry.appleMusicMx = pos;
+        else if (field === "youtubeMx")    entry.youtubeMx    = pos;
+        else if (field === "itunesMx")     entry.itunesMx     = pos;
+        else if (field === "deezerMx")     entry.deezerMx     = pos;
         hasMexico = true;
       }
     }
