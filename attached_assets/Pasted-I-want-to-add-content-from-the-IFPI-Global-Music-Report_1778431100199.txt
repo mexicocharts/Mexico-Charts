@@ -1,0 +1,71 @@
+I want to add content from the IFPI Global Music Report 2026 about Mexico, but I’m not sure where it should live on the site yet.
+
+Please review the current Mexico Charts site structure and suggest the best placement before building anything major.
+
+CONTEXT:
+The IFPI report says Mexico is now part of the global Top 10 recorded music markets. I want this content to be focused ONLY on Mexico, not Latin America or global music overall.
+
+Key facts to use:
+- Mexico is the #10 global recorded music market.
+- Mexico grew +13.3% in recorded music revenue in 2025.
+- Mexico entered the global Top 10 for the first time and remained at #10.
+- Source: IFPI Global Music Report 2026
+- Source URL: https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf
+
+IMPORTANT:
+Do not automatically put this on the homepage unless you think it truly fits.
+I want placement suggestions first.
+
+Please suggest the best options, such as:
+
+1. A full Insights article page
+Example route:
+/insights/mexico-top-10-ifpi-2026
+
+2. A Reports page or Market Data section
+Example route:
+/reports/mexico-recorded-music-market
+
+3. A small homepage teaser only
+Not a full homepage section — just a compact feature card that links to the full article/report.
+
+4. An “Industry / Market” section
+A more serious section for IFPI, market revenue, streaming economy, and official music industry reports.
+
+5. A Mexico Charts “About / Mission” section
+Use the IFPI milestone as proof of why Mexico Charts exists, but not as a full report.
+
+What I need from you:
+- Recommend the best placement for this content.
+- Explain why that placement fits the current site.
+- Suggest how it should appear visually using the existing Mexico Charts style.
+- Do not build it yet unless the best option is obvious and minimal.
+- Do not clutter the homepage.
+- Keep the design consistent with the current black + neon green Mexico Charts identity.
+- Keep it editorial and premium, not a generic dashboard.
+
+Potential content:
+
+Eyebrow:
+INSIGHT IFPI 2026
+
+Headline:
+MÉXICO ENTRA AL TOP 10 GLOBAL
+
+Subheadline:
+Por primera vez, México forma parte de los 10 mercados de música grabada más grandes del mundo. En 2025, se mantuvo en el puesto #10 con un crecimiento de 13.3%, según IFPI.
+
+Stats:
+#10 — mercado global de música grabada
++13.3% — crecimiento en 2025
+1ª vez — dentro del Top 10 global
+
+Editorial callout:
+México ya no solo exporta cultura: ahora también figura entre los mercados musicales más importantes del planeta.
+
+Accuracy rules:
+- This is about recorded music market revenue, not touring.
+- Do not call it a Spotify ranking.
+- Do not say Mexico is #10 in all music categories.
+- Use “mercado de música grabada” when possible.
+- Keep the focus only on Mexico.

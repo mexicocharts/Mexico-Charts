@@ -863,6 +863,70 @@ export default function HomeV6() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════
+          IFPI INSIGHT TEASER
+      ══════════════════════════════════════════════════════════ */}
+      <FadeUp>
+        <section className="px-6 lg:px-12 py-3" data-testid="ifpi-teaser">
+          <Link href="/insights/mexico-top-10-ifpi-2026">
+            <motion.div
+              whileHover={reduced ? {} : { y: -2, borderColor: "rgba(57,255,20,0.28)", transition: { duration: 0.22 } }}
+              className="relative overflow-hidden rounded-xl cursor-pointer"
+              style={{
+                background: "linear-gradient(110deg, #0d0d0d 0%, #0a0a0a 100%)",
+                border: "1px solid rgba(57,255,20,0.13)",
+                boxShadow: "0 0 32px rgba(57,255,20,0.04), inset 0 1px 0 rgba(57,255,20,0.06)",
+              }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              {/* Subtle green glow in top-left corner */}
+              <div className="absolute -top-8 -left-8 w-40 h-40 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.07) 0%, transparent 70%)" }} />
+
+              <div className="relative z-10 flex items-center justify-between gap-6 px-6 py-5">
+                {/* Left: eyebrow + headline */}
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-[3px] h-10 rounded-full shrink-0" style={{ background: "#39FF14" }} />
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-black uppercase tracking-[0.3em] mb-1.5" style={{ color: "#39FF14" }}>
+                      Insight · IFPI 2026
+                    </div>
+                    <div className="text-sm font-black uppercase tracking-tight text-white leading-tight">
+                      México entra al Top 10 Global
+                    </div>
+                    <div className="text-[10px] mt-1 font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Mercado de música grabada · Por primera vez en la historia
+                    </div>
+                  </div>
+                </div>
+
+                {/* Center: three stats */}
+                <div className="hidden md:flex items-center gap-6 shrink-0">
+                  {[
+                    { v: "#10",    l: "mercado global" },
+                    { v: "+13.3%", l: "crecimiento 2025" },
+                    { v: "1ª VEZ", l: "en el Top 10" },
+                  ].map(s => (
+                    <div key={s.l} className="text-center">
+                      <div className="text-lg font-black leading-none" style={{ color: "#39FF14", letterSpacing: "-0.02em" }}>{s.v}</div>
+                      <div className="text-[8px] font-black uppercase tracking-[0.16em] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Right: arrow */}
+                <motion.span
+                  className="text-[10px] font-black uppercase tracking-[0.2em] shrink-0 flex items-center gap-1.5"
+                  style={{ color: "#39FF14" }}
+                  whileHover={reduced ? {} : { x: 3 }}
+                >
+                  Leer →
+                </motion.span>
+              </div>
+            </motion.div>
+          </Link>
+        </section>
+      </FadeUp>
+
+      {/* ══════════════════════════════════════════════════════════
           DATA BENTO — editorial depth
       ══════════════════════════════════════════════════════════ */}
       <section className="py-7 px-6 lg:px-12 relative" data-testid="section-bento">
