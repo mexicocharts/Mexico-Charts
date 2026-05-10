@@ -8,6 +8,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchSheetCSV } from "./googleSheetsData";
+import { fetchArtistMetadata } from "./artistMetadata";
+import type { ArtistMetadata, ArtistMetadataMap } from "./artistMetadata";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import type {
   RawChartArtist,
@@ -281,6 +283,35 @@ export function useViralDaily(): ChartResult<ChartSong> {
     retry: 1,
   });
   return toResult(data, isLoading, isError);
+}
+
+/* ── Artist Metadata hook ── */
+export type { ArtistMetadata, ArtistMetadataMap };
+export { lookupArtistMetadata } from "./artistMetadata";
+
+export interface MetadataResult {
+  byKey: ArtistMetadataMap;
+  byName: Map<string, ArtistMetadata>;
+  isLoading: boolean;
+  isError: boolean;
+  isEmpty: boolean;
+}
+
+export function useArtistMetadata(): MetadataResult {
+  const url: string = SHEET_SOURCES.artistMetadata;
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["artistMetadata", url],
+    queryFn: () => fetchArtistMetadata(url),
+    staleTime: 10 * 60 * 1000, // metadata changes less often than charts
+    retry: 1,
+  });
+  return {
+    byKey: data?.byKey ?? new Map(),
+    byName: data?.byName ?? new Map(),
+    isLoading,
+    isError,
+    isEmpty: !url || url.trim() === "",
+  };
 }
 
 /* ── Utility: look up an artist by name or slug ── */

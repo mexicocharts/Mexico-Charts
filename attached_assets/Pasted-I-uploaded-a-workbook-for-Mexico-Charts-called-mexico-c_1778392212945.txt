@@ -1,0 +1,87 @@
+I uploaded a workbook for Mexico Charts called:
+
+`mexico_charts_artist_metadata_database.xlsx`
+
+Please use this workbook only as an **artist metadata / artist stats database**.
+
+This is **not a ranking file**.
+
+Do not use this workbook as a chart.
+Do not display its row order as a rank.
+Do not create a Top 100 from this file.
+Do not use it to override Spotify chart rankings.
+
+Purpose:
+This workbook is a supporting data source for artist-level stats and metadata.
+
+Use it to fetch information such as:
+
+* artist name
+* Spotify monthly listeners
+* Spotify followers
+* Spotify total streams
+* Spotify playlist reach
+* YouTube subscribers
+* YouTube views
+* TikTok followers
+* Instagram followers
+* Facebook followers
+* Deezer fans
+* SoundCloud followers
+* source country
+* genre
+* label
+* eligibility type
+* eligibility reason
+
+Main tab to use:
+
+`artist_metadata`
+
+This tab contains the artist metadata rows.
+
+The official chart rankings for Mexico Charts should still come from the Spotify chart data, including:
+
+* `artists_daily_mx`
+* `artists_weekly_mx`
+* `songs_daily_mx`
+* `songs_weekly_mx`
+* `albums_weekly_mx`
+* `songs_viral_mx`
+
+Correct structure:
+
+```txt
+Spotify chart data = ranking/order source
+artist_metadata = extra artist stats source
+```
+
+Expected behavior:
+
+1. Fetch the Spotify chart data.
+2. Fetch the `artist_metadata` data.
+3. Normalize artist names using `artist_key` or a normalized artist-name helper.
+4. Match Spotify chart artists to the metadata database.
+5. Keep the Spotify chart rank/order unchanged.
+6. Display extra artist stats from `artist_metadata` only when available.
+7. If an artist has no metadata match, still show the Spotify chart row normally.
+8. If an artist exists in `artist_metadata` but not in a Spotify chart, do not force it into that chart.
+
+Suggested implementation:
+
+* Create a separate artist metadata fetch service.
+* Keep it separate from the Spotify chart fetch service.
+* Use `artist_key` as the safest matching key.
+* Publish the `artist_metadata` tab as CSV in Google Sheets.
+* Add that published CSV URL to the site config.
+
+Suggested files:
+
+```txt
+src/services/artistMetadata.ts
+src/services/googleSheetsData.ts
+src/utils/normalizeArtistName.ts
+src/config/sheetSources.ts
+```
+
+This workbook is only a temporary artist stats database until API access is available.

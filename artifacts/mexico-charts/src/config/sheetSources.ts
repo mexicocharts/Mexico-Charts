@@ -19,12 +19,19 @@
 ───────────────────────────────────────────────────────────────────────────── */
 
 export const SHEET_SOURCES = {
+  // ── Spotify chart rankings (mexico_charts_master_replit_fetch_workbook) ──
   artistsWeekly: "", // artists_weekly_mx tab  ← paste CSV URL here
   artistsDaily:  "", // artists_daily_mx tab   ← paste CSV URL here
   songsWeekly:   "", // songs_weekly_mx tab    ← paste CSV URL here
   songsDaily:    "", // songs_daily_mx tab     ← paste CSV URL here
   albumsWeekly:  "", // albums_weekly_mx tab   ← paste CSV URL here
   viralDaily:    "", // songs_viral_mx tab     ← paste CSV URL here
+
+  // ── Artist metadata / stats database (mexico_charts_artist_metadata_database) ──
+  // Publish the "artist_metadata" tab as CSV and paste the URL below.
+  // This is NOT a chart — it adds extra stats (social, streams, label, etc.)
+  // to chart artists. Ranks always come from the Spotify chart tabs above.
+  artistMetadata: "", // artist_metadata tab   ← paste CSV URL here
 } as const;
 
 export type SheetKey = keyof typeof SHEET_SOURCES;

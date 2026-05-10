@@ -89,3 +89,10 @@ export interface ChartResult<T> {
   isError: boolean;
   isEmpty: boolean; // true when URL is not configured yet
 }
+
+/*
+ * NOTE: Artist metadata types (RawArtistMetadata, ArtistMetadata, ArtistMetadataMap)
+ * live in src/services/artistMetadata.ts because they are tightly coupled to the
+ * fetch/normalize/lookup logic of that module.
+ * Import them from there: import type { ArtistMetadata } from "@/services/artistMetadata";
+ */
