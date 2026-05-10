@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
+import ArtistCertifications from "@/components/ArtistCertifications";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
@@ -769,6 +770,11 @@ export default function ArtistDetail() {
             </div>
           </motion.section>
         )}
+
+        {/* ══════════════════════════════════════════════════════════
+            AMPROFON CERTIFICATIONS
+        ══════════════════════════════════════════════════════════ */}
+        <ArtistCertifications artistName={artist.name} accent={artist.accent} />
 
         {/* ── BACK LINK ── */}
         <div className="pb-4">

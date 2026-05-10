@@ -1,0 +1,238 @@
+Add AMPROFON certifications to each Mexican artist profile in the Mexico Charts artist database.
+
+IMPORTANT:
+We already have a central Mexican artist database on the site. The certification data should not only live on /industry/certifications. Each artist profile should automatically display that artist’s AMPROFON certifications when matching certification rows exist.
+
+DATA SOURCE:
+Use the AMPROFON certifications spreadsheet/data we uploaded:
+mexico_charts_amprofon_certifications_with_dates.xlsx
+
+Main sheet to use:
+Mexico_Filter
+
+This sheet contains certifications awarded in Mexico to Mexican artists and collaborations with Mexican participation.
+
+SOURCE LABEL:
+Fuente: AMPROFON
+
+DISCLAIMER:
+Mexico Charts organiza y presenta información pública sobre certificaciones otorgadas en México. Mexico Charts no está afiliado a AMPROFON y no emite certificaciones oficiales.
+
+MAIN TASK:
+For every artist in our existing Mexico Charts artist database, check whether that artist appears in the AMPROFON certification dataset.
+
+If there are matching rows, add a “Certificaciones en México” section to that artist’s profile page.
+
+ARTIST PROFILE MODULE:
+
+Section title:
+Certificaciones en México
+
+Subtitle:
+Certificaciones otorgadas en México atribuidas a AMPROFON.
+
+Mini source:
+Fuente: AMPROFON
+
+Mini disclaimer:
+Mexico Charts no emite certificaciones oficiales.
+
+The module should show:
+
+1. Summary stats for that artist:
+- Total certification rows
+- Diamante count
+- Platino count
+- Oro count
+- Albums certified
+- Singles certified
+- Latest certification date
+
+2. Highest certification found:
+Show the strongest certification level found for the artist.
+Priority order:
+Diamante > Platino > Oro
+
+3. Certification table/list:
+Columns:
+- Título
+- Formato
+- Certificación
+- Nivel de certificación
+- Última certificación
+- Disquera
+
+4. CTA:
+“Ver todas las certificaciones”
+Link to:
+/industry/certifications?artist=ARTIST_NAME
+
+MATCHING LOGIC:
+Artist matching must work even when the artist appears inside a collaboration.
+
+Example:
+If the artist profile is “Fuerza Regida,” include rows like:
+- FUERZA REGIDA
+- OSCAR MAYDON & FUERZA REGIDA
+- LUIS R CONRIQUEZ, FUERZA REGIDA & NETON VEGA
+- FUERZA REGIDA & GRUPO FRONTERA
+- FUERZA REGIDA & NATANAEL CANO
+
+If the artist profile is “Peso Pluma,” include rows like:
+- MYKE TOWERS, PESO PLUMA
+- OSCAR MAYDON & PESO PLUMA
+- KALI UCHIS — IGUAL QUE UN ÁNGEL (WITH PESO PLUMA)
+- RYAN CASTRO, PESO PLUMA & SOG
+
+If the artist profile is “Yuridia,” include rows like:
+- YURIDIA
+- YURIDIA, ÁNGELA AGUILAR
+- YURIDIA, LOS ÁNGELES AZULES
+- YURIDIA, ALEJANDRO FERNÁNDEZ
+
+If the artist profile is “Christian Nodal,” include rows like:
+- CHRISTIAN NODAL
+- CHRISTIAN NODAL, BANDA MS DE SERGIO LIZÁRRAGA
+- CAMILO & CHRISTIAN NODAL
+
+Do not require the artist name to be the only artist in the ARTISTA field. Match by normalized artist name inside the full artist credit line.
+
+NORMALIZATION RULES:
+To improve matching:
+- Ignore case
+- Ignore accents when matching
+- Trim extra spaces
+- Treat commas, “&”, “FEAT.”, “FEAT”, “WITH”, “X”, and “/” as separators
+- Be careful with short names to avoid false matches
+- Do not match partial names too loosely
+
+Examples:
+- “CARÍN LEÓN” should match “CARIN LEON”
+- “ÁNGELA AGUILAR” should match “ANGELA AGUILAR”
+- “BANDA MS DE SERGIO LIZÁRRAGA” should match Banda MS
+- “LUIS ANGEL ‘EL FLACO’” should match Luis Ángel El Flaco if that artist exists in our database
+
+FALSE MATCH PREVENTION:
+Do not match tiny fragments or generic names accidentally.
+
+Example:
+- “CD9” should only match CD9
+- “DLD” should only match DLD
+- “Reik” should only match Reik
+- “Camila” should match the Mexican group Camila, but be careful not to confuse with Camilo
+- “Peso Pluma” should not match unrelated text unless the full phrase appears
+- “Junior H” should match Junior H only
+
+IF NO CERTIFICATIONS:
+If an artist has no matching certifications, do not show an empty section.
+Do not show “0 certifications” unless the artist profile already has a data completeness panel.
+
+DATA ARCHITECTURE:
+Use one central certification dataset.
+
+Do not manually hardcode certifications inside each artist profile.
+
+Structure:
+AMPROFON certification dataset
+↓
+/industry/certifications full filtered archive
+↓
+artist profile pages pull matching rows dynamically
+
+Do not duplicate certification data in multiple places.
+
+CERTIFICATION COUNTING:
+Rows may include combined certifications like:
+DIAMANTE & PLATINO & ORO
+with level:
+1 & 4 & 1
+
+This should be parsed as:
+Diamante: 1
+Platino: 4
+Oro: 1
+
+Another example:
+DIAMANTE & PLATINO
+level:
+2 & 3
+
+This should be parsed as:
+Diamante: 2
+Platino: 3
+
+If detailed parsing is difficult for now, at minimum show the original certification text exactly as provided and calculate simple row totals first. Do not invent numbers.
+
+DATES:
+Use the “ÚLTIMA CERTIFICACIÓN” column from the dataset.
+Show the latest certification date for each artist based on the newest matching row.
+Allow sorting by date inside the artist module if possible.
+
+ARTIST MODULE DESIGN:
+Match the current Mexico Charts style.
+
+Use:
+- black / charcoal background
+- neon green accents
+- white text
+- muted gray secondary text
+- rounded cards
+- compact stat cards
+- clean table
+- mobile-friendly stacked cards
+
+Do not make it look like a spreadsheet dump.
+
+Suggested layout on artist profile:
+
+[Section heading]
+Certificaciones en México
+
+[Small source line]
+Fuente: AMPROFON
+
+[Stats row]
+Total | Diamante | Platino | Oro | Última certificación
+
+[Table/list]
+Title, format, certification, level, date, label
+
+[CTA]
+Ver todas las certificaciones
+
+MOBILE VIEW:
+On mobile, use cards instead of a wide table.
+
+Each certification card should show:
+- Title
+- Certification badge
+- Format
+- Level
+- Latest certification date
+- Label
+
+BADGES:
+Create visual badges for:
+- Diamante
+- Platino
+- Oro
+- Mixed certification
+
+Keep them elegant and consistent with Mexico Charts. Do not overuse gold.
+
+CERTIFICATIONS PAGE CONNECTION:
+On /industry/certifications, clicking an artist name should link to that artist profile.
+
+On artist profiles, clicking “Ver todas las certificaciones” should open the certifications page filtered by that artist.
+
+ACCURACY RULES:
+- These are certifications awarded in Mexico.
+- Do not imply they are worldwide certifications.
+- Do not imply Mexico Charts issues certifications.
+- Do not call them “Mexico Charts certifications.”
+- Always cite AMPROFON as the source.
+- Keep AMPROFON attribution visible.
+- Do not use AMPROFON logos or copy their visual identity.
+
+IMPORTANT:
+This artist-profile integration is required. The certification archive is useful, but the main value is that every Mexican artist profile becomes richer with their own AMPROFON certification history.

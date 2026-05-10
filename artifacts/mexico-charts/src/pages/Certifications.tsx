@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, ExternalLink, Home, ChevronRight,
@@ -113,8 +113,15 @@ export default function Certifications() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
 
+  /* Pre-fill search from ?artist= query param */
+  const searchStr = useSearch();
+  const initialArtist = useMemo(() => {
+    const p = new URLSearchParams(searchStr);
+    return p.get("artist") ?? "";
+  }, [searchStr]);
+
   /* Filters */
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialArtist);
   const [filterCert, setFilterCert] = useState<"" | "DIAMANTE" | "PLATINO" | "ORO">("");
   const [filterFormat, setFilterFormat] = useState<"" | "Álbum" | "Single">("");
   const [filterYear, setFilterYear] = useState("");
