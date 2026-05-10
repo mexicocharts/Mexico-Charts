@@ -555,4 +555,232 @@ router.get("/kworb/batch-streams", async (req, res) => {
   res.json(result);
 });
 
+/* ══════════════════════════════════════════════════════════════════════════
+   DAILY REFRESH SCHEDULER
+   Polls kworb every 60 min during their update window (12pm–9pm ET).
+   Stops as soon as a change is detected, then waits for next day's 12pm ET.
+   If no change detected by 9:15pm ET, runs one final forced refresh.
+══════════════════════════════════════════════════════════════════════════ */
+
+const METADATA_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+
+// All artist slugs covered by the scheduler; starts from the 109 seeds,
+// then expanded to all 145+ artists loaded from the metadata sheet at startup.
+let ALL_ARTIST_SLUGS: string[] = Object.keys(SPOTIFY_ID_SEED);
+
+async function loadAllArtistSlugs(): Promise<void> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(METADATA_SHEET_URL, {
+      signal: ctrl.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)" },
+    });
+    clearTimeout(timer);
+    if (!resp.ok) return;
+    const csv = await resp.text();
+    const lines = csv.split("\n").filter(Boolean);
+    if (lines.length < 2) return;
+
+    // Header line — find artist_name column index
+    const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").toLowerCase().trim());
+    const nameIdx = headers.indexOf("artist_name");
+    if (nameIdx < 0) return;
+
+    const slugSet = new Set<string>(Object.keys(SPOTIFY_ID_SEED));
+    for (let i = 1; i < lines.length; i++) {
+      // Simple quoted-CSV split for the name column
+      const parts = lines[i].match(/"([^"]*)"/g);
+      const name = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
+      if (name) slugSet.add(toSlug(name));
+    }
+    ALL_ARTIST_SLUGS = [...slugSet].filter(Boolean);
+    console.log(`[kworb:scheduler] Loaded ${ALL_ARTIST_SLUGS.length} artist slugs for daily refresh`);
+  } catch {
+    console.log(`[kworb:scheduler] Could not load artist list from sheet — using ${ALL_ARTIST_SLUGS.length} seed slugs`);
+  }
+}
+
+/* ── Change-detection snapshot ─────────────────────────────────────────── */
+// Maps slug → most recently observed stream/view count for delta detection
+const streamSnapshot = new Map<string, number>();
+
+/* ── Refresh state ─────────────────────────────────────────────────────── */
+const refreshStatus = {
+  lastRefreshedAt:  null as number | null,
+  artistsUpdated:   0,
+  todayUpdated:     false,
+  inProgress:       false,
+  nextPollAt:       null as number | null,
+};
+
+/* ── ET timezone helper ────────────────────────────────────────────────── */
+function msUntilNextETTime(targetHour: number, targetMin: number): number {
+  // Use the toLocaleString trick to get current wall-clock time in ET
+  const etNow  = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const target = new Date(etNow);
+  target.setHours(targetHour, targetMin, 0, 0);
+  if (target <= etNow) target.setDate(target.getDate() + 1);
+  return target.getTime() - etNow.getTime();
+}
+
+function currentETHourMin(): { hour: number; min: number } {
+  const etNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  return { hour: etNow.getHours(), min: etNow.getMinutes() };
+}
+
+/* ── Core refresh cycle ────────────────────────────────────────────────── */
+// forced=true  → always update cache, do NOT trigger change-detection stop
+// forced=false → compare against snapshot; stop polling for the day if changed
+async function runRefreshCycle(forced: boolean): Promise<number> {
+  refreshStatus.inProgress = true;
+  const label = forced ? "forced" : "poll";
+  console.log(`[kworb:scheduler] ${label} started — ${ALL_ARTIST_SLUGS.length} artists`);
+
+  let changedCount = 0;
+  const BATCH = 10;
+  const DELAY = 2000; // ms between batches
+
+  for (let i = 0; i < ALL_ARTIST_SLUGS.length; i += BATCH) {
+    const batch = ALL_ARTIST_SLUGS.slice(i, i + BATCH);
+    await Promise.all(batch.map(async (slug) => {
+      try {
+        const stats     = await fetchArtistStats(slug);
+        const hasData   = !!(stats.spotify || stats.youtube || stats.chartPositions);
+        const ttl       = hasData ? CACHE_TTL : 60 * 60 * 1000;
+        const newVal    = stats.spotify?.totalStreams ?? stats.youtube?.totalViews ?? null;
+        const prevVal   = streamSnapshot.get(slug) ?? null;
+
+        // Detect a real numeric change (ignore null→null or first-run nulls)
+        if (!forced && newVal !== null && prevVal !== null && newVal !== prevVal) {
+          changedCount++;
+        }
+        if (newVal !== null) streamSnapshot.set(slug, newVal);
+
+        statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
+      } catch { /* skip individual artist errors */ }
+    }));
+
+    const batchNum = Math.floor(i / BATCH) + 1;
+    const totalBatches = Math.ceil(ALL_ARTIST_SLUGS.length / BATCH);
+    if (i + BATCH < ALL_ARTIST_SLUGS.length) {
+      console.log(`[kworb:scheduler] batch ${batchNum}/${totalBatches} done`);
+      await new Promise(r => setTimeout(r, DELAY));
+    }
+  }
+
+  refreshStatus.lastRefreshedAt = Date.now();
+  refreshStatus.inProgress      = false;
+  console.log(`[kworb:scheduler] ${label} complete — ${changedCount} artist(s) changed`);
+  return changedCount;
+}
+
+/* ── Scheduler state ───────────────────────────────────────────────────── */
+let pollTimer:     NodeJS.Timeout | null = null;
+let endOfDayTimer: NodeJS.Timeout | null = null;
+
+function clearSchedulerTimers() {
+  if (pollTimer)     { clearTimeout(pollTimer);     pollTimer     = null; }
+  if (endOfDayTimer) { clearTimeout(endOfDayTimer); endOfDayTimer = null; }
+}
+
+function scheduleNextWindow() {
+  clearSchedulerTimers();
+  refreshStatus.todayUpdated = false;
+  const ms = msUntilNextETTime(12, 0);
+  refreshStatus.nextPollAt   = Date.now() + ms;
+  const hrs = (ms / 3_600_000).toFixed(1);
+  console.log(`[kworb:scheduler] Next polling window in ${hrs}h (12pm ET)`);
+  pollTimer = setTimeout(() => void startPollingWindow(), ms);
+}
+
+async function doPoll(): Promise<void> {
+  if (refreshStatus.todayUpdated || refreshStatus.inProgress) return;
+
+  const changed = await runRefreshCycle(false);
+  refreshStatus.artistsUpdated = changed;
+
+  if (changed > 0) {
+    console.log(`[kworb:scheduler] ✓ Update detected (${changed} artists) — polls done for today`);
+    refreshStatus.todayUpdated = true;
+    clearSchedulerTimers();
+    scheduleNextWindow();
+    return;
+  }
+
+  // Schedule next hourly poll
+  const ms = 60 * 60 * 1000;
+  refreshStatus.nextPollAt = Date.now() + ms;
+  console.log(`[kworb:scheduler] No changes yet — next poll in 60 min`);
+  pollTimer = setTimeout(() => void doPoll(), ms);
+}
+
+function startPollingWindow() {
+  clearSchedulerTimers();
+  refreshStatus.todayUpdated = false;
+  console.log(`[kworb:scheduler] Polling window open (12pm–9:15pm ET)`);
+
+  // Final forced refresh at 9:15pm ET regardless of whether we already detected a change
+  const msToEnd = msUntilNextETTime(21, 15);
+  endOfDayTimer = setTimeout(async () => {
+    clearSchedulerTimers();
+    if (!refreshStatus.todayUpdated) {
+      console.log(`[kworb:scheduler] 9:15pm ET — no change detected today, running final forced refresh`);
+      await runRefreshCycle(true);
+    }
+    scheduleNextWindow();
+  }, msToEnd);
+
+  // Start hourly polling immediately
+  void doPoll();
+}
+
+async function initScheduler(): Promise<void> {
+  // Load full artist list from metadata sheet before starting
+  await loadAllArtistSlugs();
+
+  // Warm the cache and populate the snapshot before polling begins
+  console.log(`[kworb:scheduler] Startup refresh — warming cache and populating snapshot`);
+  await runRefreshCycle(true);
+
+  // Determine where we are relative to the ET polling window
+  const { hour, min } = currentETHourMin();
+  const totalMin      = hour * 60 + min;
+  const windowStart   = 12 * 60;       // 12:00 ET
+  const windowEnd     = 21 * 60 + 15;  // 21:15 ET
+
+  if (totalMin >= windowStart && totalMin < windowEnd) {
+    console.log(`[kworb:scheduler] Started inside polling window (${hour}:${String(min).padStart(2, "0")} ET)`);
+    startPollingWindow();
+  } else if (totalMin >= windowEnd) {
+    console.log(`[kworb:scheduler] Past today's window — waiting for tomorrow 12pm ET`);
+    scheduleNextWindow();
+  } else {
+    console.log(`[kworb:scheduler] Before today's window — waiting for 12pm ET`);
+    scheduleNextWindow();
+  }
+}
+
+// Kick off scheduler 3 s after startup (lets the server bind and kworb index ingest first)
+setTimeout(() => void initScheduler(), 3000);
+
+/* ── Route: GET /api/kworb/refresh-status ─────────────────────────────── */
+router.get("/kworb/refresh-status", (_req, res) => {
+  res.json({
+    lastRefreshedAt:  refreshStatus.lastRefreshedAt,
+    lastRefreshedFmt: refreshStatus.lastRefreshedAt
+      ? new Date(refreshStatus.lastRefreshedAt).toISOString()
+      : null,
+    nextPollAt:       refreshStatus.nextPollAt,
+    nextPollFmt:      refreshStatus.nextPollAt
+      ? new Date(refreshStatus.nextPollAt).toISOString()
+      : null,
+    todayUpdated:     refreshStatus.todayUpdated,
+    artistsUpdated:   refreshStatus.artistsUpdated,
+    inProgress:       refreshStatus.inProgress,
+    totalArtists:     ALL_ARTIST_SLUGS.length,
+  });
+});
+
 export default router;
