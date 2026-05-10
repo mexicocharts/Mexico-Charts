@@ -9,6 +9,7 @@ import {
 } from "framer-motion";
 import { Search, Menu, TrendingUp, MapPin, Music, Mail } from "lucide-react";
 import { useArtistsWeekly, rankAccent } from "@/services/dataProvider";
+import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify, SiApple } from "react-icons/si";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
@@ -90,6 +91,49 @@ function splitName(name: string): { line1: string; line2: string } {
   };
 }
 
+/* ─── SKELETON COMPONENTS ────────────────────────────────────── */
+
+function SkeletonPulse({ className = "", style = {} }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div
+      className={`animate-pulse rounded ${className}`}
+      style={{ background: "rgba(255,255,255,0.06)", ...style }}
+    />
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div
+      className="flex-shrink-0 relative overflow-hidden rounded-2xl"
+      style={{ width: 150, height: 228, background: "linear-gradient(160deg, #0d0d0d 0%, #0a0a0a 100%)", border: "1px solid rgba(255,255,255,0.05)" }}
+    >
+      <SkeletonPulse className="absolute inset-0" style={{ borderRadius: "1rem", background: "rgba(255,255,255,0.04)" }} />
+      <div className="absolute top-2 left-3 w-8 h-6 rounded" style={{ background: "rgba(255,255,255,0.05)" }} />
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+        <SkeletonPulse className="h-3 w-3/4 mb-1.5" />
+        <SkeletonPulse className="h-2 w-1/2 mb-1.5" />
+        <SkeletonPulse className="h-2.5 w-1/3" style={{ background: "rgba(57,255,20,0.12)" }} />
+      </div>
+    </div>
+  );
+}
+
+function SkeletonAscensoRow({ idx }: { idx: number }) {
+  const widths = ["75%", "62%", "54%", "46%", "38%"];
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <SkeletonPulse className="h-3.5" style={{ width: `${40 + idx * 5}%` }} />
+        <SkeletonPulse className="h-3 w-10" style={{ background: "rgba(57,255,20,0.1)" }} />
+      </div>
+      <div className="h-[3px] bg-white/[0.05] rounded-full overflow-hidden">
+        <SkeletonPulse className="h-full rounded-full" style={{ width: widths[idx] ?? "40%", background: "rgba(57,255,20,0.12)", animationDelay: `${idx * 0.1}s` }} />
+      </div>
+    </div>
+  );
+}
+
 /* ─── MOTION VARIANTS ───────────────────────────────────────── */
 
 const fadeUpVariants = {
@@ -155,7 +199,11 @@ export default function HomeV6() {
   const reduced = useReducedMotion();
 
   /* ── Sheet data ── */
-  const { data: weeklyArtists, isEmpty: sheetsEmpty } = useArtistsWeekly();
+  const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
+
+  /* ── Loading/error state only relevant when a URL is actually configured ── */
+  const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
+  const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
 
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
@@ -505,11 +553,29 @@ export default function HomeV6() {
         </div>
       </div>
 
+      {/* ── ERROR BANNER — only shown when a sheet URL is configured but fetch failed ── */}
+      {showErrorState && (
+        <div
+          className="px-6 lg:px-12 py-3 flex items-center gap-3"
+          style={{ background: "rgba(255,40,40,0.06)", borderBottom: "1px solid rgba(255,40,40,0.18)" }}
+          data-testid="error-banner"
+        >
+          <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,80,80,0.9)" }}>
+            Error al cargar datos de charts
+          </span>
+          <span className="text-[10px] text-zinc-600 font-medium">
+            · Mostrando datos de referencia. Revisa la URL en sheetSources.ts.
+          </span>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════
           TOP 10 ARTIST CARDS — V5 cards + premium hover
       ══════════════════════════════════════════════════════════ */}
       <Shelf label="Top 10 · México · Esta Semana" icon={<TrendingUp className="w-4 h-4" />}>
-        {TOP_STRIP.map((a, idx) => {
+        {showLoadingState
+          ? Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)
+          : TOP_STRIP.map((a, idx) => {
           const photo = img(a.name);
           return (
             <Link
@@ -730,7 +796,9 @@ export default function HomeV6() {
                   <h3 className="text-base font-black uppercase text-white">EN <span style={{ color:"#39FF14" }}>ASCENSO</span></h3>
                 </div>
                 <div className="flex flex-col gap-4">
-                  {ASCENSO.map((a, idx) => (
+                  {showLoadingState
+                    ? Array.from({ length: 5 }).map((_, idx) => <SkeletonAscensoRow key={idx} idx={idx} />)
+                    : ASCENSO.map((a, idx) => (
                     <div key={idx}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-bold text-sm">{a.name}</span>

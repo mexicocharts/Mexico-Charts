@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug } from "@/services/dataProvider";
+import { SHEET_SOURCES } from "@/config/sheetSources";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, BarChart, Bar, Cell,
@@ -351,7 +352,9 @@ export default function ArtistDetail() {
   const reduced = useReducedMotion();
 
   /* ── Sheet data overlay ── */
-  const { data: weeklyArtists, isEmpty: sheetsEmpty } = useArtistsWeekly();
+  const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
+  const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
+  const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
   const sheetArtist = useMemo(
     () => (!sheetsEmpty ? findArtistBySlug(weeklyArtists, slug) : undefined),
     [weeklyArtists, sheetsEmpty, slug]
@@ -393,6 +396,36 @@ export default function ArtistDetail() {
       style={{ background: "radial-gradient(ellipse 100% 50% at 50% 0%, rgba(57,255,20,0.022) 0%, transparent 55%), #050505" }}
       data-testid="page-artist-detail"
     >
+      {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
+      {showErrorState && (
+        <div
+          className="px-6 py-2.5 flex items-center gap-3"
+          style={{ background: "rgba(255,40,40,0.06)", borderBottom: "1px solid rgba(255,40,40,0.18)" }}
+          data-testid="artist-error-banner"
+        >
+          <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,80,80,0.9)" }}>
+            Error al cargar datos del artista
+          </span>
+          <span className="text-[10px] text-zinc-600 font-medium">
+            · Mostrando datos de referencia.
+          </span>
+        </div>
+      )}
+
+      {/* ── LOADING BANNER — when sheet URL is configured and data is loading ── */}
+      {showLoadingState && (
+        <div
+          className="px-6 py-2 flex items-center gap-2"
+          style={{ background: "rgba(57,255,20,0.04)", borderBottom: "1px solid rgba(57,255,20,0.1)" }}
+          data-testid="artist-loading-banner"
+        >
+          <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "#39FF14" }} />
+          <span className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: "rgba(57,255,20,0.7)" }}>
+            Cargando datos en vivo…
+          </span>
+        </div>
+      )}
+
       {/* ── NAV ── */}
       <nav
         className="sticky top-0 z-50 border-b border-white/[0.06]"
