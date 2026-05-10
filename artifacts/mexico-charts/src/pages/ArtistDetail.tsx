@@ -3,10 +3,6 @@ import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
@@ -58,7 +54,6 @@ interface ArtistData {
   origin: string;
   accent: string;
   bio: string;
-  listenerHistory: { month: string; listeners: number }[];
   platformStreams: { platform: string; streams: string; streamsNum: number; color: string; icon: "spotify" | "youtube" | "apple" | "deezer" | "tiktok" | "instagram" | "soundcloud" }[];
   genreBreakdown: { genre: string; pct: number }[];
   tours: { name: string; dates: string; gross: string; cities: number }[];
@@ -85,20 +80,6 @@ const ARTISTS: Record<string, ArtistData> = {
     origin: "Guadalajara, Jalisco",
     accent: "#39FF14",
     bio: "Hassan Emilio Kabande Laija, conocido como Peso Pluma, es el artista mexicano más escuchado del mundo. Con su fusión de corridos tumbados y pop urbano ha conquistado más de 60 países y se posicionó como el primer mexicano en encabezar el Global 200 de Billboard.",
-    listenerHistory: [
-      { month: "Ene", listeners: 18.2 },
-      { month: "Feb", listeners: 20.8 },
-      { month: "Mar", listeners: 24.1 },
-      { month: "Abr", listeners: 27.3 },
-      { month: "May", listeners: 29.6 },
-      { month: "Jun", listeners: 30.2 },
-      { month: "Jul", listeners: 31.8 },
-      { month: "Ago", listeners: 30.5 },
-      { month: "Sep", listeners: 31.2 },
-      { month: "Oct", listeners: 32.0 },
-      { month: "Nov", listeners: 32.1 },
-      { month: "Dic", listeners: 32.4 },
-    ],
     platformStreams: [
       { platform: "Spotify", streams: "18.4M", streamsNum: 18.4, color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "8.2M",  streamsNum: 8.2,  color: "#FF0000", icon: "youtube" },
@@ -132,20 +113,6 @@ const ARTISTS: Record<string, ArtistData> = {
     origin: "San Bernardino, California",
     accent: "rgba(57,255,20,0.85)",
     bio: "Fuerza Regida es el grupo que más rápido ha crecido en el género de corridos tumbados. Con su sonido crudo y letras directas, han conquistado ambos lados de la frontera y se han convertido en referente del movimiento.",
-    listenerHistory: [
-      { month: "Ene", listeners: 6.2 },
-      { month: "Feb", listeners: 7.1 },
-      { month: "Mar", listeners: 8.4 },
-      { month: "Abr", listeners: 9.2 },
-      { month: "May", listeners: 9.8 },
-      { month: "Jun", listeners: 10.6 },
-      { month: "Jul", listeners: 11.2 },
-      { month: "Ago", listeners: 11.0 },
-      { month: "Sep", listeners: 11.5 },
-      { month: "Oct", listeners: 12.0 },
-      { month: "Nov", listeners: 12.2 },
-      { month: "Dic", listeners: 12.4 },
-    ],
     platformStreams: [
       { platform: "Spotify", streams: "6.2M",  streamsNum: 6.2,  color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "3.8M",  streamsNum: 3.8,  color: "#FF0000", icon: "youtube" },
@@ -179,20 +146,6 @@ const ARTISTS: Record<string, ArtistData> = {
     origin: "Hermosillo, Sonora",
     accent: "rgba(57,255,20,0.72)",
     bio: "Natanael Cano es considerado el pionero del corrido tumbado moderno. Desde Hermosillo, Sonora, fusionó las tradiciones del corrido norteño con el trap y el urbano para crear un sonido que definió una generación entera.",
-    listenerHistory: [
-      { month: "Ene", listeners: 7.8 },
-      { month: "Feb", listeners: 8.4 },
-      { month: "Mar", listeners: 9.0 },
-      { month: "Abr", listeners: 9.6 },
-      { month: "May", listeners: 10.1 },
-      { month: "Jun", listeners: 10.4 },
-      { month: "Jul", listeners: 10.8 },
-      { month: "Ago", listeners: 11.0 },
-      { month: "Sep", listeners: 11.2 },
-      { month: "Oct", listeners: 11.4 },
-      { month: "Nov", listeners: 11.6 },
-      { month: "Dic", listeners: 11.7 },
-    ],
     platformStreams: [
       { platform: "Spotify", streams: "5.8M",  streamsNum: 5.8,  color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "3.4M",  streamsNum: 3.4,  color: "#FF0000", icon: "youtube" },
@@ -226,20 +179,6 @@ const ARTISTS: Record<string, ArtistData> = {
     origin: "Guanajuato, México",
     accent: "rgba(255,255,255,0.7)",
     bio: "Junior H es uno de los artistas más versátiles del movimiento regional mexicano. Su habilidad para mezclar emociones crudas con beats modernos lo han convertido en favorito de millones de fans en México y Estados Unidos.",
-    listenerHistory: [
-      { month: "Ene", listeners: 6.4 },
-      { month: "Feb", listeners: 6.9 },
-      { month: "Mar", listeners: 7.4 },
-      { month: "Abr", listeners: 7.8 },
-      { month: "May", listeners: 8.2 },
-      { month: "Jun", listeners: 8.6 },
-      { month: "Jul", listeners: 8.9 },
-      { month: "Ago", listeners: 9.0 },
-      { month: "Sep", listeners: 9.2 },
-      { month: "Oct", listeners: 9.5 },
-      { month: "Nov", listeners: 9.7 },
-      { month: "Dic", listeners: 9.8 },
-    ],
     platformStreams: [
       { platform: "Spotify", streams: "4.8M",  streamsNum: 4.8,  color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "2.9M",  streamsNum: 2.9,  color: "#FF0000", icon: "youtube" },
@@ -273,20 +212,6 @@ const ARTISTS: Record<string, ArtistData> = {
     origin: "Hermosillo, Sonora",
     accent: "rgba(255,255,255,0.55)",
     bio: "Carin León ha redefinido lo que significa ser un artista regional mexicano global. Con una voz inconfundible y una presencia escénica poderosa, ha llevado la música de Sonora a los escenarios más grandes del mundo.",
-    listenerHistory: [
-      { month: "Ene", listeners: 3.8 },
-      { month: "Feb", listeners: 4.2 },
-      { month: "Mar", listeners: 4.8 },
-      { month: "Abr", listeners: 5.2 },
-      { month: "May", listeners: 5.6 },
-      { month: "Jun", listeners: 5.9 },
-      { month: "Jul", listeners: 6.2 },
-      { month: "Ago", listeners: 6.4 },
-      { month: "Sep", listeners: 6.6 },
-      { month: "Oct", listeners: 6.8 },
-      { month: "Nov", listeners: 7.0 },
-      { month: "Dic", listeners: 7.1 },
-    ],
     platformStreams: [
       { platform: "Spotify", streams: "3.4M",  streamsNum: 3.4,  color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "2.1M",  streamsNum: 2.1,  color: "#FF0000", icon: "youtube" },
@@ -324,14 +249,6 @@ function buildFallback(name: string): ArtistData {
     origin: "México",
     accent: "#39FF14",
     bio: `${name} es un artista del movimiento musical mexicano que ha ganado reconocimiento internacional con su sonido único.`,
-    listenerHistory: [
-      { month: "Ene", listeners: 1.2 }, { month: "Feb", listeners: 1.5 },
-      { month: "Mar", listeners: 1.8 }, { month: "Abr", listeners: 2.1 },
-      { month: "May", listeners: 2.4 }, { month: "Jun", listeners: 2.6 },
-      { month: "Jul", listeners: 2.9 }, { month: "Ago", listeners: 3.1 },
-      { month: "Sep", listeners: 3.4 }, { month: "Oct", listeners: 3.6 },
-      { month: "Nov", listeners: 3.8 }, { month: "Dic", listeners: 4.0 },
-    ],
     platformStreams: [
       { platform: "Spotify",     streams: "2.1M", streamsNum: 2.1, color: "#1DB954", icon: "spotify"   },
       { platform: "YouTube",     streams: "1.2M", streamsNum: 1.2, color: "#FF0000", icon: "youtube"   },
@@ -348,17 +265,6 @@ function buildFallback(name: string): ArtistData {
   };
 }
 
-
-/* ─── CUSTOM TOOLTIP ─────────────────────────────────────────── */
-function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{ background: "#0d0d0d", border: "1px solid rgba(57,255,20,0.25)", borderRadius: 8, padding: "8px 14px" }}>
-      <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em" }}>{label}</p>
-      <p style={{ color: "#39FF14", fontWeight: 900, fontSize: 14 }}>{payload[0].value.toFixed(1)}M oyentes</p>
-    </div>
-  );
-}
 
 /* ─── PAGE ───────────────────────────────────────────────────── */
 export default function ArtistDetail() {
@@ -582,46 +488,6 @@ export default function ArtistDetail() {
       <div className="h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}30, transparent)` }} />
 
       <div className="max-w-[1200px] mx-auto px-6 py-10 flex flex-col gap-10">
-
-        {/* ══════════════════════════════════════════════════════════
-            LISTENER CHART
-        ══════════════════════════════════════════════════════════ */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-          data-testid="section-listener-chart"
-        >
-          <div
-            className="relative overflow-hidden rounded-2xl p-6"
-            style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
-          >
-            <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <TrendingUp className="w-4 h-4" style={{ color: artist.accent }} />
-                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Oyentes Mensuales · 2026</h2>
-              </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={artist.listenerHistory} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                  <XAxis dataKey="month" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `${v}M`} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="listeners"
-                    stroke={artist.accent}
-                    strokeWidth={2.5}
-                    dot={{ fill: artist.accent, strokeWidth: 0, r: 3 }}
-                    activeDot={{ fill: artist.accent, stroke: "#050505", strokeWidth: 2, r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </motion.section>
 
         {/* ══════════════════════════════════════════════════════════
             TOP TRACKS — standalone full-width card
