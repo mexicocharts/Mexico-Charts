@@ -930,28 +930,31 @@ export default function HomeV6() {
                 minHeight: 88,
               }}
             >
-              {/* IFPI cover image — right side, fades left */}
-              <div
-                className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
-                style={{
-                  backgroundImage: `url(${`${import.meta.env.BASE_URL}ifpi-cover.jpg`})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center top",
-                  maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, black 80%)",
-                  WebkitMaskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 40%, black 80%)",
-                  filter: "saturate(0.3) brightness(0.45)",
-                  opacity: 0.9,
-                }}
-              />
+              {/* Globe — screen blend, right-anchored */}
+              <div className="absolute pointer-events-none" style={{
+                right: "-6%", top: "50%", transform: "translateY(-50%)",
+                width: "min(65vw, 520px)", zIndex: 1,
+              }}>
+                <img
+                  src={`${import.meta.env.BASE_URL}globe-mexico.png`}
+                  alt=""
+                  style={{
+                    width: "100%", height: "auto", display: "block",
+                    mixBlendMode: "screen",
+                    opacity: 0.38,
+                    filter: "saturate(0.5) brightness(0.9)",
+                  }}
+                />
+              </div>
 
-              {/* Full overlay gradient */}
-              <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to right, #060806 40%, rgba(6,8,6,0.55) 70%, rgba(6,8,6,0.15) 100%)" }} />
+              {/* Gradient: keep left content readable over the globe */}
+              <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to right, #060806 38%, rgba(6,8,6,0.7) 60%, transparent 100%)", zIndex: 2 }} />
 
               {/* Noise */}
-              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px", zIndex: 2 }} />
 
-              {/* Green glow bloom */}
-              <div className="absolute -top-12 -left-12 w-56 h-56 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.09) 0%, transparent 65%)" }} />
+              {/* Green glow bloom — left */}
+              <div className="absolute -top-10 -left-10 w-48 h-48 rounded-full pointer-events-none" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.1) 0%, transparent 70%)", zIndex: 2 }} />
 
               {/* Top banner stripe */}
               <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.1))" }} />
