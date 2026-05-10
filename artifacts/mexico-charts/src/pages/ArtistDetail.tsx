@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, BarChart, Bar, Cell,
 } from "recharts";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe } from "lucide-react";
-import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok } from "react-icons/si";
+import { SiSpotify, SiYoutube, SiApple, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { slugify } from "@/lib/utils";
 
@@ -32,7 +32,7 @@ interface ArtistData {
   accent: string;
   bio: string;
   listenerHistory: { month: string; listeners: number }[];
-  platformStreams: { platform: string; streams: string; streamsNum: number; color: string; icon: "spotify" | "youtube" | "apple" | "deezer" | "tiktok" | "instagram" }[];
+  platformStreams: { platform: string; streams: string; streamsNum: number; color: string; icon: "spotify" | "youtube" | "apple" | "deezer" | "tiktok" | "instagram" | "soundcloud" }[];
   genreBreakdown: { genre: string; pct: number }[];
   tours: { name: string; dates: string; gross: string; cities: number }[];
   topSongs: { title: string; streams: string }[];
@@ -331,8 +331,9 @@ function PlatformIcon({ icon, color }: { icon: ArtistData["platformStreams"][0][
   if (icon === "spotify")   return <SiSpotify   className="w-5 h-5" style={{ color }} />;
   if (icon === "youtube")   return <SiYoutube   className="w-5 h-5" style={{ color }} />;
   if (icon === "apple")     return <SiApple     className="w-5 h-5" style={{ color }} />;
-  if (icon === "tiktok")    return <SiTiktok    className="w-5 h-5" style={{ color }} />;
-  if (icon === "instagram") return <SiInstagram className="w-5 h-5" style={{ color }} />;
+  if (icon === "tiktok")     return <SiTiktok     className="w-5 h-5" style={{ color }} />;
+  if (icon === "instagram")  return <SiInstagram  className="w-5 h-5" style={{ color }} />;
+  if (icon === "soundcloud") return <SiSoundcloud className="w-5 h-5" style={{ color }} />;
   return <Music className="w-5 h-5" style={{ color }} />;
 }
 
@@ -419,7 +420,9 @@ export default function ArtistDetail() {
     if (metaArtist.instagramFollowers > 0)
       rows.push({ platform: "Instagram", streams: metaArtist.instagramFollowersFmt,   streamsNum: metaArtist.instagramFollowers / 1_000_000,   color: "#E1306C", icon: "instagram" });
     if (metaArtist.deezerFans > 0)
-      rows.push({ platform: "Deezer",    streams: metaArtist.deezerFansFmt,           streamsNum: metaArtist.deezerFans / 1_000_000,           color: "#A238FF", icon: "deezer"    });
+      rows.push({ platform: "Deezer",      streams: metaArtist.deezerFansFmt,          streamsNum: metaArtist.deezerFans / 1_000_000,          color: "#A238FF", icon: "deezer"      });
+    if (metaArtist.soundcloudFollowers > 0)
+      rows.push({ platform: "SoundCloud",  streams: metaArtist.soundcloudFollowersFmt, streamsNum: metaArtist.soundcloudFollowers / 1_000_000, color: "#FF5500", icon: "soundcloud"  });
     return rows.length > 0 ? rows : artist.platformStreams;
   }, [metaArtist, artist.platformStreams]);
 

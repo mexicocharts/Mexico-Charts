@@ -254,25 +254,55 @@ export default function HomeV6() {
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const ASCENSO = useMemo(() => {
-    if (sheetsEmpty || weeklyArtists.length === 0) return DEFAULT_ASCENSO;
-    const rising = [...weeklyArtists]
-      .filter(a => a.growthRaw > 0)
-      .sort((a, b) => b.growthRaw - a.growthRaw)
-      .slice(0, 5);
-    if (rising.length === 0) return DEFAULT_ASCENSO;
-    const maxGrowth = rising[0].growthRaw;
-    return rising.map((a, idx) => ({
+    // When chart data is live, build from chart rows sorted by growth
+    if (!sheetsEmpty && weeklyArtists.length > 0) {
+      const rising = [...weeklyArtists]
+        .filter(a => a.growthRaw > 0)
+        .sort((a, b) => b.growthRaw - a.growthRaw)
+        .slice(0, 5);
+      if (rising.length > 0) {
+        const maxGrowth = rising[0].growthRaw;
+        return rising.map((a, idx) => {
+          // Enrich listener label from metadata where available
+          const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
+          const listeners = meta && meta.spotifyListeners > 0 ? meta.spotifyListenersFmt : a.listeners;
+          return {
+            name: a.name,
+            growth: `${a.growth} · ${listeners}`,
+            bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
+            accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
+          };
+        });
+      }
+    }
+    // Default path: enrich DEFAULT_ASCENSO with real listener counts from metadata.
+    // Bars are normalized against the highest listener count among matched artists.
+    const enriched = DEFAULT_ASCENSO.map(a => {
+      const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
+      return {
+        ...a,
+        listeners: meta && meta.spotifyListeners > 0 ? meta.spotifyListeners : 0,
+        listenersFmt: meta && meta.spotifyListeners > 0 ? meta.spotifyListenersFmt : null,
+      };
+    });
+    const maxListeners = Math.max(...enriched.map(a => a.listeners));
+    return enriched.map((a, idx) => ({
       name: a.name,
-      growth: a.growth,
-      bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
+      growth: a.listenersFmt ? `${DEFAULT_ASCENSO[idx].growth} · ${a.listenersFmt}` : DEFAULT_ASCENSO[idx].growth,
+      bar: (maxListeners > 0 && a.listeners > 0)
+        ? Math.round((a.listeners / maxListeners) * 100)
+        : DEFAULT_ASCENSO[idx].bar,
       accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
     }));
-  }, [weeklyArtists, sheetsEmpty]);
+  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const TICKER_ITEMS = useMemo(() => {
-    if (sheetsEmpty || TOP_STRIP.length === 0) return DEFAULT_TICKER_ITEMS;
+    // Always derive from TOP_STRIP (which is already metadata-enriched for both
+    // the default and live-sheet paths). Only fall back to raw defaults when
+    // TOP_STRIP is still empty (very first render before any data resolves).
+    if (TOP_STRIP.length === 0) return DEFAULT_TICKER_ITEMS;
     return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} OYENTES`]);
-  }, [TOP_STRIP, sheetsEmpty]);
+  }, [TOP_STRIP]);
 
   /* Scroll parallax for hero */
   const { scrollYProgress: heroScroll } = useScroll({
