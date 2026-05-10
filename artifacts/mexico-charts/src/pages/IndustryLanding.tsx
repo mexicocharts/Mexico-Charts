@@ -92,7 +92,7 @@ export default function IndustryLanding() {
           initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
           <img src={globeImg} alt="Globo terráqueo con México destacado" className="w-full h-full object-contain"
-            style={{ filter: "drop-shadow(0 0 50px rgba(57,255,20,0.25))" }} />
+            style={{ mixBlendMode: "screen" }} />
         </motion.div>
 
         <div className="absolute top-0 left-0 pointer-events-none"
