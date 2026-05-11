@@ -308,7 +308,7 @@ export default function GeneroHub() {
     }
     // Sort each bucket by Spotify listeners desc
     for (const g of GENRES) {
-      buckets[g.name].sort((a, b) => b.spotifyFollowers - a.spotifyFollowers);
+      buckets[g.name].sort((a, b) => b.spotifyStreams - a.spotifyStreams);
     }
     return buckets;
   }, [metaByKey]);
@@ -430,7 +430,7 @@ export default function GeneroHub() {
           {/* Sort label */}
           {activeArtists.length > 0 && (
             <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-4" style={{ color: "rgba(255,255,255,0.22)" }}>
-              Ordenado por seguidores · Spotify
+              Ordenado por streams totales · Spotify
             </div>
           )}
 
