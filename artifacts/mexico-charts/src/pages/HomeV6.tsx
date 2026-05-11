@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
 import { useLocation } from "wouter";
@@ -28,17 +29,17 @@ const DEFAULT_HERO_ARTISTS = [
   { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO" },
 ];
 
-const DEFAULT_TOP_STRIP = [
-  { rank:1,  name:"Peso Pluma",       genre:"Corridos Tumb.", streams:"32.4M", accent:"#39FF14" },
-  { rank:2,  name:"Fuerza Regida",    genre:"Corridos Tumb.", streams:"12.4M", accent:"rgba(57,255,20,0.62)" },
-  { rank:3,  name:"Natanael Cano",    genre:"Corridos Tumb.", streams:"11.7M", accent:"rgba(57,255,20,0.48)" },
-  { rank:4,  name:"Junior H",         genre:"Reg. Mexicano",  streams:"9.8M",  accent:"rgba(255,255,255,0.42)" },
-  { rank:5,  name:"Carin León",       genre:"Reg. Mexicano",  streams:"7.1M",  accent:"rgba(255,255,255,0.35)" },
-  { rank:6,  name:"Luis R Conriquez", genre:"Norteño",        streams:"7.6M",  accent:"rgba(255,255,255,0.28)" },
-  { rank:7,  name:"Grupo Frontera",   genre:"Norteño",        streams:"6.2M",  accent:"rgba(255,255,255,0.23)" },
-  { rank:8,  name:"Xavi",            genre:"Corridos Tumb.", streams:"5.4M",  accent:"rgba(255,255,255,0.20)" },
-  { rank:9,  name:"Eslabon Armado",   genre:"Reg. Mexicano",  streams:"5.1M",  accent:"rgba(255,255,255,0.18)" },
-  { rank:10, name:"Chino Pacas",      genre:"Corridos Tumb.", streams:"4.8M",  accent:"rgba(255,255,255,0.15)" },
+const RANK_ACCENTS_HOME = [
+  "#39FF14",
+  "rgba(57,255,20,0.62)",
+  "rgba(57,255,20,0.48)",
+  "rgba(255,255,255,0.42)",
+  "rgba(255,255,255,0.35)",
+  "rgba(255,255,255,0.28)",
+  "rgba(255,255,255,0.23)",
+  "rgba(255,255,255,0.20)",
+  "rgba(255,255,255,0.18)",
+  "rgba(255,255,255,0.15)",
 ];
 
 const GENRES = [
@@ -50,14 +51,6 @@ const GENRES = [
   { name:"Pop",                artists:18, accent:"rgba(57,255,20,0.26)" },
 ];
 
-const DEFAULT_ASCENSO = [
-  { name:"Tito Double P",    growth:"+78%", bar:78, accent:"#39FF14" },
-  { name:"Oscar Maydon",     growth:"+65%", bar:65, accent:"rgba(57,255,20,0.72)" },
-  { name:"Marca Registrada", growth:"+56%", bar:56, accent:"rgba(57,255,20,0.52)" },
-  { name:"Clave Especial",   growth:"+49%", bar:49, accent:"rgba(57,255,20,0.36)" },
-  { name:"Jasiel Nuñez",     growth:"+47%", bar:47, accent:"rgba(57,255,20,0.24)" },
-];
-
 const ASCENSO_ACCENTS = [
   "#39FF14",
   "rgba(57,255,20,0.72)",
@@ -66,14 +59,25 @@ const ASCENSO_ACCENTS = [
   "rgba(57,255,20,0.24)",
 ];
 
+/* ── Charts-hub types (minimal, same shape as ChartsHub.tsx) ── */
+type HubRow = Record<string, string>;
+interface HubSheetData { headers: string[]; rows: HubRow[] }
+interface HubData { lastUpdated: string; sheets: Record<string, HubSheetData> }
 
-const DEFAULT_TICKER_ITEMS = [
-  "PESO PLUMA", "32.4M OYENTES", "ÉXODO TOUR",
-  "FUERZA REGIDA", "12.4M OYENTES", "MUSICOLOGO",
-  "NATANAEL CANO", "11.7M OYENTES", "CORRIDOS TUMBADOS",
-  "JUNIOR H", "9.8M OYENTES", "EL AZUL",
-  "CARIN LEÓN", "7.1M OYENTES", "BOCA CHUECA",
-];
+function fmtViews(raw: string): string {
+  const n = parseInt((raw ?? "").replace(/,/g, ""), 10);
+  if (isNaN(n) || n === 0) return "—";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)         return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+function parseGrowthNum(raw: string): number {
+  return parseFloat((raw ?? "").replace(/[^0-9.\-]/g, "")) || 0;
+}
+
+
 
 /* ── Helper: split artist name into display lines ── */
 function splitName(name: string): { line1: string; line2: string } {
@@ -243,6 +247,19 @@ export default function HomeV6() {
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
   const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
 
+  /* ── Charts-hub (live YouTube/Spotify/Deezer data — same source as /charts page) ── */
+  const { data: hubData, isLoading: hubLoading } = useQuery<HubData>({
+    queryKey: ["charts-hub"],
+    queryFn: async () => {
+      const resp = await fetch("/api/charts/hub");
+      if (!resp.ok) throw new Error("hub fetch failed");
+      return resp.json();
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 2,
+  });
+  const ytArtistRows: HubRow[] = hubData?.sheets?.["YT_Artists_Weekly"]?.rows ?? [];
+
   /* ── Loading/error state only relevant when a URL is actually configured ── */
   const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
   const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
@@ -255,21 +272,19 @@ export default function HomeV6() {
 
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
-    const base = (sheetsEmpty || weeklyArtists.length === 0)
-      ? DEFAULT_TOP_STRIP
-      : weeklyArtists.slice(0, 10).map(a => ({
-          rank: a.mexicoRank,
-          name: a.name,
-          genre: a.genre.length > 14 ? a.genre.substring(0, 13) + "." : a.genre,
-          streams: a.listeners,
-          accent: a.accent,
-        }));
-    // Overlay real listener counts from metadata
-    return base.map(a => ({
-      ...a,
-      streams: enrichListeners(a.name, a.streams),
-    }));
-  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
+    // Use live YouTube Artists Weekly data from the charts-hub API
+    if (ytArtistRows.length > 0) {
+      return ytArtistRows.slice(0, 10).map((row, idx) => ({
+        rank: idx + 1,
+        name: row["Artist Name"] ?? "",
+        genre: "",
+        streams: fmtViews(row["Views"] ?? ""),
+        accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
+      }));
+    }
+    // Loading — return empty so skeleton shows instead of fake data
+    return [];
+  }, [ytArtistRows]);
 
   const HERO_ARTISTS = useMemo(() => {
     const base = (sheetsEmpty || weeklyArtists.length === 0)
@@ -295,47 +310,34 @@ export default function HomeV6() {
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const ASCENSO = useMemo(() => {
-    // When chart data is live, build from chart rows sorted by growth
-    if (!sheetsEmpty && weeklyArtists.length > 0) {
-      const rising = [...weeklyArtists]
-        .filter(a => a.growthRaw > 0)
+    // Build from live YouTube Artists Weekly rows — top growers with positive growth
+    if (ytArtistRows.length > 0) {
+      const withGrowth = ytArtistRows
+        .map(row => ({
+          name: row["Artist Name"] ?? "",
+          growthRaw: parseGrowthNum(row["Growth"] ?? ""),
+          growthStr: row["Growth"] ?? "",
+          views: fmtViews(row["Views"] ?? ""),
+        }))
+        .filter(a => a.name && a.growthRaw > 0)
         .sort((a, b) => b.growthRaw - a.growthRaw)
         .slice(0, 5);
-      if (rising.length > 0) {
-        const maxGrowth = rising[0].growthRaw;
-        return rising.map((a, idx) => {
-          // Enrich listener label from metadata where available
-          const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
-          const listeners = meta && meta.spotifyListeners > 0 ? meta.spotifyListenersFmt : a.listeners;
-          return {
-            name: a.name,
-            growth: `${a.growth} · ${listeners}`,
-            bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
-            accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
-          };
-        });
+
+      if (withGrowth.length >= 3) {
+        const maxGrowth = withGrowth[0].growthRaw;
+        return withGrowth.map((a, idx) => ({
+          name: a.name,
+          growth: `${a.growthStr} · ${a.views} views`,
+          bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
+          accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
+        }));
       }
+      // Not enough positive-growth artists — hide section
+      return [];
     }
-    // Default path: enrich DEFAULT_ASCENSO with real listener counts from metadata.
-    // Bars are normalized against the highest listener count among matched artists.
-    const enriched = DEFAULT_ASCENSO.map(a => {
-      const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
-      return {
-        ...a,
-        listeners: meta && meta.spotifyListeners > 0 ? meta.spotifyListeners : 0,
-        listenersFmt: meta && meta.spotifyListeners > 0 ? meta.spotifyListenersFmt : null,
-      };
-    });
-    const maxListeners = Math.max(...enriched.map(a => a.listeners));
-    return enriched.map((a, idx) => ({
-      name: a.name,
-      growth: a.listenersFmt ? `${DEFAULT_ASCENSO[idx].growth} · ${a.listenersFmt}` : DEFAULT_ASCENSO[idx].growth,
-      bar: (maxListeners > 0 && a.listeners > 0)
-        ? Math.round((a.listeners / maxListeners) * 100)
-        : DEFAULT_ASCENSO[idx].bar,
-      accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
-    }));
-  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
+    // Still loading — return empty (skeleton will show)
+    return [];
+  }, [ytArtistRows]);
 
   /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
   const GENRE_SYNONYMS: Record<string, string[]> = {
@@ -398,11 +400,8 @@ export default function HomeV6() {
   }, [metaByKey]);
 
   const TICKER_ITEMS = useMemo(() => {
-    // Always derive from TOP_STRIP (which is already metadata-enriched for both
-    // the default and live-sheet paths). Only fall back to raw defaults when
-    // TOP_STRIP is still empty (very first render before any data resolves).
-    if (TOP_STRIP.length === 0) return DEFAULT_TICKER_ITEMS;
-    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} OYENTES`]);
+    if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", "TOP ARTISTAS", "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
+    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} VIEWS`]);
   }, [TOP_STRIP]);
 
   /* Scroll parallax for hero */
@@ -1042,7 +1041,7 @@ export default function HomeV6() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">PLATAFORMAS COMBINADAS</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">YOUTUBE · SEMANAL</div>
                     <h3 className="text-base font-black uppercase text-white">TOP ARTISTAS <span style={{ color:"#39FF14" }}>MÉXICO</span></h3>
                   </div>
                   <Link href="/artists" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</Link>
@@ -1054,7 +1053,16 @@ export default function HomeV6() {
                   viewport={{ once:true }}
                   variants={staggerContainer}
                 >
-                  {TOP_STRIP.slice(0,5).map((a) => {
+                  {(hubLoading || TOP_STRIP.length === 0)
+                    ? Array.from({ length: 5 }).map((_, idx) => (
+                        <div key={idx} className="flex items-center gap-3" style={{ opacity: 1 - idx * 0.15 }}>
+                          <div className="w-8 h-3 rounded animate-pulse" style={{ background:"rgba(255,255,255,0.06)" }} />
+                          <div className="w-9 h-9 rounded-full animate-pulse shrink-0" style={{ background:"rgba(255,255,255,0.06)" }} />
+                          <div className="flex-1 h-3 rounded animate-pulse" style={{ background:"rgba(255,255,255,0.06)" }} />
+                          <div className="w-12 h-5 rounded-full animate-pulse" style={{ background:"rgba(57,255,20,0.07)" }} />
+                        </div>
+                      ))
+                    : TOP_STRIP.slice(0,5).map((a) => {
                     const photo = img(a.name);
                     return (
                       <Link key={a.rank} href={`/artist/${slugify(a.name)}`} style={{ display:"block" }}>
@@ -1070,7 +1078,6 @@ export default function HomeV6() {
                         }
                         <div className="flex-1 min-w-0">
                           <div className="text-white font-black text-sm truncate group-hover/row:text-[#39FF14] transition-colors duration-200">{a.name}</div>
-                          <div className="text-[10px] text-zinc-600 uppercase tracking-wider">{a.genre}</div>
                         </div>
                         <div className="text-xs font-black font-mono shrink-0 px-2 py-1 rounded-full transition-all duration-200 group-hover/row:scale-105" style={{ color:a.accent, background:`${a.accent}0e`, border:`1px solid ${a.accent}20` }}>{a.streams}</div>
                       </motion.div>
@@ -1082,18 +1089,19 @@ export default function HomeV6() {
             </div>
           </FadeUp>
 
-          {/* EN ASCENSO */}
+          {/* EN ASCENSO — only shown when real growth data is available */}
+          {(hubLoading || ASCENSO.length > 0) && (
           <FadeUp delay={0.1}>
             <div className="relative overflow-hidden rounded-xl p-6" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }} data-testid="bento-artistas-ascenso">
               <div className="absolute inset-0 opacity-[0.025] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
               <div className="absolute -bottom-4 -right-2 font-black italic text-[100px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>↑</div>
               <div className="relative z-10 flex flex-col">
                 <div className="mb-5">
-                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">CRECIMIENTO MENSUAL</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">CRECIMIENTO SEMANAL · YOUTUBE</div>
                   <h3 className="text-base font-black uppercase text-white">EN <span style={{ color:"#39FF14" }}>ASCENSO</span></h3>
                 </div>
                 <div className="flex flex-col gap-4">
-                  {showLoadingState
+                  {hubLoading
                     ? Array.from({ length: 5 }).map((_, idx) => <SkeletonAscensoRow key={idx} idx={idx} />)
                     : ASCENSO.map((a, idx) => (
                     <div key={idx}>
@@ -1114,10 +1122,11 @@ export default function HomeV6() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Crecimiento en Spotify · Semana 19</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Crecimiento en YouTube · Esta Semana</p>
               </div>
             </div>
           </FadeUp>
+          )}
 
         </div>
       </section>
