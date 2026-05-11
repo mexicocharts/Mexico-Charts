@@ -162,9 +162,9 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
                 </div>
               )}
               <div className="flex items-center gap-3 mt-2">
-                {meta.spotifyListeners > 0 && (
+                {meta.spotifyStreams > 0 && (
                   <span className="text-[11px] font-black" style={{ color: G }}>
-                    {meta.spotifyListenersFmt} <span className="opacity-50 font-medium">oyentes</span>
+                    {meta.spotifyStreamsFmt} <span className="opacity-50 font-medium">streams</span>
                   </span>
                 )}
                 {meta.label && (
