@@ -375,6 +375,8 @@ export default function ChartsHub() {
   const [filterMex, setFilterMex] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
+  useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, []);
+
   const platform = PLATFORMS.find(p => p.id === activePlatform)!;
 
   const { data, isLoading, isError, dataUpdatedAt } = useQuery<HubData>({
