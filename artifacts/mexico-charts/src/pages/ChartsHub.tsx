@@ -157,6 +157,31 @@ function slugify(name: string) {
 /** Separator regex — keeps separators as capture groups so split() returns them */
 const SEP_RE = /(\s*[,&]\s*|\s*\/\s*|\s+feat\.\s+|\s+ft\.\s+|\s+x\s+|\s+and\s+|\s+y\s+|\s+junto\s+a\s+)/i;
 
+/* ── Per-sheet image config ──────────────────────────────────────────────── */
+type ImgSrc = "youtube" | "artist";
+interface SheetImgCfg { source: ImgSrc; round: boolean; field: string }
+const SHEET_IMG: Record<string, SheetImgCfg> = {
+  YT_Artists_Weekly:       { source: "artist",  round: true,  field: "Artist Name"  },
+  YT_Songs_Weekly:         { source: "youtube", round: false, field: "YouTube URL"  },
+  YT_Videos_Daily:         { source: "youtube", round: false, field: "YouTube URL"  },
+  YT_Shorts_Daily:         { source: "youtube", round: false, field: "YouTube URL"  },
+  Spotify_Regional_Daily:  { source: "artist",  round: false, field: "artist_names" },
+  Spotify_Regional_Weekly: { source: "artist",  round: false, field: "artist_names" },
+  Spotify_Viral_Daily:     { source: "artist",  round: false, field: "artist_names" },
+  Apple_Songs:             { source: "artist",  round: false, field: "Artist Names" },
+  Apple_Albums:            { source: "artist",  round: true,  field: "Artist Names" },
+  Deezer_Top_Mexico:       { source: "artist",  round: false, field: "Artist"       },
+};
+
+function ytThumb(url: string): string | null {
+  const m = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+  return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null;
+}
+
+function firstArtist(credit: string): string {
+  return credit.split(SEP_RE)[0]?.trim() ?? "";
+}
+
 function fmt(val: string): string {
   if (!val || val === "n/a" || val === "—") return val || "—";
   const n = parseInt(val.replace(/,/g, ""), 10);
@@ -263,13 +288,54 @@ function ArtistCell({ value, knownSlugs }: { value: string; knownSlugs: Set<stri
   );
 }
 
+/* ── Thumbnail ───────────────────────────────────────────────────────────── */
+function Thumbnail({ src, name, round, size = 36 }: { src?: string | null; name: string; round: boolean; size?: number }) {
+  const [status, setStatus] = useState<"idle" | "loaded" | "error">("idle");
+  return (
+    <div className="flex-shrink-0" style={{
+      width: size, height: size,
+      borderRadius: round ? "50%" : 5,
+      overflow: "hidden",
+      background: "rgba(255,255,255,0.07)",
+      position: "relative",
+    }}>
+      {src && status !== "error" && (
+        <img
+          src={src} alt={name}
+          onLoad={() => setStatus("loaded")}
+          onError={() => setStatus("error")}
+          style={{
+            width: "100%", height: "100%", objectFit: "cover",
+            opacity: status === "loaded" ? 1 : 0,
+            transition: "opacity 0.3s",
+            position: "absolute", inset: 0,
+          }}
+        />
+      )}
+      <div style={{
+        position: "absolute", inset: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: size * 0.33, fontWeight: 900,
+        color: "rgba(255,255,255,0.22)",
+        opacity: status === "loaded" ? 0 : 1,
+        transition: "opacity 0.3s",
+        userSelect: "none",
+      }}>
+        {name.charAt(0).toUpperCase()}
+      </div>
+    </div>
+  );
+}
+
 /* ── Skeleton ────────────────────────────────────────────────────────────── */
 function SkeletonRow({ i }: { i: number }) {
   return (
     <div className="flex items-center gap-4 px-5 py-3"
       style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", opacity: 1 - i * 0.08 }}>
       <div className="w-8 h-3 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.07)" }} />
-      <div className="flex-1 h-3 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.07)", width: "45%" }} />
+      <div className="w-6 flex-shrink-0" />
+      <div className="w-9 h-9 rounded animate-pulse flex-shrink-0" style={{ background: "rgba(255,255,255,0.06)" }} />
+      <div className="flex-1 h-3 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.07)" }} />
       <div className="hidden md:block h-3 w-24 rounded animate-pulse" style={{ background: "rgba(255,255,255,0.05)" }} />
     </div>
   );
@@ -315,6 +381,45 @@ export default function ChartsHub() {
   const visibleRows = useMemo(() => showAll ? rows : rows.slice(0, 50), [rows, showAll]);
 
   const cols = useMemo(() => COLS[activeSheet] ?? [], [activeSheet]);
+
+  /* ── Per-row image resolution ─────────────────────────────────────────── */
+  const imgCfg = SHEET_IMG[activeSheet] ?? null;
+
+  const artistNamesForImg = useMemo<string[]>(() => {
+    if (!imgCfg || imgCfg.source !== "artist") return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const row of rows) {
+      const name = firstArtist(row[imgCfg.field] ?? "");
+      if (name && !seen.has(name)) { seen.add(name); out.push(name); }
+    }
+    return out;
+  }, [rows, imgCfg, activeSheet]);
+
+  const { data: artistImgData } = useQuery<Record<string, string | null>>({
+    queryKey: ["chart-artist-images", artistNamesForImg.join(",")],
+    queryFn: async () => {
+      if (!artistNamesForImg.length) return {};
+      const resp = await fetch(`/api/spotify/artist-images?names=${encodeURIComponent(artistNamesForImg.join(","))}`);
+      if (!resp.ok) return {};
+      return resp.json();
+    },
+    enabled: artistNamesForImg.length > 0,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+
+  function getRowImg(row: Row): string | null {
+    if (!imgCfg) return null;
+    if (imgCfg.source === "youtube") return ytThumb(row[imgCfg.field] ?? "");
+    const name = firstArtist(row[imgCfg.field] ?? "");
+    return name ? (artistImgData?.[name] ?? null) : null;
+  }
+
+  function getRowName(row: Row): string {
+    if (!imgCfg) return "";
+    return firstArtist(row[imgCfg.field] ?? "") || (row[imgCfg.field] ?? "");
+  }
 
   const switchPlatform = useCallback((pid: PlatformId) => {
     const p = PLATFORMS.find(x => x.id === pid)!;
@@ -515,6 +620,15 @@ export default function ChartsHub() {
                       <div className="w-6 text-center flex-shrink-0">
                         <Movement rank={rank} prev={prev} mov={mov} />
                       </div>
+                      {/* Thumbnail */}
+                      {imgCfg && (
+                        <Thumbnail
+                          src={getRowImg(row)}
+                          name={getRowName(row)}
+                          round={imgCfg.round}
+                          size={36}
+                        />
+                      )}
                       {/* Data columns */}
                       {cols.map((col, ci) => {
                         const val = row[col.key] ?? "";
@@ -550,6 +664,14 @@ export default function ChartsHub() {
                         style={{ color: isTop3 ? G : "rgba(255,255,255,0.3)" }}>
                         {rank}
                       </div>
+                      {imgCfg && (
+                        <Thumbnail
+                          src={getRowImg(row)}
+                          name={getRowName(row)}
+                          round={imgCfg.round}
+                          size={32}
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         {/* Artist */}
                         {cols.filter(c => c.isArtist && c.mobile).map((col, ci) => (
