@@ -34,9 +34,10 @@ const PLATFORMS = [
     source: "Spotify Charts",
     sourceUrl: "https://charts.spotify.com",
     charts: [
-      { id: "Spotify_Regional_Daily",  label: "Regional",    period: "Diario"  },
-      { id: "Spotify_Regional_Weekly", label: "Regional",    period: "Semanal" },
-      { id: "Spotify_Viral_Daily",     label: "Viral",       period: "Diario"  },
+      { id: "Spotify_Artists_Daily",   label: "Top Artistas", period: "Diario"  },
+      { id: "Spotify_Regional_Daily",  label: "Regional",     period: "Diario"  },
+      { id: "Spotify_Regional_Weekly", label: "Regional",     period: "Semanal" },
+      { id: "Spotify_Viral_Daily",     label: "Viral",        period: "Diario"  },
     ],
   },
   {
@@ -79,6 +80,13 @@ type ColDef = {
 };
 
 const COLS: Record<string, ColDef[]> = {
+  Spotify_Artists_Daily: [
+    { key: "Artist",     label: "Artista",  align: "left",  mobile: true,  isArtist: true },
+    { key: "Peak",       label: "Pico",     align: "right", mobile: false },
+    { key: "Previous",   label: "Anterior", align: "right", mobile: false },
+    { key: "Streak",     label: "Racha",    align: "right", mobile: false },
+    { key: "Chart Date", label: "Fecha",    align: "right", mobile: false },
+  ],
   YT_Artists_Weekly: [
     { key: "Artist Name",      label: "Artista",     align: "left",  mobile: true,  isArtist: true },
     { key: "Views",            label: "Views",       align: "right", mobile: false, isMetric: true },
@@ -161,6 +169,7 @@ const SEP_RE = /(\s*[,&]\s*|\s*\/\s*|\s+feat\.\s+|\s+ft\.\s+|\s+x\s+|\s+and\s+|\
 type ImgSrc = "youtube" | "artist";
 interface SheetImgCfg { source: ImgSrc; round: boolean; field: string }
 const SHEET_IMG: Record<string, SheetImgCfg> = {
+  Spotify_Artists_Daily:   { source: "artist",  round: true,  field: "Artist"       },
   YT_Artists_Weekly:       { source: "artist",  round: true,  field: "Artist Name"  },
   YT_Songs_Weekly:         { source: "youtube", round: false, field: "YouTube URL"  },
   YT_Videos_Daily:         { source: "youtube", round: false, field: "YouTube URL"  },

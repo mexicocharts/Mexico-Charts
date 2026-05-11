@@ -1,0 +1,168 @@
+Add the Spotify Daily Top Artists Mexico chart to the main Charts section.
+
+IMPORTANT:
+This chart is not currently inside the main Google Sheet/workbook:
+
+mexico_charts_platform_charts_2026_updated
+
+It exists as a separate Google Sheet / CSV source for now.
+
+Please connect it as an additional external chart source for the Charts section.
+
+CHART NAME:
+Spotify Daily Top Artists Mexico
+
+Display title:
+Spotify Daily Top Artists México
+
+Platform:
+Spotify
+
+Source label:
+Fuente: Spotify Charts
+
+Chart type:
+Artists
+
+Frequency:
+Daily
+
+DATA MEANING:
+This chart represents the daily top artists in Mexico on Spotify.
+
+It is different from:
+- Spotify Regional Daily, which is songs/tracks
+- Spotify Regional Weekly, which is weekly songs/tracks
+- Spotify Viral Daily, which is viral tracks
+
+This is an artist-level daily chart.
+
+DATA SOURCE:
+Use the separate Spotify Daily Top Artists Mexico sheet/file that I provide.
+
+Do not assume it is inside the main platform charts workbook unless I later move it there.
+
+If the system supports multiple sheet sources, add it as a separate source called:
+
+Spotify_Artists_Daily
+
+Expected columns:
+- Rank
+- Movement
+- Artist
+- Peak
+- Previous
+- Streak
+- Chart Date
+- Source
+- Source Label
+- Source File
+- Fetched At
+
+If some columns are missing, display only the available fields. Do not invent missing data.
+
+CHARTS SECTION PLACEMENT:
+Add this chart under the Spotify platform inside the main Charts section.
+
+Spotify chart options should include:
+
+- Daily Top Artists Mexico
+- Regional Daily
+- Regional Weekly
+- Viral Daily
+
+Display label:
+Top Artistas Spotify México — Diario
+
+FILTER BEHAVIOR:
+This chart must use the same filter system as the other platform charts.
+
+Add/support the toggle:
+
+Todos
+Solo artistas mexicanos
+
+Default view:
+Todos
+
+When “Todos” is selected:
+Show the full Spotify Daily Top Artists Mexico chart.
+
+When “Solo artistas mexicanos” is selected:
+Show only rows where the artist is Mexican or where the artist credit includes at least one Mexican artist.
+
+Use the same Mexican artist matching sources as the other charts:
+1. Existing Mexico Charts artist database
+2. Mexican_Artist_Master sheet/helper list
+
+Do not guess nationality.
+
+If the artist is not found in the Mexico Charts artist database or Mexican_Artist_Master, keep them visible only in “Todos” unless manually reviewed/added later.
+
+RANKING RULE:
+Preserve the original Spotify rank.
+
+Do not re-rank the filtered view.
+
+Example:
+If the full chart is:
+
+#1 Fuerza Regida
+#2 Peso Pluma
+#3 Bad Bunny
+#4 Junior H
+
+Then the Mexican-only view should show:
+
+#1 Fuerza Regida
+#2 Peso Pluma
+#4 Junior H
+
+The filtered view should not turn them into #1, #2, #3 again unless we create a separate derived ranking later.
+
+ARTIST LINKING:
+If the artist exists in the Mexico Charts artist database, link the artist name to the artist profile.
+
+If the artist is not in the database, show the artist name as plain text.
+
+Do not automatically create full artist profiles for non-Mexican artists.
+
+METHODOLOGY NOTE:
+Add or reuse the same methodology note from the Charts section:
+
+“Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México. La vista ‘Solo artistas mexicanos’ es un filtro editorial aplicado a los charts originales y conserva las posiciones originales de cada plataforma.”
+
+For this specific chart, also make clear:
+
+“Este chart muestra artistas con actividad diaria en México en Spotify.”
+
+DESIGN:
+Use the same Mexico Charts chart design:
+- black / charcoal background
+- neon green accents
+- white text
+- muted gray secondary text
+- rounded dark cards
+- clean table
+- mobile stacked cards
+- premium data platform style
+
+Mobile card should show:
+- Rank
+- Artist
+- Movement
+- Peak
+- Previous
+- Streak
+- Chart date
+
+IMPORTANT:
+This chart is an additional Spotify chart source outside the main platform workbook for now.
+
+Do not break the existing main Charts workbook connection.
+
+The Charts section should support:
+- main workbook charts
+- this separate Spotify Daily Top Artists source
+
+If possible, later we may move this tab into the main workbook, but for now connect it separately.

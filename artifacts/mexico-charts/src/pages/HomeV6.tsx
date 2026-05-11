@@ -342,29 +342,22 @@ export default function HomeV6() {
     return [];
   }, [ytArtistRows]);
 
-  /* ── Top 10 artists by Spotify daily streams (Spotify_Regional_Daily aggregated by artist) ── */
+  /* ── Top 10 artists from the dedicated Spotify_Artists_Daily sheet ── */
   const SHELF_ARTISTS = useMemo(() => {
-    const spotifyRows: HubRow[] = hubData?.sheets?.["Spotify_Regional_Daily"]?.rows ?? [];
-    if (spotifyRows.length === 0) return [];
-    // Aggregate streams by artist name
-    const totals = new Map<string, number>();
-    for (const row of spotifyRows) {
-      const artists = row["Matched Mexican Artists"] || row["artist_names"] || "";
-      const streams = parseInt((row["streams"] ?? "").replace(/,/g, ""), 10) || 0;
-      for (const artist of artists.split(",").map(s => s.trim()).filter(Boolean)) {
-        totals.set(artist, (totals.get(artist) ?? 0) + streams);
-      }
-    }
-    const sorted = [...totals.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
-    return sorted.map(([name, streams], idx) => ({
-      rank: idx + 1,
-      name,
-      genre: "SPOTIFY DAILY",
-      streams: fmtViews(String(streams)),
-      accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
-    }));
+    const rows: HubRow[] = hubData?.sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
+    if (rows.length === 0) return [];
+    return rows
+      .slice(0, 10)
+      .map((row, idx) => {
+        const rankNum = parseInt(row["Rank"] ?? "", 10) || idx + 1;
+        return {
+          rank: rankNum,
+          name: row["Artist"] ?? "",
+          genre: "SPOTIFY DAILY",
+          streams: row["Streak"] ? `${row["Streak"]} días` : "",
+          accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
+        };
+      });
   }, [hubData]);
 
   /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
