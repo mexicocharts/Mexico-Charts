@@ -692,21 +692,25 @@ export default function HomeV6() {
               </h1>
               <p className="text-sm text-white/55 uppercase tracking-[0.18em] mb-6 font-medium">
                 {hero.listeners} OYENTES
-                <span className="mx-3 opacity-40">·</span>
-                {hero.countries}
-                <span className="mx-3 opacity-40">·</span>
-                <span style={{ color:"#39FF14" }}>{hero.growth} esta semana</span>
+                {hero.countries && hero.countries !== "—" && (
+                  <><span className="mx-3 opacity-40">·</span>{hero.countries}</>
+                )}
+                {hero.growth && hero.growth !== "—" && (
+                  <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} esta semana</span></>
+                )}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
-                <motion.button
-                  whileHover={reduced ? {} : { scale:1.03 }}
-                  whileTap={reduced ? {} : { scale:0.97 }}
-                  className="px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full text-black"
-                  style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.26)" }}
-                  data-testid="btn-hero-cta"
-                >
-                  Ver Charts →
-                </motion.button>
+                <Link href="/charts">
+                  <motion.span
+                    whileHover={reduced ? {} : { scale:1.03 }}
+                    whileTap={reduced ? {} : { scale:0.97 }}
+                    className="inline-block px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full text-black cursor-pointer"
+                    style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.26)" }}
+                    data-testid="btn-hero-cta"
+                  >
+                    Ver Charts →
+                  </motion.span>
+                </Link>
                 <Link href={`/artist/${slugify(hero.name)}`}>
                   <motion.span
                     whileHover={reduced ? {} : { scale:1.03, borderColor:"rgba(255,255,255,0.5)" }}
