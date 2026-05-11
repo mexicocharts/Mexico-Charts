@@ -342,6 +342,31 @@ export default function HomeV6() {
     return [];
   }, [ytArtistRows]);
 
+  /* ── Top 10 artists by Spotify daily streams (Spotify_Regional_Daily aggregated by artist) ── */
+  const SHELF_ARTISTS = useMemo(() => {
+    const spotifyRows: HubRow[] = hubData?.sheets?.["Spotify_Regional_Daily"]?.rows ?? [];
+    if (spotifyRows.length === 0) return [];
+    // Aggregate streams by artist name
+    const totals = new Map<string, number>();
+    for (const row of spotifyRows) {
+      const artists = row["Matched Mexican Artists"] || row["artist_names"] || "";
+      const streams = parseInt((row["streams"] ?? "").replace(/,/g, ""), 10) || 0;
+      for (const artist of artists.split(",").map(s => s.trim()).filter(Boolean)) {
+        totals.set(artist, (totals.get(artist) ?? 0) + streams);
+      }
+    }
+    const sorted = [...totals.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+    return sorted.map(([name, streams], idx) => ({
+      rank: idx + 1,
+      name,
+      genre: "SPOTIFY DAILY",
+      streams: fmtViews(String(streams)),
+      accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
+    }));
+  }, [hubData]);
+
   /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
   const GENRE_SYNONYMS: Record<string, string[]> = {
     "Corridos Tumbados": ["corridos tumbados", "corrido tumbado", "corridos"],
@@ -758,10 +783,10 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           TOP 10 ARTIST CARDS — V5 cards + premium hover
       ══════════════════════════════════════════════════════════ */}
-      <Shelf label="Top 10 · México · Esta Semana" icon={<TrendingUp className="w-4 h-4" />}>
-        {showLoadingState
+      <Shelf label="Top 10 Artistas Mexicanos · Esta Semana" icon={<TrendingUp className="w-4 h-4" />}>
+        {hubLoading
           ? Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)
-          : TOP_STRIP.map((a, idx) => {
+          : SHELF_ARTISTS.map((a, idx) => {
           const photo = img(a.name);
           return (
             <Link
