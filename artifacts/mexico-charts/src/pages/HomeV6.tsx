@@ -313,34 +313,32 @@ export default function HomeV6() {
   }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
 
   const ASCENSO = useMemo(() => {
-    // Build from live YouTube Artists Weekly rows — top growers with positive growth
-    if (ytArtistRows.length > 0) {
-      const withGrowth = ytArtistRows
-        .map(row => ({
-          name: row["Artist Name"] ?? "",
-          growthRaw: parseGrowthNum(row["Growth"] ?? ""),
-          growthStr: row["Growth"] ?? "",
-          views: fmtViews(row["Views"] ?? ""),
-        }))
-        .filter(a => a.name && a.growthRaw > 0)
-        .sort((a, b) => b.growthRaw - a.growthRaw)
-        .slice(0, 5);
+    // Build from Spotify_Artists_Daily — Mexican artists with biggest rank climbs today
+    const spotifyRows: HubRow[] = hubData?.sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
+    if (spotifyRows.length === 0) return [];
 
-      if (withGrowth.length >= 3) {
-        const maxGrowth = withGrowth[0].growthRaw;
-        return withGrowth.map((a, idx) => ({
-          name: a.name,
-          growth: `${a.growthStr} · ${a.views} views`,
-          bar: maxGrowth > 0 ? Math.round((a.growthRaw / maxGrowth) * 100) : 0,
-          accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
-        }));
-      }
-      // Not enough positive-growth artists — hide section
-      return [];
-    }
-    // Still loading — return empty (skeleton will show)
-    return [];
-  }, [ytArtistRows]);
+    const climbers = spotifyRows
+      .filter(r => (r["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE")
+      .map(r => {
+        const rank = parseInt(r["Rank"] ?? "", 10) || 0;
+        const prev = parseInt(r["Previous"] ?? "", 10) || 0;
+        const gained = prev > 0 && rank > 0 ? prev - rank : 0;
+        return { name: r["Artist"] ?? "", rank, prev, gained };
+      })
+      .filter(a => a.name && a.gained > 0)
+      .sort((a, b) => b.gained - a.gained)
+      .slice(0, 5);
+
+    if (climbers.length < 3) return [];
+
+    const maxGained = climbers[0].gained;
+    return climbers.map((a, idx) => ({
+      name: a.name,
+      growth: `+${a.gained} pos · #${a.rank} hoy`,
+      bar: maxGained > 0 ? Math.round((a.gained / maxGained) * 100) : 0,
+      accent: ASCENSO_ACCENTS[idx] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
+    }));
+  }, [hubData]);
 
   /* ── Top 10 Mexican artists from the dedicated Spotify_Artists_Daily sheet ── */
   const SHELF_ARTISTS = useMemo(() => {
@@ -1119,7 +1117,7 @@ export default function HomeV6() {
               <div className="absolute -bottom-4 -right-2 font-black italic text-[100px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>↑</div>
               <div className="relative z-10 flex flex-col">
                 <div className="mb-5">
-                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">CRECIMIENTO SEMANAL · YOUTUBE</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">ARTISTAS MEXICANOS · SPOTIFY DIARIO</div>
                   <h3 className="text-base font-black uppercase text-white">EN <span style={{ color:"#39FF14" }}>ASCENSO</span></h3>
                 </div>
                 <div className="flex flex-col gap-4">
@@ -1144,7 +1142,7 @@ export default function HomeV6() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Crecimiento en YouTube · Esta Semana</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Mayor movimiento hoy · Spotify Artistas México</p>
               </div>
             </div>
           </FadeUp>
