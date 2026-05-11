@@ -274,15 +274,18 @@ export default function HomeV6() {
   const TOP_STRIP = useMemo(() => {
     // Use live YouTube Artists Weekly data from the charts-hub API
     if (ytArtistRows.length > 0) {
-      return ytArtistRows.slice(0, 10).map((row, idx) => ({
-        rank: idx + 1,
+      const sorted = [...ytArtistRows].sort(
+        (a, b) => (Number(a["Rank"]) || 999) - (Number(b["Rank"]) || 999),
+      );
+      return sorted.slice(0, 10).map((row, idx) => ({
+        rank: Number(row["Rank"]) || idx + 1,
         name: row["Artist Name"] ?? "",
         genre: "",
         streams: fmtViews(row["Views"] ?? ""),
         accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
       }));
     }
-    // Loading — return empty so skeleton shows instead of fake data
+    // Loading or empty — return [] so the caller can decide what to render
     return [];
   }, [ytArtistRows]);
 
@@ -1053,7 +1056,7 @@ export default function HomeV6() {
                   viewport={{ once:true }}
                   variants={staggerContainer}
                 >
-                  {(hubLoading || TOP_STRIP.length === 0)
+                  {hubLoading
                     ? Array.from({ length: 5 }).map((_, idx) => (
                         <div key={idx} className="flex items-center gap-3" style={{ opacity: 1 - idx * 0.15 }}>
                           <div className="w-8 h-3 rounded animate-pulse" style={{ background:"rgba(255,255,255,0.06)" }} />
@@ -1062,6 +1065,8 @@ export default function HomeV6() {
                           <div className="w-12 h-5 rounded-full animate-pulse" style={{ background:"rgba(57,255,20,0.07)" }} />
                         </div>
                       ))
+                    : TOP_STRIP.length === 0
+                    ? <div className="text-xs text-zinc-600 uppercase tracking-widest py-4">Sin datos disponibles</div>
                     : TOP_STRIP.slice(0,5).map((a) => {
                     const photo = img(a.name);
                     return (
