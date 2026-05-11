@@ -272,9 +272,12 @@ export default function HomeV6() {
 
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
-    // Use live YouTube Artists Weekly data from the charts-hub API
+    // Use live YouTube Artists Weekly data — Mexican artists only, sorted by rank
     if (ytArtistRows.length > 0) {
-      const sorted = [...ytArtistRows].sort(
+      const mexican = ytArtistRows.filter(
+        r => (r["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE",
+      );
+      const sorted = [...mexican].sort(
         (a, b) => (Number(a["Rank"]) || 999) - (Number(b["Rank"]) || 999),
       );
       return sorted.slice(0, 10).map((row, idx) => ({
