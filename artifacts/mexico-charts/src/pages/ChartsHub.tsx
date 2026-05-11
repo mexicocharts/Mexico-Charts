@@ -95,7 +95,7 @@ const COLS: Record<string, ColDef[]> = {
   YT_Videos_Daily: [
     { key: "Artist Names", label: "Artista",  align: "left",  mobile: true,  isArtist: true },
     { key: "Video Title",  label: "Video",    align: "left",  mobile: true  },
-    { key: "Views",        label: "Views",    align: "right", mobile: false, isMetric: true },
+    { key: "Periods on Chart", label: "Días", align: "right", mobile: false },
     { key: "YouTube URL",  label: "Ver",      align: "center",mobile: false, isLink: true },
   ],
   YT_Shorts_Daily: [
@@ -218,13 +218,8 @@ function Movement({ rank, prev, mov }: { rank: string; prev: string; mov: string
 
 /* ── Artist cell with linking ────────────────────────────────────────────── */
 function ArtistCell({ value, matched }: { value: string; matched: string[] }) {
-  if (!matched.length) return <span>{value}</span>;
+  if (!matched.length) return <span className="text-white">{value}</span>;
 
-  // Build a map of name → slug for matched artists
-  const linkedNames = new Set(matched.map(n => n.toLowerCase().trim()));
-
-  // Try to highlight matched names in the full artist credit
-  // Split on common separators
   const parts = value.split(/(\s*[,&/]\s*|\s+feat\.\s+|\s+ft\.\s+|\s+x\s+|\s+and\s+)/i);
 
   return (
@@ -238,13 +233,13 @@ function ArtistCell({ value, matched }: { value: string; matched: string[] }) {
         if (matchedName && !part.match(/^[\s,&/]+$/)) {
           return (
             <Link key={i} href={`/artist/${slugify(matchedName)}`}>
-              <span className="hover:underline transition-all cursor-pointer" style={{ color: G }}>
+              <span className="underline decoration-white/30 underline-offset-2 hover:decoration-white/70 transition-all cursor-pointer text-white">
                 {part}
               </span>
             </Link>
           );
         }
-        return <span key={i} style={{ color: "rgba(255,255,255,0.6)" }}>{part}</span>;
+        return <span key={i} className="text-white">{part}</span>;
       })}
     </>
   );
@@ -515,9 +510,7 @@ export default function ChartsHub() {
                                 <ArtistCell value={val} matched={matched} />
                               </span>
                             ) : col.isMetric ? (
-                              <div>
-                                <div className="text-xs font-black tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>{fmt(val)}</div>
-                              </div>
+                              <div className="text-xs font-black tabular-nums" style={{ color: G }}>{fmt(val)}</div>
                             ) : isFirst ? (
                               <span className="text-sm font-bold text-white truncate block">{val}</span>
                             ) : (
@@ -551,7 +544,7 @@ export default function ChartsHub() {
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <Movement rank={rank} prev={prev} mov={mov} />
                         {cols.filter(c => c.isMetric).map((col, ci) => (
-                          <div key={ci} className="text-[10px] font-black tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          <div key={ci} className="text-[10px] font-black tabular-nums" style={{ color: G }}>
                             {fmt(row[col.key] ?? "")}
                           </div>
                         ))}
