@@ -14,6 +14,7 @@ import ArtistRoster from "@/pages/ArtistRoster";
 import InsightIFPI2026 from "@/pages/InsightIFPI2026";
 import IndustryLanding from "@/pages/IndustryLanding";
 import Certifications from "@/pages/Certifications";
+import SpotifyCharts from "@/pages/SpotifyCharts";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomeV6} />
       <Route path="/artists" component={ArtistRoster} />
+      <Route path="/charts" component={SpotifyCharts} />
       <Route path="/industria" component={IndustryLanding} />
       <Route path="/industry/certifications" component={Certifications} />
       <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />

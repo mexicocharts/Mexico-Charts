@@ -14,7 +14,7 @@ const INDUSTRIA_ITEMS = [
 const NAV = [
   { label: "INICIO",       href: "/" },
   { label: "ARTISTAS",     href: "/artists" },
-  { label: "CHARTS",       href: "#" },
+  { label: "CHARTS",       href: "/charts" },
   { label: "GÉNEROS",      href: "#" },
   { label: "INDUSTRIA",    href: "/industria", dropdown: INDUSTRIA_ITEMS },
   { label: "TOURING",      href: "#" },
