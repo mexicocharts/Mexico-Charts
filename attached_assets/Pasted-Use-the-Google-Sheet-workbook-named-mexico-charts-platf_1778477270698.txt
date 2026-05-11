@@ -1,0 +1,386 @@
+Use the Google Sheet / workbook named:
+
+mexico_charts_platform_charts_2026_updated
+
+This workbook should power the main Charts section of Mexico Charts.
+
+PURPOSE:
+Create the main Charts section using this workbook as the central multi-platform chart source.
+
+The Charts section should include platform charts for Mexico from:
+- YouTube Charts México
+- Spotify México
+- Apple Music México
+- Deezer México
+
+This section should show real platform chart activity inside Mexico, while also allowing users to filter those charts to see only Mexican artists.
+
+IMPORTANT CONCEPT:
+Charts should show the full platform chart by default.
+
+Default view:
+Todos
+
+This view shows all artists appearing in the chart, regardless of nationality.
+
+Filtered view:
+Solo artistas mexicanos
+
+This view filters the same chart to only rows where the artist is Mexican or where the artist credit includes at least one Mexican artist.
+
+Very important:
+When filtered to “Solo artistas mexicanos,” keep the original platform chart ranks.
+
+Example:
+If Peso Pluma is #8 on the full Apple Music Mexico chart, he should still display as #8 in the Mexican-only filter.
+
+Do not re-rank filtered rows as #1, #2, #3 unless we later create a separate derived Mexico Charts ranking.
+
+DATA SOURCE:
+Google Sheet / workbook:
+mexico_charts_platform_charts_2026_updated
+
+SYNC REQUIREMENT:
+Fetch/sync the workbook every hour.
+
+Show a visible timestamp on the Charts section:
+Última actualización: [timestamp]
+
+If fetching fails:
+- keep the last successful cached version
+- do not break the page
+- do not show a scary public error
+- log quietly if possible
+
+MAIN ROUTE:
+Use the existing or planned Charts section.
+
+If a route is needed, use:
+/charts
+
+Do not create separate main routes for each platform yet unless the existing site architecture requires it.
+
+The goal is for all platform charts to live together inside one Charts section.
+
+PAGE TITLE:
+Charts
+
+Hero headline:
+CHARTS MÉXICO
+
+Subheadline:
+Rankings de plataformas musicales en México con opción de filtrar la participación de artistas mexicanos.
+
+Source line:
+Fuentes: YouTube Charts, Spotify Charts, Apple Music, Deezer.
+
+MAIN PAGE STRUCTURE:
+
+1. Hero Section
+
+Eyebrow:
+CHARTS
+
+Headline:
+CHARTS MÉXICO
+
+Subheadline:
+Explora rankings de plataformas musicales en México y filtra la presencia de artistas mexicanos dentro de cada chart.
+
+Source line:
+Fuentes: YouTube Charts, Spotify Charts, Apple Music, Deezer.
+
+Small methodology note:
+Los charts muestran actividad en México según cada plataforma. El filtro de artistas mexicanos usa la base de datos de Mexico Charts para destacar filas con participación mexicana.
+
+2. Platform Selector
+
+Add platform tabs or cards:
+
+- YouTube
+- Spotify
+- Apple Music
+- Deezer
+
+Default platform:
+YouTube or Spotify, whichever fits the current site best.
+
+3. Chart Type Selector
+
+Each platform can have multiple chart types.
+
+Use the workbook’s Chart_Manifest sheet to understand which sheets belong to which platform and chart type.
+
+Possible chart types include:
+
+YouTube:
+- Top Artists MX Weekly
+- Top Songs MX Weekly
+- Top Videos MX Daily
+- Top Shorts Songs MX Daily
+
+Spotify:
+- Regional MX Daily
+- Regional MX Weekly
+- Viral MX Daily
+
+Apple Music:
+- Top Songs Mexico
+- Top Albums Mexico
+
+Deezer:
+- Deezer Top Mexico / Top Songs Mexico
+
+Use the exact sheet names from the workbook when connecting data.
+
+4. Main Filter Toggle
+
+Add a clear toggle near the chart controls:
+
+Todos
+Solo artistas mexicanos
+
+Default:
+Todos
+
+When “Todos” is selected:
+Show the full platform chart data.
+
+When “Solo artistas mexicanos” is selected:
+Show only rows where the artist is Mexican or where the artist credit includes at least one Mexican artist.
+
+Add a small note in filtered mode:
+Filtro aplicado: solo filas con artistas mexicanos o colaboraciones con participación mexicana. Se conservan las posiciones originales del chart.
+
+Do not make the filtered view sound like an official platform chart. It is a Mexico Charts filter applied to platform chart data.
+
+Suggested label:
+Vista filtrada por Mexico Charts
+
+5. Data Display
+
+For each chart, display available columns from the workbook.
+
+Do not invent missing fields.
+
+Use the fields that exist in each sheet.
+
+Common columns may include:
+- Rank / Position
+- Movement
+- Artist
+- Title
+- Album
+- Peak
+- Previous position
+- Streak / weeks
+- Views / streams / metric if available
+- Chart date or week
+
+Only show columns that exist for that chart.
+
+6. Chart Row Behavior
+
+If a chart row includes a Mexican artist already in the Mexico Charts artist database, link that artist name to their artist profile.
+
+If the row includes multiple artists and only one or some are Mexican, link only the Mexican artist names when possible.
+
+If the artist is not in the Mexico Charts Mexican artist database, show the artist name as plain text.
+
+Do not automatically create full artist profiles for non-Mexican artists.
+
+7. Mexican Artist Filter Logic
+
+Use the existing Mexico Charts artist database and/or the workbook’s Mexican_Artist_Master sheet as the matching source.
+
+A row should appear in “Solo artistas mexicanos” if:
+- the main artist is Mexican
+- the artist credit includes a Mexican artist
+- the song/album/video credit includes at least one Mexican artist
+- the artist appears in the Mexican_Artist_Master list
+
+Examples to include when filtering:
+- Peso Pluma
+- Fuerza Regida
+- Junior H
+- Natanael Cano
+- Luis Miguel
+- Carín León
+- Grupo Frontera
+- Christian Nodal
+- Yuridia
+- Kenia OS
+- Grupo Firme
+- Banda MS
+- Vicente Fernández
+- Juan Gabriel
+- Natalia Lafourcade
+- Reik
+- Maná
+- Caifanes
+- Zoé
+- Alemán
+- Gera MX
+
+Collaboration examples:
+- Kali Uchis with Peso Pluma → include
+- Ricky Martin & Carín León → include
+- Becky G with Ángela Aguilar & Leonardo Aguilar → include
+- Myke Towers, Peso Pluma → include
+- Chuyin, Fuerza Regida, Jorsshh & Calle 24 → include
+- Bad Bunny alone → exclude in Mexican-only filter
+- Karol G alone → exclude in Mexican-only filter
+- BTS alone → exclude in Mexican-only filter
+- Michael Jackson alone → exclude in Mexican-only filter
+
+8. Matching Normalization
+
+To improve matching:
+- ignore case
+- ignore accents
+- trim spaces
+- normalize punctuation
+- treat commas, &, “feat.”, “featuring”, “with”, “x”, “/”, and “and” as artist separators
+- match full artist names, not tiny fragments
+- avoid false matches with short names
+
+Examples:
+- CARÍN LEÓN should match CARIN LEON
+- ÁNGELA AGUILAR should match ANGELA AGUILAR
+- PESO PLUMA should match Peso Pluma
+- CAMILA should not accidentally match Camilo
+- REIK should only match Reik
+- CD9 should only match CD9
+
+9. Ranking Accuracy
+
+Always preserve the original platform rank.
+
+Do not re-rank filtered Mexican-only views.
+
+If the full chart has:
+#1 Bad Bunny
+#2 Fuerza Regida
+#3 BTS
+#4 Peso Pluma
+
+Then Mexican-only filter should show:
+#2 Fuerza Regida
+#4 Peso Pluma
+
+Not:
+#1 Fuerza Regida
+#2 Peso Pluma
+
+10. Design Requirements
+
+Match the current Mexico Charts style:
+- black / charcoal background
+- neon green accents
+- white text
+- muted gray secondary text
+- rounded dark cards
+- clean premium tables
+- responsive mobile cards
+- bold typography
+- data platform feel
+
+Avoid:
+- raw spreadsheet look
+- cluttered dashboard
+- bright white backgrounds
+- random platform colors overpowering the brand
+- confusing the Mexican-artist filter with a separate official chart
+
+11. Mobile Layout
+
+On mobile, chart rows should display as stacked cards.
+
+Each card should show:
+- rank
+- title / artist
+- platform
+- chart type
+- movement if available
+- metric if available
+- peak/previous/streak if available
+
+Keep it clean and easy to scan.
+
+12. Homepage Integration
+
+Do not add a huge homepage section yet unless it fits naturally.
+
+A compact teaser card is fine.
+
+Homepage teaser:
+
+Title:
+Charts México
+
+Text:
+Explora rankings de YouTube, Spotify, Apple Music y Deezer en México con filtro para artistas mexicanos.
+
+CTA:
+Ver charts
+
+Link:
+/charts
+
+13. Source Attribution
+
+Each platform chart should show its source clearly:
+
+YouTube:
+Fuente: YouTube Charts
+
+Spotify:
+Fuente: Spotify Charts
+
+Apple Music:
+Fuente: Apple Music
+
+Deezer:
+Fuente: Deezer
+
+General page source:
+Fuentes: YouTube Charts, Spotify Charts, Apple Music, Deezer.
+
+14. Methodology Note
+
+Add this somewhere on the Charts page:
+
+“Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México. La vista ‘Solo artistas mexicanos’ es un filtro editorial de Mexico Charts aplicado a los charts originales y conserva las posiciones originales de cada plataforma.”
+
+15. Use Workbook Helper Sheets
+
+The workbook includes helper/instruction sheets such as:
+- Chart_Manifest
+- Replit_Instructions
+- Mexican_Artist_Master
+- Filter_Logic
+- Sources_Notes
+
+Use these sheets to understand:
+- which platform each sheet belongs to
+- which chart type each sheet represents
+- how to apply the Mexican artist filter
+- how to preserve original ranks
+- what source label to display
+
+Do not use helper sheets as public chart data.
+
+16. Final Goal
+
+Build the Charts section as a central multi-platform chart hub powered by:
+
+mexico_charts_platform_charts_2026_updated
+
+The section should:
+- fetch the workbook every hour
+- show all platform charts by default
+- offer a “Solo artistas mexicanos” filter
+- preserve original platform ranks
+- link Mexican artists to their Mexico Charts profiles
+- clearly cite platform sources
+- match the current Mexico Charts premium design
