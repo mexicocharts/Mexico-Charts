@@ -1064,7 +1064,7 @@ export default function HomeV6() {
                     <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">YOUTUBE · SEMANAL</div>
                     <h3 className="text-base font-black uppercase text-white">TOP ARTISTAS <span style={{ color:"#39FF14" }}>MÉXICO</span></h3>
                   </div>
-                  <Link href="/artists" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</Link>
+                  <Link href="/charts?platform=YouTube&sheet=YT_Artists_Weekly" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</Link>
                 </div>
                 <motion.div
                   className="flex flex-col gap-3"

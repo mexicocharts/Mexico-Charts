@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { SiSpotify, SiYoutube, SiApplemusic } from "react-icons/si";
 import { MdMusicNote } from "react-icons/md";
 import SiteNav from "@/components/SiteNav";
@@ -352,8 +352,26 @@ function SkeletonRow({ i }: { i: number }) {
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export default function ChartsHub() {
-  const [activePlatform, setActivePlatform] = useState<PlatformId>("YouTube");
-  const [activeSheet, setActiveSheet] = useState("YT_Songs_Weekly");
+  const search = useSearch();
+
+  // Parse initial platform/sheet from URL query params (e.g. ?platform=YouTube&sheet=YT_Artists_Weekly)
+  const initialState = useMemo(() => {
+    const params = new URLSearchParams(search);
+    const pid = params.get("platform") as PlatformId | null;
+    const sid = params.get("sheet");
+    const validPlatform = PLATFORMS.find(p => p.id === pid);
+    if (validPlatform) {
+      const validSheet = validPlatform.charts.find(c => c.id === sid);
+      return {
+        platform: validPlatform.id,
+        sheet: validSheet ? validSheet.id : validPlatform.charts[0].id,
+      };
+    }
+    return { platform: "YouTube" as PlatformId, sheet: "YT_Songs_Weekly" };
+  }, []);
+
+  const [activePlatform, setActivePlatform] = useState<PlatformId>(initialState.platform);
+  const [activeSheet, setActiveSheet] = useState(initialState.sheet);
   const [filterMex, setFilterMex] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
