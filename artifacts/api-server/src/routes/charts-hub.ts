@@ -19,6 +19,11 @@ const SHEETS = [
   "Deezer_Top_Mexico",
 ] as const;
 
+// Maps internal key → actual Google Sheets tab name when they differ
+const SHEET_TAB_NAMES: Partial<Record<SheetName, string>> = {
+  Deezer_Top_Mexico: "Deezer Top Mexico",
+};
+
 type SheetName = typeof SHEETS[number];
 type Row = Record<string, string>;
 
@@ -130,7 +135,7 @@ const ARTIST_FIELD: Partial<Record<SheetName, string>> = {
   Spotify_Regional_Daily:  "artist_names",
   Spotify_Regional_Weekly: "artist_names",
   Spotify_Viral_Daily:     "artist_names",
-  Deezer_Top_Mexico:       "Artist Names",
+  Deezer_Top_Mexico:       "Artist",
 };
 
 /* ── Compute Contains Mexican Artist for sheets that don't have it ───────── */
@@ -164,22 +169,11 @@ function enrichSheet(
 
 /* ── Fetch one sheet as CSV ─────────────────────────────────────────────── */
 async function fetchSheet(name: SheetName): Promise<SheetData> {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}`;
+  const tabName = SHEET_TAB_NAMES[name] ?? name;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
   const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`Sheet ${name}: HTTP ${resp.status}`);
   const text = await resp.text();
-
-  // Deezer sheet has metadata rows at the top — skip until we find the chart header
-  if (name === "Deezer_Top_Mexico") {
-    const lines = text.trim().split(/\r?\n/);
-    const headerIdx = lines.findIndex(line =>
-      /rank|artist/i.test(line) &&
-      !/(workbook|created|purpose|important|platform.*source.*use)/i.test(line)
-    );
-    if (headerIdx < 0) return { headers: [], rows: [] };
-    const parsed = parseCSV(lines.slice(headerIdx).join("\n"));
-    return parsed;
-  }
 
   const parsed = parseCSV(text);
 

@@ -132,8 +132,10 @@ const COLS: Record<string, ColDef[]> = {
     { key: "Title",        label: "Álbum",    align: "left",  mobile: true  },
   ],
   Deezer_Top_Mexico: [
-    { key: "Artist Names", label: "Artista",  align: "left",  mobile: true,  isArtist: true },
-    { key: "Title",        label: "Canción",  align: "left",  mobile: true  },
+    { key: "Artist",      label: "Artista",  align: "left",  mobile: true,  isArtist: true },
+    { key: "Title",       label: "Canción",  align: "left",  mobile: true  },
+    { key: "Album",       label: "Álbum",    align: "left",  mobile: false },
+    { key: "Track Link",  label: "Ver",      align: "center",mobile: false, isLink: true },
   ],
 };
 
