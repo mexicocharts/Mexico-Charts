@@ -312,7 +312,7 @@ export default function ArtistRoster() {
           </Link>
           <div className="flex items-center gap-1">
             {(["INICIO", "ARTISTAS", "CHARTS", "GÉNEROS", "TOURING"] as const).map((item) => {
-              const href = item === "INICIO" ? "/" : item === "ARTISTAS" ? "/artists" : "#";
+              const href = item === "INICIO" ? "/" : item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "GÉNEROS" ? "/generos" : "#";
               const active = item === "ARTISTAS";
               return (
                 <Link
