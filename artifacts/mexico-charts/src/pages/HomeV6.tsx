@@ -342,22 +342,21 @@ export default function HomeV6() {
     return [];
   }, [ytArtistRows]);
 
-  /* ── Top 10 artists from the dedicated Spotify_Artists_Daily sheet ── */
+  /* ── Top 10 Mexican artists from the dedicated Spotify_Artists_Daily sheet ── */
   const SHELF_ARTISTS = useMemo(() => {
     const rows: HubRow[] = hubData?.sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
     if (rows.length === 0) return [];
-    return rows
-      .slice(0, 10)
-      .map((row, idx) => {
-        const rankNum = parseInt(row["Rank"] ?? "", 10) || idx + 1;
-        return {
-          rank: rankNum,
-          name: row["Artist"] ?? "",
-          genre: "SPOTIFY DAILY",
-          streams: row["Streak"] ? `${row["Streak"]} días` : "",
-          accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
-        };
-      });
+    // Filter to Mexican artists only, preserving original Spotify rank
+    const mexican = rows.filter(
+      r => (r["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE",
+    );
+    return mexican.slice(0, 10).map((row, idx) => ({
+      rank: parseInt(row["Rank"] ?? "", 10) || idx + 1,
+      name: row["Artist"] ?? "",
+      genre: "SPOTIFY DAILY",
+      streams: row["Streak"] ? `${row["Streak"]} días` : "",
+      accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
+    }));
   }, [hubData]);
 
   /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
