@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;900&display=swap');
+
+.touring-editorial-container {
+  font-family: 'Inter', sans-serif;
+  background-color: #080808;
+  color: white;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.touring-editorial-noise {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+  z-index: 10;
+}
+
+.font-display {
+  font-family: 'Anton', sans-serif;
+  text-transform: uppercase;
+}
+
+.neon-text {
+  color: #39FF14;
+}
+
+.glitch-line {
+  height: 2px;
+  background-color: #39FF14;
+  position: relative;
+  overflow: hidden;
+}
+
+.glitch-line::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
+  animation: glitch-slide 3s infinite linear;
+}
+
+@keyframes glitch-slide {
+  0% { left: -100%; }
+  50% { left: 200%; }
+  100% { left: 200%; }
+}
+
+/* Custom scrollbar for the right column */
+.shows-scroll-container::-webkit-scrollbar {
+  width: 4px;
+}
+.shows-scroll-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+.shows-scroll-container::-webkit-scrollbar-thumb {
+  background: #39FF14;
+}
+
+.show-card {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 2px solid transparent;
+}
+
+.show-card:hover {
+  transform: translateX(10px);
+  border-left: 2px solid #39FF14;
+}
+
+@keyframes stadium-pulse {
+  0% {
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2), inset 0 0 10px rgba(57, 255, 20, 0.1);
+    border-color: rgba(57, 255, 20, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(57, 255, 20, 0.6), inset 0 0 15px rgba(57, 255, 20, 0.2);
+    border-color: rgba(57, 255, 20, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 10px rgba(57, 255, 20, 0.2), inset 0 0 10px rgba(57, 255, 20, 0.1);
+    border-color: rgba(57, 255, 20, 0.4);
+  }
+}
+
+.stadium-border-glow {
+  animation: stadium-pulse 3s infinite ease-in-out;
+}
+
+.font-stadium {
+  font-family: 'Anton', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.font-stadium-body {
+  font-family: 'Inter', sans-serif;
+}
+
+.brutal-text-stroke {
+  -webkit-text-stroke: 2px #39FF14;
+  color: transparent;
+}
+
+.brutal-text-stroke-white {
+  -webkit-text-stroke: 1px #fff;
+  color: transparent;
+}
+
+.scanline-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.2) 50%,
+    rgba(0, 0, 0, 0.2)
+  );
+  background-size: 100% 4px;
+  z-index: 50;
+  opacity: 0.15;
+}
+
+.poster-bg {
+  background-color: #080808;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+}
