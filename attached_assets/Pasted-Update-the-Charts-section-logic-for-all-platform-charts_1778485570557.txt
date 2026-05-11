@@ -1,0 +1,283 @@
+Update the Charts section logic for all platform charts, including YouTube, Spotify, Apple Music, and Deezer.
+
+The Charts section should support two views across every platform:
+
+1. Todos
+Shows the full original platform chart.
+
+2. Solo artistas mexicanos
+Shows only rows where at least one credited artist is Mexican, based on Mexico Charts matching sources.
+
+Very important:
+The “Solo artistas mexicanos” filter should not guess nationality.
+It should only include rows when a Mexican artist match is found in the approved matching sources.
+
+MATCHING SOURCES:
+
+Use these sources for the Mexican artist filter:
+
+1. Existing Mexico Charts artist database
+This is the primary source.
+
+2. Mexican_Artist_Master sheet from the workbook
+This is the backup/helper source.
+
+A chart row should appear in “Solo artistas mexicanos” if at least one credited artist matches either:
+- the Mexico Charts artist database
+- the Mexican_Artist_Master sheet
+
+This rule applies to every platform:
+- YouTube Charts México
+- Spotify México charts
+- Apple Music México charts
+- Deezer México chart
+- any future chart platform added later
+
+GLOBAL FILTER LOGIC:
+
+For every chart row:
+
+Step 1:
+Read the artist credit field.
+
+Step 2:
+Normalize the artist names:
+- ignore case
+- ignore accents
+- trim extra spaces
+- normalize punctuation
+- treat commas, &, “feat.”, “featuring”, “with”, “x”, “/”, “and”, “y”, and “junto a” as separators
+- avoid matching tiny fragments
+- match full artist names whenever possible
+
+Step 3:
+Check every credited artist against:
+- Mexico Charts artist database
+- Mexican_Artist_Master sheet
+
+Step 4:
+If at least one credited artist matches, include the row in “Solo artistas mexicanos.”
+
+Step 5:
+If no Mexican artist match is found, keep the row in “Todos” only.
+
+Do not guess nationality.
+
+Do not include an artist in “Solo artistas mexicanos” just because the genre sounds Mexican, the song title is Spanish, the artist is popular in Mexico, or the label/category looks regional.
+
+If the artist is missing from the Mexican artist database or Mexican_Artist_Master, exclude them from “Solo artistas mexicanos” until manually reviewed or added.
+
+ORIGINAL RANK RULE:
+
+Always preserve the original platform rank.
+
+When the “Solo artistas mexicanos” filter is active, do not re-rank the rows.
+
+Example:
+If the full chart is:
+
+#1 Bad Bunny
+#2 Fuerza Regida
+#3 BTS
+#4 Peso Pluma
+
+Then the filtered view should show:
+
+#2 Fuerza Regida
+#4 Peso Pluma
+
+Not:
+
+#1 Fuerza Regida
+#2 Peso Pluma
+
+The filtered view is a Mexico Charts filter applied to platform chart data. It is not a new official platform ranking.
+
+DISPLAY LABELS:
+
+For the full view, label the toggle:
+
+Todos
+
+For the filtered view, label the toggle:
+
+Solo artistas mexicanos
+
+When filtered mode is active, show a small note:
+
+“Vista filtrada por Mexico Charts. Se muestran filas con artistas mexicanos o colaboraciones con participación mexicana. Las posiciones originales del chart se conservan.”
+
+SOURCE ATTRIBUTION:
+
+Each platform must keep its own source label.
+
+YouTube:
+Fuente: YouTube Charts
+
+Spotify:
+Fuente: Spotify Charts
+
+Apple Music:
+Fuente: Apple Music
+
+Deezer:
+Fuente: Deezer
+
+General Charts page source line:
+Fuentes: YouTube Charts, Spotify Charts, Apple Music, Deezer.
+
+DEEZEER-SPECIFIC UPDATE:
+
+Use the “Deezer Top Mexico” sheet as the Deezer chart source inside the main Charts section.
+
+This sheet is automatically updated from Deezer’s Top Mexico playlist.
+
+Display title:
+Deezer Top Mexico
+
+Source label:
+Fuente: Deezer
+
+Deezer should follow the same global chart behavior:
+
+- Default view: Todos
+- Filter view: Solo artistas mexicanos
+- Preserve original Deezer rank when filtered
+- Link Mexican artists to artist profiles when they exist
+- Do not re-rank the filtered view
+- Do not guess artist nationality
+- Use Mexico Charts artist database + Mexican_Artist_Master for matching
+
+UNMATCHED / REVIEW NEEDED LOGIC:
+
+Create or maintain an internal Review_Needed list for chart artists that may require manual checking.
+
+This should help us improve the Mexican artist filter over time.
+
+Important:
+Do not put every non-Mexican artist into Review_Needed. That would be too noisy.
+
+Only add rows to Review_Needed when:
+- the artist is not matched as Mexican
+- but the platform/chart/genre/context suggests the artist might be Mexican or relevant to Mexico Charts
+- or the artist appears in a chart with regional Mexican / música mexicana context
+- or the artist appears repeatedly and should be checked manually
+
+Review_Needed should include:
+- Platform
+- Chart type
+- Rank
+- Artist credit
+- Title
+- Reason
+- Date added / chart date if available
+
+Suggested reasons:
+- “No Mexican artist match found”
+- “Possible Mexican artist, needs review”
+- “Collaboration may include Mexican artist”
+- “Regional Mexican context, verify artist”
+
+If an artist is confirmed Mexican later, add them to:
+- the main Mexico Charts artist database, or
+- Mexican_Artist_Master
+
+Do not hardcode one-off artist exceptions inside chart logic unless absolutely necessary.
+
+ARTIST PROFILE LINKING:
+
+When displaying chart rows:
+
+If a credited artist exists in the Mexico Charts artist database:
+- link that artist name to their artist profile
+
+If a credited artist does not exist in the database:
+- show the artist name as plain text
+
+For collaborations:
+- link only the Mexican artists that exist in the database when possible
+- leave unmatched/non-database artists as plain text
+
+Examples:
+
+“Peso Pluma & Tito Double P”
+Both should link if both exist in the artist database.
+
+“Kali Uchis with Peso Pluma”
+Only Peso Pluma should link if Kali Uchis is not in the Mexican artist database.
+
+“Bad Bunny”
+Plain text unless we later create international artist pages.
+
+FALSE MATCH PREVENTION:
+
+Be careful with short or similar names.
+
+Examples:
+- “Camila” should not match “Camilo”
+- “CD9” should only match CD9
+- “DLD” should only match DLD
+- “Reik” should only match Reik
+- “Peso Pluma” should match the full phrase Peso Pluma
+- “Maná” should match Mana / Maná, but not random words containing “mana”
+- “Banda MS” should match Banda MS de Sergio Lizárraga if that alias exists in the master list
+- “Carín León” should match Carin Leon
+- “Ángela Aguilar” should match Angela Aguilar
+
+BEST PRACTICE:
+Use aliases in Mexican_Artist_Master where needed.
+
+Example aliases:
+- Carín León / Carin Leon
+- Banda MS / Banda MS de Sergio Lizárraga
+- La Arrolladora / La Arrolladora Banda El Limón De René Camacho
+- Julión Álvarez / Julión Álvarez y su Norteño Banda
+- Luis Ángel El Flaco / Luis Angel “El Flaco”
+- Natalia Lafourcade / Natalia Lafourcade
+- Maná / Mana
+
+CHARTS PAGE UX:
+
+The Charts page should make the distinction clear:
+
+Full view:
+Shows the original platform chart in Mexico.
+
+Filtered view:
+Shows the Mexican artist presence inside that platform chart.
+
+Use this methodology copy somewhere on the Charts page:
+
+“Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México. La vista ‘Solo artistas mexicanos’ es un filtro editorial aplicado a los charts originales y conserva las posiciones originales de cada plataforma.”
+
+DESIGN:
+
+Keep the same Mexico Charts style:
+- black / charcoal background
+- neon green accents
+- white text
+- muted gray secondary text
+- rounded dark cards
+- premium tables/cards
+- responsive mobile layout
+
+Avoid:
+- making the filtered view look like a separate official platform chart
+- re-ranking filtered rows
+- guessing nationality
+- hardcoding random exceptions
+- showing scary public errors if a platform sync fails
+
+FINAL GOAL:
+
+All platform charts should work consistently:
+
+YouTube, Spotify, Apple Music, and Deezer should all:
+- show full chart data by default
+- allow “Solo artistas mexicanos” filter
+- preserve original ranks
+- use the same Mexican artist matching system
+- link matched Mexican artists to profiles
+- keep unmatched artists in “Todos”
+- use Review_Needed only for likely relevant unmatched artists
+- cite the correct source for each platform

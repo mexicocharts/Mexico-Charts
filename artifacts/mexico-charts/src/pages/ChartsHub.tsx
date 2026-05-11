@@ -151,6 +151,9 @@ function slugify(name: string) {
     .replace(/^-|-$/g, "");
 }
 
+/** Separator regex — keeps separators as capture groups so split() returns them */
+const SEP_RE = /(\s*[,&]\s*|\s*\/\s*|\s+feat\.\s+|\s+ft\.\s+|\s+x\s+|\s+and\s+|\s+y\s+|\s+junto\s+a\s+)/i;
+
 function fmt(val: string): string {
   if (!val || val === "n/a" || val === "—") return val || "—";
   const n = parseInt(val.replace(/,/g, ""), 10);
@@ -167,13 +170,22 @@ function prevKey(row: Row): string {
 function movKey(row: Row): string {
   return (row["Movement"] ?? "").trim();
 }
-function mexArtists(row: Row): string[] {
-  const val = row["Matched Mexican Artists"] ?? "";
-  if (!val.trim()) return [];
-  return val.split(",").map(s => s.trim()).filter(Boolean);
-}
 function isMexican(row: Row): boolean {
   return (row["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE";
+}
+
+/* ── Known-slugs hook ────────────────────────────────────────────────────── */
+function useKnownSlugs() {
+  return useQuery<{ slugs: string[] }>({
+    queryKey: ["known-artist-slugs"],
+    queryFn: async () => {
+      const resp = await fetch("/api/kworb/known-slugs");
+      if (!resp.ok) return { slugs: [] };
+      return resp.json();
+    },
+    staleTime: 10 * 60 * 1000,
+    retry: 1,
+  });
 }
 
 /* ── Movement badge ──────────────────────────────────────────────────────── */
@@ -217,22 +229,25 @@ function Movement({ rank, prev, mov }: { rank: string; prev: string; mov: string
 }
 
 /* ── Artist cell with linking ────────────────────────────────────────────── */
-function ArtistCell({ value, matched }: { value: string; matched: string[] }) {
-  if (!matched.length) return <span className="text-white">{value}</span>;
-
-  const parts = value.split(/(\s*[,&/]\s*|\s+feat\.\s+|\s+ft\.\s+|\s+x\s+|\s+and\s+)/i);
+// Links only artists that have a real Mexico Charts profile page (knownSlugs).
+// Exact slug match only — no substring/partial matching to avoid false positives.
+function ArtistCell({ value, knownSlugs }: { value: string; knownSlugs: Set<string> }) {
+  const parts = value.split(SEP_RE);
 
   return (
     <>
       {parts.map((part, i) => {
-        const norm = part.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const matchedName = matched.find(m => {
-          const mn = m.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-          return norm === mn || norm.includes(mn) || mn.includes(norm);
-        });
-        if (matchedName && !part.match(/^[\s,&/]+$/)) {
+        // Odd-indexed parts are separators (captured groups from split)
+        if (i % 2 === 1) {
+          return <span key={i} style={{ color: "rgba(255,255,255,0.4)" }}>{part}</span>;
+        }
+        const trimmed = part.trim();
+        if (!trimmed) return <span key={i}>{part}</span>;
+
+        const slug = slugify(trimmed);
+        if (slug && knownSlugs.has(slug)) {
           return (
-            <Link key={i} href={`/artist/${slugify(matchedName)}`}>
+            <Link key={i} href={`/artist/${slug}`}>
               <span className="underline decoration-white/30 underline-offset-2 hover:decoration-white/70 transition-all cursor-pointer text-white">
                 {part}
               </span>
@@ -276,6 +291,12 @@ export default function ChartsHub() {
     staleTime: 30 * 60 * 1000,
     retry: 2,
   });
+
+  const { data: slugsData } = useKnownSlugs();
+  const knownSlugs = useMemo<Set<string>>(
+    () => new Set(slugsData?.slugs ?? []),
+    [slugsData],
+  );
 
   const sheetData = useMemo<SheetData | null>(() => {
     return data?.sheets?.[activeSheet] ?? null;
@@ -406,7 +427,7 @@ export default function ChartsHub() {
                   background: filterMex === isMex ? (isMex ? `${G}22` : "rgba(255,255,255,0.07)") : "transparent",
                   color: filterMex === isMex ? (isMex ? G : "#fff") : "rgba(255,255,255,0.3)",
                 }}>
-                {isMex ? "🇲🇽 Solo mexicanos" : "Todos"}
+                {isMex ? "Solo artistas mexicanos" : "Todos"}
               </button>
             ))}
           </div>
@@ -419,7 +440,7 @@ export default function ChartsHub() {
               className="rounded-xl px-4 py-3 text-[11px] leading-relaxed"
               style={{ background: `${G}0d`, border: `1px solid ${G}25`, color: "rgba(255,255,255,0.5)" }}>
               <span style={{ color: G, fontWeight: 900 }}>Vista filtrada por Mexico Charts · </span>
-              Filtro aplicado: solo filas con artistas mexicanos o colaboraciones con participación mexicana. Se conservan las posiciones originales del chart.
+              Se muestran filas con artistas mexicanos o colaboraciones con participación mexicana. Las posiciones originales del chart se conservan.
             </motion.div>
           )}
         </AnimatePresence>
@@ -471,7 +492,6 @@ export default function ChartsHub() {
                 const rank = rankKey(row);
                 const prev = prevKey(row);
                 const mov  = movKey(row);
-                const matched = mexArtists(row);
                 const rankNum = parseInt(rank) || (i + 1);
                 const isTop3 = rankNum <= 3;
 
@@ -507,7 +527,7 @@ export default function ChartsHub() {
                               </a>
                             ) : col.isArtist ? (
                               <span className="text-sm font-bold text-white truncate block">
-                                <ArtistCell value={val} matched={matched} />
+                                <ArtistCell value={val} knownSlugs={knownSlugs} />
                               </span>
                             ) : col.isMetric ? (
                               <div className="text-xs font-black tabular-nums" style={{ color: G }}>{fmt(val)}</div>
@@ -531,7 +551,7 @@ export default function ChartsHub() {
                         {/* Artist */}
                         {cols.filter(c => c.isArtist && c.mobile).map((col, ci) => (
                           <div key={ci} className="text-sm font-black text-white truncate">
-                            <ArtistCell value={row[col.key] ?? ""} matched={matched} />
+                            <ArtistCell value={row[col.key] ?? ""} knownSlugs={knownSlugs} />
                           </div>
                         ))}
                         {/* Title/track */}
@@ -584,7 +604,8 @@ export default function ChartsHub() {
                 </div>
                 <p className="px-1 text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.18)", maxWidth: "65ch" }}>
                   Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México.
-                  La vista «Solo artistas mexicanos» es un filtro editorial de Mexico Charts aplicado a los charts originales y conserva las posiciones originales de cada plataforma.
+                  La vista «Solo artistas mexicanos» es un filtro editorial aplicado a los charts originales y conserva las posiciones originales de cada plataforma.
+                  La identificación de artistas mexicanos se realiza únicamente contra la base de datos de Mexico Charts y el listado Mexican_Artist_Master; no se infiere la nacionalidad por género, idioma ni popularidad regional.
                 </p>
               </div>
             )}

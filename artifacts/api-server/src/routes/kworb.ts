@@ -555,6 +555,14 @@ router.get("/kworb/batch-streams", async (req, res) => {
   res.json(result);
 });
 
+/* ── Route: GET /api/kworb/known-slugs ──────────────────────────────────── */
+// Returns the list of artist slugs that have profile pages on this site.
+// Used by the Charts frontend to decide whether to link an artist name.
+router.get("/kworb/known-slugs", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  res.json({ slugs: ALL_ARTIST_SLUGS });
+});
+
 /* ══════════════════════════════════════════════════════════════════════════
    DAILY REFRESH SCHEDULER
    Polls kworb every 60 min during their update window (12pm–9pm ET).
