@@ -143,12 +143,13 @@ interface SheetData { headers: string[]; rows: Row[] }
 interface HubData { lastUpdated: string; sheets: Record<string, SheetData> }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
+// Must match kworb's toSlug exactly: strip all non-alphanumeric, no hyphens.
+// "Fuerza Regida" → "fuerzaregida", matching the known-slugs endpoint format.
 function slugify(name: string) {
   return name
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/[^a-z0-9]/g, "");
 }
 
 /** Separator regex — keeps separators as capture groups so split() returns them */
