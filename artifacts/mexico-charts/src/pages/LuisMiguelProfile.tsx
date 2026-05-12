@@ -706,10 +706,7 @@ export default function LuisMiguelProfile() {
             Luis Miguel
           </div>
           <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
-          <div style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.26em" }}>
-            $467.4M · 796 Shows · 7.3M Fans · 20+ Países
-          </div>
-          <div style={{ marginTop: 28, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" style={{ height: 64, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(57,255,20,0.3))", opacity: 0.85 }} />
             <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 7, textTransform: "uppercase", letterSpacing: "0.36em" }}>Touring</div>
           </div>
