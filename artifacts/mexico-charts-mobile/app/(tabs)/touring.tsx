@@ -28,6 +28,7 @@ const FALLBACK_IMGS: Record<string, string> = {
   "eslabon-armado":   "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=500&fit=crop&q=75",
   "natanael-cano":    "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=500&fit=crop&q=75",
   "carin-leon":       "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
+  "luis-miguel":      "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
   "eden-munoz":       "https://images.unsplash.com/photo-1598387993281-cecf8b71a8f8?w=400&h=500&fit=crop&q=75",
   "christian-nodal":  "https://images.unsplash.com/photo-1460723237483-7a6dc9d0b212?w=400&h=500&fit=crop&q=75",
   "larry-hernandez":  "https://images.unsplash.com/photo-1504704911898-68304a7d2807?w=400&h=500&fit=crop&q=75",
@@ -39,10 +40,10 @@ const HERO_BG =
   "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&h=540&fit=crop&q=80";
 
 const PROFILE_CARDS = [
-  { artistId: "peso-pluma",     subtitle: "Éxodo Tour 2024",   gross: "$87.4M", tickets: "758K", shows: 288 },
-  { artistId: "junior-h",       subtitle: "Sad Boyz Tour",     gross: "$90.4M", tickets: "758K", shows: 69  },
-  { artistId: "grupo-firme",    subtitle: "Tour 2022–2023",     gross: "$81.6M", tickets: "687K", shows: 72  },
-  { artistId: "fuerza-regida",  subtitle: "Tour 2024",          gross: "—",      tickets: "—",    shows: 0   },
+  { artistId: "peso-pluma",  subtitle: "Éxodo Tour 2024",       gross: "$87.4M",  tickets: "758K",  shows: 288 },
+  { artistId: "luis-miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796 },
+  { artistId: "junior-h",    subtitle: "Sad Boyz",               gross: "$90.4M",  tickets: "758K",  shows: 69  },
+  { artistId: "grupo-firme", subtitle: "Tour 2022–2023",         gross: "$81.6M",  tickets: "687K",  shows: 72  },
 ];
 
 function formatDate(iso: string): string {

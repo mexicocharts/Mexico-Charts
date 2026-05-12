@@ -20,35 +20,82 @@ import * as Haptics from "expo-haptics";
 
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useHubData, HubRow, TickerItem } from "@/hooks/useHubData";
-import { TOP_ARTISTS, GENRES, Artist } from "@/data/chartData";
+import { useArtistMetadata, ArtistMeta } from "@/hooks/useArtistMetadata";
+import { Artist } from "@/data/chartData";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const NEON = "#39FF14";
 const BG = "#050505";
 
-// ── Merge live hub row with static fallback ──────────────────────────────────
+// ── Rank accent palette (matches web RANK_ACCENTS_HOME) ──────────────────────
 
-function buildArtist(row: HubRow): Artist {
-  const st = TOP_ARTISTS.find(
-    (a) => a.name.toLowerCase() === row.Artist.toLowerCase()
-  );
+const RANK_ACCENTS = [
+  "#39FF14",
+  "rgba(57,255,20,0.62)",
+  "rgba(57,255,20,0.48)",
+  "rgba(255,255,255,0.42)",
+  "rgba(255,255,255,0.35)",
+  "rgba(255,255,255,0.28)",
+  "rgba(255,255,255,0.23)",
+  "rgba(255,255,255,0.20)",
+  "rgba(255,255,255,0.18)",
+  "rgba(255,255,255,0.15)",
+];
+
+// ── Genre definitions for home widget (6 genres matching web) ────────────────
+
+interface HomeGenreDef {
+  name: string;
+  accent: string;
+  synonyms: string[];
+}
+
+const HOME_GENRE_DEFS: HomeGenreDef[] = [
+  { name: "Corridos Tumbados", accent: "#39FF14",                  synonyms: ["corridos tumbados", "corrido tumbado", "corridos"] },
+  { name: "Regional Mexicano",  accent: "rgba(57,255,20,0.78)",     synonyms: ["regional mexicano", "regional", "reg. mexicano"] },
+  { name: "Norteño",            accent: "rgba(57,255,20,0.60)",     synonyms: ["norteño", "norteno", "nortena"] },
+  { name: "Banda",              accent: "rgba(57,255,20,0.46)",     synonyms: ["banda", "banda sinaloense"] },
+  { name: "Hip-Hop Mexicano",   accent: "rgba(57,255,20,0.35)",     synonyms: ["hip-hop", "hip hop mexicano", "hip hop", "rap mexicano"] },
+  { name: "Pop",                accent: "rgba(57,255,20,0.26)",     synonyms: ["pop", "pop mexicano", "pop latino"] },
+];
+
+interface HomeGenreStat {
+  name: string;
+  accent: string;
+  artistCount: number;
+  streamsFmt: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtNum(n: number): string {
+  if (n === 0) return "—";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+// ── Build live artist record from a hub row + real metadata ──────────────────
+
+function buildArtist(row: HubRow, meta: ArtistMeta | undefined, idx: number): Artist {
   const gained = row.Prev > 0 && row.Rank > 0 ? row.Prev - row.Rank : 0;
-  const growthStr =
-    gained > 0 ? `+${gained} pos` : gained < 0 ? `${gained} pos` : "=";
+  const growthStr = gained > 0 ? `+${gained} pos` : gained < 0 ? `${gained} pos` : "=";
+  const subgenre = meta?.subgenre ?? "";
+  const genre = meta?.genre ?? "";
+  const displayGenre = subgenre || genre || "Regional Mexicano";
+  const accent = RANK_ACCENTS[idx] ?? RANK_ACCENTS[RANK_ACCENTS.length - 1];
   return {
     rank: row.Rank,
     name: row.Artist,
-    genre: st?.genre ?? "Regional Mexicano",
-    streams: st?.streams ?? "—",
-    listeners: st?.listeners ?? "—",
-    growth: st?.growth ?? (gained !== 0 ? growthStr : "="),
-    countries: st?.countries ?? "—",
-    tag: st?.tag ?? "REGIONAL MEXICANO",
-    accent: st?.accent ?? NEON,
-    tour: st?.tour,
-    tourDates: st?.tourDates,
-    tourGross: st?.tourGross,
+    genre: displayGenre,
+    streams: meta?.spotifyListenersFmt ?? "—",
+    listeners: meta?.spotifyListenersFmt ?? "—",
+    growth: growthStr,
+    countries: "—",
+    tag: displayGenre.toUpperCase(),
+    accent,
   };
 }
 
@@ -62,7 +109,6 @@ function LiveTicker({ items }: { items: TickerItem[] }) {
   ];
   const source = items.length > 0 ? items : fallback;
 
-  // Interleave name · display · name · display …
   const tickerString =
     source
       .flatMap((t) => [t.name.toUpperCase(), t.display])
@@ -262,28 +308,28 @@ function Top10Card({
         {artist.genre}
       </Text>
       <Text style={[styles.top10Streams, { color: artist.accent }]}>
-        {artist.streams}
+        {artist.listeners}
       </Text>
     </TouchableOpacity>
   );
 }
 
-function GenreCard({ genre }: { genre: (typeof GENRES)[0] }) {
+function GenreCard({ stat }: { stat: HomeGenreStat }) {
   return (
     <View
       style={[
         styles.genreCard,
-        { borderLeftColor: genre.accent, borderLeftWidth: 3 },
+        { borderLeftColor: stat.accent, borderLeftWidth: 3 },
       ]}
     >
       <Text style={styles.genreName} numberOfLines={1}>
-        {genre.name}
+        {stat.name}
       </Text>
       <View style={styles.genreStats}>
-        <Text style={[styles.genreStreams, { color: genre.accent }]}>
-          {genre.streams}
+        <Text style={[styles.genreStreams, { color: stat.accent }]}>
+          {stat.streamsFmt}
         </Text>
-        <Text style={styles.genreArtists}>{genre.artists} artistas</Text>
+        <Text style={styles.genreArtists}>{stat.artistCount} artistas</Text>
       </View>
     </View>
   );
@@ -361,17 +407,40 @@ export default function HomeScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { mexicanRows, ascensoItems, tickerItems, rows } = useHubData();
+  const { artists: metaArtists, byName: metaByName } = useArtistMetadata();
 
-  // Top artists: prefer live Mexican chart; fall back to static
+  // Top artists: live Mexican chart rows enriched with real metadata
   const liveArtists = useMemo<Artist[]>(() => {
-    if (mexicanRows.length === 0) return TOP_ARTISTS.slice(0, 10);
-    return mexicanRows.slice(0, 10).map(buildArtist);
-  }, [mexicanRows]);
+    if (mexicanRows.length === 0) return [];
+    return mexicanRows.slice(0, 10).map((row, idx) => {
+      const meta = metaByName.get(row.Artist.toLowerCase());
+      return buildArtist(row, meta, idx);
+    });
+  }, [mexicanRows, metaByName]);
 
   const heroArtists = useMemo(() => liveArtists.slice(0, 5), [liveArtists]);
 
-  // EN ASCENSO from hook (already computed)
+  // EN ASCENSO from hook (already computed from live data)
   const ascenso = ascensoItems.length >= 3 ? ascensoItems : null;
+
+  // Genre stats computed from live metadata (6 genres matching web)
+  const genreStats = useMemo<HomeGenreStat[]>(() => {
+    if (metaArtists.length === 0) return [];
+    return HOME_GENRE_DEFS.map((g) => {
+      const matched = metaArtists.filter((a) => {
+        const sub = (a.subgenre ?? "").toLowerCase();
+        const gen = (a.genre ?? "").toLowerCase();
+        return g.synonyms.some((s) => sub.includes(s) || gen.includes(s));
+      });
+      const totalStreams = matched.reduce((sum, a) => sum + a.spotifyStreams, 0);
+      return {
+        name: g.name,
+        accent: g.accent,
+        artistCount: matched.length,
+        streamsFmt: fmtNum(totalStreams),
+      };
+    });
+  }, [metaArtists]);
 
   const allNames = useMemo(
     () => [
@@ -415,86 +484,94 @@ export default function HomeScreen() {
         </View>
 
         {/* Hero carousel */}
-        <FlatList
-          ref={heroScrollRef}
-          data={heroArtists}
-          renderItem={({ item }) => (
-            <HeroArtistCard
-              artist={item}
-              photo={imageMap[item.name] ?? null}
-            />
-          )}
-          keyExtractor={(item) => item.name}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          scrollEnabled
-          onMomentumScrollEnd={(e) => {
-            const index = Math.round(
-              e.nativeEvent.contentOffset.x / SCREEN_WIDTH
-            );
-            setHeroIndex(index);
-          }}
-          style={{ height: 460 }}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_WIDTH,
-            offset: SCREEN_WIDTH * index,
-            index,
-          })}
-        />
-
-        {/* Hero dot indicators */}
-        <View style={styles.heroDots}>
-          {heroArtists.map((_, i) => (
-            <TouchableOpacity
-              key={i}
-              onPress={() => {
-                heroScrollRef.current?.scrollToIndex({
-                  index: i,
-                  animated: true,
-                });
-                setHeroIndex(i);
-              }}
-            >
-              <View
-                style={[
-                  styles.heroDot,
-                  i === heroIndex ? styles.heroDotActive : null,
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Top 10 Mexican artists */}
-        <View style={{ marginTop: 8 }}>
-          <SectionHeader
-            icon="trending-up"
-            label="TOP 10 · MÉXICO · ESTA SEMANA"
-            live={isLive}
-          />
+        {heroArtists.length > 0 && (
           <FlatList
-            data={liveArtists}
+            ref={heroScrollRef}
+            data={heroArtists}
             renderItem={({ item }) => (
-              <Top10Card artist={item} photo={imageMap[item.name] ?? null} />
+              <HeroArtistCard
+                artist={item}
+                photo={imageMap[item.name] ?? null}
+              />
             )}
             keyExtractor={(item) => item.name}
             horizontal
+            pagingEnabled
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
             scrollEnabled
+            onMomentumScrollEnd={(e) => {
+              const index = Math.round(
+                e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+              );
+              setHeroIndex(index);
+            }}
+            style={{ height: 460 }}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
           />
-        </View>
+        )}
 
-        {/* Genres — static editorial */}
-        <View style={{ marginTop: 20 }}>
-          <SectionHeader icon="music" label="GÉNEROS · STREAMS TOTALES" />
-          <View style={styles.genreGrid}>
-            {GENRES.map((g) => (
-              <GenreCard key={g.name} genre={g} />
+        {/* Hero dot indicators */}
+        {heroArtists.length > 0 && (
+          <View style={styles.heroDots}>
+            {heroArtists.map((_, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => {
+                  heroScrollRef.current?.scrollToIndex({
+                    index: i,
+                    animated: true,
+                  });
+                  setHeroIndex(i);
+                }}
+              >
+                <View
+                  style={[
+                    styles.heroDot,
+                    i === heroIndex ? styles.heroDotActive : null,
+                  ]}
+                />
+              </TouchableOpacity>
             ))}
           </View>
-        </View>
+        )}
+
+        {/* Top 10 Mexican artists */}
+        {liveArtists.length > 0 && (
+          <View style={{ marginTop: 8 }}>
+            <SectionHeader
+              icon="trending-up"
+              label="TOP 10 · MÉXICO · SPOTIFY"
+              live={isLive}
+            />
+            <FlatList
+              data={liveArtists}
+              renderItem={({ item }) => (
+                <Top10Card artist={item} photo={imageMap[item.name] ?? null} />
+              )}
+              keyExtractor={(item) => item.name}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
+              scrollEnabled
+            />
+          </View>
+        )}
+
+        {/* Genres — live from metadata */}
+        {genreStats.length > 0 && (
+          <View style={{ marginTop: 20 }}>
+            <SectionHeader icon="music" label="GÉNEROS · STREAMS TOTALES" live />
+            <View style={styles.genreGrid}>
+              {genreStats.map((g) => (
+                <GenreCard key={g.name} stat={g} />
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* EN ASCENSO — live computed */}
         {ascenso && (

@@ -72,13 +72,6 @@ const GENRES: GenreDef[] = [
     synonyms: ["pop", "pop mexicano", "pop latino"],
     description: "Pop hecho en México con alcance global",
   },
-  {
-    label: "grupero",
-    displayLabel: "GRUPERO",
-    color: "#f472b6",
-    synonyms: ["grupero", "cumbia", "grupo"],
-    description: "Cumbia y balada que nunca pasan de moda",
-  },
 ];
 
 function matchesGenre(meta: ArtistMeta, genre: GenreDef): boolean {
@@ -217,8 +210,10 @@ export default function GenerosScreen() {
   // Pre-compute per-genre stats
   const genreStats = useMemo(() => {
     return GENRES.map((g) => {
-      const matched = artists.filter((a) => matchesGenre(a, g));
-      const totalStreams = matched.reduce((sum, a) => sum + a.spotifyListeners, 0);
+      const matched = artists
+        .filter((a) => matchesGenre(a, g))
+        .sort((a, b) => b.spotifyStreams - a.spotifyStreams);
+      const totalStreams = matched.reduce((sum, a) => sum + a.spotifyStreams, 0);
       return { genre: g, artists: matched, totalStreams };
     });
   }, [artists]);
@@ -303,7 +298,7 @@ export default function GenerosScreen() {
                           {genre.displayLabel}
                         </Text>
                         <Text style={styles.expandedCount}>
-                          {ga.length} artistas · {fmtNum(ts)} oyentes
+                          {ga.length} artistas · {fmtNum(ts)} streams
                         </Text>
                       </View>
                       {ga.slice(0, 20).map((meta, idx) => (

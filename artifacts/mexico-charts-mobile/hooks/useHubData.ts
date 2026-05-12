@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { TOP_ARTISTS } from "@/data/chartData";
 
 // ── Raw shape from /api/charts/hub ──────────────────────────────────────────
 
@@ -10,6 +9,14 @@ interface RawHubRow {
   "Contains Mexican Artist"?: unknown;
   Streak?: unknown;
   Movement?: unknown;
+}
+
+interface RawYtRow {
+  Rank?: unknown;
+  "Artist Name"?: unknown;
+  Artist?: unknown;
+  Views?: unknown;
+  "Contains Mexican Artist"?: unknown;
 }
 
 // ── Public typed interfaces ──────────────────────────────────────────────────
@@ -88,6 +95,15 @@ function parseRow(raw: RawHubRow): HubRow | null {
   };
 }
 
+function fmtViews(raw: unknown): string {
+  const n = parseInt(String(raw ?? "").replace(/,/g, ""), 10);
+  if (isNaN(n) || n === 0) return "";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B VIEWS`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M VIEWS`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K VIEWS`;
+  return `${n} VIEWS`;
+}
+
 function computeAscenso(mexicanRows: HubRow[]): AscensoItem[] {
   const climbers = mexicanRows
     .map((r) => {
@@ -111,14 +127,21 @@ function computeAscenso(mexicanRows: HubRow[]): AscensoItem[] {
   }));
 }
 
-function computeTickerItems(rows: HubRow[]): TickerItem[] {
-  return rows.slice(0, 20).map((r) => {
-    const st = TOP_ARTISTS.find(
-      (a) => a.name.toLowerCase() === r.Artist.toLowerCase()
-    );
-    const display = st?.streams ? `${st.streams} OYENTES` : `#${r.Rank}`;
-    return { name: r.Artist, display };
+// Build ticker from YouTube Artists Weekly rows (matches web — artist name + view count)
+function computeTickerFromYt(ytRows: RawYtRow[]): TickerItem[] {
+  return ytRows.slice(0, 20).map((r) => {
+    const name = String(r["Artist Name"] ?? r.Artist ?? "").trim();
+    const views = fmtViews(r.Views);
+    return { name, display: views || `#${r.Rank}` };
   });
+}
+
+// Fallback ticker from Spotify Daily rows (rank-based display)
+function computeTickerFromSpotify(rows: HubRow[]): TickerItem[] {
+  return rows.slice(0, 20).map((r) => ({
+    name: r.Artist,
+    display: `#${r.Rank}`,
+  }));
 }
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
@@ -140,18 +163,26 @@ async function fetchHubData(): Promise<{
   }
 
   const data: unknown = await res.json();
-  const rawRows: unknown[] =
-    (data as Record<string, Record<string, Record<string, unknown[]>>>)
-      ?.sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
+  const sheets = (data as Record<string, Record<string, Record<string, unknown[]>>>)
+    ?.sheets ?? {};
 
-  const rows = (rawRows as RawHubRow[])
+  // Spotify Artists Daily — Mexican filter + ascenso
+  const spotifyRawRows: unknown[] = sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
+  const rows = (spotifyRawRows as RawHubRow[])
     .map(parseRow)
     .filter((r): r is HubRow => r !== null)
     .sort((a, b) => a.Rank - b.Rank);
 
   const mexicanRows = rows.filter((r) => r.isMexican);
   const ascensoItems = computeAscenso(mexicanRows);
-  const tickerItems = computeTickerItems(rows);
+
+  // YouTube Artists Weekly — ticker (matches web)
+  const ytRawRows: unknown[] = sheets?.["YT_Artists_Weekly"]?.rows ?? [];
+  const ytRows = ytRawRows as RawYtRow[];
+  const tickerItems =
+    ytRows.length > 0
+      ? computeTickerFromYt(ytRows)
+      : computeTickerFromSpotify(rows);
 
   return { rows, mexicanRows, ascensoItems, tickerItems };
 }
