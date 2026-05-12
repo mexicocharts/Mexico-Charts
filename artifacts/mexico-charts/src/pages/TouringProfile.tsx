@@ -375,17 +375,23 @@ export default function TouringProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          9. CLOSING CINEMATIC MOMENT
+          9. CLOSING
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.38) saturate(0.82)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 22%, rgba(6,6,6,0.15) 68%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.3), transparent)" }} />
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 16 }}>Datos Pollstar · 2022–2026</div>
-          <div className="tp-fa" style={{ color: "rgba(255,255,255,0.13)", fontSize: 160, textTransform: "uppercase", lineHeight: 0.85, letterSpacing: "0.05em", userSelect: "none" }}>JH</div>
-          <div style={{ position: "absolute", color: "#fff", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.3em", fontWeight: 500 }}>
-            Mexico<span style={{ color: "#39FF14" }}>Charts</span>™ · Touring
+      <section style={{ position: "relative", height: 360, overflow: "hidden" }}>
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.22) saturate(0.6)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0) 28%, rgba(6,6,6,0) 62%, rgba(6,6,6,1) 100%)" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.35), transparent)" }} />
+        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 0 }}>
+          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>Touring Profile</div>
+          <div className="tp-fa" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
+            Junior H
+          </div>
+          <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
+          <div style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.26em" }}>
+            $47.3M · 4 Años · Generación Corridos Tumbados
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.32em", marginTop: 28 }}>
+            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span>™ · Touring
           </div>
         </div>
       </section>

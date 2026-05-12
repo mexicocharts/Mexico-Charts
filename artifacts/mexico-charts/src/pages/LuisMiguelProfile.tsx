@@ -691,22 +691,26 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          10. CLOSING CINEMATIC MOMENT
+          10. CLOSING
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 65%", filter: "brightness(0.32) saturate(0.75)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 22%, rgba(6,6,6,0.1) 68%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.28), transparent)" }} />
+      <section style={{ position: "relative", height: 360, overflow: "hidden" }}>
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 65%", filter: "brightness(0.22) saturate(0.6)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0) 28%, rgba(6,6,6,0) 62%, rgba(6,6,6,1) 100%)" }} />
+        <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.35), transparent)" }} />
 
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <div style={{ color: "rgba(57,255,20,0.42)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 18 }}>
-            Datos Pollstar · 2000–2024 · Siglo XXI
+        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 0 }}>
+          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
+            Touring Profile · El Sol de México
           </div>
-          <div className="lm-fa" style={{ color: "rgba(255,255,255,0.10)", fontSize: 180, textTransform: "uppercase", lineHeight: 0.82, letterSpacing: "0.06em", userSelect: "none" }}>
-            LM
+          <div className="lm-fa" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
+            Luis Miguel
           </div>
-          <div style={{ position: "absolute", color: "#fff", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.34em", fontWeight: 500 }}>
-            Mexico<span style={{ color: "#39FF14" }}>Charts</span>™ · Touring
+          <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
+          <div style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.26em" }}>
+            $467.4M · 796 Shows · 7.3M Fans · 20+ Países
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.32em", marginTop: 28 }}>
+            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span>™ · Touring
           </div>
         </div>
       </section>
