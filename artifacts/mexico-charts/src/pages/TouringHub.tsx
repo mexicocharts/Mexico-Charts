@@ -165,7 +165,7 @@ export default function TouringHub() {
 
       {/* ── HERO ── */}
       <section style={{ position: "relative", height: 520, overflow: "hidden" }}>
-        <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }} />
+        <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(8,8,8,0.95) 40%, rgba(8,8,8,0.55) 65%, rgba(8,8,8,0.25) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(8,8,8,1) 0%, transparent 40%)" }} />
 
