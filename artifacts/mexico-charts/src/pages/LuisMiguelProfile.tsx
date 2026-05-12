@@ -15,15 +15,21 @@ import _lmFlying      from "@assets/image_1778594713058.webp";
 import _lmStadium     from "@assets/El-sol-brillo-con-fuerza-en-CDMX-asi-fue-la-llegada-de-Luis-Mi_1778594713058.jpg";
 import _lmArmsWide    from "@assets/484829736_1199132631580959_3823093758088241270_n_1778594713058.jpg";
 import _lmGetty       from "@assets/GettyImages-1719488470-scaled_1778594713058.jpg";
+import _lmAcapulco    from "@assets/luis-miguel-concierto-acapulco-2023_1778595179832.webp";
+import _lmSinging     from "@assets/73537366007-05012024-luis-miguel-at-don-haskins-10.jpg_1778595179832.webp";
+import _lmSpread      from "@assets/73537371007-05012024-luis-miguel-at-don-haskins-13.jpg_1778595179832.webp";
 
 const BG_HERO    = _lmStageSetup;
 const BG_CROWD   = _lmCrowdScreen;
-const BG_STAGE   = _lmBand;
+const BG_STAGE   = _lmAcapulco;   // dark orange-strip backdrop — blends with text
 const BG_STADIUM = _lmStadium;
-const BG_LIGHTS  = _lmOrangeArms;
-const BG_CLOSE   = _lmFlying;
+const BG_LIGHTS  = _lmSinging;    // near-black with warm glints — ideal for stats bar
+const BG_CLOSE   = _lmSpread;     // dramatic arms-wide, very dark — perfect for timeline
 const BG_PERF    = _lmArmsWide;
 const ARTIST_IMG = _lmGetty;
+
+// kept in imports so bundler doesn't warn — not currently used as bg
+const _unused = [_lmBand, _lmFlying, _lmOrangeArms]; void _unused;
 
 /* ─────────────────────────────────────────────────────────────────────────────
    POLLSTAR DATA — Luis Miguel Tour History Reports
@@ -472,7 +478,7 @@ export default function LuisMiguelProfile() {
             Shows con Mayor Recaudación · Tour 2023–2024
           </div>
           <div className="lm-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.88 }}>
-            Las Noches<br />Históricas.
+            Las Noches<br />Históricas
           </div>
           <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
             Fuente: Pollstar Tour History Report · Solo muestra shows con datos publicados
