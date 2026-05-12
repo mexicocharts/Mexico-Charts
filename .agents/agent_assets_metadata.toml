@@ -40,10 +40,16 @@ title = "Touring Hub Homepage"
 id = "xaruP45PWwl7hjm5ircGx"
 uri = "file://screenshots/pollstar-profile-top.jpg"
 type = "image"
-title = "Peso Pluma Touring Profile — Top Half (Hero → Tour Map)"
+title = "Part 1 — Hero · 288 Shows · Pullquote · Stats · Tour Map"
 
 [[outputs]]
 id = "QTKvykecUs0OA2u6MebTD"
 uri = "file://screenshots/pollstar-profile-bottom.jpg"
 type = "image"
-title = "Peso Pluma Touring Profile — Bottom Half (Shows → Timeline → Close)"
+title = "Part 2 — Tour Map · Las Noches Más Grandes · Market Impact · Timeline (top)"
+
+[[outputs]]
+id = "T3STtVaDfJsSH_Pg3Ao2g"
+uri = "file://screenshots/pollstar-profile-bottom2.jpg"
+type = "image"
+title = "Part 3 — Market Impact · Timeline · Closing Shot · Footer"
