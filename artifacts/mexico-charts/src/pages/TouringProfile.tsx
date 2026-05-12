@@ -117,7 +117,7 @@ export default function TouringProfile() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1, duration: 0.8 }}
           style={{ position: "absolute", top: 48, right: 48, zIndex: 10, textAlign: "right" }}>
           <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 2, fontWeight: 500 }}>
-            De la Calle<br />a los Escenarios<br />Más Grandes.
+            De la Calle<br />a los Escenarios<br />Más Grandes
           </div>
         </motion.div>
 
@@ -156,7 +156,7 @@ export default function TouringProfile() {
             <motion.div className="tp-fa"
               initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.9 }}
               style={{ color: "#fff", fontSize: 72, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
-              México en los<br />Escenarios<br /><span style={{ color: "#39FF14" }}>del Mundo.</span>
+              México en los<br />Escenarios<br /><span style={{ color: "#39FF14" }}>del Mundo</span>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
               style={{ color: "rgba(255,255,255,0.58)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 28, maxWidth: 440, lineHeight: 1.8 }}>
@@ -262,7 +262,7 @@ export default function TouringProfile() {
       <section style={{ position: "relative", padding: "0 0 80px" }}>
         <div style={{ padding: "0 56px 40px" }}>
           <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Biggest Reported Shows</div>
-          <div className="tp-fa" style={{ color: "#fff", fontSize: 44, textTransform: "uppercase", lineHeight: 0.9 }}>Las Noches<br />Más Grandes.</div>
+          <div className="tp-fa" style={{ color: "#fff", fontSize: 44, textTransform: "uppercase", lineHeight: 0.9 }}>Las Noches<br />Más Grandes</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {topShows.map((show, i) => (
@@ -307,7 +307,7 @@ export default function TouringProfile() {
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 64px" }}>
           <div>
             <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>#Market Impact</div>
-            <div className="tp-fa" style={{ color: "#fff", fontSize: 60, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 24 }}>El Poder de<br />la Diáspora.</div>
+            <div className="tp-fa" style={{ color: "#fff", fontSize: 60, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 24 }}>El Poder de<br />la Diáspora</div>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.9, maxWidth: 400, marginBottom: 40 }}>
               Junior H construyó su base más sólida en Estados Unidos, donde la demanda por el sad sierreño continúa escalando en arenas y anfiteatros.
             </p>
@@ -333,7 +333,7 @@ export default function TouringProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 14%, rgba(6,6,6,0.15) 86%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
           <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Tour Timeline</div>
-          <div className="tp-fa" style={{ color: "#fff", fontSize: 48, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 56 }}>Crecimiento<br />Año Tras Año.</div>
+          <div className="tp-fa" style={{ color: "#fff", fontSize: 48, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 56 }}>Crecimiento<br />Año Tras Año</div>
           <div style={{ position: "relative", marginBottom: 40 }}>
             <div style={{ position: "absolute", top: 10, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.06)" }} />
             <motion.div style={{ position: "absolute", top: 10, left: 0, height: 1, background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.3))" }}
