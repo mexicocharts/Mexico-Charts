@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "tlxTy1L_jNzfkX_2Wd6tY"
@@ -24,3 +23,15 @@ id = "ba4t8dkh2HOgi1kofd7Et"
 uri = "file://artifacts/mexico-charts/public/globe-v3.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "5v7Dxm78Hlzgw9iPiGo6S"
+uri = "file://screenshots/pollstar-profile.jpg"
+type = "image"
+title = "Peso Pluma — Touring Profile"
+
+[[outputs]]
+id = "X4iUbYWZyZQrXSEa3un_S"
+uri = "file://screenshots/touring-home.jpg"
+type = "image"
+title = "Touring Hub Homepage"
