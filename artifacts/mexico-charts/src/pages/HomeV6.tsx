@@ -505,7 +505,7 @@ export default function HomeV6() {
 
           <div className="hidden lg:flex items-center gap-0.5">
             {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map((item, i) => {
-              const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : "#";
+              const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "#";
               if (item === "INDUSTRIA") {
                 return (
                   <IndustriaDropdown key={item} />
@@ -550,7 +550,7 @@ export default function HomeV6() {
             >
               <div className="px-6 py-4 flex flex-col gap-4">
                 {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map(item => {
-                  const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : "#";
+                  const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "#";
                   return (
                     <Link key={item} href={href} className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400 hover:text-[#39FF14] transition-colors">{item}</Link>
                   );
