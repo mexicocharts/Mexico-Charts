@@ -431,34 +431,40 @@ export default function LuisMiguelProfile() {
       {/* ══════════════════════════════════════════
           6. RECORD HIGHLIGHTS
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", padding: "72px 56px", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.06)", borderBottom: "1px solid rgba(57,255,20,0.06)" }}>
-        <div style={{ display: "flex", gap: 52, flexWrap: "wrap", justifyContent: "center" }}>
+      <section style={{ position: "relative", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.06)", borderBottom: "1px solid rgba(57,255,20,0.06)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {[
             {
               label: "Gross Total Este Siglo",
+              stat: "$786M",
+              unit: "USD",
               venue: "796 Shows · 2000–2024",
-              city: "América + España · Pollstar",
-              stat: "$786M", unit: "USD",
               note: "#1 artista mexicano en historia del touring",
             },
             {
-              label: "Tour 2023–2024",
-              venue: "Superó sus primeros 22 años",
-              city: "186 shows vs 610 anteriores",
-              stat: "+$45M", unit: "más que todo lo anterior",
-              note: "$415.8M vs ~$370.6M · mismo siglo",
+              label: "Tour 2023–2024 vs Era Anterior",
+              stat: "+$45M",
+              unit: "más que todo lo anterior combinado",
+              venue: "186 shows vs ~610 anteriores",
+              note: "$415.8M vs ~$370.6M · mismo siglo · Pollstar",
             },
           ].map((r, i) => (
             <motion.div key={r.label}
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ delay: i * 0.12, duration: 0.65 }}
-              style={{ flex: "1 1 220px", minWidth: 190, maxWidth: 280, borderTop: "1px solid rgba(57,255,20,0.15)", paddingTop: 22 }}>
-              <div style={{ color: "rgba(57,255,20,0.45)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 16 }}>{r.label}</div>
-              <div className="lm-fa" style={{ color: "#39FF14", fontSize: 44, lineHeight: 1, marginBottom: 8 }}>{r.stat}</div>
-              <div style={{ color: "#fff", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 4 }}>{r.unit}</div>
-              <div className="lm-fa" style={{ color: "rgba(255,255,255,0.72)", fontSize: 16, textTransform: "uppercase", marginBottom: 5 }}>{r.venue}</div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>{r.city}</div>
-              <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{r.note}</div>
+              transition={{ delay: i * 0.14, duration: 0.7 }}
+              style={{
+                padding: "64px 56px",
+                borderLeft: i === 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
+                borderTop: i === 1 ? "none" : "none",
+                position: "relative",
+              }}>
+              <div style={{ position: "absolute", left: i === 0 ? 0 : undefined, right: i === 1 ? 0 : undefined, top: 0, bottom: 0, width: 3, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.22)" }} />
+              <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.36em", marginBottom: 22 }}>{r.label}</div>
+              <div className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 92, lineHeight: 0.9, marginBottom: 16 }}>{r.stat}</div>
+              <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 10 }}>{r.unit}</div>
+              <div style={{ height: 1, width: 32, background: "rgba(57,255,20,0.3)", marginBottom: 18 }} />
+              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 4 }}>{r.venue}</div>
+              <div style={{ color: "rgba(255,255,255,0.34)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>{r.note}</div>
             </motion.div>
           ))}
         </div>
