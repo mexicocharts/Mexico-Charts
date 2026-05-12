@@ -40,12 +40,12 @@ function useChart(period: "daily" | "weekly") {
 }
 
 function PosChange({ val }: { val: string }) {
-  if (val === "=" || val === "") return <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>;
+  if (val === "=" || val === "") return <span style={{ color: "rgba(255,255,255,0.45)" }}>—</span>;
   if (val === "NEW") return <span className="text-[8px] font-black tracking-widest" style={{ color: G }}>NEW</span>;
   const n = parseInt(val);
   if (!isNaN(n) && n > 0) return <span className="text-[10px] font-black" style={{ color: G }}>+{n}</span>;
   if (!isNaN(n) && n < 0) return <span className="text-[10px] font-black" style={{ color: "#f87171" }}>{n}</span>;
-  return <span style={{ color: "rgba(255,255,255,0.2)" }}>—</span>;
+  return <span style={{ color: "rgba(255,255,255,0.45)" }}>—</span>;
 }
 
 function AlbumArt({ src, title }: { src: string | null; title: string }) {
@@ -54,7 +54,7 @@ function AlbumArt({ src, title }: { src: string | null; title: string }) {
     return (
       <div className="flex items-center justify-center rounded-lg flex-shrink-0"
         style={{ width: 48, height: 48, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-        <SiSpotify className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />
+        <SiSpotify className="w-4 h-4" style={{ color: "rgba(255,255,255,0.4)" }} />
       </div>
     );
   }
@@ -68,7 +68,7 @@ function AlbumArt({ src, title }: { src: string | null; title: string }) {
 function SkeletonRow({ i }: { i: number }) {
   return (
     <div className="flex items-center gap-4 px-5 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)", opacity: 1 - i * 0.06 }}>
-      <div className="w-8 text-center text-sm font-black" style={{ color: "rgba(255,255,255,0.1)" }}>{i + 1}</div>
+      <div className="w-8 text-center text-sm font-black" style={{ color: "rgba(255,255,255,0.25)" }}>{i + 1}</div>
       <div className="w-5 text-center" />
       <div className="rounded-lg flex-shrink-0 animate-pulse" style={{ width: 48, height: 48, background: "rgba(255,255,255,0.06)" }} />
       <div className="flex-1 min-w-0 space-y-2">
@@ -117,7 +117,7 @@ export default function SpotifyCharts() {
               </span>
             </div>
             {data?.fetchedAt && (
-              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.22)" }}>
+              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
                 Datos: {new Date(data.fetchedAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
               </span>
             )}
@@ -155,7 +155,7 @@ export default function SpotifyCharts() {
 
             {/* Column headers */}
             <div className="hidden md:grid px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] mb-1"
-              style={{ gridTemplateColumns: "40px 28px 56px 1fr 120px 120px", color: "rgba(255,255,255,0.28)" }}>
+              style={{ gridTemplateColumns: "40px 28px 56px 1fr 120px 120px", color: "rgba(255,255,255,0.52)" }}>
               <span>#</span>
               <span></span>
               <span></span>
@@ -172,7 +172,7 @@ export default function SpotifyCharts() {
                   <p className="text-sm font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
                     No se pudo cargar el chart
                   </p>
-                  <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.18)", fontFamily: "system-ui" }}>
+                  <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.48)", fontFamily: "system-ui" }}>
                     Inténtalo de nuevo en unos momentos
                   </p>
                 </div>
@@ -210,12 +210,12 @@ export default function SpotifyCharts() {
                     {/* Streams */}
                     <div className="text-right">
                       <div className="text-xs font-black tabular-nums" style={{ color: "rgba(255,255,255,0.7)" }}>{entry.streams}</div>
-                      <div className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>hoy</div>
+                      <div className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.52)" }}>hoy</div>
                     </div>
                     {/* Total */}
                     <div className="text-right">
                       <div className="text-xs font-black tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>{entry.totalStreams}</div>
-                      <div className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.2)" }}>total</div>
+                      <div className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.50)" }}>total</div>
                     </div>
                   </div>
 
@@ -246,12 +246,12 @@ export default function SpotifyCharts() {
             {/* Footer attribution */}
             {data && (
               <div className="flex items-center justify-between mt-4 px-1">
-                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                   Fuente: Spotify · vía kworb.net
                 </span>
                 <a href={`https://kworb.net/spotify/country/mx_${period}.html`} target="_blank" rel="noopener noreferrer"
                   className="text-[9px] font-black uppercase tracking-widest hover:opacity-70 transition-opacity"
-                  style={{ color: "rgba(255,255,255,0.22)" }}>
+                  style={{ color: "rgba(255,255,255,0.52)" }}>
                   {data.entries.length} canciones ↗
                 </a>
               </div>

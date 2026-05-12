@@ -321,8 +321,8 @@ export default function InsightIFPI2026() {
           <FadeUp>
             <div className="flex items-start gap-3">
               <div className="w-[2px] min-h-[36px] rounded-full mt-1 shrink-0" style={{ background: "rgba(255,255,255,0.1)" }} />
-              <p className="text-[10px] font-medium leading-relaxed" style={{ color: "rgba(255,255,255,0.25)", fontFamily: "system-ui" }}>
-                Esta clasificación se refiere al mercado de <strong style={{ color: "rgba(255,255,255,0.4)" }}>música grabada</strong> (streaming + descargas + físico), no a rankings de Spotify ni a revenue de touring. Los datos corresponden al ejercicio fiscal 2025, publicados por la IFPI en su reporte anual 2026. El término correcto es "mercado de música grabada", no "mercado musical" en general.
+              <p className="text-[10px] font-medium leading-relaxed" style={{ color: "rgba(255,255,255,0.52)", fontFamily: "system-ui" }}>
+                Esta clasificación se refiere al mercado de <strong style={{ color: "rgba(255,255,255,0.7)" }}>música grabada</strong> (streaming + descargas + físico), no a rankings de Spotify ni a revenue de touring. Los datos corresponden al ejercicio fiscal 2025, publicados por la IFPI en su reporte anual 2026. El término correcto es "mercado de música grabada", no "mercado musical" en general.
               </p>
             </div>
           </FadeUp>
@@ -339,7 +339,7 @@ export default function InsightIFPI2026() {
           <motion.span
             whileHover={{ x: 2 }}
             className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer flex items-center gap-1.5"
-            style={{ color: "rgba(255,255,255,0.28)" }}
+            style={{ color: "rgba(255,255,255,0.55)" }}
           >
             Ver sección Industria →
           </motion.span>

@@ -101,7 +101,7 @@ export default function SiteNav({ homeActive = false }: Props) {
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.28)" }}>
+          <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: G }} />En vivo
           </div>
           <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black"

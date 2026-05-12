@@ -169,7 +169,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
                 )}
                 {meta.label && (
                   <span className="text-[10px] uppercase tracking-wide truncate"
-                    style={{ color: "rgba(255,255,255,0.28)" }}>
+                    style={{ color: "rgba(255,255,255,0.55)" }}>
                     {meta.label}
                   </span>
                 )}
@@ -251,7 +251,7 @@ function GenreCard({ genre, artists, totalStreams, chartCount, isSelected, onCli
 
         {topThree.length > 0 && (
           <div className="text-[10px] uppercase tracking-wide leading-relaxed"
-            style={{ color: "rgba(255,255,255,0.32)" }}>
+            style={{ color: "rgba(255,255,255,0.55)" }}>
             {topThree.join(" · ")}
           </div>
         )}
@@ -359,7 +359,7 @@ export default function GeneroHub() {
 
       {/* ─── Genre overview grid ────────────────────────────── */}
       <section className="px-6 lg:px-12 py-8">
-        <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-5" style={{ color: "rgba(255,255,255,0.28)" }}>
+        <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
           Selecciona un género
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -429,7 +429,7 @@ export default function GeneroHub() {
 
           {/* Sort label */}
           {activeArtists.length > 0 && (
-            <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-4" style={{ color: "rgba(255,255,255,0.22)" }}>
+            <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-4" style={{ color: "rgba(255,255,255,0.50)" }}>
               Ordenado por streams totales · Spotify
             </div>
           )}
@@ -441,8 +441,8 @@ export default function GeneroHub() {
             </div>
           ) : activeArtists.length === 0 ? (
             <div className="py-16 text-center">
-              <div className="text-2xl font-black uppercase mb-2" style={{ color: "rgba(255,255,255,0.12)" }}>Sin datos</div>
-              <div className="text-sm" style={{ color: "rgba(255,255,255,0.28)" }}>
+              <div className="text-2xl font-black uppercase mb-2" style={{ color: "rgba(255,255,255,0.40)" }}>Sin datos</div>
+              <div className="text-sm" style={{ color: "rgba(255,255,255,0.52)" }}>
                 No hay artistas catalogados en este género todavía.
               </div>
             </div>
@@ -466,7 +466,7 @@ export default function GeneroHub() {
 
           {/* Data source footnote */}
           {activeArtists.length > 0 && (
-            <div className="mt-8 text-[10px] uppercase tracking-widest font-bold" style={{ color: "rgba(255,255,255,0.18)" }}>
+            <div className="mt-8 text-[10px] uppercase tracking-widest font-bold" style={{ color: "rgba(255,255,255,0.48)" }}>
               Fuente: Spotify · Datos actualizados semanalmente · Solo artistas mexicanos verificados
             </div>
           )}

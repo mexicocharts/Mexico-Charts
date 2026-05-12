@@ -331,7 +331,7 @@ export default function ArtistRoster() {
               );
             })}
           </div>
-          <div className="text-[11px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.12)" }}>
+          <div className="text-[11px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.42)" }}>
             MEXICO CHARTS
           </div>
         </div>

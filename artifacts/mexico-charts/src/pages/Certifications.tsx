@@ -216,9 +216,9 @@ export default function Certifications() {
       {/* BREADCRUMB */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
-        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.15)" }} />
+        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
         <Link href="/industria"><span className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}>Industria</span></Link>
-        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.15)" }} />
+        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
         <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.6)" }}>Certificaciones</span>
       </div>
 
@@ -428,7 +428,7 @@ export default function Certifications() {
                       <span>{formatDate(row.fechaISO)}</span>
                     </div>
                     {row.disquera && (
-                      <div className="mt-1.5 text-[9px]" style={{ color: "rgba(255,255,255,0.25)", fontFamily: "system-ui" }}>{row.disquera}</div>
+                      <div className="mt-1.5 text-[9px]" style={{ color: "rgba(255,255,255,0.52)", fontFamily: "system-ui" }}>{row.disquera}</div>
                     )}
                   </div>
                 </FadeUp>
@@ -478,7 +478,7 @@ export default function Certifications() {
 
       <footer className="px-6 lg:px-10 py-6 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <Link href="/"><img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-35 cursor-pointer hover:opacity-55 transition-opacity" /></Link>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.18)" }}>© 2026 Mexico Charts</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.48)" }}>© 2026 Mexico Charts</p>
       </footer>
     </div>
   );

@@ -259,10 +259,10 @@ function Movement({ rank, prev, mov }: { rank: string; prev: string; mov: string
     <span className="text-[8px] font-black tracking-widest px-1.5 py-0.5 rounded"
       style={{ background: `${G}22`, color: G }}>NEW</span>
   );
-  if (isNeutral) return <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>—</span>;
+  if (isNeutral) return <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 11 }}>—</span>;
   if (positive) return <span className="text-[11px] font-black" style={{ color: G }}>{label}</span>;
   if (negative) return <span className="text-[11px] font-black" style={{ color: "#f87171" }}>{label}</span>;
-  return <span style={{ color: "rgba(255,255,255,0.15)", fontSize: 11 }}>—</span>;
+  return <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 11 }}>—</span>;
 }
 
 /* ── Artist cell with linking ────────────────────────────────────────────── */
@@ -325,7 +325,7 @@ function Thumbnail({ src, name, round, size = 36 }: { src?: string | null; name:
         position: "absolute", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: size * 0.33, fontWeight: 900,
-        color: "rgba(255,255,255,0.22)",
+        color: "rgba(255,255,255,0.48)",
         opacity: status === "loaded" ? 0 : 1,
         transition: "opacity 0.3s",
         userSelect: "none",
@@ -498,11 +498,11 @@ export default function ChartsHub() {
         </motion.p>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }}
           className="flex flex-wrap items-center gap-4 mt-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>
+          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
             Fuentes: YouTube Charts · Spotify · Apple Music · Deezer
           </span>
           {updatedFmt && (
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
               · Última actualización: {updatedFmt}
             </span>
           )}
@@ -591,7 +591,7 @@ export default function ChartsHub() {
             {/* Column header (desktop) */}
             {!isLoading && !isError && cols.length > 0 && (
               <div className="hidden md:flex items-center px-5 py-2 mb-1 gap-4 text-[9px] font-black uppercase tracking-[0.22em]"
-                style={{ color: "rgba(255,255,255,0.25)" }}>
+                style={{ color: "rgba(255,255,255,0.52)" }}>
                 <span className="w-8 text-right">#</span>
                 <span className="w-6 text-center">Mov</span>
                 {cols.map((c, i) => (
@@ -611,7 +611,7 @@ export default function ChartsHub() {
                   <p className="text-sm font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
                     Charts no disponibles
                   </p>
-                  <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.50)" }}>
                     Intenta recargar la página en unos momentos.
                   </p>
                 </div>
@@ -619,7 +619,7 @@ export default function ChartsHub() {
 
               {!isLoading && !isError && rows.length === 0 && (
                 <div className="py-16 text-center">
-                  <p className="text-sm font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.25)" }}>
+                  <p className="text-sm font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
                     Sin resultados para este filtro
                   </p>
                 </div>
@@ -668,7 +668,7 @@ export default function ChartsHub() {
                             {col.isLink && val ? (
                               <a href={val} target="_blank" rel="noopener noreferrer"
                                 className="text-[10px] font-black uppercase tracking-widest hover:opacity-70 transition-opacity"
-                                style={{ color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.15)", padding: "3px 8px", borderRadius: 6 }}>
+                                style={{ color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.25)", padding: "3px 8px", borderRadius: 6 }}>
                                 ↗ Ver
                               </a>
                             ) : col.isArtist ? (
@@ -744,19 +744,19 @@ export default function ChartsHub() {
             {!isLoading && !isError && (
               <div className="mt-5 space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                     Fuente: {platform.source} ·{" "}
                     <a href={platform.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70">
                       {platform.sourceUrl}
                     </a>
                   </span>
                   {sheetData && (
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.2)" }}>
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                       {rows.length} entradas
                     </span>
                   )}
                 </div>
-                <p className="px-1 text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.18)", maxWidth: "65ch" }}>
+                <p className="px-1 text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.48)", maxWidth: "65ch" }}>
                   Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México.
                   La vista «Solo artistas mexicanos» es un filtro editorial aplicado a los charts originales y conserva las posiciones originales de cada plataforma.
                   La identificación de artistas mexicanos se realiza únicamente contra la base de datos de Mexico Charts y el listado Mexican_Artist_Master; no se infiere la nacionalidad por género, idioma ni popularidad regional.

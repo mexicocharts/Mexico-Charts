@@ -844,7 +844,7 @@ export default function HomeV6() {
                 <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent)" }} />
 
                 {/* Rank watermark */}
-                <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.09)" }}>
+                <div className="absolute top-2 left-3 font-black text-5xl leading-none select-none" style={{ color:"rgba(255,255,255,0.15)" }}>
                   {String(a.rank).padStart(2,"0")}
                 </div>
 
@@ -1025,7 +1025,7 @@ export default function HomeV6() {
                   ].map(s => (
                     <div key={s.l} className="text-center">
                       <div className="text-lg font-black leading-none" style={{ color: "#39FF14", letterSpacing: "-0.02em" }}>{s.v}</div>
-                      <div className="text-[8px] font-black uppercase tracking-[0.16em] mt-1" style={{ color: "rgba(255,255,255,0.28)" }}>{s.l}</div>
+                      <div className="text-[8px] font-black uppercase tracking-[0.16em] mt-1" style={{ color: "rgba(255,255,255,0.55)" }}>{s.l}</div>
                     </div>
                   ))}
                 </div>

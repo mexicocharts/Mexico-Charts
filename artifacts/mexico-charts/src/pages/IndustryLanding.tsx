@@ -50,7 +50,7 @@ export default function IndustryLanding() {
       {/* ── BREADCRUMB ── */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
-        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.15)" }} />
+        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
         <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>Industria</span>
       </div>
 
@@ -101,7 +101,7 @@ export default function IndustryLanding() {
                 className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: G }}>
                 IFPI Global Music Report 2026 <ExternalLink className="w-2.5 h-2.5" />
               </a>
-              <span style={{ color: "rgba(255,255,255,0.12)" }}>·</span>
+              <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
               <a href="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf" target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: "rgba(255,255,255,0.5)" }}>
                 AMPROFON Reporte Música México <ExternalLink className="w-2.5 h-2.5" />
@@ -145,7 +145,7 @@ export default function IndustryLanding() {
                 <div className="text-[9px] font-black uppercase tracking-[0.12em] leading-relaxed relative z-10 mb-2"
                   style={{ color: "rgba(255,255,255,0.5)", whiteSpace: "pre-line" }}>{l}</div>
                 <div className="text-[8px] font-black uppercase tracking-[0.16em]"
-                  style={{ color: hi ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.22)" }}>{src}</div>
+                  style={{ color: hi ? "rgba(57,255,20,0.5)" : "rgba(255,255,255,0.48)" }}>{src}</div>
               </div>
             </FadeUp>
           ))}
@@ -217,7 +217,7 @@ export default function IndustryLanding() {
                 <p className="text-xs mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
                   Los tres países de Norteamérica ocupan posiciones en el Top 10 global por primera vez simultáneamente.
                 </p>
-                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.22)" }}>Fuente: AMPROFON 2025</div>
+                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.48)" }}>Fuente: AMPROFON 2025</div>
               </div>
             </FadeUp>
 
@@ -248,7 +248,7 @@ export default function IndustryLanding() {
                 <p className="text-xs mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
                   Latinoamérica fue la <strong style={{ color: "#fff" }}>3ª región de mayor crecimiento</strong> del mundo en 2024. México es el <strong style={{ color: "#fff" }}>2° mercado más grande</strong> de la región, detrás de Brasil.
                 </p>
-                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.22)" }}>Fuente: IFPI State of the Industry 2025 · AMPROFON</div>
+                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.48)" }}>Fuente: IFPI State of the Industry 2025 · AMPROFON</div>
               </div>
             </FadeUp>
           </div>
@@ -280,7 +280,7 @@ export default function IndustryLanding() {
                   style={{ fontSize: "clamp(2rem, 3.2vw, 2.8rem)", letterSpacing: "-0.04em", color: "#fff" }}>{stat}</div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.14em] mb-2 relative z-10" style={{ color: "rgba(255,255,255,0.65)" }}>{title}</h3>
                 <p className="text-xs leading-relaxed relative z-10 mb-4 flex-1" style={{ color: "rgba(255,255,255,0.45)", fontFamily: "system-ui" }}>{body}</p>
-                <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.2)" }}>{src}</div>
+                <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.48)" }}>{src}</div>
               </div>
             </FadeUp>
           ))}
@@ -402,8 +402,8 @@ export default function IndustryLanding() {
                 <div className="relative overflow-hidden rounded-xl p-6 h-full opacity-45"
                   style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
                   <div className="flex items-start justify-between mb-4">
-                    <Icon className="w-5 h-5" style={{ color: "rgba(255,255,255,0.22)" }} />
-                    <Lock className="w-3 h-3" style={{ color: "rgba(255,255,255,0.18)" }} />
+                    <Icon className="w-5 h-5" style={{ color: "rgba(255,255,255,0.42)" }} />
+                    <Lock className="w-3 h-3" style={{ color: "rgba(255,255,255,0.38)" }} />
                   </div>
                   <h3 className="text-xs font-black uppercase tracking-tight text-white mb-1">{title}</h3>
                   <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "system-ui" }}>{sub}</p>
@@ -430,7 +430,7 @@ export default function IndustryLanding() {
 
       {/* Methodology */}
       <div className="px-6 lg:px-10 py-6" style={{ borderTop: "1px solid rgba(255,255,255,0.05)", background: "#060606" }}>
-        <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.3)", fontFamily: "system-ui", maxWidth: 780 }}>
+        <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.50)", fontFamily: "system-ui", maxWidth: 780 }}>
           <strong style={{ color: "rgba(255,255,255,0.42)" }}>ℹ</strong>{" "}
           Mexico Charts resume datos públicos de reportes de la industria como IFPI y AMPROFON. No reproducimos gráficos, tablas ni elementos visuales protegidos. Las cifras y citas directas se presentan con atribución explícita a sus fuentes. Esta clasificación se refiere al mercado de{" "}
           <strong style={{ color: "rgba(255,255,255,0.5)" }}>música grabada</strong> (streaming + descargas + físico), no a rankings de plataformas ni a revenue de conciertos.
@@ -439,7 +439,7 @@ export default function IndustryLanding() {
 
       <footer className="px-6 lg:px-10 py-6 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
         <Link href="/"><img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-35 cursor-pointer hover:opacity-55 transition-opacity" /></Link>
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.18)" }}>© 2026 Mexico Charts</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.48)" }}>© 2026 Mexico Charts</p>
       </footer>
     </div>
   );

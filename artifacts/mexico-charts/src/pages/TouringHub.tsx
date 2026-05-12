@@ -93,7 +93,7 @@ function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
 
         {photo && <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 85% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.88) 100%)" }} />}
 
-        <div style={{ position: "absolute", top: 10, left: 12, fontSize: 38, fontWeight: 900, color: "rgba(255,255,255,0.06)", lineHeight: 1, fontFamily: "Inter, sans-serif", letterSpacing: "-0.04em", userSelect: "none" }}>
+        <div style={{ position: "absolute", top: 10, left: 12, fontSize: 38, fontWeight: 900, color: "rgba(255,255,255,0.11)", lineHeight: 1, fontFamily: "Inter, sans-serif", letterSpacing: "-0.04em", userSelect: "none" }}>
           {String(idx + 1).padStart(2, "0")}
         </div>
 
@@ -111,7 +111,7 @@ function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
               </div>
             </>
           ) : (
-            <div style={{ color: "rgba(255,255,255,0.18)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em" }}>Sin fechas</div>
+            <div style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em" }}>Sin fechas</div>
           )}
         </div>
       </div>
@@ -355,12 +355,12 @@ export default function TouringHub() {
               <div style={{ display: "flex", gap: 28 }}>
                 <div>
                   <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{totalShows}</div>
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Shows próximos</div>
+                  <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Shows próximos</div>
                 </div>
                 <div style={{ width: 1, background: "rgba(255,255,255,0.1)", alignSelf: "stretch" }} />
                 <div>
                   <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{sortedArtists.filter(a => a.events.length > 0).length}</div>
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Artistas en gira</div>
+                  <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Artistas en gira</div>
                 </div>
               </div>
             )}
@@ -377,12 +377,12 @@ export default function TouringHub() {
       <section style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
-          <h2 style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
+          <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
             Upcoming Tours
           </h2>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
-            <span style={{ color: "rgba(255,255,255,0.18)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
               {totalShows} shows · Ticketmaster
             </span>
@@ -441,7 +441,7 @@ export default function TouringHub() {
           </div>
 
           {filteredShows.length === 0 ? (
-            <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.15)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.18em", textAlign: "center" }}>
+            <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.48)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.18em", textAlign: "center" }}>
               Sin shows en esta región por el momento
             </div>
           ) : (
@@ -463,8 +463,8 @@ export default function TouringHub() {
                     <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", minWidth: 0, gap: 0 }}>
                       <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 100, flexShrink: 0, letterSpacing: "0.04em" }}>{formatDate(ev.date)}</span>
                       <span className="th-anton" style={{ color: "#e8e8e8", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0, letterSpacing: "0.02em" }}>{ev.artistName}</span>
-                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
-                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
+                      <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
+                      <span style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
                     </div>
                     <div style={{ padding: "0 18px", flexShrink: 0, borderLeft: "1px solid #141414", height: 54, display: "flex", alignItems: "center" }}>
                       <span style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Boletos →</span>
@@ -515,15 +515,15 @@ export default function TouringHub() {
                 <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
                   <div>
                     <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
-                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
+                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
                   </div>
                   <div style={{ textAlign: "center" }}>
                     <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
-                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
+                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
-                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
+                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
                   </div>
                 </div>
                 <Link href={`/touring/${p.slug}`}>
@@ -562,7 +562,7 @@ export default function TouringHub() {
               </div>
               <div style={{ padding: "14px 14px 18px" }}>
                 <div style={{ color: "#d8d8d8", fontWeight: 600, fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{ins.title}</div>
-                <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em" }}>{ins.date}</div>
+                <div style={{ color: "#666", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em" }}>{ins.date}</div>
               </div>
             </motion.div>
           ))}
@@ -572,7 +572,7 @@ export default function TouringHub() {
       {/* ── NEWSLETTER ── */}
       <section style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
         <div>
-          <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.34em", marginBottom: 8 }}>Alertas de Touring</div>
+          <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.34em", marginBottom: 8 }}>Alertas de Touring</div>
           <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sé el Primero en Saber</div>
           <div style={{ color: "#444", fontSize: 11, lineHeight: 1.5 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
         </div>
@@ -583,9 +583,9 @@ export default function TouringHub() {
       </section>
 
       <footer style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ color: "#2e2e2e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2024 Mexico Charts</div>
+        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2024 Mexico Charts</div>
         <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em" }}>El Movimiento No Para</div>
-        <div style={{ color: "#2e2e2e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>Datos: Ticketmaster Discovery API</div>
+        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>Datos: Ticketmaster Discovery API</div>
       </footer>
     </div>
   );
