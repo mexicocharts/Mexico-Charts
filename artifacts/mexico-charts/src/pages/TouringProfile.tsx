@@ -67,9 +67,9 @@ export default function TouringProfile() {
             width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top",
             maskImage: "linear-gradient(to left, rgba(0,0,0,0.6) 20%, transparent 90%)",
             WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0.6) 20%, transparent 90%)",
-            filter: "brightness(0.5)",
+            filter: "brightness(0.72)",
           }} />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 40% 55%, rgba(57,255,20,0.07) 0%, transparent 60%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 40% 55%, rgba(57,255,20,0.10) 0%, transparent 60%)" }} />
         </div>
 
         <motion.div style={{ position: "relative", zIndex: 10, padding: "0 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 640, y: heroTextY }}>
@@ -118,9 +118,9 @@ export default function TouringProfile() {
           2. SINGLE-STAT MOMENT — "69 SHOWS"
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 420, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.25) saturate(0.6)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 20%, transparent 80%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.05) 0%, transparent 65%)" }} />
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.42) saturate(0.78)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 18%, rgba(6,6,6,0.15) 82%, rgba(6,6,6,1) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.07) 0%, transparent 65%)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
           <div style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Total Reportado</div>
           <div className="tp-fa" style={{ color: "#fff", fontSize: 148, lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "-0.02em" }}>
@@ -135,8 +135,8 @@ export default function TouringProfile() {
           3. ATMOSPHERIC PULLQUOTE
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 480, overflow: "hidden" }}>
-        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.18) saturate(0.5)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 18%, transparent 82%, rgba(6,6,6,1) 100%)" }} />
+        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.30) saturate(0.65)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.2) 16%, rgba(6,6,6,0.2) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 64px" }}>
           <div style={{ maxWidth: 800 }}>
@@ -157,8 +157,8 @@ export default function TouringProfile() {
           4. FLOATING STATS
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "80px 0", overflow: "hidden" }}>
-        <img src={BG_LIGHTS} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.08) saturate(0.4)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 12%, transparent 88%, rgba(6,6,6,1) 100%)" }} />
+        <img src={BG_LIGHTS} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.20) saturate(0.65)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 14%, rgba(6,6,6,0.1) 86%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px" }}>
           {[
             { value: "758K",   label: "Tickets Vendidos",   sub: "Total reportado" },
@@ -183,9 +183,9 @@ export default function TouringProfile() {
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "46%", zIndex: 0 }}>
-          <img src={BG_STAGE} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%", filter: "brightness(0.28) saturate(0.6)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.5) 30%, rgba(6,6,6,0.0) 70%)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.9) 0%, transparent 18%, transparent 82%, rgba(6,6,6,0.9) 100%)" }} />
+          <img src={BG_STAGE} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%", filter: "brightness(0.44) saturate(0.78)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.45) 30%, rgba(6,6,6,0.0) 70%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.7) 0%, transparent 16%, transparent 84%, rgba(6,6,6,0.7) 100%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 60% 50%, rgba(57,255,20,0.06) 0%, transparent 60%)" }} />
           <motion.div
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -257,8 +257,8 @@ export default function TouringProfile() {
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.12, duration: 0.7 }}
               style={{ position: "relative", height: 180, overflow: "hidden", cursor: "pointer" }}>
-              <img src={show.img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.3) saturate(0.7)" }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.95) 0%, rgba(6,6,6,0.6) 50%, rgba(6,6,6,0.2) 100%)" }} />
+              <img src={show.img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.48) saturate(0.82)" }} />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.88) 0%, rgba(6,6,6,0.5) 50%, rgba(6,6,6,0.12) 100%)" }} />
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
               <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 56px", gap: 40, justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
@@ -288,9 +288,9 @@ export default function TouringProfile() {
           7. MARKET IMPACT
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 520, overflow: "hidden" }}>
-        <img src={MARKET_IMG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.2) saturate(0.5)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, rgba(6,6,6,0.97) 40%, rgba(6,6,6,0.6) 70%, rgba(6,6,6,0.3) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.8) 0%, transparent 30%, transparent 70%, rgba(6,6,6,0.8) 100%)" }} />
+        <img src={MARKET_IMG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.34) saturate(0.68)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(105deg, rgba(6,6,6,0.92) 38%, rgba(6,6,6,0.5) 65%, rgba(6,6,6,0.18) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.6) 0%, transparent 25%, transparent 75%, rgba(6,6,6,0.6) 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 64px" }}>
           <div>
             <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>#Market Impact</div>
@@ -316,8 +316,8 @@ export default function TouringProfile() {
           8. TOUR TIMELINE
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "80px 0 100px", overflow: "hidden" }}>
-        <img src={BG_CLOSE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.06)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 15%, transparent 85%, rgba(6,6,6,1) 100%)" }} />
+        <img src={BG_CLOSE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.16) saturate(0.5)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 14%, rgba(6,6,6,0.15) 86%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
           <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Tour Timeline</div>
           <div className="tp-fa" style={{ color: "#fff", fontSize: 48, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 56 }}>Crecimiento<br />Año Tras Año.</div>
@@ -365,8 +365,8 @@ export default function TouringProfile() {
           9. CLOSING CINEMATIC MOMENT
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.22) saturate(0.7)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 25%, transparent 65%, rgba(6,6,6,1) 100%)" }} />
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.38) saturate(0.82)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 22%, rgba(6,6,6,0.15) 68%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.3), transparent)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 16 }}>Datos Pollstar · 2022–2026</div>
