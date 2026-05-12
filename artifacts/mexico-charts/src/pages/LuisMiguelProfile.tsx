@@ -176,26 +176,23 @@ export default function LuisMiguelProfile() {
       {/* ══════════════════════════════════════════
           1. CINEMATIC HERO — Full career headline
       ══════════════════════════════════════════ */}
-      <section ref={heroRef} style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden" }}>
-        <motion.img src={BG_HERO} alt="" style={{
-          position: "absolute", inset: 0, width: "100%", height: "115%",
-          objectFit: "cover", objectPosition: "center 55%", y: heroBgY,
-        }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.98) 30%, rgba(6,6,6,0.6) 60%, rgba(6,6,6,0.08) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,6,1) 0%, rgba(6,6,6,0.3) 30%, transparent 60%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 18% 55%, rgba(57,255,20,0.035) 0%, transparent 52%)" }} />
+      <section ref={heroRef} style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden", background: "#060606" }}>
+        {/* subtle green radial glow on left */}
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 18% 55%, rgba(57,255,20,0.04) 0%, transparent 52%)" }} />
 
-        {/* Artist portrait */}
-        <div style={{ position: "absolute", right: 0, top: 0, width: "48%", height: "100%" }}>
+        {/* Artist portrait — single image, fades left into black */}
+        <div style={{ position: "absolute", right: 0, top: 0, width: "52%", height: "100%" }}>
           <img src={ARTIST_IMG} alt="Luis Miguel"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             style={{
               width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top",
-              maskImage: "linear-gradient(to left, rgba(0,0,0,0.5) 15%, transparent 88%)",
-              WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0.5) 15%, transparent 88%)",
-              filter: "brightness(0.68) contrast(1.05)",
+              maskImage: "linear-gradient(to left, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.3) 65%, transparent 92%)",
+              WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.3) 65%, transparent 92%)",
+              filter: "brightness(0.82) contrast(1.08)",
             }}
           />
+          {/* bottom fade */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,6,1) 0%, transparent 28%)" }} />
         </div>
 
         {/* Hero text */}
