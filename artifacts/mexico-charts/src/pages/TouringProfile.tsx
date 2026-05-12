@@ -3,16 +3,22 @@ import { motion, useScroll, useTransform, animate, useMotionValue } from "framer
 import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
 
-const BG_HERO    = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=700&fit=crop&q=85";
-const BG_CROWD   = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1280&h=700&fit=crop&q=80";
-const BG_STAGE   = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=1280&h=700&fit=crop&q=80";
-const BG_LIGHTS  = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1280&h=700&fit=crop&q=80";
-const BG_CLOSE   = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1280&h=600&fit=crop&q=80";
-const ARTIST_IMG = "https://cdn-images.dzcdn.net/images/artist/254f1f8b12256b9f4153bee44fefe41d/1000x1000-000000-80-0-0.jpg";
-const MARKET_IMG = "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=900&h=500&fit=crop&q=75";
-const SHOW_IMG_1 = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=500&h=340&fit=crop&q=70";
-const SHOW_IMG_2 = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&h=340&fit=crop&q=70";
-const SHOW_IMG_3 = "https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=500&h=340&fit=crop&q=70";
+import _imgArena    from "@assets/Junior-THS-09-1024x683_1778591170250.jpg";
+import _imgCrowd    from "@assets/concertcrowd_1778591170250.jpeg";
+import _imgStage1   from "@assets/Junior_H2-2_1778591170250.jpg";
+import _imgStage2   from "@assets/DSC06007-Edit.jpg_1778591170250.webp";
+import _imgPortrait from "@assets/31f837484b7ef9fc9b4b56589d6da178_1778591170250.jpg";
+
+const BG_HERO    = _imgArena;
+const BG_CROWD   = _imgCrowd;
+const BG_STAGE   = _imgStage1;
+const BG_LIGHTS  = _imgStage2;
+const BG_CLOSE   = _imgCrowd;
+const ARTIST_IMG = _imgPortrait;
+const MARKET_IMG = _imgArena;
+const SHOW_IMG_1 = _imgArena;
+const SHOW_IMG_2 = _imgStage1;
+const SHOW_IMG_3 = _imgStage2;
 
 function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
   to: number; prefix?: string; suffix?: string; decimals?: number;
