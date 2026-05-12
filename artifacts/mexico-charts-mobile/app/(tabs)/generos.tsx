@@ -1,155 +1,253 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  FlatList,
   Image,
   Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
+import { useArtistMetadata, ArtistMeta } from "@/hooks/useArtistMetadata";
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { GENRES, TOP_ARTISTS } from "@/data/chartData";
 
 const NEON = "#39FF14";
 const BG = "#050505";
 
-const GENRE_DESCRIPTIONS: Record<string, string> = {
-  "Corridos Tumbados": "La fusión de corridos tradicionales con trap y hip-hop. El sonido que conquistó el mundo desde Sinaloa.",
-  "Regional Mexicano": "El género más escuchado de México. Banda, norteño y cumbia bajo un mismo estandarte.",
-  "Norteño": "Acordeón, bajo sexto e historias del norte. Raíces profundas con millones de oyentes globales.",
-  "Banda": "Los metales de Sinaloa que suenan en estadios. Potencia, celebración y tradición mexicana.",
-  "Hip-Hop Mexicano": "Letras callejeras y ritmos urbanos nacidos en México. Voz de una generación.",
-  "Pop Urbano": "Pop latino con sello mexicano. Melodías que cruzan fronteras y conectan culturas.",
-};
+// ── Genre config (matches web HomeV6 GENRE_SYNONYMS) ────────────────────────
 
-function artistsForGenre(genreName: string) {
-  const tagMap: Record<string, string> = {
-    "Corridos Tumbados": "CORRIDOS TUMBADOS",
-    "Regional Mexicano": "REGIONAL MEXICANO",
-    "Norteño": "NORTEÑO",
-    "Banda": "BANDA",
-  };
-  const tag = tagMap[genreName];
-  if (!tag) return [];
-  return TOP_ARTISTS.filter((a) => a.tag === tag);
+interface GenreDef {
+  label: string;
+  displayLabel: string;
+  color: string;
+  synonyms: string[];
+  description: string;
 }
 
-function InitialAvatar({ name, size, accent }: { name: string; size: number; accent?: string }) {
-  return (
-    <View style={{
-      width: size, height: size, borderRadius: size / 2,
-      backgroundColor: "#1A1A1A", alignItems: "center", justifyContent: "center",
-      borderWidth: 1, borderColor: accent ? `${accent}44` : "rgba(255,255,255,0.10)",
-    }}>
-      <Text style={{ color: accent ?? "#E4E4E7", fontFamily: "Inter_700Bold", fontSize: Math.round(size * 0.38) }}>
-        {name.charAt(0).toUpperCase()}
-      </Text>
-    </View>
+const GENRES: GenreDef[] = [
+  {
+    label: "corridos-tumbados",
+    displayLabel: "CORRIDOS TUMBADOS",
+    color: NEON,
+    synonyms: ["corridos tumbados", "corrido tumbado", "corridos"],
+    description: "El género que redefinió la música mexicana",
+  },
+  {
+    label: "regional-mexicano",
+    displayLabel: "REGIONAL MEXICANO",
+    color: "#4ade80",
+    synonyms: ["regional mexicano", "regional", "reg. mexicano"],
+    description: "Música que lleva las raíces de México al mundo",
+  },
+  {
+    label: "norteno",
+    displayLabel: "NORTEÑO",
+    color: "#86efac",
+    synonyms: ["norteño", "norteno", "nortena"],
+    description: "El sonido clásico del norte de México",
+  },
+  {
+    label: "banda",
+    displayLabel: "BANDA",
+    color: "#a3e635",
+    synonyms: ["banda", "banda sinaloense"],
+    description: "La banda que mueve masas en México y USA",
+  },
+  {
+    label: "hip-hop",
+    displayLabel: "HIP-HOP MEXICANO",
+    color: "#facc15",
+    synonyms: ["hip-hop", "hip hop mexicano", "hip hop", "rap mexicano"],
+    description: "El nuevo rap hecho en México",
+  },
+  {
+    label: "pop",
+    displayLabel: "POP MEXICANO",
+    color: "#fb923c",
+    synonyms: ["pop", "pop mexicano", "pop latino"],
+    description: "Pop hecho en México con alcance global",
+  },
+  {
+    label: "grupero",
+    displayLabel: "GRUPERO",
+    color: "#f472b6",
+    synonyms: ["grupero", "cumbia", "grupo"],
+    description: "Cumbia y balada que nunca pasan de moda",
+  },
+];
+
+function matchesGenre(meta: ArtistMeta, genre: GenreDef): boolean {
+  const sub = (meta.subgenre ?? "").toLowerCase();
+  const gen = (meta.genre ?? "").toLowerCase();
+  return genre.synonyms.some(
+    (s) => sub.includes(s) || gen.includes(s)
   );
 }
 
-function GenreCard({ genre, isSelected, onPress, imageMap }: {
-  genre: typeof GENRES[0];
-  isSelected: boolean;
+function fmtNum(n: number): string {
+  if (n === 0) return "—";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+// ── Genre card ────────────────────────────────────────────────────────────────
+
+function GenreCard({
+  genre,
+  artists,
+  totalStreams,
+  onPress,
+  isActive,
+}: {
+  genre: GenreDef;
+  artists: ArtistMeta[];
+  totalStreams: number;
   onPress: () => void;
-  imageMap: Record<string, string | null>;
+  isActive: boolean;
 }) {
-  const artists = artistsForGenre(genre.name);
-
+  const count = artists.length;
   return (
-    <View style={[styles.genreCard, isSelected && { borderColor: genre.accent }]}>
-      <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
-        {/* Header row */}
-        <View style={styles.genreCardHeader}>
-          {/* Accent left bar */}
-          <View style={[styles.accentBar, { backgroundColor: genre.accent }]} />
-          <View style={styles.genreCardHeaderText}>
-            <View style={styles.genreNameRow}>
-              <Text style={styles.genreName}>{genre.name}</Text>
-              {isSelected && (
-                <View style={[styles.activeBadge, { backgroundColor: `${genre.accent}22`, borderColor: `${genre.accent}55` }]}>
-                  <Text style={[styles.activeBadgeText, { color: genre.accent }]}>ACTIVO</Text>
-                </View>
-              )}
-            </View>
-            <Text style={styles.genreArtistCount}>{genre.artists} artistas</Text>
-          </View>
-          <View style={styles.genreStatsRight}>
-            <Text style={[styles.genreStreams, { color: genre.accent }]}>{genre.streams}</Text>
-            <Text style={styles.genreStreamsLabel}>streams spotify</Text>
-          </View>
-          <Feather
-            name={isSelected ? "chevron-up" : "chevron-down"}
-            size={16}
-            color="#52525B"
-            style={{ marginLeft: 4 }}
-          />
-        </View>
-      </TouchableOpacity>
+    <TouchableOpacity
+      style={[
+        styles.genreCard,
+        isActive
+          ? { borderColor: genre.color, backgroundColor: `${genre.color}0e` }
+          : null,
+      ]}
+      activeOpacity={0.8}
+      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
+    >
+      {/* Color swatch */}
+      <View style={[styles.genreAccent, { backgroundColor: genre.color }]} />
 
-      {/* Expanded artist list */}
-      {isSelected && artists.length > 0 && (
-        <View style={styles.artistList}>
-          <View style={styles.artistListDivider} />
-          {artists.map((a, idx) => {
-            const photo = imageMap[a.name] ?? null;
-            return (
-              <TouchableOpacity
-                key={a.name}
-                style={styles.artistRow}
-                activeOpacity={0.72}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.push({ pathname: "/artist/[name]", params: { name: a.name } });
-                }}
-              >
-                <Text style={[styles.artistRowRank, { color: idx < 3 ? genre.accent : "#3F3F46" }]}>
-                  {String(a.rank).padStart(2, "0")}
-                </Text>
-                {photo
-                  ? <Image source={{ uri: photo }} style={styles.artistRowPhoto} />
-                  : <InitialAvatar name={a.name} size={36} accent={a.accent} />
-                }
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.artistRowName} numberOfLines={1}>{a.name}</Text>
-                  <Text style={styles.artistRowStreams}>{a.streams}</Text>
-                </View>
-                <Text style={[styles.artistRowGrowth, { color: NEON }]}>{a.growth}</Text>
-                <Feather name="chevron-right" size={13} color="#3F3F46" style={{ marginLeft: 4 }} />
-              </TouchableOpacity>
-            );
-          })}
-          {artists.length === 0 && (
-            <Text style={{ color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 13, padding: 16 }}>
-              Sin artistas en esta base de datos
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.genreLabel, { color: genre.color }]}>
+          {genre.displayLabel}
+        </Text>
+        <Text style={styles.genreDesc} numberOfLines={1}>
+          {genre.description}
+        </Text>
+      </View>
+
+      <View style={styles.genreMeta}>
+        <View style={styles.genreMetaItem}>
+          <Text style={[styles.genreMetaNum, isActive ? { color: genre.color } : null]}>
+            {count}
+          </Text>
+          <Text style={styles.genreMetaLabel}>artistas</Text>
+        </View>
+        {totalStreams > 0 && (
+          <View style={styles.genreMetaItem}>
+            <Text style={[styles.genreMetaNum, isActive ? { color: genre.color } : null]}>
+              {fmtNum(totalStreams)}
             </Text>
-          )}
+            <Text style={styles.genreMetaLabel}>streams</Text>
+          </View>
+        )}
+        <Feather
+          name={isActive ? "chevron-up" : "chevron-down"}
+          size={14}
+          color={isActive ? genre.color : "#3F3F46"}
+        />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ── Artist mini-row ───────────────────────────────────────────────────────────
+
+function ArtistRow({
+  meta,
+  index,
+  color,
+  photo,
+}: {
+  meta: ArtistMeta;
+  index: number;
+  color: string;
+  photo: string | null;
+}) {
+  return (
+    <View style={styles.artistRow}>
+      <Text style={[styles.artistRank, { color: index < 3 ? color : "#3F3F46" }]}>
+        {String(index + 1).padStart(2, "0")}
+      </Text>
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.artistPhoto} />
+      ) : (
+        <View style={[styles.artistPhoto, { backgroundColor: `${color}14`, alignItems: "center", justifyContent: "center" }]}>
+          <Text style={{ color, fontFamily: "Inter_700Bold", fontSize: 12 }}>
+            {meta.displayName.charAt(0)}
+          </Text>
+        </View>
+      )}
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.artistName} numberOfLines={1}>
+          {meta.displayName}
+        </Text>
+        <Text style={styles.artistCountry}>{meta.country || "MX"}</Text>
+      </View>
+      {meta.spotifyListenersFmt !== "—" && (
+        <View style={styles.artistListeners}>
+          <Text style={[styles.artistListenersNum, index < 3 ? { color } : null]}>
+            {meta.spotifyListenersFmt}
+          </Text>
+          <Text style={styles.artistListenersLabel}>oyentes</Text>
         </View>
       )}
     </View>
   );
 }
 
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export default function GenerosScreen() {
   const insets = useSafeAreaInsets();
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(GENRES[0].name);
+  const [activeGenre, setActiveGenre] = useState<string | null>(null);
+
+  const { artists, isLoading, hasError } = useArtistMetadata();
+
+  // Pre-compute per-genre stats
+  const genreStats = useMemo(() => {
+    return GENRES.map((g) => {
+      const matched = artists.filter((a) => matchesGenre(a, g));
+      const totalStreams = matched.reduce((sum, a) => sum + a.spotifyListeners, 0);
+      return { genre: g, artists: matched, totalStreams };
+    });
+  }, [artists]);
+
+  // Artists for the expanded panel
+  const expandedArtists = useMemo(() => {
+    if (!activeGenre) return [];
+    const gs = genreStats.find((g) => g.genre.label === activeGenre);
+    return gs?.artists ?? [];
+  }, [activeGenre, genreStats]);
+
+  const expandedColor =
+    GENRES.find((g) => g.label === activeGenre)?.color ?? NEON;
+
+  const allNames = useMemo(
+    () => expandedArtists.map((a) => a.displayName),
+    [expandedArtists]
+  );
+  const imageMap = useArtistImages(allNames);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : 0;
 
-  const allNames = TOP_ARTISTS.map((a) => a.name);
-  const imageMap = useArtistImages(allNames);
-
-  const totalStreams = GENRES.reduce((sum, g) => {
-    const num = parseFloat(g.streams.replace("M", ""));
-    return sum + num;
-  }, 0);
+  // Total roster stats
+  const totalArtists = artists.length;
+  const totalStreams = useMemo(
+    () => artists.reduce((s, a) => s + a.spotifyListeners, 0),
+    [artists]
+  );
 
   return (
     <View style={[styles.container, { paddingTop: topInset }]}>
@@ -157,126 +255,213 @@ export default function GenerosScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>GÉNEROS</Text>
-          <Text style={styles.headerSub}>MÚSICA MEXICANA · {GENRES.length} GÉNEROS</Text>
+          <Text style={styles.headerSub}>
+            {isLoading ? "CARGANDO…" : `${totalArtists} ARTISTAS · ${fmtNum(totalStreams)} OYENTES`}
+          </Text>
         </View>
         <View style={styles.headerBadge}>
           <Feather name="music" size={12} color={NEON} />
-          <Text style={styles.headerBadgeText}>{totalStreams.toFixed(0)}M</Text>
+          <Text style={styles.headerBadgeText}>EN VIVO</Text>
         </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: bottomInset + 24, gap: 10 }}
+        contentContainerStyle={{ paddingBottom: bottomInset + 20 }}
       >
-        {/* Summary strip */}
-        <View style={styles.summaryStrip}>
-          {[
-            { v: `${GENRES.length}`, l: "géneros" },
-            { v: `${totalStreams.toFixed(0)}M`, l: "streams" },
-            { v: `${GENRES.reduce((s, g) => s + g.artists, 0)}`, l: "artistas" },
-          ].map((s) => (
-            <View key={s.l} style={styles.summaryItem}>
-              <Text style={styles.summaryValue}>{s.v}</Text>
-              <Text style={styles.summaryLabel}>{s.l}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Genre cards */}
-        {GENRES.map((g) => (
-          <GenreCard
-            key={g.name}
-            genre={g}
-            isSelected={selectedGenre === g.name}
-            imageMap={imageMap}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectedGenre(selectedGenre === g.name ? null : g.name);
-            }}
-          />
-        ))}
-
-        {/* Genre description */}
-        {selectedGenre && GENRE_DESCRIPTIONS[selectedGenre] && (
-          <View style={styles.descCard}>
-            <Feather name="info" size={13} color="#52525B" style={{ marginRight: 8, marginTop: 1 }} />
-            <Text style={styles.descText}>{GENRE_DESCRIPTIONS[selectedGenre]}</Text>
+        {isLoading ? (
+          <View style={{ paddingTop: 80, alignItems: "center" }}>
+            <Feather name="loader" size={24} color="#52525B" />
+            <Text style={styles.statusText}>Cargando géneros…</Text>
           </View>
+        ) : hasError ? (
+          <View style={{ paddingTop: 80, alignItems: "center" }}>
+            <Feather name="wifi-off" size={24} color="#3F3F46" />
+            <Text style={styles.statusText}>Error de conexión</Text>
+          </View>
+        ) : (
+          <>
+            {genreStats.map(({ genre, artists: ga, totalStreams: ts }) => {
+              const isActive = activeGenre === genre.label;
+              return (
+                <View key={genre.label}>
+                  <GenreCard
+                    genre={genre}
+                    artists={ga}
+                    totalStreams={ts}
+                    isActive={isActive}
+                    onPress={() =>
+                      setActiveGenre(isActive ? null : genre.label)
+                    }
+                  />
+
+                  {/* Expanded artist list */}
+                  {isActive && (
+                    <View style={styles.expandedPanel}>
+                      <View style={styles.expandedHeader}>
+                        <Text style={[styles.expandedTitle, { color: genre.color }]}>
+                          {genre.displayLabel}
+                        </Text>
+                        <Text style={styles.expandedCount}>
+                          {ga.length} artistas · {fmtNum(ts)} oyentes
+                        </Text>
+                      </View>
+                      {ga.slice(0, 20).map((meta, idx) => (
+                        <ArtistRow
+                          key={meta.artistKey}
+                          meta={meta}
+                          index={idx}
+                          color={genre.color}
+                          photo={imageMap[meta.displayName] ?? null}
+                        />
+                      ))}
+                      {ga.length > 20 && (
+                        <Text style={styles.moreText}>
+                          +{ga.length - 20} más en {genre.displayLabel}
+                        </Text>
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+
+            {/* Roster totals */}
+            <View style={styles.totalsCard}>
+              <Text style={styles.totalsTitle}>BASE DE DATOS</Text>
+              <View style={styles.totalsRow}>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNum}>{totalArtists}</Text>
+                  <Text style={styles.totalLabel}>artistas totales</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNum}>{GENRES.length}</Text>
+                  <Text style={styles.totalLabel}>géneros</Text>
+                </View>
+                <View style={styles.totalItem}>
+                  <Text style={styles.totalNum}>{fmtNum(totalStreams)}</Text>
+                  <Text style={styles.totalLabel}>oyentes spotify</Text>
+                </View>
+              </View>
+            </View>
+          </>
         )}
       </ScrollView>
     </View>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   header: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 20, paddingVertical: 16,
+    paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
   },
-  headerTitle: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: 2 },
-  headerSub: { color: "#52525B", fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.5, marginTop: 2 },
+  headerTitle: {
+    color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 22, letterSpacing: 2,
+  },
+  headerSub: {
+    color: "#52525B", fontFamily: "Inter_500Medium",
+    fontSize: 10, letterSpacing: 1.5, marginTop: 2,
+  },
   headerBadge: {
     flexDirection: "row", alignItems: "center", gap: 5,
     backgroundColor: "rgba(57,255,20,0.08)",
     borderWidth: 1, borderColor: "rgba(57,255,20,0.22)",
     borderRadius: 100, paddingHorizontal: 10, paddingVertical: 5,
   },
-  headerBadgeText: { color: NEON, fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 1 },
-  summaryStrip: {
-    flexDirection: "row",
-    backgroundColor: "#111111",
-    borderRadius: 12,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
-    marginBottom: 2,
+  headerBadgeText: {
+    color: NEON, fontFamily: "Inter_700Bold", fontSize: 9, letterSpacing: 1.5,
   },
-  summaryItem: {
-    flex: 1, alignItems: "center", paddingVertical: 14,
-    borderRightWidth: 1, borderRightColor: "rgba(255,255,255,0.06)",
-  },
-  summaryValue: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 18, letterSpacing: -0.5 },
-  summaryLabel: { color: "#52525B", fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 1.5, marginTop: 2, textTransform: "uppercase" },
+
   genreCard: {
-    backgroundColor: "#111111",
-    borderRadius: 14,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+    flexDirection: "row", alignItems: "center", gap: 0,
+    paddingRight: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)",
+    borderLeftWidth: 0, borderRightWidth: 0, borderTopWidth: 0,
     overflow: "hidden",
   },
-  genreCardHeader: {
-    flexDirection: "row", alignItems: "center",
-    paddingVertical: 16, paddingRight: 16, paddingLeft: 0,
+  genreAccent: { width: 3, alignSelf: "stretch", marginRight: 16 },
+  genreLabel: {
+    fontFamily: "Inter_700Bold", fontSize: 12, letterSpacing: 1,
+    textTransform: "uppercase", marginBottom: 2,
   },
-  accentBar: { width: 3, alignSelf: "stretch", marginRight: 14, borderRadius: 0 },
-  genreCardHeaderText: { flex: 1 },
-  genreNameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 3 },
-  genreName: { color: "#E4E4E7", fontFamily: "Inter_700Bold", fontSize: 15 },
-  activeBadge: {
-    borderWidth: 1, borderRadius: 100, paddingHorizontal: 7, paddingVertical: 2,
+  genreDesc: {
+    color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 10,
   },
-  activeBadgeText: { fontFamily: "Inter_700Bold", fontSize: 8, letterSpacing: 1.5 },
-  genreArtistCount: { color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 11, letterSpacing: 0.5 },
-  genreStatsRight: { alignItems: "flex-end", marginRight: 6 },
-  genreStreams: { fontFamily: "Inter_700Bold", fontSize: 17, letterSpacing: -0.5 },
-  genreStreamsLabel: { color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 9, letterSpacing: 1, marginTop: 1 },
-  artistList: { paddingHorizontal: 16, paddingBottom: 12 },
-  artistListDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 10 },
+  genreMeta: { flexDirection: "row", alignItems: "center", gap: 16 },
+  genreMetaItem: { alignItems: "flex-end" },
+  genreMetaNum: {
+    color: "#A1A1AA", fontFamily: "Inter_700Bold", fontSize: 13, lineHeight: 15,
+  },
+  genreMetaLabel: {
+    color: "#3F3F46", fontFamily: "Inter_400Regular", fontSize: 8,
+    textTransform: "uppercase", letterSpacing: 0.8,
+  },
+
+  expandedPanel: {
+    backgroundColor: "#080808",
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.06)",
+    paddingBottom: 8,
+  },
+  expandedHeader: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10,
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.04)",
+  },
+  expandedTitle: {
+    fontFamily: "Inter_700Bold", fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase",
+  },
+  expandedCount: {
+    color: "#52525B", fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3,
+  },
+
   artistRow: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    paddingVertical: 9,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.035)",
+    paddingHorizontal: 20, paddingVertical: 9,
+    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.03)",
   },
-  artistRowRank: { fontFamily: "Inter_700Bold", fontSize: 12, width: 22, letterSpacing: -0.5 },
-  artistRowPhoto: { width: 36, height: 36, borderRadius: 18 },
-  artistRowName: { color: "#E4E4E7", fontFamily: "Inter_600SemiBold", fontSize: 13 },
-  artistRowStreams: { color: "#71717A", fontFamily: "Inter_400Regular", fontSize: 11, marginTop: 1 },
-  artistRowGrowth: { fontFamily: "Inter_700Bold", fontSize: 11 },
-  descCard: {
-    flexDirection: "row", backgroundColor: "#0F0F0F",
-    borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.05)",
-    alignItems: "flex-start",
+  artistRank: { fontFamily: "Inter_700Bold", fontSize: 11, width: 22, textAlign: "right" },
+  artistPhoto: { width: 34, height: 34, borderRadius: 17 },
+  artistName: { color: "#D4D4D8", fontFamily: "Inter_600SemiBold", fontSize: 12, marginBottom: 1 },
+  artistCountry: {
+    color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 9,
+    textTransform: "uppercase", letterSpacing: 1,
   },
-  descText: { flex: 1, color: "#71717A", fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 20 },
+  artistListeners: { alignItems: "flex-end" },
+  artistListenersNum: { color: "#A1A1AA", fontFamily: "Inter_700Bold", fontSize: 12 },
+  artistListenersLabel: {
+    color: "#3F3F46", fontFamily: "Inter_400Regular", fontSize: 8,
+    textTransform: "uppercase", letterSpacing: 0.8,
+  },
+
+  moreText: {
+    color: "#3F3F46", fontFamily: "Inter_500Medium", fontSize: 10,
+    textAlign: "center", paddingVertical: 12, letterSpacing: 0.5,
+  },
+
+  totalsCard: {
+    marginHorizontal: 16, marginTop: 20, marginBottom: 8,
+    backgroundColor: "#0a0a0a", borderWidth: 1,
+    borderColor: "rgba(57,255,20,0.12)", borderRadius: 8, padding: 18,
+  },
+  totalsTitle: {
+    color: NEON, fontFamily: "Inter_700Bold", fontSize: 9,
+    letterSpacing: 3, marginBottom: 14, textTransform: "uppercase",
+  },
+  totalsRow: { flexDirection: "row", justifyContent: "space-between" },
+  totalItem: { alignItems: "center" },
+  totalNum: { color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 20, letterSpacing: -0.5 },
+  totalLabel: {
+    color: "#52525B", fontFamily: "Inter_500Medium", fontSize: 9,
+    textTransform: "uppercase", letterSpacing: 1, marginTop: 2,
+  },
+
+  statusText: {
+    color: "#3F3F46", fontFamily: "Inter_500Medium",
+    fontSize: 13, marginTop: 12, letterSpacing: 0.5,
+  },
 });

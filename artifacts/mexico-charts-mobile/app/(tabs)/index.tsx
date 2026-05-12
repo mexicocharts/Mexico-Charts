@@ -19,7 +19,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { useHubData, HubRow } from "@/hooks/useHubData";
+import { useHubData, HubRow, TickerItem } from "@/hooks/useHubData";
 import { TOP_ARTISTS, GENRES, Artist } from "@/data/chartData";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -27,13 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const NEON = "#39FF14";
 const BG = "#050505";
 
-const ASCENSO_ACCENTS = [
-  NEON,
-  "rgba(57,255,20,0.78)",
-  "rgba(57,255,20,0.58)",
-  "rgba(57,255,20,0.40)",
-  "rgba(57,255,20,0.26)",
-];
+// ── Merge live hub row with static fallback ──────────────────────────────────
 
 function buildArtist(row: HubRow): Artist {
   const st = TOP_ARTISTS.find(
@@ -58,25 +52,66 @@ function buildArtist(row: HubRow): Artist {
   };
 }
 
-function buildAscenso(rows: HubRow[]) {
-  const climbers = rows
-    .filter((r) => r.isMexican)
-    .map((r) => {
-      const gained = r.Prev > 0 && r.Rank > 0 ? r.Prev - r.Rank : 0;
-      return { name: r.Artist, rank: r.Rank, gained };
-    })
-    .filter((a) => a.gained > 0)
-    .sort((a, b) => b.gained - a.gained)
-    .slice(0, 5);
-  if (climbers.length < 3) return null;
-  const maxGained = climbers[0].gained;
-  return climbers.map((a, i) => ({
-    name: a.name,
-    growth: `+${a.gained} pos · #${a.rank}`,
-    bar: maxGained > 0 ? Math.round((a.gained / maxGained) * 100) : 0,
-    accent: ASCENSO_ACCENTS[i] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
-  }));
+// ── Live animated ticker ─────────────────────────────────────────────────────
+
+function LiveTicker({ items }: { items: TickerItem[] }) {
+  const fallback: TickerItem[] = [
+    { name: "MEXICO CHARTS", display: "TOP ARTISTAS" },
+    { name: "SPOTIFY", display: "EN VIVO" },
+    { name: "APPLE MUSIC", display: "CHARTS" },
+  ];
+  const source = items.length > 0 ? items : fallback;
+
+  // Interleave name · display · name · display …
+  const tickerString =
+    source
+      .flatMap((t) => [t.name.toUpperCase(), t.display])
+      .join("  ·  ") + "  ·  ";
+
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [textWidth, setTextWidth] = useState(0);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (textWidth <= 0) return;
+    if (animRef.current) animRef.current.stop();
+    translateX.setValue(0);
+    animRef.current = Animated.loop(
+      Animated.timing(translateX, {
+        toValue: -textWidth,
+        duration: textWidth * 22,
+        useNativeDriver: false,
+        easing: Easing.linear,
+      })
+    );
+    animRef.current.start();
+    return () => {
+      animRef.current?.stop();
+    };
+  }, [textWidth, tickerString]);
+
+  return (
+    <View style={styles.tickerOuter}>
+      <Animated.View
+        style={[styles.tickerInner, { transform: [{ translateX }] }]}
+      >
+        <Text
+          style={styles.tickerText}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width / 2;
+            if (w > 0 && textWidth === 0) setTextWidth(w);
+          }}
+          numberOfLines={1}
+        >
+          {tickerString}
+          {tickerString}
+        </Text>
+      </Animated.View>
+    </View>
+  );
 }
+
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function InitialAvatar({
   initial,
@@ -107,60 +142,10 @@ function InitialAvatar({
           color: accent ?? "#E4E4E7",
           fontFamily: "Inter_700Bold",
           fontSize: fontSize ?? size * 0.4,
-          letterSpacing: 0,
         }}
       >
         {initial.toUpperCase()}
       </Text>
-    </View>
-  );
-}
-
-function LiveTicker({ names }: { names: string[] }) {
-  const tickerText =
-    names.length > 0
-      ? names.map((n) => `${n.toUpperCase()} ·`).join("  ") + "  "
-      : "CARGANDO DATOS EN VIVO ·  ";
-
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [textWidth, setTextWidth] = useState(0);
-  const animRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  useEffect(() => {
-    if (textWidth <= 0) return;
-    if (animRef.current) animRef.current.stop();
-    translateX.setValue(0);
-    animRef.current = Animated.loop(
-      Animated.timing(translateX, {
-        toValue: -textWidth,
-        duration: textWidth * 22,
-        useNativeDriver: true,
-        easing: Easing.linear,
-      })
-    );
-    animRef.current.start();
-    return () => {
-      animRef.current?.stop();
-    };
-  }, [textWidth, tickerText]);
-
-  return (
-    <View style={styles.tickerOuter}>
-      <Animated.View
-        style={[styles.tickerInner, { transform: [{ translateX }] }]}
-      >
-        <Text
-          style={styles.tickerText}
-          onLayout={(e) => {
-            const w = e.nativeEvent.layout.width / 2;
-            if (w > 0 && textWidth === 0) setTextWidth(w);
-          }}
-          numberOfLines={1}
-        >
-          {tickerText}
-          {tickerText}
-        </Text>
-      </Animated.View>
     </View>
   );
 }
@@ -172,7 +157,6 @@ function HeroArtistCard({
   artist: Artist;
   photo: string | null;
 }) {
-  const initial = artist.name.charAt(0);
   return (
     <View style={[styles.heroCard, { width: SCREEN_WIDTH }]}>
       {photo ? (
@@ -182,7 +166,7 @@ function HeroArtistCard({
           resizeMode="cover"
         />
       ) : (
-        <View style={[styles.heroPhotoPlaceholder]}>
+        <View style={styles.heroPhotoPlaceholder}>
           <Text
             style={{
               color: "rgba(255,255,255,0.06)",
@@ -191,7 +175,7 @@ function HeroArtistCard({
               lineHeight: 190,
             }}
           >
-            {initial.toUpperCase()}
+            {artist.name.charAt(0).toUpperCase()}
           </Text>
         </View>
       )}
@@ -368,38 +352,33 @@ function SectionHeader({
   );
 }
 
+// ── Screen ───────────────────────────────────────────────────────────────────
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [heroIndex, setHeroIndex] = useState(0);
   const heroScrollRef = useRef<FlatList>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const { rows } = useHubData();
+  const { mexicanRows, ascensoItems, tickerItems, rows } = useHubData();
 
+  // Top artists: prefer live Mexican chart; fall back to static
   const liveArtists = useMemo<Artist[]>(() => {
-    if (rows.length === 0) return TOP_ARTISTS.slice(0, 25);
-    return rows.slice(0, 25).map(buildArtist);
-  }, [rows]);
+    if (mexicanRows.length === 0) return TOP_ARTISTS.slice(0, 10);
+    return mexicanRows.slice(0, 10).map(buildArtist);
+  }, [mexicanRows]);
 
   const heroArtists = useMemo(() => liveArtists.slice(0, 5), [liveArtists]);
-  const top10 = useMemo(() => liveArtists.slice(0, 10), [liveArtists]);
 
-  const ascenso = useMemo(() => {
-    if (rows.length === 0) return null;
-    return buildAscenso(rows);
-  }, [rows]);
-
-  const tickerNames = useMemo(
-    () => liveArtists.slice(0, 15).map((a) => a.name),
-    [liveArtists]
-  );
+  // EN ASCENSO from hook (already computed)
+  const ascenso = ascensoItems.length >= 3 ? ascensoItems : null;
 
   const allNames = useMemo(
     () => [
-      ...top10.map((a) => a.name),
+      ...liveArtists.map((a) => a.name),
       ...(ascenso ?? []).map((a) => a.name),
     ],
-    [top10, ascenso]
+    [liveArtists, ascenso]
   );
 
   const imageMap = useArtistImages(allNames);
@@ -421,6 +400,8 @@ export default function HomeScreen() {
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : 0;
 
+  const isLive = rows.length > 0;
+
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
       <ScrollView
@@ -430,7 +411,7 @@ export default function HomeScreen() {
       >
         {/* Live animated ticker */}
         <View style={{ paddingTop: topInset, backgroundColor: NEON }}>
-          <LiveTicker names={tickerNames} />
+          <LiveTicker items={tickerItems} />
         </View>
 
         {/* Hero carousel */}
@@ -485,15 +466,15 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Top 10 */}
+        {/* Top 10 Mexican artists */}
         <View style={{ marginTop: 8 }}>
           <SectionHeader
             icon="trending-up"
             label="TOP 10 · MÉXICO · ESTA SEMANA"
-            live={rows.length > 0}
+            live={isLive}
           />
           <FlatList
-            data={top10}
+            data={liveArtists}
             renderItem={({ item }) => (
               <Top10Card artist={item} photo={imageMap[item.name] ?? null} />
             )}
@@ -505,7 +486,7 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Genres — static, curated */}
+        {/* Genres — static editorial */}
         <View style={{ marginTop: 20 }}>
           <SectionHeader icon="music" label="GÉNEROS · STREAMS TOTALES" />
           <View style={styles.genreGrid}>
@@ -538,6 +519,8 @@ export default function HomeScreen() {
     </View>
   );
 }
+
+// ── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   tickerOuter: {
@@ -726,16 +709,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     zIndex: 1,
   },
-  top10Rank: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 10,
-  },
-  top10Photo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginTop: 4,
-  },
+  top10Rank: { fontFamily: "Inter_700Bold", fontSize: 10 },
+  top10Photo: { width: 80, height: 80, borderRadius: 40, marginTop: 4 },
   top10Name: {
     color: "#E4E4E7",
     fontFamily: "Inter_600SemiBold",
@@ -749,14 +724,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.3,
   },
-  top10Streams: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 12,
-  },
-  genreGrid: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
+  top10Streams: { fontFamily: "Inter_700Bold", fontSize: 12 },
+  genreGrid: { paddingHorizontal: 16, gap: 8 },
   genreCard: {
     backgroundColor: "#111111",
     borderRadius: 10,
@@ -774,14 +743,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     flex: 1,
   },
-  genreStats: {
-    alignItems: "flex-end",
-    gap: 2,
-  },
-  genreStreams: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 14,
-  },
+  genreStats: { alignItems: "flex-end", gap: 2 },
+  genreStreams: { fontFamily: "Inter_700Bold", fontSize: 14 },
   genreArtists: {
     color: "#71717A",
     fontFamily: "Inter_400Regular",
@@ -797,11 +760,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.05)",
   },
-  ascensoAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
+  ascensoAvatar: { width: 36, height: 36, borderRadius: 18 },
   ascensoName: {
     color: "#E4E4E7",
     fontFamily: "Inter_600SemiBold",
