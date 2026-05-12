@@ -17,7 +17,7 @@ const NAV = [
   { label: "CHARTS",       href: "/charts" },
   { label: "GÉNEROS",      href: "/generos" },
   { label: "INDUSTRIA",    href: "/industria", dropdown: INDUSTRIA_ITEMS },
-  { label: "TOURING",      href: "#" },
+  { label: "TOURING",      href: "/touring" },
 ];
 
 type Props = {

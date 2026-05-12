@@ -16,6 +16,8 @@ import IndustryLanding from "@/pages/IndustryLanding";
 import Certifications from "@/pages/Certifications";
 import ChartsHub from "@/pages/ChartsHub";
 import GeneroHub from "@/pages/GeneroHub";
+import TouringHub from "@/pages/TouringHub";
+import TouringProfile from "@/pages/TouringProfile";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,8 @@ function Router() {
       <Route path="/industria" component={IndustryLanding} />
       <Route path="/industry/certifications" component={Certifications} />
       <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
+      <Route path="/touring/:slug" component={TouringProfile} />
+      <Route path="/touring" component={TouringHub} />
       <Route path="/artist/:slug" component={ArtistDetail} />
       <Route path="/v1" component={HomeV1} />
       <Route path="/v3" component={HomeV3} />
