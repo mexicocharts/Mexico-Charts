@@ -577,7 +577,7 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           HERO — V5 gradient + parallax + ambient glow + noise
       ══════════════════════════════════════════════════════════ */}
-      <section ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px" }} data-testid="section-hero">
+      <section ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px", zIndex: 1 }} data-testid="section-hero">
 
         {/* Base — obsidian black */}
         <div className="absolute inset-0" style={{ background:"#050505" }} />
