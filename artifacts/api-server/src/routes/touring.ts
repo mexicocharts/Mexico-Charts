@@ -7,13 +7,19 @@ const TM_KEY = process.env.TICKETMASTER_API_KEY ?? "";
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 
 const ARTISTS = [
-  { id: "fuerza-regida",   name: "Fuerza Regida",   attractionId: "K8vZ9179vO0" },
-  { id: "banda-ms",        name: "Banda MS",         attractionId: "K8vZ917CCl7" },
-  { id: "grupo-firme",     name: "Grupo Firme",      attractionId: "K8vZ917bY9V" },
-  { id: "junior-h",        name: "Junior H",         attractionId: "K8vZ917_JZV" },
-  { id: "peso-pluma",      name: "Peso Pluma",       attractionId: "K8vZ917h54V" },
-  { id: "eslabon-armado",  name: "Eslabon Armado",   attractionId: "K8vZ917_Wef" },
-  { id: "natanael-cano",   name: "Natanael Cano",    attractionId: "K8vZfZ7aEdk" },
+  { id: "fuerza-regida",    name: "Fuerza Regida",    attractionId: "K8vZ9179vO0" },
+  { id: "banda-ms",         name: "Banda MS",          attractionId: "K8vZ917CCl7" },
+  { id: "grupo-firme",      name: "Grupo Firme",       attractionId: "K8vZ917bY9V" },
+  { id: "junior-h",         name: "Junior H",          attractionId: "K8vZ917_JZV" },
+  { id: "peso-pluma",       name: "Peso Pluma",        attractionId: "K8vZ917h54V" },
+  { id: "eslabon-armado",   name: "Eslabon Armado",    attractionId: "K8vZ917_Wef" },
+  { id: "natanael-cano",    name: "Natanael Cano",     attractionId: "K8vZfZ7aEdk" },
+  { id: "carin-leon",       name: "Carín León",        attractionId: "K8vZ917_m_f" },
+  { id: "eden-munoz",       name: "Edén Muñoz",        attractionId: "K8vZ917Q93f" },
+  { id: "christian-nodal",  name: "Christian Nodal",   attractionId: "K8vZ917p2Pf" },
+  { id: "larry-hernandez",  name: "Larry Hernandez",   attractionId: "K8vZ917uQyV" },
+  { id: "xavi",             name: "Xavi",              attractionId: "K8vZ917_Jlf" },
+  { id: "los-dos-carnales", name: "Los Dos Carnales",  attractionId: "K8vZ917_f-V" },
 ];
 
 interface TmEvent {

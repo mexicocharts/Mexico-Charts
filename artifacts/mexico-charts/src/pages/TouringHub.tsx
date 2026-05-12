@@ -12,13 +12,19 @@ const INSIGHT3    = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd
 const INSIGHT4    = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=220&fit=crop&q=70";
 
 const FALLBACK_IMGS: Record<string, string> = {
-  "fuerza-regida":  "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=500&fit=crop&q=75",
-  "banda-ms":       "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=500&fit=crop&q=75",
-  "grupo-firme":    "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=500&fit=crop&q=75",
-  "junior-h":       "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=500&fit=crop&q=75",
-  "peso-pluma":     "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=500&fit=crop&q=75",
-  "eslabon-armado": "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=500&fit=crop&q=75",
-  "natanael-cano":  "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=500&fit=crop&q=75",
+  "fuerza-regida":    "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=500&fit=crop&q=75",
+  "banda-ms":         "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=500&fit=crop&q=75",
+  "grupo-firme":      "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=500&fit=crop&q=75",
+  "junior-h":         "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=500&fit=crop&q=75",
+  "peso-pluma":       "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=500&fit=crop&q=75",
+  "eslabon-armado":   "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=500&fit=crop&q=75",
+  "natanael-cano":    "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=500&fit=crop&q=75",
+  "carin-leon":       "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
+  "eden-munoz":       "https://images.unsplash.com/photo-1598387993281-cecf8b71a8f8?w=400&h=500&fit=crop&q=75",
+  "christian-nodal":  "https://images.unsplash.com/photo-1460723237483-7a6dc9d0b212?w=400&h=500&fit=crop&q=75",
+  "larry-hernandez":  "https://images.unsplash.com/photo-1504704911898-68304a7d2807?w=400&h=500&fit=crop&q=75",
+  "xavi":             "https://images.unsplash.com/photo-1571935441008-e6244ff434d8?w=400&h=500&fit=crop&q=75",
+  "los-dos-carnales": "https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400&h=500&fit=crop&q=75",
 };
 
 const PROFILE_SLUGS: Record<string, string> = {
@@ -142,14 +148,36 @@ const profileCards = [
   { artist: "Grupo Firme",subtitle: "Tour 2022–2023",    gross: "$81.6M",  tickets: "687K", shows: 72,  slug: "grupo-firme",  img: FALLBACK_IMGS["grupo-firme"] },
 ];
 
+type CountryFilter = "ALL" | "US" | "MX" | "OTHER";
+
+const COUNTRY_LABELS: Record<CountryFilter, string> = {
+  ALL:   "Todos",
+  US:    "Estados Unidos",
+  MX:    "México",
+  OTHER: "Internacional",
+};
+
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
+  const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
 
   const sortedArtists = artists
     ? [...artists].sort((a, b) => b.events.length - a.events.length)
     : [];
 
   const totalShows = sortedArtists.reduce((sum, a) => sum + a.events.length, 0);
+
+  const allShowsFlat = sortedArtists
+    .flatMap(a => a.events.slice(0, 8).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const filteredShows = allShowsFlat.filter(ev => {
+    if (countryFilter === "ALL")   return true;
+    if (countryFilter === "US")    return ev.country === "US";
+    if (countryFilter === "MX")    return ev.country === "MX";
+    if (countryFilter === "OTHER") return ev.country !== "US" && ev.country !== "MX";
+    return true;
+  });
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
@@ -250,21 +278,62 @@ export default function TouringHub() {
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
       {!isLoading && !isError && totalShows > 0 && (
         <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <h2 className="th-anton" style={{ fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               <span style={{ color: "#fff" }}>Todos los</span> <span style={{ color: "#39FF14" }}>Shows</span>
             </h2>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
+                const isActive = countryFilter === f;
+                const count = f === "ALL"
+                  ? allShowsFlat.length
+                  : allShowsFlat.filter(ev =>
+                      f === "US" ? ev.country === "US"
+                    : f === "MX" ? ev.country === "MX"
+                    : ev.country !== "US" && ev.country !== "MX"
+                    ).length;
+                return (
+                  <button key={f} onClick={() => setCountryFilter(f)}
+                    style={{
+                      background: isActive ? "#39FF14" : "transparent",
+                      border: `1px solid ${isActive ? "#39FF14" : "#2a2a2a"}`,
+                      color: isActive ? "#000" : "#666",
+                      padding: "6px 14px",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      transition: "all 0.15s",
+                    }}>
+                    {COUNTRY_LABELS[f]}
+                    <span style={{
+                      background: isActive ? "rgba(0,0,0,0.15)" : "#1a1a1a",
+                      color: isActive ? "#000" : "#444",
+                      fontSize: 9,
+                      fontWeight: 700,
+                      padding: "1px 5px",
+                      borderRadius: 2,
+                    }}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {sortedArtists
-              .flatMap(a => a.events.slice(0, 5).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
-              .sort((a, b) => a.date.localeCompare(b.date))
-              .slice(0, 20)
-              .map((ev, i) => (
+          {filteredShows.length === 0 ? (
+            <div style={{ padding: "32px 0", color: "rgba(255,255,255,0.2)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.15em", textAlign: "center" }}>
+              Sin shows en esta región por el momento
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {filteredShows.slice(0, 30).map((ev, i) => (
                 <motion.a
                   key={ev.eventId} href={ev.url} target="_blank" rel="noopener noreferrer"
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
                   style={{ display: "flex", alignItems: "center", gap: 0, background: "#0a0a0a", border: "1px solid #111", textDecoration: "none", overflow: "hidden" }}
                   whileHover={{ borderColor: "#39FF14" }}>
                   {ev.img && (
@@ -277,13 +346,15 @@ export default function TouringHub() {
                     <span className="th-anton" style={{ color: "#fff", fontSize: 14, textTransform: "uppercase", minWidth: 180, flexShrink: 0 }}>{ev.artistName}</span>
                     <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
                     <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, flexShrink: 0, marginLeft: 16 }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
+                    <span style={{ color: "#333", fontSize: 9, fontWeight: 700, minWidth: 28, textAlign: "right", flexShrink: 0, marginLeft: 12 }}>{ev.country}</span>
                   </div>
                   <div style={{ padding: "10px 16px", flexShrink: 0, borderLeft: "1px solid #1a1a1a" }}>
                     <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Boletos →</span>
                   </div>
                 </motion.a>
               ))}
-          </div>
+            </div>
+          )}
         </section>
       )}
 
