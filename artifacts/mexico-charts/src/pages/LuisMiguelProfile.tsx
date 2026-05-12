@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { motion, useScroll, useTransform, animate, useMotionValue } from "framer-motion";
 import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
@@ -12,13 +12,9 @@ import _lmCrowdScreen from "@assets/353929_1152x775_1778594713058.jpg";
 import _lmBand        from "@assets/353926_1778594713058.png";
 import _lmOrangeArms  from "@assets/3HKIHV4EEVDONOWCEUT2KYKELQ_1778594713058.jpg";
 import _lmFlying      from "@assets/image_1778594713058.webp";
-import _lmStadium     from "@assets/El-sol-brillo-con-fuerza-en-CDMX-asi-fue-la-llegada-de-Luis-Mi_1778594713058.jpg";
-import _lmArmsWide    from "@assets/484829736_1199132631580959_3823093758088241270_n_1778594713058.jpg";
 import _lmGetty       from "@assets/GettyImages-1719488470-scaled_1778594713058.jpg";
-import _lmAcapulco    from "@assets/luis-miguel-concierto-acapulco-2023_1778595179832.webp";
 import _lmSinging     from "@assets/73537366007-05012024-luis-miguel-at-don-haskins-10.jpg_1778595179832.webp";
 import _lmSpread      from "@assets/73537371007-05012024-luis-miguel-at-don-haskins-13.jpg_1778595179832.webp";
-import _lmFenix       from "@assets/do-not-reuse-02-Luis-Miguel-cr-Courtesy-of-Fenix-Entertainmen_1778595729674.webp";
 import _lmMicUp       from "@assets/O7OF6LMKQJAOLG2RCDSZCZ44WE_1778595853657.jpg";
 import _showBernabeu1 from "@assets/bernabeu_1_1778596969222.PNG";
 import _showBernabeu4 from "@assets/Bernabeu_4_1778596941310.png";
@@ -28,13 +24,9 @@ import _showPeru      from "@assets/Estadio_Nacional_Peru_1778597058807.jpg";
 
 const BG_HERO      = _lmStageSetup;
 const BG_CROWD     = _lmCrowdScreen;
-const BG_COMEBACK  = _lmFenix;     // wide stage + crowd, red strips — section 3
-const BG_PULLQUOTE = _lmMicUp;     // dark close-up mic raised — section 5
-const BG_STAGE     = _lmAcapulco;  // show cards only (section 7)
-const BG_STADIUM   = _lmStadium;
+const BG_PULLQUOTE = _lmMicUp;     // dark close-up mic raised — section 3
 const BG_LIGHTS    = _lmSinging;   // near-black with warm glints — section 2 stats bar
-const BG_CLOSE     = _lmSpread;    // arms-wide, very dark — section 9 timeline
-const BG_PERF      = _lmArmsWide;  // show cards only (section 7)
+const BG_CLOSE     = _lmSpread;    // arms-wide, very dark — section 7 timeline
 const ARTIST_IMG   = _lmGetty;
 
 // kept in imports so bundler doesn't warn — not currently used as bg
@@ -160,13 +152,9 @@ function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
    PAGE
 ────────────────────────────────────────────────────────────────────────────── */
 export default function LuisMiguelProfile() {
-  const [mounted, setMounted] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll();
-  const heroBgY   = useTransform(scrollY, [0, 700], [0, 140]);
   const heroTextY = useTransform(scrollY, [0, 700], [0, 60]);
-
-  useEffect(() => { setMounted(true); }, []);
 
   return (
     <div style={{ background: "#060606", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af", overflowX: "hidden" }}>
@@ -293,103 +281,7 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          3. THE COMEBACK STAT — most important editorial moment
-          El tour 2023-2024 alone > all 610 previous shows combined
-      ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", overflow: "hidden" }}>
-        <img src={BG_COMEBACK} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.28) saturate(0.65)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 16%, rgba(6,6,6,0.1) 84%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 62%)" }} />
-
-        <div style={{ position: "relative", zIndex: 10, padding: "88px 56px", maxWidth: 1100 }}>
-          <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
-            style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 44 }}>
-            El Dato de la Década
-          </motion.div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 40, alignItems: "center" }}>
-            {/* Left — 2023-2024 tour */}
-            <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.15, duration: 0.8 }}>
-              <div style={{ borderTop: "2px solid #39FF14", paddingTop: 24 }}>
-                <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", marginBottom: 14 }}>
-                  Tour 2023–2024 · Sólo
-                </div>
-                <div className="lm-fa" style={{ color: "#39FF14", fontSize: 84, lineHeight: 0.9, marginBottom: 12 }}>
-                  $415.8M
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
-                  186 Shows · 2.86M Fans
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  95% Sell-Through · $2.26M Avg/Show
-                </div>
-              </div>
-            </motion.div>
-
-            {/* VS divider */}
-            <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.35, duration: 0.6 }}>
-              <div className="lm-fa" style={{ color: "rgba(255,255,255,0.18)", fontSize: 64, textAlign: "center" }}>VS</div>
-            </motion.div>
-
-            {/* Right — Pre-2023 */}
-            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.8 }}>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 24 }}>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", marginBottom: 14 }}>
-                  Primeros 22 Años · 2000–2022
-                </div>
-                <div className="lm-fa" style={{ color: "rgba(255,255,255,0.65)", fontSize: 84, lineHeight: 0.9, marginBottom: 12 }}>
-                  ~$370.6M
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
-                  ~610 Shows · ~4.46M Fans
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  Gross computado · Career total menos 2023–2024
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Punchline */}
-          <motion.div initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.6, duration: 0.8 }}
-            style={{ marginTop: 52, borderTop: "1px solid rgba(57,255,20,0.12)", paddingTop: 32 }}>
-            <div className="lm-fa" style={{ color: "#fff", fontSize: 38, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 18 }}>
-              Su regreso de 2023–2024 generó<br />
-              <span style={{ color: "#39FF14" }}>más que todo lo anterior combinado.</span>
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, maxWidth: 620, lineHeight: 1.75 }}>
-              En 186 shows — contra 610 anteriores de este siglo — Luis Miguel reescribió sus propios récords
-              con precios promedio más altos, estadios más grandes y una demanda sin precedente.
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          4. 7.3M FANS IMPACT STAT
-      ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_STADIUM} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.35) saturate(0.65)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.12) 18%, rgba(6,6,6,0.12) 80%, rgba(6,6,6,1) 100%)" }} />
-
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
-          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Total de Fans · Siglo XXI · Pollstar
-          </div>
-          <div className="lm-fa" style={{ color: "#fff", fontSize: 120, lineHeight: 0.85, letterSpacing: "-0.02em" }}>
-            {mounted ? <AnimCount to={7.32} decimals={2} suffix="M" /> : "7.32M"}
-          </div>
-          <div className="lm-fa" style={{ color: "#39FF14", fontSize: 26, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
-            Boletos Vendidos · 796 Shows
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.26em", marginTop: 18 }}>
-            Reporte Pollstar · 2000–2024 · 87% Sell-Through Promedio
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          5. EDITORIAL PULLQUOTE
+          3. EDITORIAL PULLQUOTE
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 460, overflow: "hidden" }}>
         <img src={BG_PULLQUOTE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.26) saturate(0.6)" }} />
@@ -537,25 +429,11 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          8. RECORD HIGHLIGHTS
+          6. RECORD HIGHLIGHTS
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "72px 56px", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.06)", borderBottom: "1px solid rgba(57,255,20,0.06)" }}>
         <div style={{ display: "flex", gap: 52, flexWrap: "wrap", justifyContent: "center" }}>
           {[
-            {
-              label: "Mayor Asistencia Individual",
-              venue: "Estadio GNP Seguros",
-              city: "Ciudad de México · 30 Nov 2024",
-              stat: "56,539", unit: "fans",
-              note: "98% vendido · 57,874 capacidad",
-            },
-            {
-              label: "Mayor Recaudación Individual",
-              venue: "Estadio Santiago Bernabéu",
-              city: "Madrid, España · 6 Jul 2024",
-              stat: "$8.24M", unit: "USD",
-              note: "100% vendido · 45,541 fans",
-            },
             {
               label: "Gross Total Este Siglo",
               venue: "796 Shows · 2000–2024",
