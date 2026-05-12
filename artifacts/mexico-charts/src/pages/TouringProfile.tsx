@@ -275,7 +275,7 @@ export default function TouringProfile() {
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
               <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 56px", gap: 40, justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-                  <span className="tp-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.35)", fontSize: 52, lineHeight: 1 }}>{show.rank}</span>
+                  <span className="tp-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.48)", fontSize: 52, lineHeight: 1 }}>{show.rank}</span>
                   <div>
                     <div className="tp-fa" style={{ color: "#fff", fontSize: 28, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
                     <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>{show.city} · {show.date}</div>

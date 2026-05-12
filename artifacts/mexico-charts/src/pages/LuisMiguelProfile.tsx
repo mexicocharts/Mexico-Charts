@@ -310,7 +310,7 @@ export default function LuisMiguelProfile() {
                 <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
                   186 Shows · 2.86M Fans
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   95% Sell-Through · $2.26M Avg/Show
                 </div>
               </div>
@@ -333,7 +333,7 @@ export default function LuisMiguelProfile() {
                 <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
                   ~610 Shows · ~4.46M Fans
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                   Gross computado · Career total menos 2023–2024
                 </div>
               </div>
@@ -481,7 +481,7 @@ export default function LuisMiguelProfile() {
           <div className="lm-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.88 }}>
             Las Noches<br />Históricas
           </div>
-          <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
+          <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
             Fuente: Pollstar Tour History Report · Solo muestra shows con datos publicados
           </div>
         </div>
@@ -499,13 +499,13 @@ export default function LuisMiguelProfile() {
 
               <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 52px", gap: 32, justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-                  <span className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.28)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
+                  <span className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.44)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
                   <div>
                     <div className="lm-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
                     <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
                       {show.city} · {show.date}
                     </div>
-                    <div style={{ color: i === 0 ? "rgba(57,255,20,0.7)" : "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>
+                    <div style={{ color: i === 0 ? "rgba(57,255,20,0.7)" : "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>
                       {show.note}
                     </div>
                   </div>
@@ -570,7 +570,7 @@ export default function LuisMiguelProfile() {
               <div style={{ color: "#fff", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 4 }}>{r.unit}</div>
               <div className="lm-fa" style={{ color: "rgba(255,255,255,0.72)", fontSize: 16, textTransform: "uppercase", marginBottom: 5 }}>{r.venue}</div>
               <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>{r.city}</div>
-              <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{r.note}</div>
+              <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{r.note}</div>
             </motion.div>
           ))}
         </div>
@@ -646,25 +646,25 @@ export default function LuisMiguelProfile() {
 
                   <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.55)", fontSize: 52, lineHeight: 1, marginBottom: 8 }}>{leg.era}</div>
                   <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{leg.label}</div>
-                  <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>{leg.period}</div>
+                  <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>{leg.period}</div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     <div style={{ display: "flex", gap: 28 }}>
                       <div>
                         <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.75)", fontSize: 26 }}>{leg.gross}</div>
-                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD</div>
+                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD</div>
                       </div>
                       <div>
                         <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.shows} Shows</div>
-                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reportados</div>
+                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reportados</div>
                       </div>
                       <div>
                         <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.tickets}</div>
-                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tickets</div>
+                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tickets</div>
                       </div>
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{leg.markets}</div>
-                    <div style={{ color: "rgba(255,255,255,0.26)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
+                    <div style={{ color: "rgba(255,255,255,0.44)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
                       {leg.note}
                     </div>
                   </div>
@@ -673,7 +673,7 @@ export default function LuisMiguelProfile() {
             </div>
           </div>
 
-          <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          <div style={{ color: "rgba(255,255,255,0.50)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
             * Career total (796 shows / $786.4M) from Pollstar 2000–2026 report. 2023–2024 figures from Pollstar 2023–2026 report. Pre-2023 figures computed as difference.
             Shows no incluye reportes de soporte. Gross en USD según tipo de cambio reportado en Pollstar.
           </div>
@@ -706,7 +706,7 @@ export default function LuisMiguelProfile() {
         <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
-        <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
           Career: {CAREER_SHOWS} shows · $786,434,715 USD · {CAREER_TICKETS.toLocaleString()} tickets (Pollstar 2000–2026)
         </div>
         <Link href="/touring">
