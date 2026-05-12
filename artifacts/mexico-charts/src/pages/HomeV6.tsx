@@ -325,7 +325,7 @@ export default function HomeV6() {
       .filter(r => (r["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE")
       .map(r => {
         const rank = parseInt(r["Rank"] ?? "", 10) || 0;
-        const prev = parseInt(r["Previous"] ?? "", 10) || 0;
+        const prev = parseInt(r["Prev"] ?? "", 10) || 0;
         const gained = prev > 0 && rank > 0 ? prev - rank : 0;
         return { name: r["Artist"] ?? "", rank, prev, gained };
       })
