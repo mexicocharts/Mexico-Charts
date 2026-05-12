@@ -11,6 +11,9 @@ import _imgPortrait from "@assets/31f837484b7ef9fc9b4b56589d6da178_1778591170250
 import _imgBlueArena from "@assets/536273332_1218148096783736_815010960571842960_n_1778591705965.jpg";
 import _imgPyro     from "@assets/Junior_H-6.jpg_1778591705965.webp";
 import _imgLasers   from "@assets/556661257_1253304393508985_3929356419242217826_n_1778591705965.jpg";
+import _imgBMO      from "@assets/241010_JuniorH_RC_30-2-scaled_1778593369451.jpg";
+import _imgBowl     from "@assets/GkFhxFRXQAA-UOD_1778593407114.jpg";
+import _imgAmphitheater from "@assets/540747277_1217439643521248_6039852340396170805_n_1778593413055.jpg";
 
 const BG_HERO      = _imgArena;
 const BG_CROWD     = _imgCrowd;
@@ -20,9 +23,9 @@ const BG_FOOTPRINT = _imgLasers;
 const BG_CLOSE     = _imgPyro;
 const ARTIST_IMG   = _imgPortrait;
 const MARKET_IMG   = _imgBlueArena;
-const SHOW_IMG_1   = _imgArena;
-const SHOW_IMG_2   = _imgPyro;
-const SHOW_IMG_3   = _imgLasers;
+const SHOW_IMG_1   = _imgBMO;
+const SHOW_IMG_2   = _imgBowl;
+const SHOW_IMG_3   = _imgAmphitheater;
 
 function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
   to: number; prefix?: string; suffix?: string; decimals?: number;
