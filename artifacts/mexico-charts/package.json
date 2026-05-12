@@ -76,6 +76,7 @@
   },
   "dependencies": {
     "@types/papaparse": "^5.5.2",
-    "papaparse": "^5.5.3"
+    "papaparse": "^5.5.3",
+    "react-helmet-async": "^3.0.0"
   }
 }
