@@ -165,8 +165,26 @@ export default function TouringHub() {
 
       {/* ── HERO ── */}
       <section style={{ position: "relative", height: 520, overflow: "hidden" }}>
-        <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%" }} />
+        {/* SVG grain filter definition */}
+        <svg width="0" height="0" style={{ position: "absolute" }}>
+          <defs>
+            <filter id="hero-grain" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
+              <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" stitchTiles="stitch" result="noise" />
+              <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise" />
+              <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blended" />
+              <feComposite in="blended" in2="SourceGraphic" operator="in" />
+            </filter>
+          </defs>
+        </svg>
 
+        {/* Hero image — slight contrast lift to make crowd lights sparkle */}
+        <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
+
+        {/* Grain texture overlay */}
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.04, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 2 }} />
+
+        {/* Feathered left-side fade — text readability only, very low opacity */}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.72) 0%, rgba(4,10,4,0.38) 32%, transparent 58%)", zIndex: 3, pointerEvents: "none" }} />
 
         <div style={{ position: "relative", zIndex: 10, padding: "52px 40px 40px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
