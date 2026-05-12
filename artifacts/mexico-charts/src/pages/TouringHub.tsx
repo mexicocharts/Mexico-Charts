@@ -26,10 +26,12 @@ const FALLBACK_IMGS: Record<string, string> = {
   "larry-hernandez":  "https://images.unsplash.com/photo-1504704911898-68304a7d2807?w=400&h=500&fit=crop&q=75",
   "xavi":             "https://images.unsplash.com/photo-1571935441008-e6244ff434d8?w=400&h=500&fit=crop&q=75",
   "los-dos-carnales": "https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400&h=500&fit=crop&q=75",
+  "luis-miguel":      "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
 };
 
 const PROFILE_SLUGS: Record<string, string> = {
-  "junior-h": "junior-h",
+  "junior-h":    "junior-h",
+  "luis-miguel": "luis-miguel",
 };
 
 const insights = [
@@ -136,7 +138,7 @@ function SkeletonShelfCard() {
 
 const profileCards = [
   { artist: "Peso Pluma",  subtitle: "Éxodo Tour 2024",  gross: "$87.4M",  tickets: "758K", shows: 288, slug: "peso-pluma",    img: FALLBACK_IMGS["peso-pluma"] },
-  { artist: "Luis Miguel", subtitle: "Tour 2023–2024",   gross: "$317.2M", tickets: "2.2M", shows: 173, slug: "luis-miguel",   img: FALLBACK_IMGS["grupo-firme"] },
+  { artist: "Luis Miguel", subtitle: "Tour 2023–2024",   gross: "$415.8M", tickets: "2.86M", shows: 186, slug: "luis-miguel",   img: FALLBACK_IMGS["luis-miguel"] },
   { artist: "Junior H",   subtitle: "Sad Boyz",          gross: "$90.4M",  tickets: "758K", shows: 69,  slug: "junior-h",     img: FALLBACK_IMGS["junior-h"] },
   { artist: "Grupo Firme",subtitle: "Tour 2022–2023",    gross: "$81.6M",  tickets: "687K", shows: 72,  slug: "grupo-firme",  img: FALLBACK_IMGS["grupo-firme"] },
 ];

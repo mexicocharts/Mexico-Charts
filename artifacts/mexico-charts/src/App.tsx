@@ -19,6 +19,7 @@ import ChartsHub from "@/pages/ChartsHub";
 import GeneroHub from "@/pages/GeneroHub";
 import TouringHub from "@/pages/TouringHub";
 import TouringProfile from "@/pages/TouringProfile";
+import LuisMiguelProfile from "@/pages/LuisMiguelProfile";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/industria" component={IndustryLanding} />
       <Route path="/industry/certifications" component={Certifications} />
       <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
+      <Route path="/touring/luis-miguel" component={LuisMiguelProfile} />
       <Route path="/touring/:slug" component={TouringProfile} />
       <Route path="/touring" component={TouringHub} />
       <Route path="/artist/:slug" component={ArtistDetail} />
