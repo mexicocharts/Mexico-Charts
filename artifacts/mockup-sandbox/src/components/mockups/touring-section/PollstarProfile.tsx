@@ -245,104 +245,109 @@ export function PollstarProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          5. ATMOSPHERIC TOUR MAP
+          5. TOURING FOOTPRINT — cinematic city editorial
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", padding: "0 0 0", overflow: "hidden" }}>
-        <div style={{ position: "relative", zIndex: 10, padding: "64px 56px 0" }}>
-          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 16 }}>
-            Tour Map · 2021–2024
-          </div>
-          <div className="fa" style={{ color: "#fff", fontSize: 48, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 8 }}>
-            Llevando la Nueva<br />Música Mexicana<br /><span style={{ color: "#39FF14" }}>a todo el Mundo.</span>
-          </div>
+      <section style={{ position: "relative", overflow: "hidden" }}>
+        {/* Right-side bleeding photo */}
+        <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "46%", zIndex: 0 }}>
+          <img src={BG_STAGE} alt="" style={{
+            width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%",
+            filter: "brightness(0.28) saturate(0.6)",
+          }} />
+          {/* Left feather into dark */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.5) 30%, rgba(6,6,6,0.0) 70%)" }} />
+          {/* Top/bottom feather */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.9) 0%, transparent 18%, transparent 82%, rgba(6,6,6,0.9) 100%)" }} />
+          {/* Green atmospheric glow from center */}
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 60% 50%, rgba(57,255,20,0.06) 0%, transparent 60%)" }} />
+
+          {/* Floating market split — overlaid on photo */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            transition={{ delay: 0.8, duration: 0.9 }}
+            style={{ position: "absolute", bottom: 64, right: 64, textAlign: "right", zIndex: 2 }}>
+            <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.35em", marginBottom: 20 }}>
+              Distribución de Mercados
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <div className="fa" style={{ color: "#39FF14", fontSize: 64, lineHeight: 1 }}>82%</div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en Estados Unidos</div>
+              </div>
+              <div>
+                <div className="fa" style={{ color: "#fff", fontSize: 40, lineHeight: 1 }}>12%</div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en México</div>
+              </div>
+              <div style={{ marginTop: 4 }}>
+                <div className="fa" style={{ color: "rgba(255,255,255,0.4)", fontSize: 24, lineHeight: 1 }}>18 Países</div>
+                <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Gira global 2021–2024</div>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
-        {/* The atmospheric map */}
-        <div style={{ position: "relative", margin: "32px 0 0", height: 400 }}>
-          {/* Background glow */}
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 55% 45%, rgba(57,255,20,0.04) 0%, transparent 60%)" }} />
+        {/* Left: City list editorial */}
+        <div style={{ position: "relative", zIndex: 10, padding: "72px 0 72px 56px", maxWidth: "58%" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 40 }}>
+            Mercados Principales · 2021–2024
+          </motion.div>
 
-          <svg viewBox="0 0 800 400" width="100%" height="100%" style={{ display: "block" }}>
-            <defs>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-              <filter id="softglow">
-                <feGaussianBlur stdDeviation="6" result="blur" />
-                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-              </filter>
-            </defs>
+          {[
+            { n: "01", city: "Los Ángeles",        sub: "California, EUA",    hi: true  },
+            { n: "02", city: "Ciudad de México",    sub: "México",             hi: false },
+            { n: "03", city: "Houston",             sub: "Texas, EUA",         hi: false },
+            { n: "04", city: "Chicago",             sub: "Illinois, EUA",      hi: false },
+            { n: "05", city: "Nueva York",          sub: "Nueva York, EUA",    hi: false },
+            { n: "06", city: "Monterrey",           sub: "Nuevo León, México", hi: false },
+            { n: "07", city: "Las Vegas",           sub: "Nevada, EUA",        hi: false },
+            { n: "08", city: "Dallas",              sub: "Texas, EUA",         hi: false },
+          ].map((row, i) => (
+            <motion.div key={row.city}
+              initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
+              transition={{ delay: i * 0.07, duration: 0.55, ease: "easeOut" }}>
+              {/* Divider */}
+              <div style={{ height: 1, background: i === 0 ? "rgba(57,255,20,0.25)" : "rgba(255,255,255,0.06)", marginBottom: 0 }} />
+              <div style={{
+                display: "flex", alignItems: "center", gap: 20,
+                padding: "18px 0",
+              }}>
+                {/* Number */}
+                <span style={{
+                  color: row.hi ? "#39FF14" : "rgba(57,255,20,0.3)",
+                  fontSize: 9, fontWeight: 700, fontFamily: "Inter, sans-serif",
+                  textTransform: "uppercase", letterSpacing: "0.15em",
+                  minWidth: 24, flexShrink: 0,
+                }}>{row.n}</span>
+                {/* City name */}
+                <span className="fa" style={{
+                  color: row.hi ? "#fff" : "rgba(255,255,255,0.75)",
+                  fontSize: row.hi ? 44 : 36,
+                  textTransform: "uppercase", lineHeight: 1,
+                  flex: 1,
+                }}>{row.city}</span>
+                {/* Sub label */}
+                <span style={{
+                  color: "rgba(255,255,255,0.18)", fontSize: 9,
+                  textTransform: "uppercase", letterSpacing: "0.15em",
+                  fontFamily: "Inter, sans-serif", fontWeight: 600,
+                  flexShrink: 0,
+                }}>{row.sub}</span>
+              </div>
+            </motion.div>
+          ))}
+          {/* Bottom divider */}
+          <div style={{ height: 1, background: "rgba(255,255,255,0.06)" }} />
 
-            {/* US landmass */}
-            <path d="M120,60 L680,60 L690,50 L710,58 L715,75 L705,110 L690,140 L675,175 L655,205 L630,228 L600,245 L565,258 L530,268 L495,275 L460,280 L430,283 L400,285 L375,288 L355,292 L340,298 L330,308 L335,322 L340,338 L335,348 L322,352 L308,350 L295,344 L280,330 L268,315 L260,298 L265,280 L258,265 L242,250 L220,238 L198,225 L178,210 L162,192 L148,170 L138,148 L128,124 L120,100 L120,60Z"
-              fill="rgba(20,35,20,0.7)" stroke="rgba(57,255,20,0.12)" strokeWidth="1" />
-
-            {/* Mexico */}
-            <path d="M260,285 L268,268 L278,258 L295,252 L310,255 L325,260 L335,270 L340,282 L342,295 L340,310 L338,325 L332,340 L322,352 L308,350 L295,344 L280,330 L268,315 L260,298 L260,285Z"
-              fill="rgba(15,28,15,0.8)" stroke="rgba(57,255,20,0.15)" strokeWidth="1" />
-
-            {/* Subtle interior geography lines */}
-            <line x1="350" y1="60" x2="350" y2="240" stroke="rgba(57,255,20,0.04)" strokeWidth="0.8" />
-            <line x1="480" y1="60" x2="480" y2="250" stroke="rgba(57,255,20,0.04)" strokeWidth="0.8" />
-            <line x1="120" y1="150" x2="680" y2="150" stroke="rgba(57,255,20,0.04)" strokeWidth="0.8" />
-            <line x1="120" y1="210" x2="650" y2="210" stroke="rgba(57,255,20,0.04)" strokeWidth="0.8" />
-
-            {/* Animated routing lines from CDMX outward */}
-            {[
-              { x1: 320, y1: 310, x2: 260, y2: 195 },  // to LA
-              { x1: 320, y1: 310, x2: 295, y2: 178 },  // to Phoenix
-              { x1: 320, y1: 310, x2: 375, y2: 190 },  // to Houston
-              { x1: 320, y1: 310, x2: 395, y2: 170 },  // to Dallas
-              { x1: 320, y1: 310, x2: 450, y2: 150 },  // to Chicago
-              { x1: 320, y1: 310, x2: 540, y2: 130 },  // to NYC
-              { x1: 320, y1: 310, x2: 510, y2: 155 },  // to DC/Philly
-              { x1: 320, y1: 310, x2: 440, y2: 175 },  // to Atlanta
-              { x1: 320, y1: 310, x2: 235, y2: 175 },  // to SF
-            ].map((line, i) => (
-              <motion.line key={i}
-                x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2}
-                stroke="rgba(57,255,20,0.2)" strokeWidth="0.8" strokeDasharray="4 6"
-                filter="url(#glow)"
-                initial={{ pathLength: 0, opacity: 0 }}
-                whileInView={{ pathLength: 1, opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: 0.3 + i * 0.1, duration: 1.2, ease: "easeOut" }}
-              />
-            ))}
-
-            {/* City dots */}
-            <CityDot x={320} y={310} size={6} delay={0.2} label="CDMX" labelPos="top" />
-            <CityDot x={280} y={268} size={4} delay={0.5} label="Guadalajara" labelPos="left" />
-            <CityDot x={260} y={195} size={5} delay={0.6} label="Los Ángeles" labelPos="left" />
-            <CityDot x={295} y={178} size={3.5} delay={0.7} label="Phoenix" labelPos="left" />
-            <CityDot x={235} y={175} size={3} delay={0.75} label="SF" labelPos="left" />
-            <CityDot x={375} y={190} size={4.5} delay={0.8} label="Houston" labelPos="right" />
-            <CityDot x={395} y={170} size={3.5} delay={0.85} label="Dallas" labelPos="right" />
-            <CityDot x={450} y={150} size={4.5} delay={0.9} label="Chicago" labelPos="right" />
-            <CityDot x={540} y={130} size={5} delay={0.95} label="Nueva York" labelPos="right" />
-            <CityDot x={510} y={155} size={3} delay={1.0} label="DC" labelPos="right" />
-            <CityDot x={440} y={175} size={3} delay={1.05} label="Atlanta" labelPos="right" />
-          </svg>
-        </div>
-
-        {/* Map footer stats — floating, no boxes */}
-        <div style={{ display: "flex", gap: 64, padding: "32px 56px 72px" }}>
-          <div>
-            <div className="fa" style={{ color: "#fff", fontSize: 44, lineHeight: 1 }}>62</div>
-            <div style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 6 }}>Shows en EUA</div>
-            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>82% del total</div>
-          </div>
-          <div>
-            <div className="fa" style={{ color: "#fff", fontSize: 44, lineHeight: 1 }}>14</div>
-            <div style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 6 }}>Shows en México</div>
-            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>12% del total</div>
-          </div>
-          <div>
-            <div className="fa" style={{ color: "#fff", fontSize: 44, lineHeight: 1 }}>18</div>
-            <div style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 6 }}>Países</div>
-            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gira global</div>
-          </div>
+          {/* Footer note */}
+          <motion.div
+            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+            transition={{ delay: 0.7, duration: 0.6 }}
+            style={{ color: "rgba(255,255,255,0.15)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 24 }}>
+            Por número de shows reportados · Fuente: Pollstar Research
+          </motion.div>
         </div>
       </section>
 
