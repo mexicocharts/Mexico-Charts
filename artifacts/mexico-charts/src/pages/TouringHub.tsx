@@ -138,7 +138,7 @@ function SkeletonShelfCard() {
 
 const profileCards = [
   { artist: "Peso Pluma",  subtitle: "Éxodo Tour 2024",  gross: "$87.4M",  tickets: "758K", shows: 288, slug: "peso-pluma",    img: FALLBACK_IMGS["peso-pluma"] },
-  { artist: "Luis Miguel", subtitle: "Tour 2023–2024",   gross: "$415.8M", tickets: "2.86M", shows: 186, slug: "luis-miguel",   img: FALLBACK_IMGS["luis-miguel"] },
+  { artist: "Luis Miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel",   img: FALLBACK_IMGS["luis-miguel"] },
   { artist: "Junior H",   subtitle: "Sad Boyz",          gross: "$90.4M",  tickets: "758K", shows: 69,  slug: "junior-h",     img: FALLBACK_IMGS["junior-h"] },
   { artist: "Grupo Firme",subtitle: "Tour 2022–2023",    gross: "$81.6M",  tickets: "687K", shows: 72,  slug: "grupo-firme",  img: FALLBACK_IMGS["grupo-firme"] },
 ];

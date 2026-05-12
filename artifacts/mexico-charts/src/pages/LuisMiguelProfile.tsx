@@ -6,8 +6,6 @@ import PageSEO from "@/components/PageSEO";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    IMAGES
-   Background images: Unsplash (stable)
-   Artist portrait: Deezer CDN (stable) — swap hash if needed
 ────────────────────────────────────────────────────────────────────────────── */
 const BG_HERO    = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1400&h=800&fit=crop&q=85";
 const BG_CROWD   = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1400&h=700&fit=crop&q=82";
@@ -18,20 +16,34 @@ const BG_CLOSE   = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7
 const ARTIST_IMG = "https://cdn-images.dzcdn.net/images/artist/b6bbe4ed8f73bf3fdbf5b6f68e7a75e4/1000x1000-000000-80-0-0.jpg";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   POLLSTAR DATA — Luis Miguel Tour History Report (Feb 2023 – Feb 2026)
-   Purchased: 2/8/2026 · Shows from 2/1/2023 to 2/8/2026
-   Source of truth: Pollstar Tour History Report (PDF attached)
+   POLLSTAR DATA — Luis Miguel Tour History Reports
+   ─ Full career: Report purchased 2/8/2026 · Shows 2/1/2000 – 2/8/2026
+   ─ Latest tour: Report purchased 2/8/2026 · Shows 2/1/2023 – 2/8/2026
+   Source of truth: Pollstar Tour History Reports (PDFs attached)
 ────────────────────────────────────────────────────────────────────────────── */
 
-// SUMMARY (from Pollstar report header — exact values)
-const TOTAL_GROSS_USD  = 415849128;   // $415,849,128 USD
-const TOTAL_TICKETS    = 2861491;     // 2,861,491 tickets
-const TOTAL_SHOWS      = 186;         // 186 total shows
-const SELL_THROUGH_PCT = 95;          // 95% sell-through
-const AVG_GROSS        = 2260050;     // $2,260,050 avg gross per show
-const AVG_ATTENDANCE   = 15552;       // 15,552 avg tickets sold per show
+// CAREER CENTURY TOTAL (2000–2026 Pollstar report header — exact values)
+const CAREER_GROSS_USD     = 786434715;   // $786,434,715 USD
+const CAREER_TICKETS       = 7319267;     // 7,319,267 tickets
+const CAREER_SHOWS         = 796;         // 796 total shows
+const CAREER_SELL_THROUGH  = 87;          // 87% average sell-through
+const CAREER_AVG_GROSS     = 1536005;     // $1,536,005 avg gross per show
+const CAREER_AVG_ATT       = 14295;       // 14,295 avg tickets sold per show
 
-// TOP SHOWS BY GROSS — exact figures from Pollstar PDF
+// LATEST TOUR — 2023–2024 (Pollstar 2023–2026 report header — exact values)
+const TOUR_GROSS_USD       = 415849128;   // $415,849,128 USD
+const TOUR_TICKETS         = 2861491;     // 2,861,491 tickets
+const TOUR_SHOWS           = 186;         // 186 shows
+const TOUR_SELL_THROUGH    = 95;          // 95% sell-through
+const TOUR_AVG_GROSS       = 2260050;     // $2,260,050 avg gross per show
+const TOUR_AVG_ATT         = 15552;       // 15,552 avg attendance
+
+// COMPUTED — Pre-2023 era (difference: career minus 2023–2024 tour)
+const PRE23_GROSS          = CAREER_GROSS_USD - TOUR_GROSS_USD;  // $370,585,587
+const PRE23_SHOWS          = CAREER_SHOWS - TOUR_SHOWS;          // 610
+const PRE23_TICKETS        = CAREER_TICKETS - TOUR_TICKETS;      // 4,457,776
+
+// TOP 5 SHOWS BY GROSS — 2023–2024 tour (exact figures from Pollstar PDF)
 const TOP_SHOWS = [
   {
     rank: 1,
@@ -40,8 +52,6 @@ const TOP_SHOWS = [
     date: "6 Jul 2024",
     tickets: "45,541",
     gross: "$8.24M",
-    sellout: true,
-    capacity: "45,541",
     note: "100% vendido",
   },
   {
@@ -51,19 +61,15 @@ const TOP_SHOWS = [
     date: "12 Feb 2024",
     tickets: "35,422",
     gross: "$6.85M",
-    sellout: false,
-    capacity: "36,013",
     note: "98% vendido",
   },
   {
     rank: 3,
     venue: "Estadio GNP Seguros",
-    city: "Ciudad de México, México",
+    city: "Ciudad de México",
     date: "30 Nov 2024",
     tickets: "56,539",
     gross: "$6.00M",
-    sellout: false,
-    capacity: "57,874",
     note: "98% vendido · Mayor asistencia",
   },
   {
@@ -73,8 +79,6 @@ const TOP_SHOWS = [
     date: "7 Jul 2024",
     tickets: "43,644",
     gross: "$5.59M",
-    sellout: true,
-    capacity: "45,541",
     note: "100% vendido",
   },
   {
@@ -84,13 +88,11 @@ const TOP_SHOWS = [
     date: "25 Feb 2024",
     tickets: "41,263",
     gross: "$5.45M",
-    sellout: true,
-    capacity: "41,263",
     note: "100% vendido",
   },
 ];
 
-// TOP MARKETS by number of shows (from PDF data)
+// TOP MARKETS by shows — 2023–2024 tour (from PDF data)
 const TOP_MARKETS = [
   { n: "01", city: "Ciudad de México",  sub: "México",              hi: true  },
   { n: "02", city: "Buenos Aires",      sub: "Argentina",           hi: false },
@@ -102,33 +104,7 @@ const TOP_MARKETS = [
   { n: "08", city: "Lima",              sub: "Perú",                hi: false },
 ];
 
-// TOUR LEGS (from PDF dates — grouped by segment)
-const TOUR_LEGS = [
-  {
-    id: "2023",
-    label: "2023",
-    name: "Leg 1 · Las Américas",
-    period: "Ago–Dic 2023",
-    shows: 60,
-    grossLabel: "~$115M",
-    markets: "Argentina · Chile · EUA · México",
-    peak: false,
-    note: "Buenos Aires (9 shows) · Santiago (10 shows) · Arenas de EUA · Estadios México",
-  },
-  {
-    id: "2024",
-    label: "2024",
-    name: "Leg 2 · El Mundo",
-    period: "Ene–Dic 2024",
-    shows: 126,
-    grossLabel: "~$301M",
-    markets: "16+ países · 4 continentes",
-    peak: true,
-    note: "Caribe · Sudamérica · EUA · Canadá · España · México estadios",
-  },
-];
-
-// COUNTRIES VISITED (from PDF data — only what appears in the report)
+// COUNTRIES — 2023–2024 tour (from PDF data)
 const COUNTRIES = [
   "México","Estados Unidos","Argentina","Chile","Perú","Uruguay",
   "Colombia","Venezuela","Ecuador","Brasil","Paraguay","Costa Rica",
@@ -151,7 +127,7 @@ function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PAGE COMPONENT
+   PAGE
 ────────────────────────────────────────────────────────────────────────────── */
 export default function LuisMiguelProfile() {
   const [mounted, setMounted] = useState(false);
@@ -166,7 +142,7 @@ export default function LuisMiguelProfile() {
     <div style={{ background: "#060606", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af", overflowX: "hidden" }}>
       <PageSEO
         title="Luis Miguel · Touring Profile — Mexico Charts"
-        description="El perfil de gira más completo de Luis Miguel. $415.8M USD en taquilla, 186 shows, 20+ países. Datos Pollstar 2023–2024."
+        description="El artista mexicano con mayor recaudación de la historia. $786.4M USD, 796 shows, 7.3M fans reportados por Pollstar (2000–2024)."
         path="/touring/luis-miguel"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -178,21 +154,18 @@ export default function LuisMiguelProfile() {
       <SiteNav />
 
       {/* ══════════════════════════════════════════
-          1. CINEMATIC HERO
+          1. CINEMATIC HERO — Full career headline
       ══════════════════════════════════════════ */}
       <section ref={heroRef} style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden" }}>
         <motion.img src={BG_HERO} alt="" style={{
           position: "absolute", inset: 0, width: "100%", height: "115%",
           objectFit: "cover", objectPosition: "center 30%", y: heroBgY,
         }} />
-        {/* Deep left-side overlay for text */}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.98) 30%, rgba(6,6,6,0.6) 60%, rgba(6,6,6,0.08) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,6,1) 0%, rgba(6,6,6,0.3) 30%, transparent 60%)" }} />
-        {/* Gold atmospheric glow — unique to LM */}
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 18% 55%, rgba(57,255,20,0.035) 0%, transparent 52%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 80% 30%, rgba(255,220,80,0.025) 0%, transparent 55%)" }} />
 
-        {/* Artist portrait — right panel */}
+        {/* Artist portrait */}
         <div style={{ position: "absolute", right: 0, top: 0, width: "48%", height: "100%" }}>
           <img src={ARTIST_IMG} alt="Luis Miguel"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
@@ -203,14 +176,13 @@ export default function LuisMiguelProfile() {
               filter: "brightness(0.68) contrast(1.05)",
             }}
           />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 45% 50%, rgba(57,255,20,0.07) 0%, transparent 60%)" }} />
         </div>
 
         {/* Hero text */}
-        <motion.div style={{ position: "relative", zIndex: 10, padding: "0 52px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 660, y: heroTextY }}>
+        <motion.div style={{ position: "relative", zIndex: 10, padding: "0 52px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 680, y: heroTextY }}>
           <Link href="/touring">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05, duration: 0.5 }}
-              style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18, cursor: "pointer" }}>
               ← Touring
             </motion.div>
           </Link>
@@ -227,18 +199,22 @@ export default function LuisMiguelProfile() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55, duration: 0.9 }}>
             <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 10 }}>
-              Gross Total Reportado · 2023–2024
+              Gross Total Reportado · Siglo XXI · 2000–2024
             </div>
             <div className="lm-fa" style={{ color: "#39FF14", fontSize: 88, lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
-              $<AnimCount to={415.8} decimals={1} />M
+              $<AnimCount to={786.4} decimals={1} />M
             </div>
-            <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
-                USD en Taquilla
+                USD · Pollstar
               </div>
               <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
-                {TOTAL_SHOWS} Shows Reportados
+                {CAREER_SHOWS} Shows
+              </div>
+              <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
+                7.3M Fans
               </div>
               <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
@@ -248,11 +224,11 @@ export default function LuisMiguelProfile() {
           </motion.div>
         </motion.div>
 
-        {/* Top-right editorial tag */}
+        {/* Top-right editorial */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}
           style={{ position: "absolute", top: 52, right: 52, zIndex: 10, textAlign: "right" }}>
           <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em", lineHeight: 2.1, fontWeight: 500 }}>
-            La Gira Más Grande<br />de un Artista<br />Mexicano en la Historia.
+            El Mayor Gross<br />de un Artista<br />Mexicano en la Historia.
           </div>
         </motion.div>
 
@@ -264,66 +240,18 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          2. IMPACT STAT — 2.86M Fans
+          2. CAREER OVERVIEW — 4 headline stats
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 440, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 38%", filter: "brightness(0.38) saturate(0.7)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.12) 18%, rgba(6,6,6,0.12) 80%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 62%)" }} />
-
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
-          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Total de Fans · 2023–2024
-          </div>
-          <div className="lm-fa" style={{ color: "#fff", fontSize: 136, lineHeight: 0.85, letterSpacing: "-0.02em" }}>
-            {mounted ? <AnimCount to={2.86} decimals={2} suffix="M" /> : "2.86M"}
-          </div>
-          <div className="lm-fa" style={{ color: "#39FF14", fontSize: 28, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
-            Boletos Vendidos
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.26em", marginTop: 18 }}>
-            Pollstar Reportado · 95% Sell-Through Global
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          3. EDITORIAL PULLQUOTE
-      ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 500, overflow: "hidden" }}>
-        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 25%", filter: "brightness(0.28) saturate(0.6)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.18) 16%, rgba(6,6,6,0.18) 84%, rgba(6,6,6,1) 100%)" }} />
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
-
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 68px" }}>
-          <div style={{ maxWidth: 820 }}>
-            <motion.div className="lm-fa"
-              initial={{ opacity: 0, y: 44 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1.0 }}
-              style={{ color: "#fff", fontSize: 66, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
-              El Regreso<br />del Sol.<br /><span style={{ color: "#39FF14" }}>Historia Viva.</span>
-            </motion.div>
-            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
-              style={{ color: "rgba(255,255,255,0.52)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 30, maxWidth: 480, lineHeight: 1.88 }}>
-              En 186 noches — de Buenos Aires a Madrid, de Lima a Ciudad de México — Luis Miguel
-              reescribió los récords del entretenimiento latinoamericano en vivo.
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════
-          4. FLOATING STATS — 4 KEY METRICS
-      ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", padding: "88px 0", overflow: "hidden" }}>
-        <img src={BG_LIGHTS} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.18) saturate(0.6)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.08) 15%, rgba(6,6,6,0.08) 85%, rgba(6,6,6,1) 100%)" }} />
+      <section style={{ position: "relative", padding: "80px 0", overflow: "hidden" }}>
+        <img src={BG_LIGHTS} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.16) saturate(0.6)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.08) 14%, rgba(6,6,6,0.08) 86%, rgba(6,6,6,1) 100%)" }} />
 
         <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 40 }}>
           {[
-            { value: "$415.8M", label: "Gross Total Reportado",   sub: "USD en taquilla · Pollstar" },
-            { value: "2.86M",   label: "Boletos Vendidos",        sub: "Total reportado" },
-            { value: "95%",     label: "Sell-Through Global",     sub: "Promedio de ocupación" },
-            { value: "$2.26M",  label: "Gross Promedio por Show", sub: "USD por concierto" },
+            { value: "$786.4M", label: "Gross Total · 2000–2024",  sub: "USD reportado · Pollstar" },
+            { value: "7.32M",   label: "Boletos Vendidos",          sub: "Este siglo · 796 shows" },
+            { value: "87%",     label: "Sell-Through Promedio",     sub: "24 años de historia" },
+            { value: "$1.54M",  label: "Gross Promedio por Show",   sub: "USD · carrera completa" },
           ].map((s, i) => (
             <motion.div key={s.label}
               initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -338,32 +266,150 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          5. WORLD TOUR FOOTPRINT — markets + countries
+          3. THE COMEBACK STAT — most important editorial moment
+          El tour 2023-2024 alone > all 610 previous shows combined
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
-        {/* Right side image panel */}
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 38%", filter: "brightness(0.35) saturate(0.7)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 16%, rgba(6,6,6,0.1) 84%, rgba(6,6,6,1) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 62%)" }} />
+
+        <div style={{ position: "relative", zIndex: 10, padding: "88px 56px", maxWidth: 1100 }}>
+          <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
+            style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 44 }}>
+            El Dato de la Década
+          </motion.div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 40, alignItems: "center" }}>
+            {/* Left — 2023-2024 tour */}
+            <motion.div initial={{ opacity: 0, x: -30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.15, duration: 0.8 }}>
+              <div style={{ borderTop: "2px solid #39FF14", paddingTop: 24 }}>
+                <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", marginBottom: 14 }}>
+                  Tour 2023–2024 · Sólo
+                </div>
+                <div className="lm-fa" style={{ color: "#39FF14", fontSize: 84, lineHeight: 0.9, marginBottom: 12 }}>
+                  $415.8M
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+                  186 Shows · 2.86M Fans
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  95% Sell-Through · $2.26M Avg/Show
+                </div>
+              </div>
+            </motion.div>
+
+            {/* VS divider */}
+            <motion.div initial={{ opacity: 0, scale: 0.5 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.35, duration: 0.6 }}>
+              <div className="lm-fa" style={{ color: "rgba(255,255,255,0.18)", fontSize: 64, textAlign: "center" }}>VS</div>
+            </motion.div>
+
+            {/* Right — Pre-2023 */}
+            <motion.div initial={{ opacity: 0, x: 30 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.2, duration: 0.8 }}>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 24 }}>
+                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", marginBottom: 14 }}>
+                  Primeros 22 Años · 2000–2022
+                </div>
+                <div className="lm-fa" style={{ color: "rgba(255,255,255,0.65)", fontSize: 84, lineHeight: 0.9, marginBottom: 12 }}>
+                  ~$370.6M
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+                  ~610 Shows · ~4.46M Fans
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  Gross computado · Career total menos 2023–2024
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Punchline */}
+          <motion.div initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.6, duration: 0.8 }}
+            style={{ marginTop: 52, borderTop: "1px solid rgba(57,255,20,0.12)", paddingTop: 32 }}>
+            <div className="lm-fa" style={{ color: "#fff", fontSize: 38, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 18 }}>
+              Su regreso de 2023–2024 generó<br />
+              <span style={{ color: "#39FF14" }}>más que todo lo anterior combinado.</span>
+            </div>
+            <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, maxWidth: 620, lineHeight: 1.75 }}>
+              En 186 shows — contra 610 anteriores de este siglo — Luis Miguel reescribió sus propios récords
+              con precios promedio más altos, estadios más grandes y una demanda sin precedente.
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          4. 7.3M FANS IMPACT STAT
+      ══════════════════════════════════════════ */}
+      <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
+        <img src={BG_STADIUM} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.35) saturate(0.65)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.12) 18%, rgba(6,6,6,0.12) 80%, rgba(6,6,6,1) 100%)" }} />
+
+        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
+          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
+            Total de Fans · Siglo XXI · Pollstar
+          </div>
+          <div className="lm-fa" style={{ color: "#fff", fontSize: 120, lineHeight: 0.85, letterSpacing: "-0.02em" }}>
+            {mounted ? <AnimCount to={7.32} decimals={2} suffix="M" /> : "7.32M"}
+          </div>
+          <div className="lm-fa" style={{ color: "#39FF14", fontSize: 26, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
+            Boletos Vendidos · 796 Shows
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.26em", marginTop: 18 }}>
+            Reporte Pollstar · 2000–2024 · 87% Sell-Through Promedio
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          5. EDITORIAL PULLQUOTE
+      ══════════════════════════════════════════ */}
+      <section style={{ position: "relative", height: 460, overflow: "hidden" }}>
+        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 25%", filter: "brightness(0.28) saturate(0.6)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.18) 16%, rgba(6,6,6,0.18) 84%, rgba(6,6,6,1) 100%)" }} />
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
+
+        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 68px" }}>
+          <div style={{ maxWidth: 820 }}>
+            <motion.div className="lm-fa"
+              initial={{ opacity: 0, y: 44 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1.0 }}
+              style={{ color: "#fff", fontSize: 62, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
+              El Regreso<br />del Sol.<br /><span style={{ color: "#39FF14" }}>Historia Viva.</span>
+            </motion.div>
+            <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
+              style={{ color: "rgba(255,255,255,0.52)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 30, maxWidth: 520, lineHeight: 1.88 }}>
+              En 796 noches de este siglo — de Buenos Aires a Madrid, de Lima a Ciudad de México — El Sol
+              acumuló $786 millones de dólares y siete millones de fans.
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════════════════════════════════════
+          6. WORLD TOUR FOOTPRINT — 2023-2024 latest tour markets
+      ══════════════════════════════════════════ */}
+      <section style={{ position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "44%", zIndex: 0 }}>
-          <img src={BG_STADIUM} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.42) saturate(0.72)" }} />
+          <img src={BG_CROWD} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.42) saturate(0.72)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.42) 28%, rgba(6,6,6,0.0) 68%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.65) 0%, transparent 16%, transparent 84%, rgba(6,6,6,0.65) 100%)" }} />
 
-          {/* Stats overlay — market split */}
           <motion.div
             initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             transition={{ delay: 0.85, duration: 0.9 }}
             style={{ position: "absolute", bottom: 56, right: 52, textAlign: "right", zIndex: 2 }}>
             <div style={{ color: "rgba(57,255,20,0.45)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.38em", marginBottom: 22 }}>
-              Distribución de Mercados
+              Tour 2023–2024 · Distribución
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {[
-                { pct: "~37%", label: "Shows en México",        big: true  },
-                { pct: "~23%", label: "Shows en EUA",           big: false },
-                { pct: "~17%", label: "Sudamérica",             big: false },
-                { pct: "~8%",  label: "España / Europa",        big: false },
+                { pct: "~37%", label: "Shows en México",    big: true  },
+                { pct: "~23%", label: "Shows en EUA",       big: false },
+                { pct: "~17%", label: "Sudamérica",         big: false },
+                { pct: "~8%",  label: "España / Europa",    big: false },
               ].map((m, i) => (
                 <div key={i}>
-                  <div className="lm-fa" style={{ color: m.big ? "#39FF14" : "#fff", fontSize: m.big ? 58 : 36, lineHeight: 1 }}>{m.pct}</div>
+                  <div className="lm-fa" style={{ color: m.big ? "#39FF14" : "#fff", fontSize: m.big ? 52 : 32, lineHeight: 1 }}>{m.pct}</div>
                   <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>{m.label}</div>
                 </div>
               ))}
@@ -371,11 +417,10 @@ export default function LuisMiguelProfile() {
           </motion.div>
         </div>
 
-        {/* Left content — top cities */}
         <div style={{ position: "relative", zIndex: 10, padding: "76px 0 76px 56px", maxWidth: "60%" }}>
           <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
             style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 44 }}>
-            Mercados Principales · Gira 2023–2024
+            Mercados Principales · Tour 2023–2024
           </motion.div>
 
           {TOP_MARKETS.map((row, i) => (
@@ -383,20 +428,19 @@ export default function LuisMiguelProfile() {
               initial={{ opacity: 0, x: -26 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.07, duration: 0.55, ease: "easeOut" }}>
               <div style={{ height: 1, background: i === 0 ? "rgba(57,255,20,0.22)" : "rgba(255,255,255,0.055)" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "16px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 0" }}>
                 <span style={{ color: row.hi ? "#39FF14" : "rgba(57,255,20,0.28)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", minWidth: 26, flexShrink: 0 }}>{row.n}</span>
-                <span className="lm-fa" style={{ color: row.hi ? "#fff" : "rgba(255,255,255,0.72)", fontSize: row.hi ? 42 : 34, textTransform: "uppercase", lineHeight: 1, flex: 1 }}>{row.city}</span>
+                <span className="lm-fa" style={{ color: row.hi ? "#fff" : "rgba(255,255,255,0.72)", fontSize: row.hi ? 40 : 32, textTransform: "uppercase", lineHeight: 1, flex: 1 }}>{row.city}</span>
                 <span style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 600, flexShrink: 0 }}>{row.sub}</span>
               </div>
             </motion.div>
           ))}
           <div style={{ height: 1, background: "rgba(255,255,255,0.055)" }} />
 
-          {/* Countries tag cloud */}
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.65, duration: 0.7 }}
-            style={{ marginTop: 36 }}>
-            <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.24em", marginBottom: 14 }}>
-              Países visitados ({COUNTRIES.length})
+            style={{ marginTop: 32 }}>
+            <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.24em", marginBottom: 12 }}>
+              Países visitados 2023–2024 ({COUNTRIES.length})
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {COUNTRIES.map((c) => (
@@ -406,23 +450,18 @@ export default function LuisMiguelProfile() {
               ))}
             </div>
           </motion.div>
-
-          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.8, duration: 0.6 }}
-            style={{ color: "rgba(255,255,255,0.38)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 22 }}>
-            Por número de shows reportados · Fuente: Pollstar Research
-          </motion.div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════════
-          6. BIGGEST SHOWS — TOP 5 BY GROSS
+          7. BIGGEST SHOWS — top 5 by gross (2023-2024 tour)
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "0 0 80px" }}>
         <div style={{ padding: "72px 56px 40px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Shows con Mayor Recaudación
+            Shows con Mayor Recaudación · Tour 2023–2024
           </div>
-          <div className="lm-fa" style={{ color: "#fff", fontSize: 44, textTransform: "uppercase", lineHeight: 0.88 }}>
+          <div className="lm-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.88 }}>
             Las Noches<br />Históricas.
           </div>
           <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
@@ -434,40 +473,34 @@ export default function LuisMiguelProfile() {
           {TOP_SHOWS.map((show, i) => (
             <motion.div key={`${show.venue}-${show.date}`}
               initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ delay: i * 0.11, duration: 0.72 }}
-              style={{ position: "relative", height: 192, overflow: "hidden" }}>
-
-              {/* Background */}
+              transition={{ delay: i * 0.1, duration: 0.7 }}
+              style={{ position: "relative", height: 182, overflow: "hidden" }}>
               <img src={i % 2 === 0 ? BG_STAGE : BG_CROWD} alt=""
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.4) saturate(0.72)" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.92) 0%, rgba(6,6,6,0.55) 52%, rgba(6,6,6,0.12) 100%)" }} />
-
-              {/* Left accent bar */}
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
 
-              {/* Content */}
-              <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 56px", gap: 36, justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-                  <span className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.3)", fontSize: 54, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
+              <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 52px", gap: 32, justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+                  <span className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.28)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
                   <div>
-                    <div className="lm-fa" style={{ color: "#fff", fontSize: 26, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 5 }}>
+                    <div className="lm-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
                       {show.city} · {show.date}
                     </div>
-                    <div style={{ color: i === 0 ? "rgba(57,255,20,0.7)" : "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 4 }}>
-                      {show.note} · Cap. {show.capacity}
+                    <div style={{ color: i === 0 ? "rgba(57,255,20,0.7)" : "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>
+                      {show.note}
                     </div>
                   </div>
                 </div>
-
-                <div style={{ display: "flex", gap: 48, flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 44, flexShrink: 0 }}>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 5 }}>Asistencia</div>
-                    <div className="lm-fa" style={{ color: "#fff", fontSize: 22 }}>{show.tickets}</div>
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Asistencia</div>
+                    <div className="lm-fa" style={{ color: "#fff", fontSize: 20 }}>{show.tickets}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 5 }}>Gross USD</div>
-                    <div className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 22 }}>{show.gross}</div>
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Gross USD</div>
+                    <div className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 20 }}>{show.gross}</div>
                   </div>
                 </div>
               </div>
@@ -477,53 +510,57 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          7. RECORD HIGHLIGHT — Estadio GNP / Bernabéu
+          8. RECORD HIGHLIGHTS
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "72px 56px", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.06)", borderBottom: "1px solid rgba(57,255,20,0.06)" }}>
-        <div style={{ display: "flex", gap: 64, flexWrap: "wrap", justifyContent: "center" }}>
+        <div style={{ display: "flex", gap: 52, flexWrap: "wrap", justifyContent: "center" }}>
           {[
             {
               label: "Mayor Asistencia Individual",
               venue: "Estadio GNP Seguros",
               city: "Ciudad de México · 30 Nov 2024",
-              stat: "56,539",
-              unit: "fans",
+              stat: "56,539", unit: "fans",
               note: "98% vendido · 57,874 capacidad",
             },
             {
               label: "Mayor Recaudación Individual",
               venue: "Estadio Santiago Bernabéu",
               city: "Madrid, España · 6 Jul 2024",
-              stat: "$8.24M",
-              unit: "USD",
+              stat: "$8.24M", unit: "USD",
               note: "100% vendido · 45,541 fans",
             },
             {
-              label: "Asistencia Récord en Argentina",
-              venue: "Campo de Polo",
-              city: "Buenos Aires · 9–10 Mar 2024",
-              stat: "43,085",
-              unit: "fans por show",
-              note: "2 shows consecutivos · 100% vendido",
+              label: "Gross Total Este Siglo",
+              venue: "796 Shows · 2000–2024",
+              city: "América + España · Pollstar",
+              stat: "$786M", unit: "USD",
+              note: "#1 artista mexicano en historia del touring",
+            },
+            {
+              label: "Tour 2023–2024",
+              venue: "Superó sus primeros 22 años",
+              city: "186 shows vs 610 anteriores",
+              stat: "+$45M", unit: "más que todo lo anterior",
+              note: "$415.8M vs ~$370.6M · mismo siglo",
             },
           ].map((r, i) => (
             <motion.div key={r.label}
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              transition={{ delay: i * 0.14, duration: 0.68 }}
-              style={{ flex: "1 1 240px", minWidth: 200, maxWidth: 320, borderTop: "1px solid rgba(57,255,20,0.15)", paddingTop: 24 }}>
-              <div style={{ color: "rgba(57,255,20,0.45)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18 }}>{r.label}</div>
-              <div className="lm-fa" style={{ color: "#39FF14", fontSize: 48, lineHeight: 1, marginBottom: 10 }}>{r.stat}</div>
+              transition={{ delay: i * 0.12, duration: 0.65 }}
+              style={{ flex: "1 1 220px", minWidth: 190, maxWidth: 280, borderTop: "1px solid rgba(57,255,20,0.15)", paddingTop: 22 }}>
+              <div style={{ color: "rgba(57,255,20,0.45)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 16 }}>{r.label}</div>
+              <div className="lm-fa" style={{ color: "#39FF14", fontSize: 44, lineHeight: 1, marginBottom: 8 }}>{r.stat}</div>
               <div style={{ color: "#fff", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 4 }}>{r.unit}</div>
-              <div className="lm-fa" style={{ color: "rgba(255,255,255,0.75)", fontSize: 18, textTransform: "uppercase", marginBottom: 6 }}>{r.venue}</div>
-              <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>{r.city}</div>
-              <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4 }}>{r.note}</div>
+              <div className="lm-fa" style={{ color: "rgba(255,255,255,0.72)", fontSize: 16, textTransform: "uppercase", marginBottom: 5 }}>{r.venue}</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>{r.city}</div>
+              <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{r.note}</div>
             </motion.div>
           ))}
         </div>
       </section>
 
       {/* ══════════════════════════════════════════
-          8. TOUR TIMELINE — Leg 1 vs Leg 2
+          9. CAREER TIMELINE — Two eras comparison
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "88px 0 108px", overflow: "hidden" }}>
         <img src={BG_CLOSE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.14) saturate(0.48)" }} />
@@ -531,22 +568,44 @@ export default function LuisMiguelProfile() {
 
         <div style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Tour Timeline
+            Pollstar · Career Timeline · Este Siglo
           </div>
           <div className="lm-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 60 }}>
-            Dos Años.<br />Un Legado.
+            24 Años.<br />Un Legado Incomparable.
           </div>
 
-          {/* Timeline bar */}
           <div style={{ position: "relative", marginBottom: 48 }}>
             <div style={{ position: "absolute", top: 10, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.06)" }} />
             <motion.div style={{ position: "absolute", top: 10, left: 0, height: 1, background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.25))" }}
               initial={{ width: 0 }} whileInView={{ width: "100%" }} viewport={{ once: true }}
               transition={{ duration: 2.0, ease: "easeOut", delay: 0.3 }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 32, paddingTop: 0 }}>
-              {TOUR_LEGS.map((leg, i) => (
-                <motion.div key={leg.id}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 40, paddingTop: 0 }}>
+              {[
+                {
+                  era: "2000–2022",
+                  label: "Los Primeros 22 Años",
+                  period: "796 shows · Carrera siglo XXI hasta 2022",
+                  shows: "~610",
+                  gross: "~$370.6M",
+                  tickets: "~4.46M",
+                  peak: false,
+                  note: "Datos computados: total de carrera menos el período 2023–2024",
+                  markets: "México · EUA · Latinoamérica · España",
+                },
+                {
+                  era: "2023–2024",
+                  label: "El Gran Regreso",
+                  period: "186 shows · Ago 2023 – Dic 2024",
+                  shows: "186",
+                  gross: "$415.8M",
+                  tickets: "2.86M",
+                  peak: true,
+                  note: "Fuente directa: Pollstar 2023–2026 report header · Exact values",
+                  markets: "20+ países · 4 continentes",
+                },
+              ].map((leg, i) => (
+                <motion.div key={leg.era}
                   initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                   transition={{ delay: 0.5 + i * 0.18, duration: 0.65 }}>
                   <div style={{ position: "relative", zIndex: 2, marginBottom: 26 }}>
@@ -563,28 +622,32 @@ export default function LuisMiguelProfile() {
                   {leg.peak && (
                     <div style={{ marginBottom: 12 }}>
                       <span style={{ background: "#39FF14", color: "#000", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", padding: "3px 10px" }}>
-                        El Año Más Grande
+                        Superó toda la era anterior
                       </span>
                     </div>
                   )}
 
-                  <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "#fff", fontSize: 56, lineHeight: 1, marginBottom: 8 }}>{leg.label}</div>
-                  <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{leg.name}</div>
-                  <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 18 }}>{leg.period}</div>
+                  <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.55)", fontSize: 52, lineHeight: 1, marginBottom: 8 }}>{leg.era}</div>
+                  <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{leg.label}</div>
+                  <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>{leg.period}</div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "flex", gap: 24 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div style={{ display: "flex", gap: 28 }}>
                       <div>
-                        <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 600 }}>{leg.shows} Shows</div>
-                        <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reportados</div>
+                        <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.75)", fontSize: 26 }}>{leg.gross}</div>
+                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD</div>
                       </div>
                       <div>
-                        <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.85)", fontSize: 22 }}>{leg.grossLabel}</div>
-                        <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD aprox.</div>
+                        <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.shows} Shows</div>
+                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reportados</div>
+                      </div>
+                      <div>
+                        <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.tickets}</div>
+                        <div style={{ color: "rgba(255,255,255,0.32)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tickets</div>
                       </div>
                     </div>
-                    <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, marginTop: 2 }}>{leg.markets}</div>
-                    <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{leg.markets}</div>
+                    <div style={{ color: "rgba(255,255,255,0.26)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.08em", lineHeight: 1.6, borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 10, marginTop: 4 }}>
                       {leg.note}
                     </div>
                   </div>
@@ -593,24 +656,24 @@ export default function LuisMiguelProfile() {
             </div>
           </div>
 
-          <div style={{ color: "rgba(255,255,255,0.38)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-            * Datos provistos por Pollstar Research · No incluye shows no reportados o datos no publicados · Grosses por año son estimaciones basadas en datos del reporte
+          <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+            * Career total (796 shows / $786.4M) from Pollstar 2000–2026 report. 2023–2024 figures from Pollstar 2023–2026 report. Pre-2023 figures computed as difference.
+            Shows no incluye reportes de soporte. Gross en USD según tipo de cambio reportado en Pollstar.
           </div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════════
-          9. CLOSING CINEMATIC MOMENT
+          10. CLOSING CINEMATIC MOMENT
       ══════════════════════════════════════════ */}
-      <section style={{ position: "relative", height: 400, overflow: "hidden" }}>
+      <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
         <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.32) saturate(0.75)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 22%, rgba(6,6,6,0.1) 68%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.28), transparent)" }} />
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.12), transparent)" }} />
 
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           <div style={{ color: "rgba(57,255,20,0.42)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 18 }}>
-            Datos Pollstar · 2023–2024
+            Datos Pollstar · 2000–2024 · Siglo XXI
           </div>
           <div className="lm-fa" style={{ color: "rgba(255,255,255,0.10)", fontSize: 180, textTransform: "uppercase", lineHeight: 0.82, letterSpacing: "0.06em", userSelect: "none" }}>
             LM
@@ -627,7 +690,7 @@ export default function LuisMiguelProfile() {
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
         <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-          Reporte Pollstar adquirido 2/8/2026 · Shows reportados: {TOTAL_SHOWS} · Gross reportado: $415,849,128 USD
+          Career: {CAREER_SHOWS} shows · $786,434,715 USD · {CAREER_TICKETS.toLocaleString()} tickets (Pollstar 2000–2026)
         </div>
         <Link href="/touring">
           <span style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
