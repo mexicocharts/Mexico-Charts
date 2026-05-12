@@ -8,7 +8,7 @@ const BG_CROWD   = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3
 const BG_STAGE   = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=1280&h=700&fit=crop&q=80";
 const BG_LIGHTS  = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1280&h=700&fit=crop&q=80";
 const BG_CLOSE   = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1280&h=600&fit=crop&q=80";
-const ARTIST_IMG = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=700&h=800&fit=crop&q=80";
+const ARTIST_IMG = "https://cdn-images.dzcdn.net/images/artist/254f1f8b12256b9f4153bee44fefe41d/1000x1000-000000-80-0-0.jpg";
 const MARKET_IMG = "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=900&h=500&fit=crop&q=75";
 const SHOW_IMG_1 = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=500&h=340&fit=crop&q=70";
 const SHOW_IMG_2 = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=500&h=340&fit=crop&q=70";
@@ -26,9 +26,9 @@ function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
 }
 
 const topShows = [
-  { rank: 1, venue: "Foro Sol",        city: "Ciudad de México", date: "9 Sep 2023",  tickets: "58,999", gross: "$4.00M", img: SHOW_IMG_1 },
-  { rank: 2, venue: "BMO Stadium",     city: "Los Ángeles, CA",  date: "11 Oct 2024", tickets: "43,658", gross: "$6.78M", img: SHOW_IMG_2 },
-  { rank: 3, venue: "Crypto.com Arena", city: "Los Ángeles, CA", date: "20 Abr 2024", tickets: "42,070", gross: "$6.46M", img: SHOW_IMG_3 },
+  { rank: 1, venue: "BMO Stadium",                  city: "Los Ángeles, CA",    date: "Oct 2024",  tickets: "43,658", gross: "$6.78M", img: SHOW_IMG_1 },
+  { rank: 2, venue: "Hollywood Bowl",                city: "Los Ángeles, CA",    date: "Nov 2025",  tickets: "33,373", gross: "$5.45M", img: SHOW_IMG_2 },
+  { rank: 3, venue: "Credit Union 1 Amphitheatre",   city: "Tinley Park, IL",    date: "Ago 2025",  tickets: "37,251", gross: "$4.35M", img: SHOW_IMG_3 },
 ];
 
 export default function TouringProfile() {
@@ -86,17 +86,17 @@ export default function TouringProfile() {
           </motion.div>
           <motion.h1 className="tp-fa" initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}
             style={{ color: "#fff", fontSize: 120, lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 36 }}>
-            Peso<br />Pluma
+            Junior<br />H
           </motion.h1>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}>
             <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 8 }}>
               Gross Reportado · Carrera Total
             </div>
             <div className="tp-fa" style={{ color: "#39FF14", fontSize: 92, lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 8 }}>
-              $<AnimCount to={87.4} decimals={1} />M
+              $<AnimCount to={90.4} decimals={1} />M
             </div>
             <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.25em" }}>
-              USD en Taquilla · 2021–2024
+              USD en Taquilla · 2022–2026
             </div>
           </motion.div>
         </motion.div>
@@ -115,7 +115,7 @@ export default function TouringProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          2. SINGLE-STAT MOMENT — "288 SHOWS"
+          2. SINGLE-STAT MOMENT — "69 SHOWS"
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 420, overflow: "hidden" }}>
         <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.25) saturate(0.6)" }} />
@@ -124,10 +124,10 @@ export default function TouringProfile() {
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
           <div style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Total Reportado</div>
           <div className="tp-fa" style={{ color: "#fff", fontSize: 148, lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "-0.02em" }}>
-            {mounted ? <AnimCount to={288} /> : "288"}
+            {mounted ? <AnimCount to={69} /> : "69"}
           </div>
           <div className="tp-fa" style={{ color: "#39FF14", fontSize: 32, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 12 }}>Shows</div>
-          <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.25em", marginTop: 16 }}>18 Países · 4 Años de Gira</div>
+          <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.25em", marginTop: 16 }}>EUA & México · 4 Años de Gira</div>
         </div>
       </section>
 
@@ -147,7 +147,7 @@ export default function TouringProfile() {
             </motion.div>
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
               style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 28, maxWidth: 440, lineHeight: 1.8 }}>
-              Peso Pluma llevó la nueva música mexicana a los venues más grandes del planeta — sin precedentes para el género.
+              Junior H llevó el sad sierreño a los escenarios más grandes de Estados Unidos — consolidando un nuevo estándar para el género.
             </motion.div>
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function TouringProfile() {
             { value: "758K",   label: "Tickets Vendidos",   sub: "Total reportado" },
             { value: "11,856", label: "Asistencia Promedio", sub: "Por show" },
             { value: "98%",    label: "Sell-Through",        sub: "Porcentaje vendido" },
-            { value: "$303K",  label: "Promedio por Show",   sub: "Gross neto" },
+            { value: "$1.41M", label: "Promedio por Show",   sub: "Gross neto" },
           ].map((s, i) => (
             <motion.div key={s.label}
               initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -194,16 +194,16 @@ export default function TouringProfile() {
             <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.35em", marginBottom: 20 }}>Distribución de Mercados</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <div className="tp-fa" style={{ color: "#39FF14", fontSize: 64, lineHeight: 1 }}>82%</div>
+                <div className="tp-fa" style={{ color: "#39FF14", fontSize: 64, lineHeight: 1 }}>87%</div>
                 <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en Estados Unidos</div>
               </div>
               <div>
-                <div className="tp-fa" style={{ color: "#fff", fontSize: 40, lineHeight: 1 }}>12%</div>
+                <div className="tp-fa" style={{ color: "#fff", fontSize: 40, lineHeight: 1 }}>9%</div>
                 <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en México</div>
               </div>
               <div style={{ marginTop: 4 }}>
-                <div className="tp-fa" style={{ color: "rgba(255,255,255,0.4)", fontSize: 24, lineHeight: 1 }}>18 Países</div>
-                <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Gira global 2021–2024</div>
+                <div className="tp-fa" style={{ color: "rgba(255,255,255,0.4)", fontSize: 24, lineHeight: 1 }}>EUA y México</div>
+                <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>Gira 2022–2026</div>
               </div>
             </div>
           </motion.div>
@@ -212,17 +212,17 @@ export default function TouringProfile() {
         <div style={{ position: "relative", zIndex: 10, padding: "72px 0 72px 56px", maxWidth: "58%" }}>
           <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
             style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 40 }}>
-            Mercados Principales · 2021–2024
+            Mercados Principales · 2022–2026
           </motion.div>
           {[
             { n: "01", city: "Los Ángeles",      sub: "California, EUA",    hi: true  },
-            { n: "02", city: "Ciudad de México",  sub: "México",             hi: false },
-            { n: "03", city: "Houston",           sub: "Texas, EUA",         hi: false },
-            { n: "04", city: "Chicago",           sub: "Illinois, EUA",      hi: false },
-            { n: "05", city: "Nueva York",        sub: "Nueva York, EUA",    hi: false },
-            { n: "06", city: "Monterrey",         sub: "Nuevo León, México",  hi: false },
-            { n: "07", city: "Las Vegas",         sub: "Nevada, EUA",        hi: false },
-            { n: "08", city: "Dallas",            sub: "Texas, EUA",         hi: false },
+            { n: "02", city: "Dallas",            sub: "Texas, EUA",         hi: false },
+            { n: "03", city: "Chicago",           sub: "Illinois, EUA",      hi: false },
+            { n: "04", city: "Houston",           sub: "Texas, EUA",         hi: false },
+            { n: "05", city: "Las Vegas",         sub: "Nevada, EUA",        hi: false },
+            { n: "06", city: "Ciudad de México",  sub: "México",             hi: false },
+            { n: "07", city: "Phoenix",           sub: "Arizona, EUA",       hi: false },
+            { n: "08", city: "San Jose",          sub: "California, EUA",    hi: false },
           ].map((row, i) => (
             <motion.div key={row.city}
               initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
@@ -296,15 +296,15 @@ export default function TouringProfile() {
             <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>#Market Impact</div>
             <div className="tp-fa" style={{ color: "#fff", fontSize: 60, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 24 }}>El Poder de<br />la Diáspora.</div>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.9, maxWidth: 400, marginBottom: 40 }}>
-              Peso Pluma construyó su base más sólida en Estados Unidos, donde la demanda por la nueva música mexicana sigue rompiendo récords en arenas y anfiteatros.
+              Junior H construyó su base más sólida en Estados Unidos, donde la demanda por el sad sierreño continúa escalando en arenas y anfiteatros.
             </p>
             <div style={{ display: "flex", gap: 56 }}>
               <div>
-                <div className="tp-fa" style={{ color: "#39FF14", fontSize: 72, lineHeight: 1 }}>82%</div>
+                <div className="tp-fa" style={{ color: "#39FF14", fontSize: 72, lineHeight: 1 }}>87%</div>
                 <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Shows en EUA</div>
               </div>
               <div>
-                <div className="tp-fa" style={{ color: "#fff", fontSize: 72, lineHeight: 1 }}>12%</div>
+                <div className="tp-fa" style={{ color: "#fff", fontSize: 72, lineHeight: 1 }}>9%</div>
                 <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Shows en México</div>
               </div>
             </div>
@@ -328,10 +328,10 @@ export default function TouringProfile() {
               transition={{ duration: 1.8, ease: "easeOut", delay: 0.3 }} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", paddingTop: 0 }}>
               {[
-                { year: "2021", shows: 24,  tickets: "72K",  gross: "$2.5M",  peak: false },
-                { year: "2022", shows: 51,  tickets: "189K", gross: "$8.9M",  peak: false },
-                { year: "2023", shows: 124, tickets: "412K", gross: "$41.8M", peak: true,  tour: "Genesis Tour" },
-                { year: "2024", shows: 89,  tickets: "312K", gross: "$34.2M", peak: false },
+                { year: "2022", shows: 12,  tickets: "21K",  gross: "$1.6M",  peak: false },
+                { year: "2023", shows: 26,  tickets: "220K", gross: "$21M",   peak: false },
+                { year: "2024", shows: 22,  tickets: "140K", gross: "$28M",   peak: false },
+                { year: "2025", shows: 24,  tickets: "290K", gross: "$41M",   peak: true, tour: "Sad Boyz Tour" },
               ].map((t, i) => (
                 <motion.div key={t.year}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -369,8 +369,8 @@ export default function TouringProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, transparent 25%, transparent 65%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.3), transparent)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 16 }}>Datos Pollstar · 2021–2024</div>
-          <div className="tp-fa" style={{ color: "rgba(255,255,255,0.08)", fontSize: 160, textTransform: "uppercase", lineHeight: 0.85, letterSpacing: "0.05em", userSelect: "none" }}>PP</div>
+          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 16 }}>Datos Pollstar · 2022–2026</div>
+          <div className="tp-fa" style={{ color: "rgba(255,255,255,0.08)", fontSize: 160, textTransform: "uppercase", lineHeight: 0.85, letterSpacing: "0.05em", userSelect: "none" }}>JH</div>
           <div style={{ position: "absolute", color: "#fff", fontSize: 13, textTransform: "uppercase", letterSpacing: "0.3em", fontWeight: 500 }}>
             Mexico<span style={{ color: "#39FF14" }}>Charts</span>™ · Touring
           </div>
@@ -379,7 +379,7 @@ export default function TouringProfile() {
 
       {/* ── FOOTER ── */}
       <footer style={{ padding: "20px 56px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-        <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>© 2024 Mexico Charts · Datos provistos por Pollstar Research</div>
+        <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>© 2026 Mexico Charts · Datos provistos por Pollstar Research</div>
         <Link href="/touring">
           <span style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>← Volver a Touring</span>
         </Link>

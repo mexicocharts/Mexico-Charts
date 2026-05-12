@@ -28,7 +28,7 @@ const FALLBACK_IMGS: Record<string, string> = {
 };
 
 const PROFILE_SLUGS: Record<string, string> = {
-  "peso-pluma": "peso-pluma",
+  "junior-h": "junior-h",
 };
 
 const insights = [
@@ -364,7 +364,7 @@ export default function TouringHub() {
                 </div>
               </div>
             )}
-            <Link href="/touring/peso-pluma">
+            <Link href="/touring/junior-h">
               <button className="th-outline-btn">
                 Explorar Perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
               </button>
