@@ -35,26 +35,25 @@ function persistToDb(artistKey: string, imageUrl: string): void {
     .catch((err) => logger.warn({ err, artistKey }, "[images] DB persist failed"));
 }
 
-/* ── Seed with known-good Spotify CDN URLs for the biggest names ── */
+/* ── Seed with stable Deezer CDN URLs (do NOT use Spotify CDN — those expire) ── */
 const SEED: Record<string, string> = {
-  "Peso Pluma":         "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebe5283f5b671cf618b82a2696",
-  "Fuerza Regida":      "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebce436c411ab2436c7ab2c04d",
-  "Natanael Cano":      "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb0d4838ef7ef6c0f889266f60",
-  "Junior H":           "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb5fbe9b7dc7d9a2295bd6022c",
-  "Carin León":         "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb69543997b9f68a0d2bb37a4a",
-  "Grupo Frontera":     "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebb8bb50dc787d5893156689f6",
-  "Luis R Conriquez":   "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb616b1d17ef24f784e60d99af",
-  "Xavi":               "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5ebd024eb5ee433a89b19d54c2a",
-  "Eslabon Armado":     "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5ebefb9255bbd0acdcd6a32accb",
-  "Gabito Ballesteros": "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eba9e1da6d545e2f5b05878d31",
-  "Tito Double P":      "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb6aaf8a0d393605e8489447f3",
-  "Oscar Maydon":       "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb3dd468a8fb2641286c5b02a6",
-  "Clave Especial":     "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5ebc8f9f4334a8583d976aeff0d",
-  "Jasiel Nuñez":       "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb0476bece9f63717f55c976f1",
-  "Yng Lvcas":          "https://image-cdn-fa.spotifycdn.com/image/ab6761610000e5eb442355e50167bc26afa179ac",
-  "Santa Fe Klan":      "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5ebcc8e116e76c85e1880d9889f",
-  "Marca MP":           "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb31b1b084ec2994040aec37d0",
-  "Grupo Firme":        "https://image-cdn-ak.spotifycdn.com/image/ab6761610000e5eb7ab0eb0c8b52f4639b167363",
+  "Peso Pluma":         "https://cdn-images.dzcdn.net/images/artist/dde2bf89c1e8da0aeb94436681bc3aac/1000x1000-000000-80-0-0.jpg",
+  "Fuerza Regida":      "https://cdn-images.dzcdn.net/images/artist/171bf1e106d8a72d999146f6ace4ecc3/1000x1000-000000-80-0-0.jpg",
+  "Natanael Cano":      "https://cdn-images.dzcdn.net/images/artist/3afa81d065245355854d803b55b66681/1000x1000-000000-80-0-0.jpg",
+  "Junior H":           "https://cdn-images.dzcdn.net/images/artist/254f1f8b12256b9f4153bee44fefe41d/1000x1000-000000-80-0-0.jpg",
+  "Carin León":         "https://cdn-images.dzcdn.net/images/artist/bc375ebd3f94dec3c986441da83baabf/1000x1000-000000-80-0-0.jpg",
+  "Grupo Frontera":     "https://cdn-images.dzcdn.net/images/artist/229ce047a0a51ed9e73867ae5fb3468d/1000x1000-000000-80-0-0.jpg",
+  "Luis R Conriquez":   "https://cdn-images.dzcdn.net/images/artist/58eb9e104f0a8c07daf705f0e0c12600/1000x1000-000000-80-0-0.jpg",
+  "Xavi":               "https://cdn-images.dzcdn.net/images/artist/7d9dd6dfa1e8b7709877edaa90256c90/1000x1000-000000-80-0-0.jpg",
+  "Eslabon Armado":     "https://cdn-images.dzcdn.net/images/artist/0bf23cbe60afa9d4fc6ffd152903fbe1/1000x1000-000000-80-0-0.jpg",
+  "Gabito Ballesteros": "https://cdn-images.dzcdn.net/images/artist/8e4eac3351c94b8ae1de0fba0c119ff0/1000x1000-000000-80-0-0.jpg",
+  "Tito Double P":      "https://cdn-images.dzcdn.net/images/artist/400be5bb76e1e7775a921c39569bd27b/1000x1000-000000-80-0-0.jpg",
+  "Oscar Maydon":       "https://cdn-images.dzcdn.net/images/artist/a2507283ac70f758f913702f5f9ee394/1000x1000-000000-80-0-0.jpg",
+  "Yng Lvcas":          "https://cdn-images.dzcdn.net/images/artist/f7fb7675b2d304061724bb31c2572d61/1000x1000-000000-80-0-0.jpg",
+  "Santa Fe Klan":      "https://cdn-images.dzcdn.net/images/artist/fafd5b7bc22cf437291ac3b1ea683242/1000x1000-000000-80-0-0.jpg",
+  "Marca MP":           "https://cdn-images.dzcdn.net/images/artist/ccb589d41f47d3e4e8baf119b9342e96/1000x1000-000000-80-0-0.jpg",
+  "Grupo Firme":        "https://cdn-images.dzcdn.net/images/artist/bd8a34556a8cc37d8065b6045ca1fb56/1000x1000-000000-80-0-0.jpg",
+  "Banda MS de Sergio Lizárraga": "https://cdn-images.dzcdn.net/images/artist/da1290662d2b260cc8a3b480f81dd253/1000x1000-000000-80-0-0.jpg",
 };
 for (const [name, url] of Object.entries(SEED)) {
   imageCache.set(name.toLowerCase(), url);
