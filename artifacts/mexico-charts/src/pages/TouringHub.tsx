@@ -45,99 +45,69 @@ function formatDate(iso: string): string {
   return `${d} ${months[parseInt(m,10)-1]} ${y}`;
 }
 
-function TourCard({ artist, featured }: { artist: ArtistTours; featured: boolean }) {
-  const img = artist.events[0]?.img ?? FALLBACK_IMGS[artist.id] ?? FALLBACK_IMGS["fuerza-regida"];
+function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
+  const photo = artist.events[0]?.img ?? FALLBACK_IMGS[artist.id] ?? null;
   const profileSlug = PROFILE_SLUGS[artist.id];
-  const upcomingCount = artist.events.length;
-  const tourName = artist.events[0]?.name ?? "";
+  const nextEv = artist.events[0];
+  const accent = idx === 0 ? "#39FF14" : idx === 1 ? "rgba(57,255,20,0.7)" : "rgba(57,255,20,0.45)";
 
-  return (
+  const inner = (
     <motion.div
-      initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-      style={{ position: "relative", overflow: "hidden", border: "1px solid #1f1f1f", background: "#0a0a0a", minHeight: featured ? 340 : 280, cursor: "pointer" }}
-      whileHover={{ borderColor: "#39FF14" }}>
-      <div style={{ position: "relative", height: featured ? 170 : 130, overflow: "hidden" }}>
-        <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.7)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 30%, rgba(10,10,10,1) 100%)" }} />
-        {featured && (
-          <div style={{ position: "absolute", top: 10, left: 10, background: "#39FF14", color: "#000", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", padding: "3px 8px" }}>
-            Destacado
-          </div>
-        )}
-        {upcomingCount > 0 && (
-          <div style={{ position: "absolute", top: 10, right: 10, background: "rgba(0,0,0,0.75)", border: "1px solid rgba(57,255,20,0.3)", color: "#39FF14", fontSize: 9, fontWeight: 700, padding: "3px 8px", letterSpacing: "0.1em" }}>
-            {upcomingCount} Shows
-          </div>
-        )}
-      </div>
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.5, delay: idx * 0.055, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ scale: 1.03, y: -5, transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] } }}
+      style={{ position: "relative", width: 140, height: 310, borderRadius: 12, boxShadow: "0 4px 28px rgba(0,0,0,0.7)", cursor: "pointer", flexShrink: 0, scrollSnapAlign: "start" }}>
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 14,
+        WebkitMaskImage: "radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)",
+        maskImage: "radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)" }}>
 
-      <div style={{ padding: "14px 14px 12px" }}>
-        <div className="th-anton" style={{ color: "#fff", fontSize: featured ? 30 : 20, lineHeight: 1, textTransform: "uppercase" }}>
-          {artist.name}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
+          filter: photo ? "brightness(0.82) saturate(0.65) contrast(1.08)" : undefined,
+        }} />
+
+        {photo && <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 85% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.85) 100%)" }} />}
+
+        <div style={{ position: "absolute", top: 10, left: 12, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.08)", lineHeight: 1, fontFamily: "Inter, sans-serif", letterSpacing: "-0.04em", userSelect: "none" }}>
+          {String(idx + 1).padStart(2, "0")}
         </div>
-        {tourName && (
-          <div style={{ color: "#39FF14", fontSize: featured ? 12 : 10, fontWeight: 600, marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {tourName}
-          </div>
+
+        {artist.events.length > 0 && (
+          <div style={{ position: "absolute", top: 12, right: 12, width: 7, height: 7, borderRadius: "50%", background: accent, boxShadow: `0 0 6px ${accent}` }} />
         )}
 
-        {artist.events.length > 0 ? (
-          <div style={{ marginTop: 14, borderTop: "1px solid #1a1a1a", paddingTop: 10 }}>
-            <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 8 }}>
-              Próximas Fechas
-            </div>
-            {artist.events.slice(0, featured ? 3 : 3).map((ev, i) => (
-              <div key={ev.eventId} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
-                <div style={{ display: "flex", gap: 8, flex: 1, minWidth: 0 }}>
-                  <span style={{ color: "#666", fontSize: 10, fontWeight: 600, flexShrink: 0 }}>{formatDate(ev.date)}</span>
-                  <span style={{ color: "#aaa", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {ev.city}{ev.state ? `, ${ev.state}` : ""}
-                  </span>
-                </div>
-                {featured && i === 0 && (
-                  <a href={ev.url} target="_blank" rel="noopener noreferrer"
-                    style={{ background: "none", border: "none", color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer", flexShrink: 0, textDecoration: "none" }}>
-                    Boletos
-                  </a>
-                )}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 12px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 55%, transparent 100%)" }}>
+          <div className="th-anton" style={{ color: "#fff", fontSize: 17, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 3 }}>{artist.name}</div>
+          {nextEv ? (
+            <>
+              <div style={{ color: accent, fontSize: 10, fontWeight: 900 }}>{artist.events.length} shows</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {formatDate(nextEv.date)} · {nextEv.city}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ marginTop: 14, color: "rgba(255,255,255,0.2)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            Sin fechas próximas
-          </div>
-        )}
-
-        <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
-          {artist.events.length > 0 && (
-            <a href={artist.events[0].url} target="_blank" rel="noopener noreferrer"
-              style={{ background: "none", border: "none", color: "#fff", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 4, padding: 0, textDecoration: "none" }}>
-              Ver en Ticketmaster →
-            </a>
-          )}
-          {profileSlug && (
-            <Link href={`/touring/${profileSlug}`}>
-              <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", cursor: "pointer" }}>Perfil →</span>
-            </Link>
+            </>
+          ) : (
+            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Sin fechas</div>
           )}
         </div>
       </div>
     </motion.div>
   );
+
+  if (profileSlug) {
+    return <Link href={`/touring/${profileSlug}`}>{inner}</Link>;
+  }
+  if (nextEv?.url) {
+    return <a href={nextEv.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>{inner}</a>;
+  }
+  return inner;
 }
 
-function SkeletonCard({ featured }: { featured?: boolean }) {
+function SkeletonShelfCard() {
   return (
-    <div style={{ border: "1px solid #1a1a1a", background: "#0a0a0a", minHeight: featured ? 340 : 280 }}>
-      <div style={{ height: featured ? 170 : 130, background: "#141414", animation: "pulse 1.5s ease-in-out infinite" }} />
-      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ height: 20, width: "60%", background: "#1a1a1a", borderRadius: 2 }} />
-        <div style={{ height: 10, width: "80%", background: "#141414", borderRadius: 2 }} />
-        <div style={{ height: 10, width: "70%", background: "#141414", borderRadius: 2 }} />
-        <div style={{ height: 10, width: "50%", background: "#141414", borderRadius: 2 }} />
-      </div>
-    </div>
+    <div style={{ width: 140, height: 310, borderRadius: 12, background: "#111", flexShrink: 0, scrollSnapAlign: "start", animation: "pulse 1.5s ease-in-out infinite" }} />
   );
 }
 
@@ -160,6 +130,8 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
+  const [showAll, setShowAll] = useState(false);
+  const PAGE_SIZE = 8;
 
   const sortedArtists = artists
     ? [...artists].sort((a, b) => b.events.length - a.events.length)
@@ -234,44 +206,35 @@ export default function TouringHub() {
         </div>
       </section>
 
-      {/* ── LIVE CONCERTS ── */}
-      <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <div>
-            <h2 className="th-anton" style={{ color: "#fff", fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: 1 }}>
-              Upcoming <span style={{ color: "#39FF14" }}>Tours</span>
-            </h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
-              <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em" }}>
-                Datos en tiempo real · Ticketmaster
-              </span>
-            </div>
-          </div>
+      {/* ── UPCOMING TOURS — horizontal shelf ── */}
+      <section style={{ paddingTop: 36, paddingBottom: 28, borderBottom: "1px solid #111", position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 20 }}>
+          <span style={{ color: "#39FF14", fontSize: 14 }}>◈</span>
+          <h2 style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.25em", margin: 0 }}>
+            Upcoming Tours
+          </h2>
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
-            <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-              {totalShows} shows encontrados
-            </div>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
+              {totalShows} shows · Ticketmaster
+            </span>
           )}
         </div>
 
         {isError && (
-          <div style={{ background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.2)", padding: "20px 24px", color: "rgba(255,80,80,0.7)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.2)", padding: "16px 20px", color: "rgba(255,80,80,0.7)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em" }}>
             Error cargando datos de Ticketmaster
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 12, border: "1px solid #1a1a1a", padding: 16, background: "#0d0d0d" }}>
-          {isLoading ? (
-            <>
-              <SkeletonCard featured />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </>
-          ) : sortedArtists.map((artist, idx) => (
-            <TourCard key={artist.id} artist={artist} featured={idx === 0} />
-          ))}
+        <div style={{ display: "flex", gap: 16, overflowX: "auto", padding: "4px 32px 12px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+          {isLoading
+            ? Array.from({ length: 8 }).map((_, i) => <SkeletonShelfCard key={i} />)
+            : sortedArtists.map((artist, idx) => (
+                <ShelfCard key={artist.id} artist={artist} idx={idx} />
+              ))}
         </div>
       </section>
 
@@ -329,31 +292,42 @@ export default function TouringHub() {
               Sin shows en esta región por el momento
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {filteredShows.slice(0, 30).map((ev, i) => (
-                <motion.a
-                  key={ev.eventId} href={ev.url} target="_blank" rel="noopener noreferrer"
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
-                  style={{ display: "flex", alignItems: "center", gap: 0, background: "#0a0a0a", border: "1px solid #111", textDecoration: "none", overflow: "hidden" }}
-                  whileHover={{ borderColor: "#39FF14" }}>
-                  {ev.img && (
-                    <div style={{ width: 56, height: 44, flexShrink: 0, overflow: "hidden" }}>
-                      <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.6) saturate(0.5)" }} />
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                {filteredShows.slice(0, showAll ? filteredShows.length : PAGE_SIZE).map((ev, i) => (
+                  <motion.a
+                    key={ev.eventId} href={ev.url} target="_blank" rel="noopener noreferrer"
+                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
+                    style={{ display: "flex", alignItems: "center", background: "#0a0a0a", border: "1px solid #111", textDecoration: "none", overflow: "hidden" }}
+                    whileHover={{ borderColor: "#39FF14" }}>
+                    {ev.img && (
+                      <div style={{ width: 52, height: 52, flexShrink: 0, overflow: "hidden" }}>
+                        <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.55) saturate(0.4)" }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 16px", minWidth: 0, gap: 0 }}>
+                      <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 96, flexShrink: 0 }}>{formatDate(ev.date)}</span>
+                      <span className="th-anton" style={{ color: "#fff", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0 }}>{ev.artistName}</span>
+                      <span style={{ color: "rgba(255,255,255,0.38)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
+                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, flexShrink: 0, marginLeft: 16 }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
                     </div>
-                  )}
-                  <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 0, padding: "10px 16px", minWidth: 0 }}>
-                    <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 100, flexShrink: 0 }}>{formatDate(ev.date)}</span>
-                    <span className="th-anton" style={{ color: "#fff", fontSize: 14, textTransform: "uppercase", minWidth: 180, flexShrink: 0 }}>{ev.artistName}</span>
-                    <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
-                    <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, flexShrink: 0, marginLeft: 16 }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
-                    <span style={{ color: "#333", fontSize: 9, fontWeight: 700, minWidth: 28, textAlign: "right", flexShrink: 0, marginLeft: 12 }}>{ev.country}</span>
-                  </div>
-                  <div style={{ padding: "10px 16px", flexShrink: 0, borderLeft: "1px solid #1a1a1a" }}>
-                    <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>Boletos →</span>
-                  </div>
-                </motion.a>
-              ))}
-            </div>
+                    <div style={{ padding: "0 16px", flexShrink: 0, borderLeft: "1px solid #161616", height: 52, display: "flex", alignItems: "center" }}>
+                      <span style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>Boletos →</span>
+                    </div>
+                  </motion.a>
+                ))}
+              </div>
+
+              {filteredShows.length > PAGE_SIZE && (
+                <div style={{ marginTop: 16, textAlign: "center" }}>
+                  <button
+                    onClick={() => setShowAll(s => !s)}
+                    style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#666", padding: "10px 28px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
+                    {showAll ? `Ver menos ↑` : `Ver más · ${filteredShows.length - PAGE_SIZE} shows más →`}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
       )}
