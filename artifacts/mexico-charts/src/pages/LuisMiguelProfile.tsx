@@ -568,7 +568,7 @@ export default function LuisMiguelProfile() {
           </div>
 
           <div style={{ color: "rgba(255,255,255,0.50)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-            * Career total (796 shows / $786.4M) from Pollstar 2000–2026 report. 2023–2024 figures from Pollstar 2023–2026 report. Pre-2023 figures computed as difference.
+            * Total de carrera (796 shows / $786.4M) según reporte Pollstar 2000–2026. Cifras 2023–2024 del reporte Pollstar 2023–2026. Cifras pre-2023 calculadas como diferencia.
             Shows no incluye reportes de soporte. Gross en USD según tipo de cambio reportado en Pollstar.
           </div>
         </div>
