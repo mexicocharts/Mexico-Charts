@@ -710,7 +710,7 @@ export default function LuisMiguelProfile() {
             $467.4M · 796 Shows · 7.3M Fans · 20+ Países
           </div>
           <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.32em", marginTop: 28 }}>
-            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span>™ · Touring
+            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span> · Touring
           </div>
         </div>
       </section>

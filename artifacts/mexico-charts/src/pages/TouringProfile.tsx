@@ -391,7 +391,7 @@ export default function TouringProfile() {
             $47.3M · 4 Años · Generación Corridos Tumbados
           </div>
           <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.32em", marginTop: 28 }}>
-            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span>™ · Touring
+            Mexico<span style={{ color: "rgba(57,255,20,0.55)" }}>Charts</span> · Touring
           </div>
         </div>
       </section>
