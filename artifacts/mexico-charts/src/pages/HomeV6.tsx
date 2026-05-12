@@ -444,8 +444,9 @@ export default function HomeV6() {
   const allNames = useMemo(() => [
     ...HERO_ARTISTS.map(a => a.name),
     ...TOP_STRIP.map(a => a.name),
+    ...SHELF_ARTISTS.map(a => a.name),
     ...ASCENSO.map(a => a.name),
-  ], [HERO_ARTISTS, TOP_STRIP, ASCENSO]);
+  ], [HERO_ARTISTS, TOP_STRIP, SHELF_ARTISTS, ASCENSO]);
   const artistImages = useArtistImages(allNames);
   const imgMap = useMemo(() => {
     const m: Record<string, string> = {};
