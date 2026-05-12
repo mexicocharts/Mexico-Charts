@@ -45,6 +45,29 @@ function formatDate(iso: string): string {
   return `${d} ${months[parseInt(m,10)-1]} ${y}`;
 }
 
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 18 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: "-32px" },
+  transition: { duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] },
+});
+
+function SectionEyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div {...fadeUp(0)} style={{ color: "rgba(255,255,255,0.3)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.38em", marginBottom: 10 }}>
+      {children}
+    </motion.div>
+  );
+}
+
+function SectionHeading({ white, green }: { white: string; green: string }) {
+  return (
+    <motion.h2 {...fadeUp(0.04)} className="th-anton" style={{ fontSize: 26, textTransform: "uppercase", letterSpacing: "0.04em", margin: 0 }}>
+      <span style={{ color: "#fff" }}>{white} </span><span style={{ color: "#39FF14" }}>{green}</span>
+    </motion.h2>
+  );
+}
+
 function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
   const photo = artist.events[0]?.img ?? FALLBACK_IMGS[artist.id] ?? null;
   const profileSlug = PROFILE_SLUGS[artist.id];
@@ -53,43 +76,42 @@ function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
 
   const inner = (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
-      transition={{ duration: 0.5, delay: idx * 0.055, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ scale: 1.03, y: -5, transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] } }}
-      style={{ position: "relative", width: 140, height: 310, borderRadius: 12, boxShadow: "0 4px 28px rgba(0,0,0,0.7)", cursor: "pointer", flexShrink: 0, scrollSnapAlign: "start" }}>
-      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 14,
-        WebkitMaskImage: "radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)",
-        maskImage: "radial-gradient(ellipse 100% 100% at 50% 50%, white 97%, transparent 100%)" }}>
-
+      transition={{ duration: 0.55, delay: idx * 0.05, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ scale: 1.025, y: -6, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] } }}
+      style={{ position: "relative", width: 140, height: 310, borderRadius: 12,
+        boxShadow: "0 6px 32px rgba(0,0,0,0.75)", cursor: "pointer", flexShrink: 0, scrollSnapAlign: "start" }}>
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 12 }}>
         <div style={{
           position: "absolute", inset: 0,
           background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
-          filter: photo ? "brightness(0.82) saturate(0.65) contrast(1.08)" : undefined,
+          filter: photo ? "brightness(0.8) saturate(0.6) contrast(1.1)" : undefined,
+          transition: "filter 0.3s",
         }} />
 
-        {photo && <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 85% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.85) 100%)" }} />}
+        {photo && <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 85% 90% at 50% 42%, transparent 45%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.88) 100%)" }} />}
 
-        <div style={{ position: "absolute", top: 10, left: 12, fontSize: 40, fontWeight: 900, color: "rgba(255,255,255,0.08)", lineHeight: 1, fontFamily: "Inter, sans-serif", letterSpacing: "-0.04em", userSelect: "none" }}>
+        <div style={{ position: "absolute", top: 10, left: 12, fontSize: 38, fontWeight: 900, color: "rgba(255,255,255,0.06)", lineHeight: 1, fontFamily: "Inter, sans-serif", letterSpacing: "-0.04em", userSelect: "none" }}>
           {String(idx + 1).padStart(2, "0")}
         </div>
 
         {artist.events.length > 0 && (
-          <div style={{ position: "absolute", top: 12, right: 12, width: 7, height: 7, borderRadius: "50%", background: accent, boxShadow: `0 0 6px ${accent}` }} />
+          <div style={{ position: "absolute", top: 12, right: 12, width: 6, height: 6, borderRadius: "50%", background: accent, boxShadow: `0 0 8px ${accent}` }} />
         )}
 
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 12px 12px", background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 55%, transparent 100%)" }}>
-          <div className="th-anton" style={{ color: "#fff", fontSize: 17, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 3 }}>{artist.name}</div>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 12px 14px", background: "linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.65) 55%, transparent 100%)" }}>
+          <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
           {nextEv ? (
             <>
-              <div style={{ color: accent, fontSize: 10, fontWeight: 900 }}>{artist.events.length} shows</div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} shows</div>
+              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "0.03em" }}>
                 {formatDate(nextEv.date)} · {nextEv.city}
               </div>
             </>
           ) : (
-            <div style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Sin fechas</div>
+            <div style={{ color: "rgba(255,255,255,0.18)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em" }}>Sin fechas</div>
           )}
         </div>
       </div>
@@ -107,7 +129,7 @@ function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
 
 function SkeletonShelfCard() {
   return (
-    <div style={{ width: 140, height: 310, borderRadius: 12, background: "#111", flexShrink: 0, scrollSnapAlign: "start", animation: "pulse 1.5s ease-in-out infinite" }} />
+    <div style={{ width: 140, height: 310, borderRadius: 12, background: "#0f0f0f", flexShrink: 0, scrollSnapAlign: "start", animation: "pulse 1.8s ease-in-out infinite" }} />
   );
 }
 
@@ -158,60 +180,193 @@ export default function TouringHub() {
         .th-anton { font-family: 'Anton', sans-serif !important; }
         button { cursor: pointer; }
         a { text-decoration: none; }
-        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.35 } }
+
+        .th-outline-btn {
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.35);
+          color: rgba(255,255,255,0.85);
+          padding: 11px 22px;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.18em;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          transition: border-color 0.22s, color 0.22s, background 0.22s;
+          border-radius: 0;
+        }
+        .th-outline-btn:hover {
+          border-color: rgba(57,255,20,0.6);
+          color: #39FF14;
+          background: rgba(57,255,20,0.04);
+        }
+
+        .th-filter-btn {
+          background: transparent;
+          border: 1px solid #1e1e1e;
+          color: #555;
+          padding: 7px 14px;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.18s;
+          border-radius: 0;
+        }
+        .th-filter-btn:hover { border-color: #333; color: #888; }
+        .th-filter-btn.active {
+          background: #39FF14;
+          border-color: #39FF14;
+          color: #000;
+        }
+
+        .th-show-row {
+          display: flex;
+          align-items: center;
+          background: #090909;
+          border: 1px solid #131313;
+          text-decoration: none;
+          overflow: hidden;
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .th-show-row:hover {
+          border-color: rgba(57,255,20,0.4);
+          background: #0b0b0b;
+        }
+
+        .th-profile-card {
+          border: 1px solid #181818;
+          overflow: hidden;
+          cursor: pointer;
+          background: #090909;
+          position: relative;
+          transition: border-color 0.22s, box-shadow 0.22s;
+        }
+        .th-profile-card:hover {
+          border-color: rgba(57,255,20,0.45);
+          box-shadow: 0 0 0 0px transparent, 0 12px 48px rgba(0,0,0,0.85);
+        }
+
+        .th-insight-card {
+          border: 1px solid #181818;
+          overflow: hidden;
+          cursor: pointer;
+          background: #090909;
+          transition: border-color 0.22s, box-shadow 0.22s;
+        }
+        .th-insight-card:hover {
+          border-color: rgba(57,255,20,0.35);
+          box-shadow: 0 8px 40px rgba(0,0,0,0.75);
+        }
+
+        .th-ver-mas-btn {
+          background: transparent;
+          border: 1px solid #1e1e1e;
+          color: #555;
+          padding: 11px 32px;
+          font-size: 10px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.16em;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .th-ver-mas-btn:hover {
+          border-color: rgba(57,255,20,0.4);
+          color: rgba(57,255,20,0.8);
+        }
+
+        .th-newsletter-input {
+          flex: 1;
+          background: #0f0f0f;
+          border: 1px solid #222;
+          border-right: none;
+          color: #fff;
+          padding: 13px 18px;
+          font-size: 12px;
+          outline: none;
+          font-family: 'Inter', sans-serif;
+          transition: border-color 0.2s;
+        }
+        .th-newsletter-input:focus { border-color: rgba(57,255,20,0.3); }
+        .th-newsletter-input::placeholder { color: #3a3a3a; }
+
+        .th-subscribe-btn {
+          background: #39FF14;
+          border: 1px solid #39FF14;
+          color: #000;
+          padding: 13px 26px;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          cursor: pointer;
+          transition: background 0.2s, opacity 0.2s;
+          font-family: 'Inter', sans-serif;
+        }
+        .th-subscribe-btn:hover { background: #2ee010; }
+
+        .th-divider {
+          height: 1px;
+          background: linear-gradient(to right, transparent, rgba(255,255,255,0.055), transparent);
+          border: none;
+          margin: 0;
+        }
       ` }} />
 
       <SiteNav />
 
       {/* ── HERO ── */}
-      <section style={{ position: "relative", height: 520, overflow: "hidden" }}>
-        {/* SVG grain filter definition */}
-        <svg width="0" height="0" style={{ position: "absolute" }}>
-          <defs>
-            <filter id="hero-grain" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="sRGB">
-              <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" stitchTiles="stitch" result="noise" />
-              <feColorMatrix type="saturate" values="0" in="noise" result="grayNoise" />
-              <feBlend in="SourceGraphic" in2="grayNoise" mode="overlay" result="blended" />
-              <feComposite in="blended" in2="SourceGraphic" operator="in" />
-            </filter>
-          </defs>
-        </svg>
+      <section style={{ position: "relative", height: 540, overflow: "hidden" }}>
+        {/* Grain texture overlay */}
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.05, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 4 }} />
 
-        {/* Hero image — slight contrast lift to make crowd lights sparkle */}
+        {/* Hero image */}
         <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
 
-        {/* Grain texture overlay */}
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.04, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 2 }} />
+        {/* Feathered left-side fade — text readability only */}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.74) 0%, rgba(4,10,4,0.40) 30%, transparent 56%)", zIndex: 3, pointerEvents: "none" }} />
 
-        {/* Feathered left-side fade — text readability only, very low opacity */}
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.72) 0%, rgba(4,10,4,0.38) 32%, transparent 58%)", zIndex: 3, pointerEvents: "none" }} />
+        {/* Bottom blend into page background */}
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #080808 0%, transparent 100%)", zIndex: 3, pointerEvents: "none" }} />
 
-        <div style={{ position: "relative", zIndex: 10, padding: "52px 40px 40px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div style={{ position: "relative", zIndex: 10, padding: "56px 44px 44px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
-            <div style={{ color: "#39FF14", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 16 }}>Touring</div>
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16,1,0.3,1] }}
+              style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.38em", marginBottom: 18 }}>
+              Touring
+            </motion.div>
             <motion.h1 className="th-anton"
-              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
-              style={{ color: "#fff", fontSize: 76, lineHeight: 0.9, textTransform: "uppercase" }}>
+              initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
+              style={{ color: "#fff", fontSize: 80, lineHeight: 0.88, textTransform: "uppercase", letterSpacing: "-0.01em" }}>
               La Música<br />Mexicana<br />en Vivo
             </motion.h1>
           </div>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.6 }}
-            style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45, duration: 0.65, ease: [0.16,1,0.3,1] }}
+            style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {!isLoading && !isError && totalShows > 0 && (
-              <div style={{ display: "flex", gap: 24 }}>
+              <div style={{ display: "flex", gap: 28 }}>
                 <div>
-                  <div style={{ color: "#39FF14", fontSize: 26, fontWeight: 900 }}>{totalShows}</div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows próximos</div>
+                  <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{totalShows}</div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Shows próximos</div>
                 </div>
+                <div style={{ width: 1, background: "rgba(255,255,255,0.1)", alignSelf: "stretch" }} />
                 <div>
-                  <div style={{ color: "#39FF14", fontSize: 26, fontWeight: 900 }}>{sortedArtists.filter(a => a.events.length > 0).length}</div>
-                  <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em" }}>Artistas en gira</div>
+                  <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{sortedArtists.filter(a => a.events.length > 0).length}</div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Artistas en gira</div>
                 </div>
               </div>
             )}
             <Link href="/touring/peso-pluma">
-              <button style={{ background: "transparent", border: "1px solid #fff", color: "#fff", padding: "10px 20px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                Explorar Perfiles <span style={{ fontSize: 14 }}>→</span>
+              <button className="th-outline-btn">
+                Explorar Perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
               </button>
             </Link>
           </motion.div>
@@ -219,29 +374,28 @@ export default function TouringHub() {
       </section>
 
       {/* ── UPCOMING TOURS — horizontal shelf ── */}
-      <section style={{ paddingTop: 36, paddingBottom: 28, borderBottom: "1px solid #111", position: "relative" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 20 }}>
-          <span style={{ color: "#39FF14", fontSize: 14 }}>◈</span>
-          <h2 style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.25em", margin: 0 }}>
+      <section style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
+          <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
+          <h2 style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
             Upcoming Tours
           </h2>
-          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)", marginLeft: 8 }} />
+          <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
-            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block" }} />
+            <span style={{ color: "rgba(255,255,255,0.18)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
               {totalShows} shows · Ticketmaster
             </span>
           )}
         </div>
 
         {isError && (
-          <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.2)", padding: "16px 20px", color: "rgba(255,80,80,0.7)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+          <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.15)", padding: "14px 20px", color: "rgba(255,80,80,0.6)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em" }}>
             Error cargando datos de Ticketmaster
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 16, overflowX: "auto", padding: "4px 32px 12px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+        <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "4px 32px 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => <SkeletonShelfCard key={i} />)
             : sortedArtists.map((artist, idx) => (
@@ -252,12 +406,13 @@ export default function TouringHub() {
 
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
       {!isLoading && !isError && totalShows > 0 && (
-        <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h2 className="th-anton" style={{ fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              <span style={{ color: "#fff" }}>Todos los</span> <span style={{ color: "#39FF14" }}>Shows</span>
-            </h2>
-            <div style={{ display: "flex", gap: 4 }}>
+        <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+            <div>
+              <SectionEyebrow>Agenda</SectionEyebrow>
+              <SectionHeading white="Todos los" green="Shows" />
+            </div>
+            <div style={{ display: "flex", gap: 3 }}>
               {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
                 const isActive = countryFilter === f;
                 const count = f === "ALL"
@@ -268,30 +423,16 @@ export default function TouringHub() {
                     : ev.country !== "US" && ev.country !== "MX"
                     ).length;
                 return (
-                  <button key={f} onClick={() => setCountryFilter(f)}
-                    style={{
-                      background: isActive ? "#39FF14" : "transparent",
-                      border: `1px solid ${isActive ? "#39FF14" : "#2a2a2a"}`,
-                      color: isActive ? "#000" : "#666",
-                      padding: "6px 14px",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.1em",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      transition: "all 0.15s",
-                    }}>
+                  <button key={f}
+                    className={`th-filter-btn${isActive ? " active" : ""}`}
+                    onClick={() => setCountryFilter(f)}>
                     {COUNTRY_LABELS[f]}
                     <span style={{
-                      background: isActive ? "rgba(0,0,0,0.15)" : "#1a1a1a",
-                      color: isActive ? "#000" : "#444",
+                      background: isActive ? "rgba(0,0,0,0.18)" : "#141414",
+                      color: isActive ? "#000" : "#3a3a3a",
                       fontSize: 9,
                       fontWeight: 700,
                       padding: "1px 5px",
-                      borderRadius: 2,
                     }}>{count}</span>
                   </button>
                 );
@@ -300,41 +441,41 @@ export default function TouringHub() {
           </div>
 
           {filteredShows.length === 0 ? (
-            <div style={{ padding: "32px 0", color: "rgba(255,255,255,0.2)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.15em", textAlign: "center" }}>
+            <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.15)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.18em", textAlign: "center" }}>
               Sin shows en esta región por el momento
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {filteredShows.slice(0, showAll ? filteredShows.length : PAGE_SIZE).map((ev, i) => (
                   <motion.a
                     key={ev.eventId} href={ev.url} target="_blank" rel="noopener noreferrer"
-                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.025 }}
-                    style={{ display: "flex", alignItems: "center", background: "#0a0a0a", border: "1px solid #111", textDecoration: "none", overflow: "hidden" }}
-                    whileHover={{ borderColor: "#39FF14" }}>
+                    className="th-show-row"
+                    initial={{ opacity: 0, y: 8 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-20px" }}
+                    transition={{ delay: i * 0.02, duration: 0.4, ease: [0.16,1,0.3,1] }}>
                     {ev.img && (
-                      <div style={{ width: 52, height: 52, flexShrink: 0, overflow: "hidden" }}>
-                        <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.55) saturate(0.4)" }} />
+                      <div style={{ width: 54, height: 54, flexShrink: 0, overflow: "hidden" }}>
+                        <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.45) saturate(0.3)" }} />
                       </div>
                     )}
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 16px", minWidth: 0, gap: 0 }}>
-                      <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 96, flexShrink: 0 }}>{formatDate(ev.date)}</span>
-                      <span className="th-anton" style={{ color: "#fff", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0 }}>{ev.artistName}</span>
-                      <span style={{ color: "rgba(255,255,255,0.38)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
-                      <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 10, flexShrink: 0, marginLeft: 16 }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", minWidth: 0, gap: 0 }}>
+                      <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 100, flexShrink: 0, letterSpacing: "0.04em" }}>{formatDate(ev.date)}</span>
+                      <span className="th-anton" style={{ color: "#e8e8e8", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0, letterSpacing: "0.02em" }}>{ev.artistName}</span>
+                      <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
+                      <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
                     </div>
-                    <div style={{ padding: "0 16px", flexShrink: 0, borderLeft: "1px solid #161616", height: 52, display: "flex", alignItems: "center" }}>
-                      <span style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em" }}>Boletos →</span>
+                    <div style={{ padding: "0 18px", flexShrink: 0, borderLeft: "1px solid #141414", height: 54, display: "flex", alignItems: "center" }}>
+                      <span style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Boletos →</span>
                     </div>
                   </motion.a>
                 ))}
               </div>
 
               {filteredShows.length > PAGE_SIZE && (
-                <div style={{ marginTop: 16, textAlign: "center" }}>
-                  <button
-                    onClick={() => setShowAll(s => !s)}
-                    style={{ background: "transparent", border: "1px solid #2a2a2a", color: "#666", padding: "10px 28px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
+                <div style={{ marginTop: 20, textAlign: "center" }}>
+                  <button className="th-ver-mas-btn" onClick={() => setShowAll(s => !s)}>
                     {showAll ? `Ver menos ↑` : `Ver más · ${filteredShows.length - PAGE_SIZE} shows más →`}
                   </button>
                 </div>
@@ -344,44 +485,49 @@ export default function TouringHub() {
         </section>
       )}
 
+      <hr className="th-divider" />
+
       {/* ── FEATURED TOURING PROFILES ── */}
-      <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 className="th-anton" style={{ fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            <span style={{ color: "#fff" }}>Featured</span> <span style={{ color: "#39FF14" }}>Touring Profiles</span>
-          </h2>
+      <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+          <div>
+            <SectionEyebrow>Artistas Destacados</SectionEyebrow>
+            <SectionHeading white="Featured" green="Touring Profiles" />
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {profileCards.map((p, i) => (
             <motion.div key={p.artist}
-              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-              style={{ border: "1px solid #1a1a1a", overflow: "hidden", cursor: "pointer", background: "#0a0a0a", position: "relative" }}
-              whileHover={{ borderColor: "#39FF14" }}>
-              <div style={{ position: "relative", height: 160, overflow: "hidden" }}>
-                <img src={p.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.6) grayscale(0.2)" }} />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 20%, rgba(10,10,10,0.95) 100%)" }} />
-                <div style={{ position: "absolute", bottom: 12, left: 14, right: 14 }}>
-                  <div className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", lineHeight: 1 }}>{p.artist}</div>
-                  <div style={{ color: "#39FF14", fontSize: 11, fontWeight: 600, marginTop: 2 }}>{p.subtitle}</div>
+              className="th-profile-card"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-32px" }}
+              transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
+              <div style={{ position: "relative", height: 168, overflow: "hidden" }}>
+                <img src={p.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 15%, rgba(9,9,9,0.97) 100%)" }} />
+                <div style={{ position: "absolute", bottom: 14, left: 14, right: 14 }}>
+                  <div className="th-anton" style={{ color: "#fff", fontSize: 21, textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.01em" }}>{p.artist}</div>
+                  <div style={{ color: "rgba(57,255,20,0.75)", fontSize: 10, fontWeight: 600, marginTop: 4, letterSpacing: "0.04em" }}>{p.subtitle}</div>
                 </div>
               </div>
               <div style={{ padding: "14px 14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #1a1a1a" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
                   <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>{p.gross}</div>
-                    <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Gross Reportado</div>
+                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
+                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
                   </div>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>{p.tickets}</div>
-                    <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Tickets</div>
+                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
+                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 18 }}>{p.shows}</div>
-                    <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Shows</div>
+                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
+                    <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
                   </div>
                 </div>
                 <Link href={`/touring/${p.slug}`}>
-                  <button style={{ marginTop: 12, background: "none", border: "none", color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 4, padding: 0, width: "100%" }}>
+                  <button style={{ marginTop: 12, background: "none", border: "none", color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, padding: 0, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
                     Ver Perfil Completo →
                   </button>
                 </Link>
@@ -392,28 +538,31 @@ export default function TouringHub() {
       </section>
 
       {/* ── TOURING INSIGHTS ── */}
-      <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 className="th-anton" style={{ fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            <span style={{ color: "#fff" }}>Touring</span> <span style={{ color: "#39FF14" }}>Insights</span>
-          </h2>
+      <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+          <div>
+            <SectionEyebrow>Editorial</SectionEyebrow>
+            <SectionHeading white="Touring" green="Insights" />
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
           {insights.map((ins, i) => (
             <motion.div key={ins.title}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.07 }}
-              style={{ border: "1px solid #1a1a1a", overflow: "hidden", cursor: "pointer", background: "#0a0a0a" }}
-              whileHover={{ borderColor: "#39FF14" }}>
-              <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
-                <img src={ins.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.5) saturate(0.4)" }} />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 40%, rgba(10,10,10,0.9) 100%)" }} />
-                <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(57,255,20,0.15)", border: "1px solid rgba(57,255,20,0.3)", color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", padding: "2px 8px" }}>
+              className="th-insight-card"
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-32px" }}
+              transition={{ delay: i * 0.06, duration: 0.55, ease: [0.16,1,0.3,1] }}>
+              <div style={{ position: "relative", height: 148, overflow: "hidden" }}>
+                <img src={ins.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.42) saturate(0.35)", transition: "filter 0.35s" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 35%, rgba(9,9,9,0.92) 100%)" }} />
+                <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.22)", color: "rgba(57,255,20,0.8)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", padding: "3px 8px" }}>
                   {ins.tag}
                 </div>
               </div>
-              <div style={{ padding: "14px 14px 16px" }}>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1.3, marginBottom: 8 }}>{ins.title}</div>
-                <div style={{ color: "#555", fontSize: 10 }}>{ins.date}</div>
+              <div style={{ padding: "14px 14px 18px" }}>
+                <div style={{ color: "#d8d8d8", fontWeight: 600, fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{ins.title}</div>
+                <div style={{ color: "#3a3a3a", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em" }}>{ins.date}</div>
               </div>
             </motion.div>
           ))}
@@ -421,27 +570,22 @@ export default function TouringHub() {
       </section>
 
       {/* ── NEWSLETTER ── */}
-      <section style={{ padding: "32px 32px", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", border: "1px solid #333", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>✉</div>
-          <div>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>Sé el Primero en Saber</div>
-            <div style={{ color: "#666", fontSize: 11, marginTop: 2 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
-          </div>
+      <section style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
+        <div>
+          <div style={{ color: "rgba(255,255,255,0.25)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.34em", marginBottom: 8 }}>Alertas de Touring</div>
+          <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sé el Primero en Saber</div>
+          <div style={{ color: "#444", fontSize: 11, lineHeight: 1.5 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
         </div>
-        <div style={{ display: "flex", gap: 0, maxWidth: 420, flex: 1 }}>
-          <input placeholder="Tu correo electrónico"
-            style={{ flex: 1, background: "#1a1a1a", border: "1px solid #333", borderRight: "none", color: "#fff", padding: "12px 16px", fontSize: 12, outline: "none" }} />
-          <button style={{ background: "#39FF14", border: "none", color: "#000", padding: "12px 24px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            Suscribirme
-          </button>
+        <div style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
+          <input placeholder="Tu correo electrónico" className="th-newsletter-input" />
+          <button className="th-subscribe-btn">Suscribirme</button>
         </div>
       </section>
 
-      <footer style={{ padding: "20px 32px", borderTop: "1px solid #111", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ color: "#444", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>© 2024 Mexico Charts</div>
-        <div style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>El Movimiento No Para</div>
-        <div style={{ color: "#444", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>Datos: Ticketmaster Discovery API</div>
+      <footer style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ color: "#2e2e2e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2024 Mexico Charts</div>
+        <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em" }}>El Movimiento No Para</div>
+        <div style={{ color: "#2e2e2e", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>Datos: Ticketmaster Discovery API</div>
       </footer>
     </div>
   );
