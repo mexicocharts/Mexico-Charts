@@ -20,6 +20,11 @@ import _lmSinging     from "@assets/73537366007-05012024-luis-miguel-at-don-hask
 import _lmSpread      from "@assets/73537371007-05012024-luis-miguel-at-don-haskins-13.jpg_1778595179832.webp";
 import _lmFenix       from "@assets/do-not-reuse-02-Luis-Miguel-cr-Courtesy-of-Fenix-Entertainmen_1778595729674.webp";
 import _lmMicUp       from "@assets/O7OF6LMKQJAOLG2RCDSZCZ44WE_1778595853657.jpg";
+import _showBernabeu1 from "@assets/bernabeu_1_1778596969222.PNG";
+import _showBernabeu4 from "@assets/Bernabeu_4_1778596941310.png";
+import _showCaracas   from "@assets/caracas_venezuela_1778596995437.webp";
+import _showGNP       from "@assets/GNP_Seguros_1778597015306.JPG";
+import _showPeru      from "@assets/Estadio_Nacional_Peru_1778597058807.jpg";
 
 const BG_HERO      = _lmStageSetup;
 const BG_CROWD     = _lmCrowdScreen;
@@ -73,6 +78,7 @@ const TOP_SHOWS = [
     tickets: "45,541",
     gross: "$8.24M",
     note: "100% vendido",
+    img: _showBernabeu1,
   },
   {
     rank: 2,
@@ -82,6 +88,7 @@ const TOP_SHOWS = [
     tickets: "35,422",
     gross: "$6.85M",
     note: "98% vendido",
+    img: _showCaracas,
   },
   {
     rank: 3,
@@ -91,6 +98,7 @@ const TOP_SHOWS = [
     tickets: "56,539",
     gross: "$6.00M",
     note: "98% vendido · Mayor asistencia",
+    img: _showGNP,
   },
   {
     rank: 4,
@@ -100,6 +108,7 @@ const TOP_SHOWS = [
     tickets: "43,644",
     gross: "$5.59M",
     note: "100% vendido",
+    img: _showBernabeu4,
   },
   {
     rank: 5,
@@ -109,6 +118,7 @@ const TOP_SHOWS = [
     tickets: "41,263",
     gross: "$5.45M",
     note: "100% vendido",
+    img: _showPeru,
   },
 ];
 
@@ -492,8 +502,8 @@ export default function LuisMiguelProfile() {
               initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.7 }}
               style={{ position: "relative", height: 182, overflow: "hidden" }}>
-              <img src={i % 2 === 0 ? BG_STAGE : BG_PERF} alt=""
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(0.4) saturate(0.72)" }} />
+              <img src={show.img} alt=""
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(0.38) saturate(0.75)" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.92) 0%, rgba(6,6,6,0.55) 52%, rgba(6,6,6,0.12) 100%)" }} />
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
 
