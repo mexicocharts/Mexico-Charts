@@ -18,15 +18,19 @@ import _lmGetty       from "@assets/GettyImages-1719488470-scaled_1778594713058.
 import _lmAcapulco    from "@assets/luis-miguel-concierto-acapulco-2023_1778595179832.webp";
 import _lmSinging     from "@assets/73537366007-05012024-luis-miguel-at-don-haskins-10.jpg_1778595179832.webp";
 import _lmSpread      from "@assets/73537371007-05012024-luis-miguel-at-don-haskins-13.jpg_1778595179832.webp";
+import _lmFenix       from "@assets/do-not-reuse-02-Luis-Miguel-cr-Courtesy-of-Fenix-Entertainmen_1778595729674.webp";
+import _lmMicUp       from "@assets/O7OF6LMKQJAOLG2RCDSZCZ44WE_1778595853657.jpg";
 
-const BG_HERO    = _lmStageSetup;
-const BG_CROWD   = _lmCrowdScreen;
-const BG_STAGE   = _lmAcapulco;   // dark orange-strip backdrop — blends with text
-const BG_STADIUM = _lmStadium;
-const BG_LIGHTS  = _lmSinging;    // near-black with warm glints — ideal for stats bar
-const BG_CLOSE   = _lmSpread;     // dramatic arms-wide, very dark — perfect for timeline
-const BG_PERF    = _lmArmsWide;
-const ARTIST_IMG = _lmGetty;
+const BG_HERO      = _lmStageSetup;
+const BG_CROWD     = _lmCrowdScreen;
+const BG_COMEBACK  = _lmFenix;     // wide stage + crowd, red strips — section 3
+const BG_PULLQUOTE = _lmMicUp;     // dark close-up mic raised — section 5
+const BG_STAGE     = _lmAcapulco;  // show cards only (section 7)
+const BG_STADIUM   = _lmStadium;
+const BG_LIGHTS    = _lmSinging;   // near-black with warm glints — section 2 stats bar
+const BG_CLOSE     = _lmSpread;    // arms-wide, very dark — section 9 timeline
+const BG_PERF      = _lmArmsWide;  // show cards only (section 7)
+const ARTIST_IMG   = _lmGetty;
 
 // kept in imports so bundler doesn't warn — not currently used as bg
 const _unused = [_lmBand, _lmFlying, _lmOrangeArms]; void _unused;
@@ -286,7 +290,7 @@ export default function LuisMiguelProfile() {
           El tour 2023-2024 alone > all 610 previous shows combined
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.35) saturate(0.7)" }} />
+        <img src={BG_COMEBACK} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.28) saturate(0.65)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 16%, rgba(6,6,6,0.1) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 62%)" }} />
 
@@ -381,7 +385,7 @@ export default function LuisMiguelProfile() {
           5. EDITORIAL PULLQUOTE
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 460, overflow: "hidden" }}>
-        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.28) saturate(0.6)" }} />
+        <img src={BG_PULLQUOTE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.26) saturate(0.6)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.18) 16%, rgba(6,6,6,0.18) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
 
