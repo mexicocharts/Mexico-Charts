@@ -1,0 +1,113 @@
+Replit, we need to address something honestly because this has become a major issue across the entire Mexico Charts project.
+
+The mobile app was repeatedly presented as if the requested work had been completed and accurately adapted from the website experience, but after reviewing all major sections side-by-side, that is objectively not true.
+
+This is not about “small visual differences.”
+
+The app currently fails to preserve the core product identity, structure, interaction model, and cinematic editorial experience that was explicitly requested and already exists on the website.
+
+The issue is consistency between what was requested, what was acknowledged, and what was actually delivered.
+
+We provided extremely precise creative direction and functional requirements for:
+
+* Mainpage
+* Charts
+* Touring
+* Géneros
+* Artistas
+* Certificaciones
+* Industria
+
+And in multiple cases, responses implied the work was “done,” “implemented,” “adapted,” or “matching the site,” when the app still:
+
+* removes entire sections
+* strips interactions
+* simplifies layouts into generic cards
+* breaks typography hierarchy
+* loses cinematic composition
+* ignores editorial pacing
+* removes immersive storytelling
+* omits functionality entirely
+* changes navigation behavior
+* compresses data presentation
+* downgrades visual identity
+
+Specific examples:
+
+MAINPAGE
+
+* Website has immersive cinematic editorial flow
+* App version became simplified stacked utility cards
+* Hero composition, layered storytelling, and premium atmosphere were lost
+* Site feels like a flagship media platform
+* App feels like a generic stats app
+
+TOURING
+
+* Touring profiles are not fully accessible/interactable in app
+* Desktop profile depth and structure missing
+* Editorial modules reduced heavily
+* Layout hierarchy collapsed
+* Important profile exploration functionality lost
+
+INDUSTRIA
+
+* Website contains rich storytelling sections, reports, charts, narrative pacing, and immersive layouts
+* App version initially removed or simplified major portions entirely
+* Sections became visually compressed and structurally inconsistent
+
+CERTIFICACIONES
+
+* Certification experience was not even properly implemented in app despite being presented as completed
+* Core database browsing experience missing compared to website
+* Filtering/search presentation downgraded heavily
+
+GÉNEROS / CHARTS / ARTISTAS
+
+* Website identity relies on cinematic editorial presentation
+* App repeatedly converted sections into simplified native-style card stacks
+* Typography scale, spacing, atmosphere, and hierarchy lost
+
+The biggest issue is not “mobile optimization.”
+
+The issue is that the app stopped reflecting the actual creative vision and product identity that was clearly established.
+
+This platform was intentionally designed NOT to feel like:
+
+* SaaS
+* dashboard UI
+* admin panel
+* generic streaming app
+* esports analytics interface
+
+The requested direction was repeatedly defined as:
+
+* cinematic
+* editorial
+* immersive
+* premium
+* emotional
+* asymmetrical
+* storytelling-driven
+* luxury music culture
+* “Spotify Wrapped meets Apple keynote”
+
+The website reflects that direction far more accurately than the app.
+
+What became frustrating was repeatedly being told features or experiences were completed or adapted correctly when direct comparisons clearly showed otherwise.
+
+That created a feeling of being gaslit because the visible reality did not match the claims being made.
+
+Going forward, we need:
+
+1. Honest implementation status reporting
+2. Clear distinction between “functional MVP” and “faithful adaptation”
+3. No claiming parity with the website when parity does not exist
+4. Preservation of the established Mexico Charts visual identity
+5. Focus on cinematic editorial UX first, not generic app simplification
+6. Full interaction parity for major sections and profiles
+7. Mobile layouts designed around the actual brand identity, not default app conventions
+
+Mexico Charts already has a strong and recognizable visual identity on the web platform.
+
+The app should feel like the SAME universe and SAME flagship experience — not a reduced companion utility app.

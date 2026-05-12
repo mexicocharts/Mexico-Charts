@@ -449,7 +449,10 @@ export default function ChartsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>CHARTS</Text>
+          <Text style={styles.headerTitle}>
+          {"CHARTS "}
+          <Text style={{ color: "#39FF14" }}>MÉXICO</Text>
+        </Text>
           {updatedFmt ? (
             <Text style={styles.headerSub}>Actualizado {updatedFmt}</Text>
           ) : (
@@ -603,9 +606,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 22,
-    letterSpacing: 2,
+    fontFamily: "Anton_400Regular",
+    fontSize: 36,
+    lineHeight: 46,
   },
   headerSub: {
     color: "#52525B",

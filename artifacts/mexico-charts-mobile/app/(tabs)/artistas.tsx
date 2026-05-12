@@ -325,9 +325,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 22,
-    letterSpacing: 2,
+    fontFamily: "Anton_400Regular",
+    fontSize: 36,
+    lineHeight: 46,
   },
   headerSub: {
     color: "#52525B",

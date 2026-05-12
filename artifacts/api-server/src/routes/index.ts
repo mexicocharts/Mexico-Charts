@@ -6,6 +6,7 @@ import chartsRouter from "./charts";
 import chartsHubRouter from "./charts-hub";
 import touringRouter from "./touring";
 import artistsRouter from "./artists";
+import certificationsRouter from "./certifications";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(chartsRouter);
 router.use(chartsHubRouter);
 router.use(touringRouter);
 router.use(artistsRouter);
+router.use(certificationsRouter);
 
 export default router;

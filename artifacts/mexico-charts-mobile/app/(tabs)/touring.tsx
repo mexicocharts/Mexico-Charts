@@ -401,8 +401,8 @@ const styles = StyleSheet.create({
     letterSpacing: 4, textTransform: "uppercase", marginBottom: 12,
   },
   heroTitle: {
-    color: "#FFFFFF", fontFamily: "Inter_700Bold", fontSize: 44,
-    lineHeight: 44, letterSpacing: -0.5, textTransform: "uppercase", marginBottom: 18,
+    color: "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 52,
+    lineHeight: 60, textTransform: "uppercase", marginBottom: 18,
   },
   heroStats: { flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 14 },
   heroStat: { gap: 3 },

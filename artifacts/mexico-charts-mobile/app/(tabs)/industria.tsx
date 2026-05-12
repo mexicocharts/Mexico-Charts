@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   Linking,
   Platform,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 const NEON = "#39FF14";
 const BG = "#050505";
@@ -111,20 +114,16 @@ export default function IndustriaScreen() {
             <View style={styles.sectionLine} />
           </View>
 
-          {/* First stat (highlighted, full width) */}
-          <StatCard
-            icon={STATS[0].icon}
-            value={STATS[0].value}
-            label={STATS[0].label}
-            hi={STATS[0].hi}
-          />
-
-          {/* Remaining stats in 2-col grid */}
-          <View style={styles.statsGrid}>
-            {STATS.slice(1).map((s) => (
+          {/* Stats horizontal scroll strip */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.statsStrip}
+          >
+            {STATS.map((s) => (
               <StatCard key={s.value} icon={s.icon} value={s.value} label={s.label} hi={s.hi} />
             ))}
-          </View>
+          </ScrollView>
         </View>
 
         {/* ── TIMELINE ── */}
@@ -202,12 +201,12 @@ const styles = StyleSheet.create({
     fontSize: 9, letterSpacing: 3, marginBottom: 14,
   },
   heroHeadline: {
-    color: "#FFFFFF", fontFamily: "Inter_700Bold",
-    fontSize: 26, letterSpacing: -0.5, lineHeight: 30,
+    color: "#FFFFFF", fontFamily: "Anton_400Regular",
+    fontSize: 32, lineHeight: 40,
   },
   heroTop10: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 42, letterSpacing: -1.5, lineHeight: 46, marginVertical: 2,
+    fontFamily: "Anton_400Regular",
+    fontSize: 68, lineHeight: 78, marginVertical: 2,
   },
   heroSub: {
     color: "rgba(255,255,255,0.55)", fontFamily: "Inter_400Regular",
@@ -245,11 +244,10 @@ const styles = StyleSheet.create({
 
   /* Stats */
   statCard: {
-    flex: 1,
+    width: SCREEN_WIDTH * 0.52,
     backgroundColor: "#111111",
     borderRadius: 12, padding: 16,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
-    marginBottom: 10,
     position: "relative", overflow: "hidden",
   },
   statCardHi: {
@@ -261,8 +259,8 @@ const styles = StyleSheet.create({
     width: 100, height: 100, borderRadius: 50,
     backgroundColor: "rgba(57,255,20,0.08)",
   },
-  statsGrid: {
-    flexDirection: "row", flexWrap: "wrap", gap: 10,
+  statsStrip: {
+    paddingBottom: 10, gap: 10, flexDirection: "row",
   },
   statValue: {
     color: "#FFFFFF", fontFamily: "Inter_700Bold",

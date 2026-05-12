@@ -232,7 +232,7 @@ function HeroArtistCard({
         <Text style={styles.heroRankTag}>
           #{artist.rank} EN MÉXICO  ·  {artist.tag}
         </Text>
-        <Text style={styles.heroName} numberOfLines={1}>
+        <Text style={styles.heroName} numberOfLines={2} adjustsFontSizeToFit>
           {artist.name.toUpperCase()}
         </Text>
         <Text style={styles.heroStats}>
@@ -670,10 +670,9 @@ const styles = StyleSheet.create({
   },
   heroName: {
     color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 44,
-    lineHeight: 46,
-    letterSpacing: -1.5,
+    fontFamily: "Anton_400Regular",
+    fontSize: 56,
+    lineHeight: 64,
     marginBottom: 10,
   },
   heroStats: {

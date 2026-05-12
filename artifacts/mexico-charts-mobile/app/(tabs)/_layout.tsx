@@ -36,6 +36,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chart.line.uptrend.xyaxis", selected: "chart.line.uptrend.xyaxis" }} />
         <Label>Industria</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="certificaciones">
+        <Icon sf={{ default: "medal", selected: "medal.fill" }} />
+        <Label>Certs</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -152,6 +156,18 @@ function ClassicTabLayout() {
               <SymbolView name="chart.line.uptrend.xyaxis" tintColor={color} size={20} />
             ) : (
               <Feather name="trending-up" size={20} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="certificaciones"
+        options={{
+          title: "Certs",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="medal.fill" tintColor={color} size={20} />
+            ) : (
+              <Feather name="award" size={20} color={color} />
             ),
         }}
       />

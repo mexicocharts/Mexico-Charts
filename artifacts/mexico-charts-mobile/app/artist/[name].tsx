@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -13,17 +13,47 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
-import { useArtistImage } from "@/hooks/useArtistImages";
-import { TOP_ARTISTS } from "@/data/chartData";
+import { useArtistImages } from "@/hooks/useArtistImages";
+import { useArtistMetadata } from "@/hooks/useArtistMetadata";
 
 const NEON = "#39FF14";
 const BG = "#050505";
 
-function StatBox({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function StatBox({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
   return (
     <View style={styles.statBox}>
-      <Text style={[styles.statValue, accent ? { color: accent } : null]}>{value}</Text>
+      <Text style={[styles.statValue, accent ? { color: accent } : null]}>
+        {value}
+      </Text>
       <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function PlatformRow({
+  label,
+  value,
+  color,
+  iconName,
+}: {
+  label: string;
+  value: string;
+  color: string;
+  iconName: React.ComponentProps<typeof Feather>["name"];
+}) {
+  return (
+    <View style={styles.platformRow}>
+      <View style={[styles.platformDot, { backgroundColor: color }]} />
+      <Text style={styles.platformLabel}>{label}</Text>
+      <Text style={[styles.platformValue, { color }]}>{value}</Text>
     </View>
   );
 }
@@ -31,48 +61,87 @@ function StatBox({ label, value, accent }: { label: string; value: string; accen
 export default function ArtistDetailScreen() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const insets = useSafeAreaInsets();
-  const photo = useArtistImage(name);
 
-  const artist = TOP_ARTISTS.find((a) => a.name === name);
+  const { byName, isLoading } = useArtistMetadata();
+
+  const artist = useMemo(() => {
+    if (!name) return undefined;
+    return byName.get(name.toLowerCase());
+  }, [byName, name]);
+
+  const imageMap = useArtistImages(artist ? [artist.displayName] : []);
+  const photo = artist ? (imageMap[artist.displayName] ?? null) : null;
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 34 : insets.bottom;
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { paddingTop: topInset + 80, alignItems: "center" }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { top: topInset + 12, position: "absolute", left: 16 }]}
+          onPress={() => router.back()}
+        >
+          <Feather name="arrow-left" size={20} color="#E4E4E7" />
+        </TouchableOpacity>
+        <Feather name="loader" size={32} color="#52525B" />
+        <Text style={styles.emptyText}>Cargando…</Text>
+      </View>
+    );
+  }
+
   if (!artist) {
     return (
-      <View style={[styles.container, { paddingTop: topInset + 60 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+      <View style={[styles.container, { paddingTop: topInset }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { top: topInset + 12, position: "absolute", left: 16 }]}
+          onPress={() => router.back()}
+        >
           <Feather name="arrow-left" size={20} color="#E4E4E7" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <Feather name="user-x" size={40} color="#52525B" />
           <Text style={styles.emptyText}>Artista no encontrado</Text>
+          {name ? (
+            <Text style={[styles.emptyText, { fontSize: 12, marginTop: 4, color: "#3F3F46" }]}>
+              {name}
+            </Text>
+          ) : null}
         </View>
       </View>
     );
   }
 
-  const accentColor = artist.accent.startsWith("#") ? artist.accent : NEON;
+  const displayGenre = artist.subgenre || artist.genre || "";
+  const hasStats =
+    artist.spotifyListenersFmt !== "—" ||
+    artist.spotifyStreamsFmt !== "—" ||
+    artist.youtubeSubscribersFmt !== "—" ||
+    artist.instagramFollowersFmt !== "—";
 
   return (
-    <View style={[styles.container]}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: bottomInset + 32 }}
       >
-        {/* Hero photo area */}
+        {/* ── Hero ── */}
         <View style={[styles.heroArea, { paddingTop: topInset }]}>
           {photo ? (
-            <Image source={{ uri: photo }} style={styles.heroImage} resizeMode="cover" />
+            <Image
+              source={{ uri: photo }}
+              style={styles.heroImage}
+              resizeMode="cover"
+            />
           ) : (
             <View style={styles.heroImagePlaceholder}>
-              <Text style={{ color: "rgba(255,255,255,0.15)", fontFamily: "Inter_700Bold", fontSize: 130, lineHeight: 140 }}>
-                {name ? name.charAt(0).toUpperCase() : "?"}
+              <Text style={styles.heroPlaceholderLetter}>
+                {artist.displayName.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
-          {/* Gradient overlay */}
-          <View style={styles.heroGradient} />
+          <View style={styles.heroGradientSide} />
+          <View style={styles.heroGradientBottom} />
 
           {/* Back button */}
           <TouchableOpacity
@@ -85,111 +154,131 @@ export default function ArtistDetailScreen() {
             <Feather name="arrow-left" size={20} color="#FFFFFF" />
           </TouchableOpacity>
 
-          {/* Rank badge */}
-          <View style={[styles.rankBadge, { borderColor: accentColor }]}>
-            <Text style={[styles.rankBadgeText, { color: accentColor }]}>#{artist.rank}</Text>
-          </View>
+          {/* Genre tag */}
+          {displayGenre ? (
+            <View style={[styles.genreTag, { top: topInset + 16 }]}>
+              <Text style={[styles.genreTagText, { color: NEON }]}>
+                {displayGenre.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Hero text */}
           <View style={styles.heroText}>
-            <Text style={[styles.tagLabel, { color: accentColor }]}>{artist.tag}</Text>
-            <Text style={styles.artistName}>{artist.name.toUpperCase()}</Text>
+            <Text style={styles.artistName} numberOfLines={2}>
+              {artist.displayName.toUpperCase()}
+            </Text>
+            {artist.country ? (
+              <Text style={styles.artistCountry}>{artist.country}</Text>
+            ) : null}
           </View>
         </View>
 
-        {/* Stats grid */}
-        <View style={styles.statsGrid}>
-          <StatBox label="OYENTES" value={artist.listeners} accent={accentColor} />
-          <StatBox label="PAÍSES" value={artist.countries.replace(" PAÍSES", "")} />
-          <StatBox label="CRECIMIENTO" value={artist.growth} accent={NEON} />
-          <StatBox label="RANK" value={`#${artist.rank}`} />
-        </View>
+        {/* ── Stats row ── */}
+        {hasStats && (
+          <View style={styles.statsGrid}>
+            {artist.spotifyListenersFmt !== "—" && (
+              <StatBox
+                label="OYENTES / MES"
+                value={artist.spotifyListenersFmt}
+                accent={NEON}
+              />
+            )}
+            {artist.spotifyStreamsFmt !== "—" && (
+              <StatBox label="STREAMS TOTALES" value={artist.spotifyStreamsFmt} />
+            )}
+            {artist.youtubeSubscribersFmt !== "—" && (
+              <StatBox label="SUSCRIPTORES YT" value={artist.youtubeSubscribersFmt} />
+            )}
+            {artist.instagramFollowersFmt !== "—" && (
+              <StatBox label="SEGUIDORES IG" value={artist.instagramFollowersFmt} />
+            )}
+          </View>
+        )}
 
-        {/* Content cards */}
-        <View style={styles.cardsContainer}>
-          {/* Streaming card */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Feather name="bar-chart-2" size={14} color={accentColor} />
-              <Text style={styles.cardTitle}>STREAMING</Text>
-            </View>
-            <View style={styles.streamRow}>
-              <Feather name="headphones" size={16} color="#52525B" />
-              <Text style={styles.streamLabel}>Streams mensuales</Text>
-              <Text style={[styles.streamValue, { color: accentColor }]}>{artist.streams}</Text>
-            </View>
-            <View style={styles.streamRow}>
-              <Feather name="globe" size={16} color="#52525B" />
-              <Text style={styles.streamLabel}>Alcance global</Text>
-              <Text style={styles.streamValue}>{artist.countries}</Text>
-            </View>
-            <View style={styles.streamRow}>
-              <Feather name="trending-up" size={16} color="#52525B" />
-              <Text style={styles.streamLabel}>Crecimiento semanal</Text>
-              <Text style={[styles.streamValue, { color: NEON }]}>{artist.growth}</Text>
-            </View>
+        {/* ── Platform stats card ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Feather name="bar-chart-2" size={14} color={NEON} />
+            <Text style={styles.cardTitle}>PLATAFORMAS</Text>
           </View>
 
-          {/* Tour card — only if available */}
-          {artist.tour && (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Feather name="map-pin" size={14} color={accentColor} />
-                <Text style={styles.cardTitle}>TOURING</Text>
-              </View>
-              <Text style={styles.tourName}>{artist.tour}</Text>
-              <View style={styles.tourRow}>
-                <Feather name="calendar" size={14} color="#52525B" />
-                <Text style={styles.tourDetail}>{artist.tourDates}</Text>
-              </View>
-              {artist.tourGross && (
-                <View style={styles.tourRow}>
-                  <Feather name="dollar-sign" size={14} color="#52525B" />
-                  <Text style={styles.tourDetail}>Recaudación: <Text style={{ color: NEON }}>{artist.tourGross}</Text></Text>
-                </View>
-              )}
-            </View>
+          {artist.spotifyListenersFmt !== "—" && (
+            <PlatformRow
+              label="Spotify — oyentes / mes"
+              value={artist.spotifyListenersFmt}
+              color="#1DB954"
+              iconName="music"
+            />
           )}
+          {artist.spotifyStreamsFmt !== "—" && (
+            <PlatformRow
+              label="Spotify — streams totales"
+              value={artist.spotifyStreamsFmt}
+              color="#1DB954"
+              iconName="music"
+            />
+          )}
+          {artist.youtubeSubscribersFmt !== "—" && (
+            <PlatformRow
+              label="YouTube — suscriptores"
+              value={artist.youtubeSubscribersFmt}
+              color="#FF4444"
+              iconName="youtube"
+            />
+          )}
+          {artist.tiktokFollowersFmt !== "—" && (
+            <PlatformRow
+              label="TikTok — seguidores"
+              value={artist.tiktokFollowersFmt}
+              color="#E4E4E7"
+              iconName="video"
+            />
+          )}
+          {artist.instagramFollowersFmt !== "—" && (
+            <PlatformRow
+              label="Instagram — seguidores"
+              value={artist.instagramFollowersFmt}
+              color="#E1306C"
+              iconName="instagram"
+            />
+          )}
+        </View>
 
-          {/* Genre card */}
-          <View style={styles.card}>
+        {/* ── Genre card ── */}
+        {displayGenre ? (
+          <View style={[styles.card, { marginTop: 12 }]}>
             <View style={styles.cardHeader}>
-              <Feather name="music" size={14} color={accentColor} />
+              <Feather name="music" size={14} color={NEON} />
               <Text style={styles.cardTitle}>GÉNERO</Text>
             </View>
-            <View style={[styles.genreChip, { borderColor: accentColor }]}>
-              <Text style={[styles.genreChipText, { color: accentColor }]}>{artist.tag}</Text>
+            <View style={[styles.genreChip, { borderColor: NEON }]}>
+              <Text style={[styles.genreChipText, { color: NEON }]}>
+                {displayGenre.toUpperCase()}
+              </Text>
             </View>
-            <Text style={styles.genreDesc}>
-              {artist.tag === "CORRIDOS TUMBADOS"
-                ? "El género más streameado en México con 48.3M de reproducciones mensuales y en constante ascenso global."
-                : artist.tag === "REGIONAL MEXICANO"
-                ? "Género con 31.2M streams mensuales, fuerte presencia en 60+ países de habla hispana."
-                : artist.tag === "NORTEÑO"
-                ? "Género tradicional con 18.7M streams mensuales y audiencias fieles en Norte América."
-                : "Género con presencia creciente en el mercado de streaming latinoamericano."}
-            </Text>
+            {artist.label ? (
+              <Text style={styles.genreDesc}>Sello: {artist.label}</Text>
+            ) : null}
           </View>
-        </View>
+        ) : null}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
-  },
+  container: { flex: 1, backgroundColor: BG },
+
   heroArea: {
-    height: 340,
+    height: 400,
     position: "relative",
     backgroundColor: "#111",
     overflow: "hidden",
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.65,
+    opacity: 0.72,
   },
   heroImagePlaceholder: {
     ...StyleSheet.absoluteFillObject,
@@ -197,9 +286,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#111",
   },
-  heroGradient: {
-    ...StyleSheet.absoluteFillObject,
+  heroPlaceholderLetter: {
+    color: "rgba(255,255,255,0.05)",
+    fontFamily: "Anton_400Regular",
+    fontSize: 200,
+    lineHeight: 210,
+  },
+  heroGradientSide: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: "65%",
     backgroundColor: "rgba(5,5,5,0.55)",
+  },
+  heroGradientBottom: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 200,
+    backgroundColor: "rgba(5,5,5,0.90)",
   },
   backButton: {
     position: "absolute",
@@ -207,25 +314,20 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
   },
-  rankBadge: {
+  genreTag: {
     position: "absolute",
-    top: 60,
     right: 16,
-    borderWidth: 1,
-    borderRadius: 100,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
     zIndex: 10,
   },
-  rankBadgeText: {
+  genreTagText: {
     fontFamily: "Inter_700Bold",
-    fontSize: 12,
-    letterSpacing: 1,
+    fontSize: 9,
+    letterSpacing: 2.5,
   },
   heroText: {
     position: "absolute",
@@ -233,19 +335,20 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
   },
-  tagLabel: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 10,
-    letterSpacing: 2.5,
-    marginBottom: 6,
-  },
   artistName: {
     color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 32,
-    lineHeight: 34,
-    letterSpacing: -0.5,
+    fontFamily: "Anton_400Regular",
+    fontSize: 48,
+    lineHeight: 56,
+    marginBottom: 10,
   },
+  artistCountry: {
+    color: "rgba(255,255,255,0.45)",
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    letterSpacing: 3,
+  },
+
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -255,7 +358,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    minWidth: "40%",
+    minWidth: "44%",
     backgroundColor: "#111111",
     borderRadius: 12,
     padding: 14,
@@ -273,17 +376,16 @@ const styles = StyleSheet.create({
     color: "#52525B",
     fontFamily: "Inter_500Medium",
     fontSize: 9,
-    letterSpacing: 2,
-    marginTop: 4,
+    letterSpacing: 1.5,
+    marginTop: 5,
+    textAlign: "center",
   },
-  cardsContainer: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
+
   card: {
     backgroundColor: "#111111",
     borderRadius: 14,
     padding: 18,
+    marginHorizontal: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
     gap: 12,
@@ -300,37 +402,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 2.5,
   },
-  streamRow: {
+
+  platformRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  streamLabel: {
+  platformDot: { width: 7, height: 7, borderRadius: 3.5 },
+  platformLabel: {
     flex: 1,
     color: "#A1A1AA",
     fontFamily: "Inter_400Regular",
     fontSize: 13,
   },
-  streamValue: {
-    color: "#E4E4E7",
+  platformValue: {
     fontFamily: "Inter_700Bold",
     fontSize: 13,
   },
-  tourName: {
-    color: "#FFFFFF",
-    fontFamily: "Inter_700Bold",
-    fontSize: 16,
-  },
-  tourRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  tourDetail: {
-    color: "#A1A1AA",
-    fontFamily: "Inter_400Regular",
-    fontSize: 13,
-  },
+
   genreChip: {
     borderWidth: 1,
     borderRadius: 100,
@@ -347,8 +436,8 @@ const styles = StyleSheet.create({
     color: "#71717A",
     fontFamily: "Inter_400Regular",
     fontSize: 13,
-    lineHeight: 20,
   },
+
   emptyText: {
     color: "#52525B",
     fontFamily: "Inter_500Medium",
