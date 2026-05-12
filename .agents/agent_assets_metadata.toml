@@ -35,3 +35,15 @@ id = "X4iUbYWZyZQrXSEa3un_S"
 uri = "file://screenshots/touring-home.jpg"
 type = "image"
 title = "Touring Hub Homepage"
+
+[[outputs]]
+id = "xaruP45PWwl7hjm5ircGx"
+uri = "file://screenshots/pollstar-profile-top.jpg"
+type = "image"
+title = "Peso Pluma Touring Profile — Top Half (Hero → Tour Map)"
+
+[[outputs]]
+id = "QTKvykecUs0OA2u6MebTD"
+uri = "file://screenshots/pollstar-profile-bottom.jpg"
+type = "image"
+title = "Peso Pluma Touring Profile — Bottom Half (Shows → Timeline → Close)"
