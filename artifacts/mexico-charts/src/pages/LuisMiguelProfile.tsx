@@ -7,13 +7,23 @@ import PageSEO from "@/components/PageSEO";
 /* ─────────────────────────────────────────────────────────────────────────────
    IMAGES
 ────────────────────────────────────────────────────────────────────────────── */
-const BG_HERO    = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1400&h=800&fit=crop&q=85";
-const BG_CROWD   = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1400&h=700&fit=crop&q=82";
-const BG_STAGE   = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=1400&h=700&fit=crop&q=80";
-const BG_STADIUM = "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=1400&h=700&fit=crop&q=80";
-const BG_LIGHTS  = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1400&h=700&fit=crop&q=80";
-const BG_CLOSE   = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1400&h=600&fit=crop&q=80";
-const ARTIST_IMG = "https://cdn-images.dzcdn.net/images/artist/b6bbe4ed8f73bf3fdbf5b6f68e7a75e4/1000x1000-000000-80-0-0.jpg";
+import _lmStageSetup  from "@assets/ImageTransformer.aspx_1778594713058.jpeg";
+import _lmCrowdScreen from "@assets/353929_1152x775_1778594713058.jpg";
+import _lmBand        from "@assets/353926_1778594713058.png";
+import _lmOrangeArms  from "@assets/3HKIHV4EEVDONOWCEUT2KYKELQ_1778594713058.jpg";
+import _lmFlying      from "@assets/image_1778594713058.webp";
+import _lmStadium     from "@assets/El-sol-brillo-con-fuerza-en-CDMX-asi-fue-la-llegada-de-Luis-Mi_1778594713058.jpg";
+import _lmArmsWide    from "@assets/484829736_1199132631580959_3823093758088241270_n_1778594713058.jpg";
+import _lmGetty       from "@assets/GettyImages-1719488470-scaled_1778594713058.jpg";
+
+const BG_HERO    = _lmStageSetup;
+const BG_CROWD   = _lmCrowdScreen;
+const BG_STAGE   = _lmBand;
+const BG_STADIUM = _lmStadium;
+const BG_LIGHTS  = _lmOrangeArms;
+const BG_CLOSE   = _lmFlying;
+const BG_PERF    = _lmArmsWide;
+const ARTIST_IMG = _lmGetty;
 
 /* ─────────────────────────────────────────────────────────────────────────────
    POLLSTAR DATA — Luis Miguel Tour History Reports
@@ -159,7 +169,7 @@ export default function LuisMiguelProfile() {
       <section ref={heroRef} style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden" }}>
         <motion.img src={BG_HERO} alt="" style={{
           position: "absolute", inset: 0, width: "100%", height: "115%",
-          objectFit: "cover", objectPosition: "center 30%", y: heroBgY,
+          objectFit: "cover", objectPosition: "center 55%", y: heroBgY,
         }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.98) 30%, rgba(6,6,6,0.6) 60%, rgba(6,6,6,0.08) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(6,6,6,1) 0%, rgba(6,6,6,0.3) 30%, transparent 60%)" }} />
@@ -270,7 +280,7 @@ export default function LuisMiguelProfile() {
           El tour 2023-2024 alone > all 610 previous shows combined
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 38%", filter: "brightness(0.35) saturate(0.7)" }} />
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.35) saturate(0.7)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 16%, rgba(6,6,6,0.1) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.06) 0%, transparent 62%)" }} />
 
@@ -342,7 +352,7 @@ export default function LuisMiguelProfile() {
           4. 7.3M FANS IMPACT STAT
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_STADIUM} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.35) saturate(0.65)" }} />
+        <img src={BG_STADIUM} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.35) saturate(0.65)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.12) 18%, rgba(6,6,6,0.12) 80%, rgba(6,6,6,1) 100%)" }} />
 
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 48px" }}>
@@ -365,7 +375,7 @@ export default function LuisMiguelProfile() {
           5. EDITORIAL PULLQUOTE
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 460, overflow: "hidden" }}>
-        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 25%", filter: "brightness(0.28) saturate(0.6)" }} />
+        <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.28) saturate(0.6)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.18) 16%, rgba(6,6,6,0.18) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
 
@@ -390,7 +400,7 @@ export default function LuisMiguelProfile() {
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "44%", zIndex: 0 }}>
-          <img src={BG_CROWD} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 35%", filter: "brightness(0.42) saturate(0.72)" }} />
+          <img src={BG_CROWD} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.42) saturate(0.72)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.42) 28%, rgba(6,6,6,0.0) 68%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.65) 0%, transparent 16%, transparent 84%, rgba(6,6,6,0.65) 100%)" }} />
 
@@ -475,8 +485,8 @@ export default function LuisMiguelProfile() {
               initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.7 }}
               style={{ position: "relative", height: 182, overflow: "hidden" }}>
-              <img src={i % 2 === 0 ? BG_STAGE : BG_CROWD} alt=""
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 30%", filter: "brightness(0.4) saturate(0.72)" }} />
+              <img src={i % 2 === 0 ? BG_STAGE : BG_PERF} alt=""
+                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(0.4) saturate(0.72)" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.92) 0%, rgba(6,6,6,0.55) 52%, rgba(6,6,6,0.12) 100%)" }} />
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
 
@@ -667,7 +677,7 @@ export default function LuisMiguelProfile() {
           10. CLOSING CINEMATIC MOMENT
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", height: 380, overflow: "hidden" }}>
-        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 55%", filter: "brightness(0.32) saturate(0.75)" }} />
+        <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 65%", filter: "brightness(0.32) saturate(0.75)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 22%, rgba(6,6,6,0.1) 68%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.28), transparent)" }} />
 
