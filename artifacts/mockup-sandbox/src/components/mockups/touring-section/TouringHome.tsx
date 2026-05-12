@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { motion, animate, useMotionValue, useTransform } from "framer-motion";
+import React, { useState } from "react";
+import { motion } from "framer-motion";
 
 const HERO_BG = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=620&fit=crop&q=85";
 const ARTIST_BACK = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=640&h=620&fit=crop&q=80";
@@ -7,36 +7,10 @@ const CONCERT1 = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w
 const CONCERT2 = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=500&fit=crop&q=75";
 const CONCERT3 = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=500&fit=crop&q=75";
 const CONCERT4 = "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=500&fit=crop&q=75";
-const SHOW1 = "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=400&h=280&fit=crop&q=75";
-const SHOW2 = "https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=400&h=280&fit=crop&q=75";
-const SHOW3 = "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=280&fit=crop&q=75";
-const SHOW4 = "https://images.unsplash.com/photo-1574169208507-84376144848b?w=400&h=280&fit=crop&q=75";
 const INSIGHT1 = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=220&fit=crop&q=70";
 const INSIGHT2 = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=220&fit=crop&q=70";
 const INSIGHT3 = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=220&fit=crop&q=70";
 const INSIGHT4 = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=220&fit=crop&q=70";
-
-function AnimCount({ to, prefix = "", suffix = "" }: { to: number; prefix?: string; suffix?: string }) {
-  const v = useMotionValue(0);
-  const disp = useTransform(v, (n) => prefix + Math.round(n).toLocaleString() + suffix);
-  useEffect(() => { const c = animate(v, to, { duration: 1.8, ease: "easeOut" }); return c.stop; }, []);
-  return <motion.span>{disp}</motion.span>;
-}
-
-function CircleRing({ pct }: { pct: number }) {
-  const r = 22, circ = 2 * Math.PI * r;
-  const [off, setOff] = useState(circ);
-  useEffect(() => { const t = setTimeout(() => setOff(circ * (1 - pct / 100)), 400); return () => clearTimeout(t); }, []);
-  return (
-    <svg width="56" height="56" viewBox="0 0 56 56">
-      <circle cx="28" cy="28" r={r} fill="none" stroke="#1a1a1a" strokeWidth="3" />
-      <circle cx="28" cy="28" r={r} fill="none" stroke="#39FF14" strokeWidth="3"
-        strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
-        style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", transition: "stroke-dashoffset 1.8s ease-out" }} />
-      <text x="28" y="33" textAnchor="middle" fill="#39FF14" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{pct}%</text>
-    </svg>
-  );
-}
 
 const upcomingTours = [
   {
@@ -155,40 +129,12 @@ export function TouringHome() {
             </motion.h1>
           </div>
           <div>
-            <div style={{ color: "#aaa", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 20 }}>Datos · Cultura · Impacto</div>
             <button style={{ background: "transparent", border: "1px solid #fff", color: "#fff", padding: "10px 20px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               Explorar Touring <span style={{ fontSize: 14 }}>→</span>
             </button>
           </div>
         </div>
 
-        {/* Right: stats stack */}
-        <div style={{ position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)", zIndex: 10, display: "flex", flexDirection: "column", gap: 20 }}>
-          {[
-            { icon: "🎟", val: 758, suffix: "K", label: "Tickets Vendidos", sub: "Total Reportado" },
-            { icon: "$", val: 90, suffix: ".4M", label: "Gross Reportado", sub: "USD en taquilla", isText: true },
-            { icon: "👥", val: 11856, suffix: "", label: "Asistencia Promedio", sub: "Por Show" },
-          ].map((s) => (
-            <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(8,8,8,0.75)", padding: "12px 16px", border: "1px solid #1a1a1a", backdropFilter: "blur(8px)" }}>
-              <span style={{ fontSize: 18, opacity: 0.6 }}>{s.icon}</span>
-              <div>
-                <div className="font-anton" style={{ color: "#fff", fontSize: 24, lineHeight: 1 }}>
-                  {s.isText ? `$${s.val}${s.suffix}` : <><AnimCount to={s.val} />{s.suffix}</>}
-                </div>
-                <div style={{ color: "#666", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, marginTop: 2 }}>{s.label}</div>
-                <div style={{ color: "#444", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>{s.sub}</div>
-              </div>
-            </div>
-          ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(8,8,8,0.75)", padding: "12px 16px", border: "1px solid #1a1a1a", backdropFilter: "blur(8px)" }}>
-            <CircleRing pct={98} />
-            <div>
-              <div className="font-anton" style={{ color: "#fff", fontSize: 24, lineHeight: 1 }}>98%</div>
-              <div style={{ color: "#666", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, marginTop: 2 }}>Sell-Through</div>
-              <div style={{ color: "#444", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Porcentaje Vendido</div>
-            </div>
-          </div>
-        </div>
       </section>
 
       {/* ── UPCOMING TOURS ── */}
@@ -264,53 +210,6 @@ export function TouringHome() {
                 <button style={{ marginTop: 10, background: "none", border: "none", color: "#fff", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 4, cursor: "pointer", padding: 0 }}>
                   {tour.featured ? "Ver Todas las Fechas" : "Ver Fechas"} →
                 </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── LATEST REPORTED SHOWS ── */}
-      <section style={{ padding: "40px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-          <h2 className="font-anton" style={{ fontSize: 28, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            <span style={{ color: "#fff" }}>Latest</span> <span style={{ color: "#39FF14" }}>Reported Shows</span>
-          </h2>
-          <button style={{ background: "none", border: "none", color: "#39FF14", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-            Ver Todos los Shows →
-          </button>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-          {[
-            { date: "May 18, 2024", venue: "Foro Sol", city: "Ciudad de México, MX", tickets: 58999, gross: "$4.00M", img: SHOW1 },
-            { date: "May 4, 2024", venue: "BMO Stadium", city: "Los Ángeles, CA", tickets: 43658, gross: "$6.78M", img: SHOW2 },
-            { date: "Apr 20, 2024", venue: "Crypto.com Arena", city: "Los Ángeles, CA", tickets: 42070, gross: "$6.46M", img: SHOW3 },
-            { date: "Apr 6, 2024", venue: "Prudential Center", city: "Newark, NJ", tickets: 34351, gross: "$4.65M", img: SHOW4 },
-          ].map((s, i) => (
-            <motion.div key={s.venue}
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.07 }}
-              style={{ border: "1px solid #1a1a1a", overflow: "hidden", cursor: "pointer", background: "#0a0a0a" }}
-              whileHover={{ borderColor: "#39FF14" }}
-            >
-              <div style={{ position: "relative", height: 140, overflow: "hidden" }}>
-                <img src={s.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.65)" }} />
-                <div style={{ position: "absolute", top: 10, left: 10, background: "#39FF14", color: "#000", fontSize: 9, fontWeight: 700, padding: "2px 7px" }}>{s.date}</div>
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 50%, rgba(10,10,10,1) 100%)" }} />
-              </div>
-              <div style={{ padding: "14px 14px 16px" }}>
-                <div className="font-anton" style={{ color: "#fff", fontSize: 18, textTransform: "uppercase", lineHeight: 1.1 }}>{s.venue}</div>
-                <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 4, marginBottom: 14 }}>{s.city}</div>
-                <div style={{ display: "flex", gap: 24 }}>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{s.tickets.toLocaleString()}</div>
-                    <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Tickets</div>
-                  </div>
-                  <div>
-                    <div style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>{s.gross}</div>
-                    <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.12em" }}>Gross</div>
-                  </div>
-                </div>
               </div>
             </motion.div>
           ))}

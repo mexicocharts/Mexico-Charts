@@ -59,7 +59,6 @@ export function PollstarProfile() {
   const [mounted, setMounted] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
-
   useEffect(() => { setMounted(true); }, []);
 
   function handleSort(key: SortKey) {
