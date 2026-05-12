@@ -391,7 +391,7 @@ export default function LuisMiguelProfile() {
             <motion.div className="lm-fa"
               initial={{ opacity: 0, y: 44 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1.0 }}
               style={{ color: "#fff", fontSize: 62, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
-              El Regreso<br />del Sol.<br /><span style={{ color: "#39FF14" }}>Historia Viva.</span>
+              El Regreso<br />del Sol<br /><span style={{ color: "#39FF14" }}>Historia Viva</span>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
               style={{ color: "rgba(255,255,255,0.52)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 30, maxWidth: 520, lineHeight: 1.88 }}>
@@ -588,7 +588,7 @@ export default function LuisMiguelProfile() {
             Pollstar · Career Timeline · Este Siglo
           </div>
           <div className="lm-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 60 }}>
-            24 Años.<br />Un Legado Incomparable.
+            24 Años<br />Un Legado Incomparable
           </div>
 
           <div style={{ position: "relative", marginBottom: 48 }}>
