@@ -481,32 +481,32 @@ export default function ChartsHub() {
       <SiteNav />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="px-6 lg:px-12 pt-14 pb-8"
+      <section className="px-6 lg:px-12 pt-8 pb-5"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-          className="text-[10px] font-black uppercase tracking-[0.35em] mb-4" style={{ color: G }}>
-          Charts
-        </motion.p>
-        <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
-          className="font-black uppercase leading-[0.88] mb-4"
-          style={{ fontSize: "clamp(2.6rem,5.5vw,5.5rem)", letterSpacing: "-0.04em" }}>
-          Charts<br /><span style={{ color: G }}>México</span>
-        </motion.h1>
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-          className="text-sm max-w-2xl mb-1" style={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.6 }}>
-          Explora rankings de plataformas musicales en México y filtra la presencia de artistas mexicanos dentro de cada chart.
-        </motion.p>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.14 }}
-          className="flex flex-wrap items-center gap-4 mt-3">
-          <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
-            Fuentes: YouTube Charts · Spotify · Apple Music · Deezer
-          </span>
-          {updatedFmt && (
-            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
-              · Última actualización: {updatedFmt}
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+              className="text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: G }}>
+              Charts
+            </motion.p>
+            <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
+              className="font-black uppercase leading-[0.88]"
+              style={{ fontSize: "clamp(2rem,4vw,3.8rem)", letterSpacing: "-0.04em" }}>
+              Charts <span style={{ color: G }}>México</span>
+            </motion.h1>
+          </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+            className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-1">
+            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.38)" }}>
+              YouTube · Spotify · Apple Music · Deezer
             </span>
-          )}
-        </motion.div>
+            {updatedFmt && (
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.28)" }}>
+                Actualizado: {updatedFmt}
+              </span>
+            )}
+          </motion.div>
+        </div>
       </section>
 
       <div className="px-6 lg:px-12 py-6 space-y-5">

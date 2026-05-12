@@ -342,23 +342,25 @@ export default function GeneroHub() {
       <div className="relative overflow-hidden"
         style={{ borderBottom: "1px solid rgba(57,255,20,0.07)", background: "linear-gradient(180deg, #0c0c0c 0%, #080808 100%)" }}>
         <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-        <div className="relative px-6 lg:px-12 py-10">
-          <div className="text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: G + "99" }}>
-            Música Mexicana
+        <div className="relative px-6 lg:px-12 py-5 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.35em] mb-1.5" style={{ color: G + "99" }}>
+              Música Mexicana
+            </div>
+            <h1 className="font-black uppercase text-white leading-none"
+              style={{ fontSize: "clamp(1.8rem, 4.5vw, 3.2rem)", letterSpacing: "-0.03em" }}>
+              GÉNEROS
+            </h1>
           </div>
-          <h1 className="font-black uppercase text-white leading-none mb-3"
-            style={{ fontSize: "clamp(2.2rem, 6vw, 4rem)", letterSpacing: "-0.03em" }}>
-            GÉNEROS
-          </h1>
-          <p className="text-sm max-w-xl" style={{ color: "rgba(255,255,255,0.42)", lineHeight: 1.6 }}>
-            Explora los géneros que definen la música mexicana global. Datos reales de artistas verificados.
+          <p className="text-xs pb-0.5 max-w-sm" style={{ color: "rgba(255,255,255,0.35)", lineHeight: 1.5 }}>
+            Rankings en tiempo real · artistas verificados · streams Spotify
           </p>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${G}22, transparent)` }} />
       </div>
 
       {/* ─── Genre overview grid ────────────────────────────── */}
-      <section className="px-6 lg:px-12 py-8">
+      <section className="px-6 lg:px-12 py-5">
         <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-5" style={{ color: "rgba(255,255,255,0.55)" }}>
           Selecciona un género
         </div>
@@ -390,7 +392,7 @@ export default function GeneroHub() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.28 }}
-          className="px-6 lg:px-12 py-8"
+          className="px-6 lg:px-12 py-5"
         >
           {/* Genre header */}
           <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">

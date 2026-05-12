@@ -84,9 +84,8 @@ export default function IndustryLanding() {
           <FadeUp delay={0.05}>
             <h1 className="font-black uppercase leading-[0.9] mb-6"
               style={{ fontSize: "clamp(2.2rem, 3.8vw, 4.2rem)", letterSpacing: "-0.03em" }}>
-              México ya es<br />
-              <em className="not-italic" style={{ color: G }}>Top 10</em><br />
-              global en<br />música grabada
+              México ya es <em className="not-italic" style={{ color: G }}>Top 10</em><br />
+              global en música grabada
             </h1>
           </FadeUp>
           <FadeUp delay={0.09}>
