@@ -1,4 +1,5 @@
 import { useState } from "react";
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
@@ -175,6 +176,11 @@ export default function TouringHub() {
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
+      <PageSEO
+        title="Touring — Artistas Mexicanos en Gira 2024"
+        description="Conciertos y giras de artistas mexicanos en 2024. Fechas, ciudades y recaudación de Peso Pluma, Fuerza Regida, Grupo Frontera, Carin León y más."
+        path="/touring"
+      />
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;900&display=swap');
         .th-anton { font-family: 'Anton', sans-serif !important; }

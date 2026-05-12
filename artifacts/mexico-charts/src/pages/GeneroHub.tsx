@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
@@ -336,6 +337,11 @@ export default function GeneroHub() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#080808", color: "#fff" }}>
+      <PageSEO
+        title="Géneros de Música Mexicana — Corridos, Regional, Norteño, Banda"
+        description="Explora los géneros de la música mexicana: corridos tumbados, regional mexicano, norteño y banda. Estadísticas de streaming, artistas top y tendencias."
+        path="/generos"
+      />
       <SiteNav />
 
       {/* ─── Header ─────────────────────────────────────────── */}

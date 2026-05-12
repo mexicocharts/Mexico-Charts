@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import {
   Trophy, TrendingUp, ArrowUpRight, CalendarDays, Layers,
@@ -42,6 +43,11 @@ function DataBar({ pct, color = G, delay = 0 }: { pct: number; color?: string; d
 export default function IndustryLanding() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
+      <PageSEO
+        title="Industria Musical Mexicana — México Top 10 Global IFPI 2026"
+        description="México alcanzó el Top 10 mundial en música grabada según el IFPI. Estadísticas de la industria, crecimiento del 13.3%, datos de AMPROFON y hitos del mercado."
+        path="/industria"
+      />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
 

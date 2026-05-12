@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import PageSEO from "@/components/PageSEO";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal } from "lucide-react";
@@ -301,6 +302,11 @@ export default function ArtistRoster() {
       className="min-h-screen"
       style={{ background: "#050505", color: "#fff", fontFamily: "'Inter', sans-serif" }}
     >
+      <PageSEO
+        title="Artistas de Música Mexicana — Base de Datos Completa"
+        description="Base de datos completa de artistas mexicanos con estadísticas de streaming, redes sociales y oyentes globales. Peso Pluma, Fuerza Regida, Natanael Cano y más de 100 artistas."
+        path="/artists"
+      />
       {/* ── NAV ── */}
       <nav
         className="sticky top-0 z-50 w-full"

@@ -1,2 +1,3 @@
 User-agent: *
 Allow: /
+Sitemap: https://mexicocharts.replit.app/sitemap.xml

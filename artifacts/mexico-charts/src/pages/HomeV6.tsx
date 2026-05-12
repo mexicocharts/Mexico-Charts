@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import PageSEO from "@/components/PageSEO";
 import { useQuery } from "@tanstack/react-query";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
@@ -464,6 +465,11 @@ export default function HomeV6() {
       style={{ background:"radial-gradient(ellipse 100% 50% at 50% 0%, rgba(57,255,20,0.028) 0%, transparent 60%), #050505" }}
       data-testid="page-v6"
     >
+      <PageSEO
+        title="Mexico Charts — La Referencia de la Música Mexicana"
+        description="Charts semanales, datos de streaming en tiempo real y estadísticas de la industria musical mexicana. Peso Pluma, Fuerza Regida, Natanael Cano y más."
+        path="/"
+      />
 
       {/* ── GREEN TICKER — pause on hover ── */}
       <div
