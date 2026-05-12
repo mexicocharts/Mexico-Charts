@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
 import { useTouring, type ArtistTours, type TmEvent } from "@/hooks/useTouring";
 
-const HERO_BG     = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=620&fit=crop&q=85";
+const HERO_BG     = "/touring-hero.png";
 const ARTIST_BACK = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=640&h=620&fit=crop&q=80";
 const INSIGHT1    = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=220&fit=crop&q=70";
 const INSIGHT2    = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=220&fit=crop&q=70";
