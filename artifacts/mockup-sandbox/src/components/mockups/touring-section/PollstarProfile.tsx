@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { motion, animate, useMotionValue, useTransform } from "framer-motion";
-import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
 
 const CONCERT_BG = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=600&fit=crop&q=80";
 const ARTIST_IMG = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=640&h=580&fit=crop&q=80";
@@ -13,21 +12,6 @@ function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: { to: number;
   return <motion.span>{d}</motion.span>;
 }
 
-function SellRing({ pct }: { pct: number }) {
-  const r = 22; const circ = 2 * Math.PI * r;
-  const [off, setOff] = useState(circ);
-  useEffect(() => { const t = setTimeout(() => setOff(circ * (1 - pct / 100)), 400); return () => clearTimeout(t); }, []);
-  return (
-    <svg width="56" height="56" viewBox="0 0 56 56">
-      <circle cx="28" cy="28" r={r} fill="none" stroke="#1a1a1a" strokeWidth="3" />
-      <circle cx="28" cy="28" r={r} fill="none" stroke="#39FF14" strokeWidth="3"
-        strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
-        style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", transition: "stroke-dashoffset 1.8s ease-out" }} />
-      <text x="28" y="33" textAnchor="middle" fill="#39FF14" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{pct}%</text>
-    </svg>
-  );
-}
-
 const chartData = [
   { year: "2021", gross: 2.5, label: "$2.5M", shows: 24 },
   { year: "2022", gross: 8.9, label: "$8.9M", shows: 51 },
@@ -36,14 +20,11 @@ const chartData = [
 ];
 const maxGross = Math.max(...chartData.map((d) => d.gross));
 
-type SortKey = "year" | "shows" | "gross" | "avgShow" | "avgTickets";
-type SortDir = "asc" | "desc";
-
 const toursData = [
-  { name: "Genesis Tour", year: 2023, shows: 124, gross: 41.8, grossStr: "$41.8M", avgShow: "$337K", avgTickets: "14,200", isBiggest: true },
-  { name: "Éxodo World Tour", year: 2024, shows: 89, gross: 34.2, grossStr: "$34.2M", avgShow: "$384K", avgTickets: "12,400", isBiggest: false },
-  { name: "Doble P Tour", year: 2022, shows: 51, gross: 8.9, grossStr: "$8.9M", avgShow: "$174K", avgTickets: "8,100", isBiggest: false },
-  { name: "Regional Breakout", year: 2021, shows: 24, gross: 2.5, grossStr: "$2.5M", avgShow: "$104K", avgTickets: "5,200", isBiggest: false },
+  { name: "Genesis Tour", year: "2023", shows: 124, grossStr: "$41.8M", avgShow: "$337K", pct: 100, isBiggest: true, gross: 41.8 },
+  { name: "Éxodo World Tour", year: "2024", shows: 89, grossStr: "$34.2M", avgShow: "$384K", pct: 82, isBiggest: false, gross: 34.2 },
+  { name: "Doble P Tour", year: "2022", shows: 51, grossStr: "$8.9M", avgShow: "$174K", pct: 21, isBiggest: false, gross: 8.9 },
+  { name: "Regional Breakout", year: "2021", shows: 24, grossStr: "$2.5M", avgShow: "$104K", pct: 6, isBiggest: false, gross: 2.5 },
 ];
 
 const topVenues = [
@@ -57,35 +38,7 @@ const maxVenueGross = Math.max(...topVenues.map((v) => v.gross));
 
 export function PollstarProfile() {
   const [mounted, setMounted] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("year");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
   useEffect(() => { setMounted(true); }, []);
-
-  function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else { setSortKey(key); setSortDir("desc"); }
-  }
-
-  const sortedTours = [...toursData].sort((a, b) => {
-    let av: number | string = a[sortKey as keyof typeof a] as number | string;
-    let bv: number | string = b[sortKey as keyof typeof b] as number | string;
-    if (typeof av === "string") av = av.replace(/[$,K]/g, "");
-    if (typeof bv === "string") bv = bv.replace(/[$,K]/g, "");
-    return sortDir === "asc" ? Number(av) - Number(bv) : Number(bv) - Number(av);
-  });
-
-  function SortIcon({ k }: { k: SortKey }) {
-    if (sortKey !== k) return <span style={{ color: "#333", fontSize: 10 }}>⇅</span>;
-    return sortDir === "asc"
-      ? <ChevronUp size={11} style={{ color: "#39FF14" }} />
-      : <ChevronDown size={11} style={{ color: "#39FF14" }} />;
-  }
-
-  const hdrStyle: React.CSSProperties = {
-    fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.15em",
-    color: "#555", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, userSelect: "none" as const,
-  };
-  const cellStyle: React.CSSProperties = { fontSize: 13, color: "#aaa" };
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
@@ -93,7 +46,6 @@ export function PollstarProfile() {
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;900&display=swap');
         .font-anton { font-family: 'Anton', sans-serif !important; }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .tour-row:hover { background: rgba(57,255,20,0.03) !important; }
         .venue-bar { transition: width 1s ease-out; }
       ` }} />
 
@@ -219,50 +171,43 @@ export function PollstarProfile() {
         </div>
       </section>
 
-      {/* ── 4. TOURS TABLE (sortable) ── */}
+      {/* ── 4. TOUR ERAS ── */}
       <section style={{ padding: "40px 40px", borderBottom: "1px solid #1a1a1a" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
           <div style={{ width: 3, height: 20, background: "#39FF14" }} />
-          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Historial de Giras</h2>
-          <span style={{ color: "#555", fontSize: 10, marginLeft: 8 }}>Haz clic en los encabezados para ordenar</span>
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Eras de Gira</h2>
         </div>
 
-        <div style={{ width: "100%" }}>
-          {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 0.7fr 0.7fr 1fr 1fr 1fr", borderBottom: "1px solid #1a1a1a", paddingBottom: 10, marginBottom: 2 }}>
-            {(["Gira", "year", "shows", "gross", "avgShow", "avgTickets"] as const).map((k, i) => (
-              <div key={k} style={hdrStyle} onClick={() => i > 0 && handleSort(k as SortKey)}>
-                {k === "Gira" ? "Gira" : k === "year" ? "Año" : k === "shows" ? "Shows" : k === "gross" ? "Gross Total" : k === "avgShow" ? "Prom/Show" : "Prom. Boletos"}
-                {i > 0 && <SortIcon k={k as SortKey} />}
-              </div>
-            ))}
-          </div>
-
-          {/* Rows */}
-          {sortedTours.map((tour, i) => (
-            <motion.div key={tour.name} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
-              className="tour-row"
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          {toursData.map((tour, i) => (
+            <motion.div key={tour.name}
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.09 }}
               style={{
-                display: "grid", gridTemplateColumns: "2fr 0.7fr 0.7fr 1fr 1fr 1fr",
-                padding: "16px 0", borderBottom: "1px solid #111",
-                background: tour.isBiggest ? "rgba(57,255,20,0.03)" : "transparent",
-                borderLeft: tour.isBiggest ? "3px solid #39FF14" : "3px solid transparent",
-                paddingLeft: tour.isBiggest ? 12 : 0,
-                transition: "background 0.2s",
+                position: "relative", padding: "24px 20px",
+                border: tour.isBiggest ? "1px solid rgba(57,255,20,0.35)" : "1px solid #1a1a1a",
+                background: tour.isBiggest ? "linear-gradient(135deg, rgba(57,255,20,0.06) 0%, transparent 60%)" : "#0a0a0a",
               }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{tour.name}</span>
-                {tour.isBiggest && (
-                  <span style={{ background: "rgba(57,255,20,0.12)", color: "#39FF14", fontSize: 9, padding: "2px 8px", border: "1px solid rgba(57,255,20,0.2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", borderRadius: 2 }}>
-                    Mayor Ingreso
-                  </span>
-                )}
+              {tour.isBiggest && (
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "#39FF14" }} />
+              )}
+              {tour.isBiggest && (
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ background: "#39FF14", color: "#000", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", padding: "2px 8px" }}>Mayor Ingreso</span>
+                </div>
+              )}
+              <div style={{ color: "#555", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 8 }}>{tour.year}</div>
+              <div className="font-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 12 }}>{tour.name}</div>
+              <div className="font-anton" style={{ color: tour.isBiggest ? "#39FF14" : "#fff", fontSize: 36, lineHeight: 1, marginBottom: 4 }}>{tour.grossStr}</div>
+              <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 16 }}>{tour.shows} shows · {tour.avgShow} prom.</div>
+              {/* Gross bar relative to biggest */}
+              <div style={{ height: 2, background: "#1a1a1a", width: "100%" }}>
+                <motion.div
+                  style={{ height: "100%", background: tour.isBiggest ? "#39FF14" : "#2a3a2a" }}
+                  initial={{ width: 0 }}
+                  animate={{ width: mounted ? tour.pct + "%" : 0 }}
+                  transition={{ duration: 1.2, delay: 0.3 + i * 0.1, ease: "easeOut" }}
+                />
               </div>
-              <div style={cellStyle}>{tour.year}</div>
-              <div style={cellStyle}>{tour.shows}</div>
-              <div className="font-anton" style={{ color: tour.isBiggest ? "#39FF14" : "#fff", fontSize: 15, letterSpacing: "0.03em" }}>{tour.grossStr}</div>
-              <div style={cellStyle}>{tour.avgShow}</div>
-              <div style={cellStyle}>{tour.avgTickets}</div>
             </motion.div>
           ))}
         </div>
@@ -344,34 +289,7 @@ export function PollstarProfile() {
         </div>
       </section>
 
-      {/* ── 7. PRÓXIMOS EVENTOS TEASER ── */}
-      <section style={{ padding: "40px 40px", background: "#0a0a0a", borderBottom: "1px solid #1a1a1a", position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Próximos Eventos</h2>
-          <span style={{ background: "#39FF14", color: "#000", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", padding: "2px 10px", borderRadius: 2 }}>Próximamente</span>
-        </div>
-
-        {/* Blurred placeholder grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, opacity: 0.15, filter: "blur(3px)", pointerEvents: "none" }}>
-          {[1, 2, 3].map((i) => (
-            <div key={i} style={{ height: 72, border: "1px solid #333", background: "#111", borderRadius: 2 }} />
-          ))}
-        </div>
-
-        {/* Overlay */}
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 28 }}>
-          <Loader2 size={20} style={{ color: "#39FF14", animation: "spin 1.5s linear infinite" }} />
-          <div style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 11, marginTop: 10 }}>
-            Conectando con Ticketmaster...
-          </div>
-          <div style={{ color: "#555", fontSize: 10, marginTop: 4 }}>
-            Integración en tiempo real · Disponible pronto
-          </div>
-        </div>
-        <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }` }} />
-      </section>
-
-      {/* ── 8. FOOTER ── */}
+      {/* ── 7. FOOTER ── */}
       <footer style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 40px", borderTop: "1px solid #111" }}>
         <div style={{ color: "#fff", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Mexico Charts</div>
         <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>Datos provistos por Pollstar Research</div>
