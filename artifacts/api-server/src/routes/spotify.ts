@@ -59,10 +59,21 @@ for (const [name, url] of Object.entries(SEED)) {
   imageCache.set(name.toLowerCase(), url);
 }
 
-/* ── Fetch one artist image from Deezer (free, no auth required) ── */
-async function fetchDeezerImage(name: string): Promise<string | null> {
+/* ── Strip special characters to produce a cleaner Deezer search query ── */
+function cleanNameForSearch(name: string): string {
+  return name
+    .replace(/[$#@!]/g, "")          // remove common special chars ($HUPE → HUPE)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* ── Try one Deezer search query, return best image URL or null ── */
+async function deezerSearch(
+  query: string,
+  preferExact?: string
+): Promise<string | null> {
   try {
-    const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=5`;
+    const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(query)}&limit=5`;
     const resp = await fetch(url);
     if (!resp.ok) return null;
     const data = await resp.json() as {
@@ -71,20 +82,40 @@ async function fetchDeezerImage(name: string): Promise<string | null> {
     const items = data.data ?? [];
     if (!items.length) return null;
 
-    // Prefer exact match (case-insensitive), fall back to first result
-    const nameLower = name.toLowerCase();
-    const exact = items.find((a) => a.name.toLowerCase() === nameLower);
+    const needle = (preferExact ?? query).toLowerCase();
+    const exact = items.find((a) => a.name.toLowerCase() === needle);
     const best = exact ?? items[0];
 
-    // picture_xl is 1000×1000; picture_medium is 250×250 — both are real CDN images.
-    // Only reject the placeholder, which has an EMPTY hash (double-slash) like:
-    //   .../images/artist//250x250-000000-80-0-0.jpg
     const img = best.picture_xl || best.picture_medium || null;
     if (!img || img.includes("/artist//") || img.includes("/noimage/")) return null;
     return img;
   } catch {
     return null;
   }
+}
+
+/* ── Fetch one artist image from Deezer (free, no auth required) ── */
+async function fetchDeezerImage(name: string): Promise<string | null> {
+  // 1st attempt: exact display name
+  const result = await deezerSearch(name, name);
+  if (result) return result;
+
+  // 2nd attempt: cleaned name (strips $, #, etc.)
+  const cleaned = cleanNameForSearch(name);
+  if (cleaned && cleaned.toLowerCase() !== name.toLowerCase()) {
+    const result2 = await deezerSearch(cleaned, name);
+    if (result2) return result2;
+  }
+
+  // 3rd attempt: first two words only (catches "Emmanuellcortess" → "Emmanuel", etc.)
+  const words = cleaned.split(" ");
+  if (words.length > 2) {
+    const shortened = words.slice(0, 2).join(" ");
+    const result3 = await deezerSearch(shortened, name);
+    if (result3) return result3;
+  }
+
+  return null;
 }
 
 /* ── Fetch & cache one name (respects the miss TTL) ── */

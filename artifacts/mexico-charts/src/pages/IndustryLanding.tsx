@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Trophy, TrendingUp, ArrowUpRight, CalendarDays, Layers,
   Globe, BarChart3, Headphones, Star, Music2, Radio,
-  MapPin, Users, ExternalLink, Home, ChevronRight, Lock, Smartphone
+  MapPin, Users, ExternalLink, Home, ChevronRight, Smartphone
 } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 
@@ -388,41 +388,25 @@ export default function IndustryLanding() {
             Explora más sobre la Industria Musical en México
           </p>
         </FadeUp>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[
-            { icon: Music2,   title: "Música Grabada",          sub: "Mercado, ingresos, crecimiento y rankings globales.", locked: false, href: "/insights/mexico-top-10-ifpi-2026" },
-            { icon: BarChart3, title: "Certificaciones",         sub: "3,155 certificaciones AMPROFON otorgadas en México a artistas mexicanos.", locked: false, href: "/industry/certifications" },
-            { icon: Radio,    title: "Streaming",                sub: "Plataformas, consumo digital, suscripciones y tendencias.", locked: true, href: "#" },
-            { icon: Layers,   title: "Música en Vivo",           sub: "Conciertos, touring, venues, ticketing y datos de la industria.", locked: true, href: "#" },
-            { icon: Globe,    title: "Música Mexicana Global",   sub: "El crecimiento del regional mexicano y nuevos géneros.", locked: true, href: "#" },
-            { icon: MapPin,   title: "Ecosistemas por Ciudad",   sub: "CDMX, Guadalajara, Monterrey, Tijuana, Hermosillo y más.", locked: true, href: "#" },
-          ].map(({ icon: Icon, title, sub, locked, href }, i) => (
+            { icon: Music2,    title: "Música Grabada",   sub: "Mercado, ingresos, crecimiento y rankings globales.", href: "/insights/mexico-top-10-ifpi-2026" },
+            { icon: BarChart3, title: "Certificaciones",  sub: "3,155 certificaciones AMPROFON otorgadas en México a artistas mexicanos.", href: "/industry/certifications" },
+          ].map(({ icon: Icon, title, sub, href }, i) => (
             <FadeUp key={i} delay={i * 0.03}>
-              {locked ? (
-                <div className="relative overflow-hidden rounded-xl p-6 h-full opacity-45"
-                  style={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <Link href={href}>
+                <div className="relative overflow-hidden rounded-xl p-6 h-full cursor-pointer group"
+                  style={{ background: "#0e0e0e", border: `1px solid rgba(57,255,20,0.14)` }}>
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                    style={{ background: "rgba(57,255,20,0.025)" }} />
                   <div className="flex items-start justify-between mb-4">
-                    <Icon className="w-5 h-5" style={{ color: "rgba(255,255,255,0.42)" }} />
-                    <Lock className="w-3 h-3" style={{ color: "rgba(255,255,255,0.38)" }} />
+                    <Icon className="w-5 h-5" style={{ color: G, opacity: 0.75 }} />
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: G }}>Ver más →</span>
                   </div>
                   <h3 className="text-xs font-black uppercase tracking-tight text-white mb-1">{title}</h3>
-                  <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "system-ui" }}>{sub}</p>
+                  <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{sub}</p>
                 </div>
-              ) : (
-                <Link href={href}>
-                  <div className="relative overflow-hidden rounded-xl p-6 h-full cursor-pointer group"
-                    style={{ background: "#0e0e0e", border: `1px solid rgba(57,255,20,0.14)` }}>
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                      style={{ background: "rgba(57,255,20,0.025)" }} />
-                    <div className="flex items-start justify-between mb-4">
-                      <Icon className="w-5 h-5" style={{ color: G, opacity: 0.75 }} />
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: G }}>Ver más →</span>
-                    </div>
-                    <h3 className="text-xs font-black uppercase tracking-tight text-white mb-1">{title}</h3>
-                    <p className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{sub}</p>
-                  </div>
-                </Link>
-              )}
+              </Link>
             </FadeUp>
           ))}
         </div>
