@@ -1,0 +1,112 @@
+The touring artist profile is moving in the right direction visually, but it still feels slightly too much like a premium dashboard instead of a cinematic editorial experience
+
+I want the touring profile pages to feel:
+
+- immersive
+- emotional
+- cinematic
+- luxurious
+- atmospheric
+- storytelling-driven
+
+NOT:
+- admin panel
+- sports stats site
+- finance dashboard
+- SaaS analytics page
+
+IMPORTANT REFINEMENTS:
+
+1. LESS “BOXED UI”
+Right now too many sections feel trapped inside rectangles/cards
+
+Reduce:
+- harsh borders
+- repetitive containers
+- visible grid feeling
+
+Instead:
+- let sections breathe
+- allow imagery to bleed into layouts
+- overlap layers naturally
+- create asymmetrical compositions
+- float typography over photography
+
+2. MORE FULLSCREEN CINEMATIC MOMENTS
+Add sections where:
+- giant concert photography dominates the screen
+- artist silhouettes blend into darkness
+- crowd lights/glow fill the background
+- typography overlays the image dramatically
+
+I want moments that feel like:
+- a Netflix concert documentary
+- Apple keynote transitions
+- luxury music editorial design
+
+3. BIGGER VISUAL STORYTELLING
+Not every section needs stats
+
+Some sections should simply create emotion and atmosphere
+
+Example:
+fullscreen crowd image with giant typography:
+“MÉXICO EN LOS ESCENARIOS DEL MUNDO”
+
+Minimal UI in those moments
+
+4. DATA SHOULD FEEL CURATED
+Do NOT make the page feel like a complete database dump
+
+Instead:
+- reveal stats gradually
+- prioritize hero numbers
+- use oversized typography for key milestones
+- create “single-stat moments”
+
+Example:
+one fullscreen section dedicated only to:
+“$90M EN TAQUILLA”
+
+with cinematic lighting and subtle supporting text
+
+5. TOUR MAP SHOULD FEEL EMOTIONAL
+Not like Google Maps
+
+The map should feel:
+- atmospheric
+- glowing
+- artistic
+- documentary-like
+
+Think:
+glowing routing lines
+dark environments
+city lights
+movement between Mexico and the United States
+
+6. MORE PHOTOGRAPHY THROUGHOUT THE PAGE
+Use:
+- large concert imagery
+- stage lighting
+- backstage moments
+- silhouettes
+- crowd shots
+- texture overlays
+- smoke/fog/grain
+
+The page currently needs more atmosphere and movement
+
+7. REDUCE “DASHBOARD ENERGY”
+Current structure is strong, but visually it still leans too much toward:
+“premium analytics site”
+
+I want:
+“cinematic music culture platform”
+
+The emotional experience should dominate first
+The analytics should support it second
+
+Ideal balance:
+70% cinematic editorial
+30% data UI
