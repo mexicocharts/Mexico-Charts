@@ -1,389 +1,383 @@
-import React, { useEffect, useRef, useState } from "react";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import React, { useEffect, useState } from "react";
+import { motion, animate, useMotionValue, useTransform } from "framer-motion";
+import { Loader2, ChevronUp, ChevronDown } from "lucide-react";
 
-const CONCERT_BG = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=700&fit=crop&q=80";
-const ARTIST_STAGE = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=700&h=900&fit=crop&q=80";
-const ARTIST_SIDE = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=600&h=700&fit=crop&q=80";
-const ARTIST_SMALL = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=500&fit=crop&q=80";
+const CONCERT_BG = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=1280&h=600&fit=crop&q=80";
+const ARTIST_IMG = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=640&h=580&fit=crop&q=80";
+const ARTIST_SIDE = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=500&h=400&fit=crop&q=75";
 
-const VENUE_IMGS: Record<string, string> = {
-  "Foro Sol": "https://images.unsplash.com/photo-1506157786151-b8491531f063?w=160&h=90&fit=crop&q=60",
-  "BMO Stadium": "https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=160&h=90&fit=crop&q=60",
-  "Credit Union 1": "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=160&h=90&fit=crop&q=60",
-  "Hollywood Bowl": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=160&h=90&fit=crop&q=60",
-  "Dos Equis Pavilion": "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=160&h=90&fit=crop&q=60",
-};
-
-function AnimatedNumber({ to, prefix = "", suffix = "", decimals = 0, duration = 2 }: {
-  to: number; prefix?: string; suffix?: string; decimals?: number; duration?: number;
-}) {
-  const val = useMotionValue(0);
-  const display = useTransform(val, (v) =>
-    prefix + (decimals > 0 ? v.toFixed(decimals) : Math.round(v).toLocaleString()) + suffix
-  );
-  useEffect(() => {
-    const c = animate(val, to, { duration, ease: "easeOut" });
-    return c.stop;
-  }, []);
-  return <motion.span>{display}</motion.span>;
+function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: { to: number; prefix?: string; suffix?: string; decimals?: number }) {
+  const v = useMotionValue(0);
+  const d = useTransform(v, (n) => prefix + (decimals > 0 ? n.toFixed(decimals) : Math.round(n).toLocaleString()) + suffix);
+  useEffect(() => { const c = animate(v, to, { duration: 2, ease: "easeOut" }); return c.stop; }, []);
+  return <motion.span>{d}</motion.span>;
 }
 
-function CircleProgress({ pct }: { pct: number }) {
-  const r = 28;
-  const circ = 2 * Math.PI * r;
-  const [offset, setOffset] = useState(circ);
-  useEffect(() => {
-    const t = setTimeout(() => setOffset(circ * (1 - pct / 100)), 300);
-    return () => clearTimeout(t);
-  }, []);
+function SellRing({ pct }: { pct: number }) {
+  const r = 22; const circ = 2 * Math.PI * r;
+  const [off, setOff] = useState(circ);
+  useEffect(() => { const t = setTimeout(() => setOff(circ * (1 - pct / 100)), 400); return () => clearTimeout(t); }, []);
   return (
-    <svg width="72" height="72" viewBox="0 0 72 72">
-      <circle cx="36" cy="36" r={r} fill="none" stroke="#1a1a1a" strokeWidth="4" />
-      <circle
-        cx="36" cy="36" r={r} fill="none"
-        stroke="#39FF14" strokeWidth="4"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", transition: "stroke-dashoffset 1.8s ease-out" }}
-      />
-      <text x="36" y="41" textAnchor="middle" fill="#39FF14" fontSize="14" fontWeight="bold" fontFamily="sans-serif">
-        {pct}%
-      </text>
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle cx="28" cy="28" r={r} fill="none" stroke="#1a1a1a" strokeWidth="3" />
+      <circle cx="28" cy="28" r={r} fill="none" stroke="#39FF14" strokeWidth="3"
+        strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round"
+        style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%", transition: "stroke-dashoffset 1.8s ease-out" }} />
+      <text x="28" y="33" textAnchor="middle" fill="#39FF14" fontSize="11" fontWeight="bold" fontFamily="sans-serif">{pct}%</text>
     </svg>
   );
 }
 
-const bigShows = [
-  { rank: 1, venue: "Foro Sol", city: "Ciudad de México, México", date: "9 Sep 2023", tickets: 58999, gross: "$4.00M", img: VENUE_IMGS["Foro Sol"] },
-  { rank: 2, venue: "BMO Stadium", city: "Los Ángeles, CA, USA", date: "11 Oct 2024 (2 shows)", tickets: 43658, gross: "$6.78M", img: VENUE_IMGS["BMO Stadium"] },
-  { rank: 3, venue: "Credit Union 1 Amphitheatre", city: "Tinley Park, IL, USA", date: "31 Ago – 1 Sep 2025", tickets: 37251, gross: "$4.35M", img: VENUE_IMGS["Credit Union 1"] },
-  { rank: 4, venue: "Hollywood Bowl", city: "Los Ángeles, CA, USA", date: "7–8 Nov 2025 (2 shows)", tickets: 33373, gross: "$5.45M", img: VENUE_IMGS["Hollywood Bowl"] },
-  { rank: 5, venue: "Dos Equis Pavilion", city: "Dallas, TX, USA", date: "25–26 Oct 2025 (2 shows)", tickets: 34322, gross: "$3.55M", img: VENUE_IMGS["Dos Equis Pavilion"] },
+const chartData = [
+  { year: "2021", gross: 2.5, label: "$2.5M", shows: 24 },
+  { year: "2022", gross: 8.9, label: "$8.9M", shows: 51 },
+  { year: "2023", gross: 41.8, label: "$41.8M", shows: 124, peak: true },
+  { year: "2024", gross: 34.2, label: "$34.2M", shows: 89 },
+];
+const maxGross = Math.max(...chartData.map((d) => d.gross));
+
+type SortKey = "year" | "shows" | "gross" | "avgShow" | "avgTickets";
+type SortDir = "asc" | "desc";
+
+const toursData = [
+  { name: "Genesis Tour", year: 2023, shows: 124, gross: 41.8, grossStr: "$41.8M", avgShow: "$337K", avgTickets: "14,200", isBiggest: true },
+  { name: "Éxodo World Tour", year: 2024, shows: 89, gross: 34.2, grossStr: "$34.2M", avgShow: "$384K", avgTickets: "12,400", isBiggest: false },
+  { name: "Doble P Tour", year: 2022, shows: 51, gross: 8.9, grossStr: "$8.9M", avgShow: "$174K", avgTickets: "8,100", isBiggest: false },
+  { name: "Regional Breakout", year: 2021, shows: 24, gross: 2.5, grossStr: "$2.5M", avgShow: "$104K", avgTickets: "5,200", isBiggest: false },
 ];
 
-const timeline = [
-  { year: "2022", shows: 6, tickets: "6K", gross: "$76K" },
-  { year: "2023", shows: 10, tickets: "63K", gross: "$785K" },
-  { year: "2024", shows: 17, tickets: "146K", gross: "$2.8M" },
-  { year: "2025", shows: 34, tickets: "424K", gross: "$51.2M" },
-  { year: "2026*", shows: 2, tickets: "33K", gross: "$5.4M" },
+const topVenues = [
+  { rank: 1, name: "Foro Sol", city: "CDMX", shows: 8, gross: 18.4 },
+  { rank: 2, name: "Crypto.com Arena", city: "Los Ángeles", shows: 4, gross: 9.1 },
+  { rank: 3, name: "Madison Square Garden", city: "Nueva York", shows: 3, gross: 7.2 },
+  { rank: 4, name: "Auditorio Nacional", city: "CDMX", shows: 6, gross: 5.8 },
+  { rank: 5, name: "Toyota Center", city: "Houston", shows: 5, gross: 4.3 },
 ];
+const maxVenueGross = Math.max(...topVenues.map((v) => v.gross));
 
 export function PollstarProfile() {
+  const [mounted, setMounted] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("year");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  useEffect(() => { setMounted(true); }, []);
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("desc"); }
+  }
+
+  const sortedTours = [...toursData].sort((a, b) => {
+    let av: number | string = a[sortKey as keyof typeof a] as number | string;
+    let bv: number | string = b[sortKey as keyof typeof b] as number | string;
+    if (typeof av === "string") av = av.replace(/[$,K]/g, "");
+    if (typeof bv === "string") bv = bv.replace(/[$,K]/g, "");
+    return sortDir === "asc" ? Number(av) - Number(bv) : Number(bv) - Number(av);
+  });
+
+  function SortIcon({ k }: { k: SortKey }) {
+    if (sortKey !== k) return <span style={{ color: "#333", fontSize: 10 }}>⇅</span>;
+    return sortDir === "asc"
+      ? <ChevronUp size={11} style={{ color: "#39FF14" }} />
+      : <ChevronDown size={11} style={{ color: "#39FF14" }} />;
+  }
+
+  const hdrStyle: React.CSSProperties = {
+    fontSize: 9, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.15em",
+    color: "#555", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, userSelect: "none" as const,
+  };
+  const cellStyle: React.CSSProperties = { fontSize: 13, color: "#aaa" };
+
   return (
-    <div className="min-h-screen font-sans text-zinc-400 overflow-x-hidden" style={{ background: "#080808" }}>
+    <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;900&display=swap');
-        .font-anton { font-family: 'Anton', sans-serif; }
-        body { margin: 0; }
+        .font-anton { font-family: 'Anton', sans-serif !important; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        .tour-row:hover { background: rgba(57,255,20,0.03) !important; }
+        .venue-bar { transition: width 1s ease-out; }
       ` }} />
 
-      {/* ─── NAV ─── */}
-      <nav style={{ background: "#080808", borderBottom: "1px solid #1a1a1a" }} className="sticky top-0 z-50 h-14 flex items-center px-8">
-        <div className="flex items-center gap-1">
-          <span className="font-anton text-white text-xl tracking-widest uppercase">Mexico</span>
-          <span className="font-anton text-[#39FF14] text-xl tracking-widest uppercase">Charts</span>
-          <span className="text-[#39FF14] text-[10px] align-super ml-0.5 font-bold">™</span>
+      {/* ── NAV ── */}
+      <nav style={{ background: "#080808", borderBottom: "1px solid #161616", height: 52, display: "flex", alignItems: "center", padding: "0 32px", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <span className="font-anton" style={{ color: "#fff", fontSize: 17, letterSpacing: "0.12em", textTransform: "uppercase" }}>Mexico</span>
+          <span className="font-anton" style={{ color: "#39FF14", fontSize: 17, letterSpacing: "0.12em", textTransform: "uppercase" }}>Charts</span>
+          <sup style={{ color: "#39FF14", fontSize: 8, fontWeight: 700, marginLeft: 1 }}>™</sup>
         </div>
-        <div className="flex items-center gap-7 ml-16 text-[11px] uppercase tracking-widest font-bold text-zinc-500">
-          {["Home", "Charts", "Certifications", "Artists", "Touring", "News", "About"].map(n => (
-            <span key={n} style={n === "Touring" ? { color: "#39FF14", borderBottom: "2px solid #39FF14", paddingBottom: "2px" } : {}} className="cursor-pointer hover:text-white transition-colors">{n}</span>
+        <div style={{ display: "flex", gap: 24, marginLeft: 40, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>
+          {["Home", "Charts", "Certifications", "Artists", "Touring", "News", "About"].map((n) => (
+            <span key={n} style={{ color: n === "Touring" ? "#39FF14" : "#555", borderBottom: n === "Touring" ? "2px solid #39FF14" : "none", paddingBottom: 2, cursor: "pointer" }}>{n}</span>
           ))}
-        </div>
-        <div className="ml-auto flex items-center gap-4 text-zinc-500">
-          <span className="text-sm cursor-pointer hover:text-white">IG</span>
-          <span className="text-sm cursor-pointer hover:text-white">X</span>
-          <span className="text-sm cursor-pointer hover:text-white">YT</span>
-          <span className="text-sm cursor-pointer hover:text-white">♪</span>
         </div>
       </nav>
 
-      {/* ─── HERO ─── */}
-      <section className="relative w-full overflow-hidden" style={{ height: "480px" }}>
-        {/* Background concert photo */}
-        <div className="absolute inset-0">
-          <img src={CONCERT_BG} alt="" className="w-full h-full object-cover object-top" />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, rgba(8,8,8,0.97) 35%, rgba(8,8,8,0.7) 60%, rgba(8,8,8,0.3) 100%)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(8,8,8,1) 0%, transparent 40%)" }} />
-        </div>
+      {/* ── 1. CINEMATIC HERO ── */}
+      <section style={{ position: "relative", height: 460, overflow: "hidden" }}>
+        <img src={CONCERT_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(8,8,8,0.96) 38%, rgba(8,8,8,0.65) 62%, rgba(8,8,8,0.25) 100%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(8,8,8,1) 0%, transparent 45%)" }} />
 
-        {/* Right: artist image with glow */}
-        <div className="absolute right-0 top-0 h-full" style={{ width: "45%" }}>
-          <img src={ARTIST_STAGE} alt="" className="h-full w-full object-cover object-top" style={{ maskImage: "linear-gradient(to left, rgba(0,0,0,0.8) 40%, transparent 100%)", WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0.8) 40%, transparent 100%)" }} />
-          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 60% 40%, rgba(57,255,20,0.12) 0%, transparent 65%)" }} />
+        {/* Artist from back */}
+        <div style={{ position: "absolute", right: "8%", top: 0, height: "100%", width: 380 }}>
+          <img src={ARTIST_IMG} alt="" style={{ height: "100%", width: "100%", objectFit: "cover", objectPosition: "center top", maskImage: "linear-gradient(to left, rgba(0,0,0,0.8) 30%, transparent 100%)", WebkitMaskImage: "linear-gradient(to left, rgba(0,0,0,0.8) 30%, transparent 100%)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, rgba(57,255,20,0.12) 0%, transparent 65%)" }} />
         </div>
 
         {/* Left content */}
-        <div className="relative z-10 h-full flex flex-col justify-between px-10 py-8 max-w-2xl">
+        <div style={{ position: "relative", zIndex: 10, padding: "48px 40px 36px", maxWidth: 540, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
-            <div className="text-[#39FF14] text-xs uppercase tracking-[0.3em] font-bold mb-4">Touring Profile</div>
-            <motion.h1
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-              className="font-anton text-white uppercase leading-none"
-              style={{ fontSize: "clamp(72px, 10vw, 108px)", lineHeight: 0.9 }}
-            >
-              Junior H
+            <div style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 14 }}>Historial de Giras · Touring Profile</div>
+            <motion.h1 className="font-anton" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}
+              style={{ color: "#fff", fontSize: 88, lineHeight: 0.88, textTransform: "uppercase" }}>
+              Peso<br />Pluma
             </motion.h1>
           </div>
-
           <div>
-            <div className="text-zinc-500 text-xs uppercase tracking-widest font-bold mb-1">Gross Reportado</div>
-            <div className="font-anton leading-none" style={{ color: "#39FF14", fontSize: "88px" }}>
-              $<AnimatedNumber to={90.4} decimals={1} />M
+            <div style={{ color: "#666", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 6 }}>Gross Reportado — Carrera Total</div>
+            <div className="font-anton" style={{ color: "#39FF14", fontSize: 80, lineHeight: 1 }}>
+              $<AnimCount to={87.4} decimals={1} />M
             </div>
-            <div className="text-zinc-400 text-sm uppercase tracking-widest font-bold mt-1">USD en Taquilla</div>
+            <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 4 }}>USD en Taquilla · 288 Shows · 18 Países</div>
           </div>
-
-          <div className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">
-            Datos Pollstar · 2/12/2022 – 5/11/2026
+          <div style={{ color: "#444", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em" }}>
+            Datos Pollstar · 2/01/2021 – 12/31/2024
           </div>
         </div>
 
-        {/* Top-right tagline */}
-        <div className="absolute top-8 right-10 text-right z-10">
-          <div className="text-zinc-300 text-sm uppercase tracking-widest font-bold leading-relaxed">
-            De la calle<br />a los escenarios<br />más grandes.
+        {/* Right tagline */}
+        <div style={{ position: "absolute", top: 48, right: 44, zIndex: 10, textAlign: "right" }}>
+          <div style={{ color: "#bbb", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", lineHeight: 1.8, fontWeight: 600 }}>
+            De la Calle<br />a los Escenarios<br />Más Grandes.
           </div>
-          <div className="text-[#39FF14] text-xs mt-2 italic">— Sad Boyz 4 Life</div>
         </div>
       </section>
 
-      {/* ─── STATS STRIP ─── */}
-      <section style={{ background: "#0d0d0d", borderTop: "1px solid #1a1a1a", borderBottom: "1px solid #1a1a1a" }}>
-        <div className="grid grid-cols-4 divide-x" style={{ divideColor: "#1a1a1a" }}>
+      {/* ── 2. CAREER STATS STRIP ── */}
+      <section style={{ borderTop: "1px solid #1a1a1a", borderBottom: "1px solid #1a1a1a", background: "#0d0d0d" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
           {[
-            { icon: "🎟", value: "758K", label: "Tickets Vendidos", sublabel: "Total" },
-            { icon: "📅", value: "69", label: "Shows", sublabel: "Total Reportados" },
-            { icon: "👥", value: "11,856", label: "Asistencia Promedio", sublabel: "Por Show" },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center gap-4 px-8 py-6" style={{ borderRight: "1px solid #1a1a1a" }}>
-              <span className="text-2xl opacity-60">{s.icon}</span>
-              <div>
-                <div className="font-anton text-white text-3xl leading-none">{s.value}</div>
-                <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">{s.label}</div>
-                <div className="text-zinc-700 text-[9px] uppercase tracking-widest">{s.sublabel}</div>
+            { label: "Gira Más Lucrativa", value: "Genesis Tour", sub: "$41.8M" },
+            { label: "Show Más Grande", value: "65,000", sub: "Foro Sol · CDMX" },
+            { label: "Promedio Por Show", value: "$303K", sub: "Todas las giras" },
+            { label: "Año Pico", value: "2023", sub: "124 shows · $41.8M" },
+          ].map((s, i) => (
+            <div key={s.label} style={{ padding: "20px 28px", borderRight: i < 3 ? "1px solid #1a1a1a" : "none" }}>
+              <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 6 }}>{s.label}</div>
+              <div style={{ color: "#fff", fontSize: 17, fontWeight: 700 }}>
+                {s.value} {s.sub && <span style={{ color: "#39FF14", fontSize: 15 }}>{s.sub}</span>}
               </div>
             </div>
           ))}
-          <div className="flex items-center gap-4 px-8 py-6">
-            <CircleProgress pct={98} />
-            <div>
-              <div className="font-anton text-white text-3xl leading-none">98%</div>
-              <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">Sell-Through</div>
-              <div className="text-zinc-700 text-[9px] uppercase tracking-widest">Porcentaje Vendido</div>
-            </div>
-          </div>
         </div>
       </section>
 
-      {/* ─── TOUR MAP + BIGGEST SHOWS ─── */}
-      <section className="flex" style={{ minHeight: "420px", borderBottom: "1px solid #1a1a1a" }}>
-
-        {/* Left: Tour Map */}
-        <div className="flex flex-col p-10" style={{ width: "52%", borderRight: "1px solid #1a1a1a", background: "#090c09" }}>
-          <div className="text-[#39FF14] text-[10px] uppercase tracking-[0.3em] font-bold mb-4">Tour Map</div>
-          <h2 className="font-anton text-white uppercase leading-tight mb-6" style={{ fontSize: "36px" }}>
-            Llevando la Nueva<br />Música Mexicana<br />a Todo EUA.
-          </h2>
-
-          {/* Map visual */}
-          <div className="flex-1 relative rounded-sm overflow-hidden mb-4" style={{ background: "#0a120a", border: "1px solid #1f2b1f", minHeight: "180px" }}>
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Blank_US_Map_%28states_only%29.svg/800px-Blank_US_Map_%28states_only%29.svg.png" alt="" className="absolute inset-0 w-full h-full object-contain opacity-10" style={{ filter: "invert(1) sepia(1) saturate(2) hue-rotate(80deg)" }} />
-            {/* Green dots for cities */}
-            {[
-              { top: "42%", left: "18%", size: 10, glow: true },
-              { top: "38%", left: "22%", size: 7 },
-              { top: "52%", left: "28%", size: 8 },
-              { top: "35%", left: "42%", size: 7 },
-              { top: "30%", left: "55%", size: 9 },
-              { top: "40%", left: "60%", size: 8 },
-              { top: "35%", left: "72%", size: 7 },
-              { top: "50%", left: "68%", size: 11, glow: true },
-              { top: "45%", left: "80%", size: 8 },
-              { top: "55%", left: "75%", size: 7 },
-              { top: "60%", left: "58%", size: 6 },
-              { top: "70%", left: "30%", size: 12, glow: true },
-              { top: "65%", left: "40%", size: 8 },
-            ].map((dot, i) => (
-              <div key={i} className="absolute rounded-full" style={{
-                top: dot.top, left: dot.left,
-                width: dot.size, height: dot.size,
-                background: "#39FF14",
-                transform: "translate(-50%, -50%)",
-                boxShadow: dot.glow ? "0 0 12px 4px rgba(57,255,20,0.5)" : "0 0 6px 2px rgba(57,255,20,0.3)"
-              }} />
-            ))}
-            <div className="absolute bottom-3 left-3 flex items-center gap-4 text-[9px] uppercase tracking-widest text-zinc-500 font-bold">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: "#39FF14", boxShadow: "0 0 6px #39FF14" }} />
-                Headline Shows
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full inline-block" style={{ background: "#39FF14", opacity: 0.4 }} />
-                Festival Appearances
-              </span>
-            </div>
-          </div>
-
-          <div className="flex gap-10">
-            <div>
-              <div className="font-anton text-white text-4xl leading-none">62</div>
-              <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">Shows en EUA</div>
-              <div className="text-zinc-600 text-[9px]">(90%)</div>
-            </div>
-            <div>
-              <div className="font-anton text-white text-4xl leading-none">4</div>
-              <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">Shows en México</div>
-              <div className="text-zinc-600 text-[9px]">(6%)</div>
-            </div>
-          </div>
-          <div className="mt-4 text-[9px] text-zinc-700 italic">No incluye shows no reportados o datos no publicados.</div>
+      {/* ── 3. TOURING TIMELINE CHART (horizontally scrollable) ── */}
+      <section style={{ padding: "40px 0 0", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ padding: "0 40px", display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <div style={{ width: 3, height: 20, background: "#39FF14" }} />
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Trayectoria de Giras</h2>
+          <span style={{ color: "#444", fontSize: 11, marginLeft: 12 }}>Ingresos brutos por año · Fuente: Pollstar</span>
         </div>
 
-        {/* Right: Biggest Reported Shows */}
-        <div className="flex flex-col p-10" style={{ width: "48%" }}>
-          <div className="text-[#39FF14] text-[10px] uppercase tracking-[0.3em] font-bold mb-5">Biggest Reported Shows</div>
-          <div className="flex flex-col gap-0">
-            {bigShows.map((show, i) => (
-              <motion.div
-                key={show.venue}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="flex items-center gap-4 py-3"
-                style={{ borderBottom: "1px solid #141414" }}
-              >
-                <span className="font-anton text-2xl leading-none w-6" style={{ color: i === 0 ? "#39FF14" : "#3a3a3a" }}>{show.rank}</span>
-                <img src={show.img} alt="" className="rounded-sm object-cover flex-shrink-0" style={{ width: 64, height: 40 }} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-white font-bold text-sm uppercase tracking-tight leading-tight">{show.venue}</div>
-                  <div className="text-zinc-600 text-[10px] uppercase tracking-widest">{show.city}</div>
-                  <div className="text-zinc-700 text-[9px]">{show.date}</div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <div className="text-zinc-400 text-xs font-bold">{show.tickets.toLocaleString()}</div>
-                  <div className="text-[9px] text-zinc-700 uppercase tracking-widest">Tickets</div>
-                  <div className="font-anton text-white text-sm leading-tight">{show.gross}</div>
-                  <div className="text-[9px] text-zinc-700 uppercase tracking-widest">Gross</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-          <button className="mt-5 flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-zinc-400 hover:text-[#39FF14] transition-colors" style={{ border: "1px solid #222", padding: "8px 16px", borderRadius: 2, width: "fit-content" }}>
-            Ver Todos los Shows <span className="text-base leading-none">›</span>
-          </button>
-        </div>
-      </section>
-
-      {/* ─── MARKET IMPACT ─── */}
-      <section className="flex relative overflow-hidden" style={{ minHeight: "280px", borderBottom: "1px solid #1a1a1a" }}>
-        {/* Artist photo left */}
-        <div className="relative flex-shrink-0" style={{ width: "28%" }}>
-          <img src={ARTIST_SIDE} alt="" className="w-full h-full object-cover" style={{ minHeight: 280 }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to right, transparent 60%, #080808 100%)" }} />
-          {/* Green glow */}
-          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 30% 50%, rgba(57,255,20,0.15) 0%, transparent 60%)" }} />
-          {/* Rancho Humilde logo area */}
-          <div className="absolute bottom-6 left-6 text-[10px] uppercase tracking-widest font-bold text-zinc-600">
-            Rancho Humilde
-          </div>
-        </div>
-
-        {/* Center: editorial text */}
-        <div className="flex flex-col justify-center px-10 py-10 flex-1" style={{ background: "#080808" }}>
-          <div className="text-[#39FF14] text-[10px] uppercase tracking-[0.3em] font-bold mb-3">#Market Impact</div>
-          <h2 className="font-anton text-white uppercase leading-tight mb-4" style={{ fontSize: "42px" }}>
-            El Poder de la Diáspora.
-          </h2>
-          <p className="text-zinc-500 text-sm leading-relaxed max-w-sm">
-            Junior H ha construido su base más sólida en Estados Unidos,
-            donde la demanda por la nueva música mexicana sigue
-            rompiendo récords en arenas y anfiteatros.
-          </p>
-        </div>
-
-        {/* Right: two big stats */}
-        <div className="flex flex-col justify-center gap-8 px-12 flex-shrink-0" style={{ background: "#0a0a0a", borderLeft: "1px solid #1a1a1a", minWidth: "200px" }}>
-          <div className="text-center">
-            <div className="font-anton leading-none" style={{ color: "#39FF14", fontSize: "56px" }}>90%</div>
-            <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">Shows en EUA</div>
-          </div>
-          <div className="text-center">
-            <div className="font-anton leading-none" style={{ color: "#39FF14", fontSize: "56px" }}>6%</div>
-            <div className="text-zinc-500 text-[10px] uppercase tracking-widest font-bold mt-1">Shows en México</div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── TOUR TIMELINE ─── */}
-      <section className="flex items-stretch" style={{ minHeight: "220px", borderBottom: "1px solid #1a1a1a" }}>
-        {/* Left: label + title */}
-        <div className="flex flex-col justify-center px-10 py-8 flex-shrink-0" style={{ width: "34%", borderRight: "1px solid #1a1a1a" }}>
-          <div className="text-[#39FF14] text-[10px] uppercase tracking-[0.3em] font-bold mb-3">Tour Timeline</div>
-          <h2 className="font-anton text-white uppercase leading-tight" style={{ fontSize: "36px" }}>
-            Crecimiento<br />Año Tras Año.
-          </h2>
-        </div>
-
-        {/* Center: horizontal timeline */}
-        <div className="flex-1 flex flex-col justify-center px-10 py-8">
-          {/* Line + dots */}
-          <div className="relative flex items-center" style={{ marginBottom: 28 }}>
-            <div className="absolute left-0 right-0 h-px" style={{ background: "#1f1f1f", top: "50%" }} />
-            <div className="relative flex justify-between w-full">
-              {timeline.map((t, i) => (
-                <div key={t.year} className="flex flex-col items-center relative" style={{ flex: 1 }}>
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.3 + i * 0.1 }}
-                    className="rounded-full border-2 relative z-10"
-                    style={{
-                      width: i === 3 ? 14 : 10,
-                      height: i === 3 ? 14 : 10,
-                      background: i === 3 ? "#39FF14" : "#1a1a1a",
-                      borderColor: i === 3 ? "#39FF14" : "#333",
-                      boxShadow: i === 3 ? "0 0 10px rgba(57,255,20,0.6)" : "none"
-                    }}
-                  />
-                </div>
+        <div style={{ overflowX: "auto", padding: "0 40px 36px" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 48, minWidth: 480, height: 180, position: "relative" }}>
+            {/* Grid lines */}
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none", paddingBottom: 32 }}>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} style={{ width: "100%", height: 1, background: "#141414" }} />
               ))}
             </div>
-          </div>
 
-          {/* Year labels + stats */}
-          <div className="flex justify-between w-full">
-            {timeline.map((t, i) => (
-              <div key={t.year} className="flex flex-col items-center" style={{ flex: 1 }}>
-                <div className="font-bold text-xs mb-2" style={{ color: i === 3 ? "#39FF14" : "#666" }}>{t.year}</div>
-                <div className="text-[10px] text-zinc-600 uppercase tracking-widest text-center">{t.shows} Shows</div>
-                <div className="text-[10px] text-zinc-600 text-center">{t.tickets} Tickets</div>
-                <div className="text-xs font-bold mt-0.5 text-center" style={{ color: i === 3 ? "#fff" : "#555" }}>{t.gross}</div>
+            {chartData.map((d, i) => (
+              <div key={d.year} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, height: "100%", justifyContent: "flex-end", position: "relative", minWidth: 90 }}>
+                {/* Peak badge */}
+                {d.peak && (
+                  <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}
+                    style={{ position: "absolute", top: 0, background: "#39FF14", color: "#000", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", padding: "2px 8px", borderRadius: 2 }}>
+                    Pico
+                    <div style={{ position: "absolute", bottom: -5, left: "50%", transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "4px solid transparent", borderRight: "4px solid transparent", borderTop: "5px solid #39FF14" }} />
+                  </motion.div>
+                )}
+                {/* Value label */}
+                <motion.div className="font-anton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 + i * 0.1 }}
+                  style={{ color: d.peak ? "#39FF14" : "#fff", fontSize: 20, position: "absolute", top: d.peak ? 22 : 8 }}>
+                  {d.label}
+                </motion.div>
+                {/* Bar */}
+                <motion.div
+                  style={{ width: "70%", background: d.peak ? "#39FF14" : "#1e3320", borderTop: d.peak ? "none" : "2px solid #39FF14", position: "relative", zIndex: 1 }}
+                  initial={{ height: 0 }}
+                  animate={{ height: mounted ? ((d.gross / maxGross) * 110) + "px" : 0 }}
+                  transition={{ duration: 1, delay: i * 0.12, ease: "easeOut" }}
+                />
+                {/* Year label */}
+                <div style={{ color: d.peak ? "#39FF14" : "#555", fontWeight: 700, fontSize: 11, marginTop: 8, textTransform: "uppercase", letterSpacing: "0.1em" }}>{d.year}</div>
+                <div style={{ color: "#444", fontSize: 9 }}>{d.shows} shows</div>
               </div>
             ))}
           </div>
-          <div className="text-[9px] text-zinc-700 mt-4 italic">*2026 hasta el 11 de mayo de 2026</div>
+        </div>
+      </section>
+
+      {/* ── 4. TOURS TABLE (sortable) ── */}
+      <section style={{ padding: "40px 40px", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <div style={{ width: 3, height: 20, background: "#39FF14" }} />
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Historial de Giras</h2>
+          <span style={{ color: "#555", fontSize: 10, marginLeft: 8 }}>Haz clic en los encabezados para ordenar</span>
         </div>
 
-        {/* Right: artist photo / monogram */}
-        <div className="relative flex-shrink-0 overflow-hidden" style={{ width: "18%", borderLeft: "1px solid #1a1a1a" }}>
-          <img src={ARTIST_SMALL} alt="" className="w-full h-full object-cover" style={{ opacity: 0.35, filter: "grayscale(1)" }} />
-          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, rgba(57,255,20,0.08) 0%, transparent 70%)" }} />
-          <div className="absolute inset-0 flex items-end justify-center pb-6">
-            <div className="font-anton text-zinc-800 text-7xl leading-none select-none" style={{ letterSpacing: "-0.05em" }}>JH</div>
+        <div style={{ width: "100%" }}>
+          {/* Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 0.7fr 0.7fr 1fr 1fr 1fr", borderBottom: "1px solid #1a1a1a", paddingBottom: 10, marginBottom: 2 }}>
+            {(["Gira", "year", "shows", "gross", "avgShow", "avgTickets"] as const).map((k, i) => (
+              <div key={k} style={hdrStyle} onClick={() => i > 0 && handleSort(k as SortKey)}>
+                {k === "Gira" ? "Gira" : k === "year" ? "Año" : k === "shows" ? "Shows" : k === "gross" ? "Gross Total" : k === "avgShow" ? "Prom/Show" : "Prom. Boletos"}
+                {i > 0 && <SortIcon k={k as SortKey} />}
+              </div>
+            ))}
+          </div>
+
+          {/* Rows */}
+          {sortedTours.map((tour, i) => (
+            <motion.div key={tour.name} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
+              className="tour-row"
+              style={{
+                display: "grid", gridTemplateColumns: "2fr 0.7fr 0.7fr 1fr 1fr 1fr",
+                padding: "16px 0", borderBottom: "1px solid #111",
+                background: tour.isBiggest ? "rgba(57,255,20,0.03)" : "transparent",
+                borderLeft: tour.isBiggest ? "3px solid #39FF14" : "3px solid transparent",
+                paddingLeft: tour.isBiggest ? 12 : 0,
+                transition: "background 0.2s",
+              }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{tour.name}</span>
+                {tour.isBiggest && (
+                  <span style={{ background: "rgba(57,255,20,0.12)", color: "#39FF14", fontSize: 9, padding: "2px 8px", border: "1px solid rgba(57,255,20,0.2)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", borderRadius: 2 }}>
+                    Mayor Ingreso
+                  </span>
+                )}
+              </div>
+              <div style={cellStyle}>{tour.year}</div>
+              <div style={cellStyle}>{tour.shows}</div>
+              <div className="font-anton" style={{ color: tour.isBiggest ? "#39FF14" : "#fff", fontSize: 15, letterSpacing: "0.03em" }}>{tour.grossStr}</div>
+              <div style={cellStyle}>{tour.avgShow}</div>
+              <div style={cellStyle}>{tour.avgTickets}</div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 5. BIGGEST NIGHT CARD ── */}
+      <section style={{ padding: "40px 40px", borderBottom: "1px solid #1a1a1a", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "#39FF14" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+          <div style={{ width: 3, height: 20, background: "#39FF14" }} />
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>La Noche Más Grande</h2>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 40 }}>
+          {/* Venue image */}
+          <div style={{ position: "relative", width: 220, height: 140, borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
+            <img src={ARTIST_SIDE} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.6)" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, transparent 50%, #080808 100%)" }} />
+          </div>
+
+          {/* Left: venue name */}
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginBottom: 8 }}>Recinto</div>
+            <div className="font-anton" style={{ color: "#fff", fontSize: 52, textTransform: "uppercase", lineHeight: 0.9 }}>Foro Sol</div>
+            <div style={{ color: "#666", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 8 }}>Ciudad de México · 18 Nov 2023</div>
+          </div>
+
+          {/* Stats */}
+          <div style={{ display: "flex", gap: 40, flexShrink: 0 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ width: 80, height: 80, borderRadius: "50%", border: "1px solid #39FF14", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "rgba(57,255,20,0.05)" }}>
+                <span style={{ color: "#39FF14", fontWeight: 900, fontSize: 16 }}>100%</span>
+                <span style={{ color: "#fff", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em" }}>Sold Out</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 4 }}>Gross</div>
+              <div className="font-anton" style={{ color: "#39FF14", fontSize: 40 }}>$4.2M</div>
+            </div>
+            <div>
+              <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 4 }}>Asistencia</div>
+              <div className="font-anton" style={{ color: "#fff", fontSize: 40 }}>65,000</div>
+              <div style={{ color: "#555", fontSize: 10 }}>de 65,000</div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ─── FOOTER ─── */}
-      <footer className="flex items-center justify-between px-10 py-5" style={{ borderTop: "1px solid #111" }}>
-        <div className="text-[10px] uppercase tracking-widest font-bold text-zinc-700">Mexico Charts™</div>
-        <div className="text-[10px] uppercase tracking-widest text-zinc-700">Datos provistos por Pollstar Research</div>
-        <button className="text-[10px] uppercase tracking-widest font-bold text-[#39FF14] hover:underline flex items-center gap-1">
-          Ver en Pollstar <span>›</span>
+      {/* ── 6. TOP VENUES ── */}
+      <section style={{ padding: "40px 40px", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+          <div style={{ width: 3, height: 20, background: "#39FF14" }} />
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Recintos Principales</h2>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {topVenues.map((v, i) => (
+            <motion.div key={v.name} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
+              style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 12px", background: i % 2 === 0 ? "rgba(255,255,255,0.015)" : "transparent", borderRadius: 2 }}>
+              <span className="font-anton" style={{ color: v.rank === 1 ? "#39FF14" : "#2a2a2a", fontSize: 24, width: 28, flexShrink: 0 }}>{v.rank}</span>
+              <div style={{ width: 220, flexShrink: 0 }}>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{v.name}</div>
+                <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{v.city}</div>
+              </div>
+              <div style={{ color: "#666", fontSize: 12, width: 80, flexShrink: 0 }}>{v.shows} shows</div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 16, justifyContent: "flex-end" }}>
+                <span className="font-anton" style={{ color: "#fff", fontSize: 18, letterSpacing: "0.03em" }}>${v.gross}M</span>
+                <div style={{ width: 200, height: 3, background: "#1a1a1a", borderRadius: 2, overflow: "hidden" }}>
+                  <motion.div
+                    style={{ height: "100%", background: "#39FF14", borderRadius: 2 }}
+                    initial={{ width: 0 }}
+                    animate={{ width: ((v.gross / maxVenueGross) * 100) + "%" }}
+                    transition={{ duration: 1, delay: i * 0.1 }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 7. PRÓXIMOS EVENTOS TEASER ── */}
+      <section style={{ padding: "40px 40px", background: "#0a0a0a", borderBottom: "1px solid #1a1a1a", position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <h2 style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 13 }}>Próximos Eventos</h2>
+          <span style={{ background: "#39FF14", color: "#000", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", padding: "2px 10px", borderRadius: 2 }}>Próximamente</span>
+        </div>
+
+        {/* Blurred placeholder grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, opacity: 0.15, filter: "blur(3px)", pointerEvents: "none" }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ height: 72, border: "1px solid #333", background: "#111", borderRadius: 2 }} />
+          ))}
+        </div>
+
+        {/* Overlay */}
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", paddingTop: 28 }}>
+          <Loader2 size={20} style={{ color: "#39FF14", animation: "spin 1.5s linear infinite" }} />
+          <div style={{ color: "#fff", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", fontSize: 11, marginTop: 10 }}>
+            Conectando con Ticketmaster...
+          </div>
+          <div style={{ color: "#555", fontSize: 10, marginTop: 4 }}>
+            Integración en tiempo real · Disponible pronto
+          </div>
+        </div>
+        <style dangerouslySetInnerHTML={{ __html: `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }` }} />
+      </section>
+
+      {/* ── 8. FOOTER ── */}
+      <footer style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 40px", borderTop: "1px solid #111" }}>
+        <div style={{ color: "#fff", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Mexico Charts</div>
+        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>Datos provistos por Pollstar Research</div>
+        <button style={{ background: "none", border: "none", color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+          Ver en Pollstar →
         </button>
       </footer>
     </div>
