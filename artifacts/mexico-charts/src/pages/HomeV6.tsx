@@ -474,13 +474,13 @@ export default function HomeV6() {
       {/* ── GREEN TICKER — pause on hover ── */}
       <div
         className="bg-[#39FF14] overflow-hidden py-2 cursor-default"
-        style={{ whiteSpace:"nowrap", transform:"translateZ(0)" }}
+        style={{ whiteSpace:"nowrap", willChange:"transform" }}
         onMouseEnter={() => setTickerPaused(true)}
         onMouseLeave={() => setTickerPaused(false)}
       >
         <div
           className="inline-block animate-marquee"
-          style={{ animationPlayState: tickerPaused ? "paused" : "running" }}
+          style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-black font-black text-[11px] uppercase tracking-[0.22em]">
             {TICKER_ITEMS.map((item, i) => (
@@ -749,13 +749,13 @@ export default function HomeV6() {
       {/* ── STATS TICKER ── */}
       <div
         className="border-b border-white/[0.05] bg-[#080808] overflow-hidden py-3"
-        style={{ whiteSpace:"nowrap", borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)", transform:"translateZ(0)" }}
+        style={{ whiteSpace:"nowrap", borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)", willChange:"transform" }}
         onMouseEnter={() => setTickerPaused(true)}
         onMouseLeave={() => setTickerPaused(false)}
       >
         <div
           className="inline-block animate-marquee-slow"
-          style={{ animationPlayState: tickerPaused ? "paused" : "running" }}
+          style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
             {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","CHARTS SEMANALES"].map((s,i)=>(
