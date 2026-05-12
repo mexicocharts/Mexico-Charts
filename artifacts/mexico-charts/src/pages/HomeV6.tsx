@@ -652,8 +652,8 @@ export default function HomeV6() {
           style={{ y: textY, zIndex:4 }}
         >
           <AnimatePresence mode="wait">
-            {showLoadingState ? (
-              /* ── HERO SKELETON — shown when sheet URL configured + data loading ── */
+            {(showLoadingState && HERO_ARTISTS.length === 0) ? (
+              /* ── HERO SKELETON — only when truly no data (DEFAULT_HERO_ARTISTS covers loading) ── */
               <motion.div
                 key="hero-skeleton"
                 initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
@@ -891,7 +891,7 @@ export default function HomeV6() {
               whileHover={reduced ? {} : { scale:1.025, y:-2, transition:{ duration:0.22 } }}
               className="relative overflow-hidden cursor-pointer rounded-xl"
               style={{
-                height:112,
+                minHeight:88,
                 background:"linear-gradient(160deg, #0d0d0d 0%, #0a0a0a 100%)",
                 border:`1px solid ${g.accent}1e`,
                 boxShadow:`0 4px 28px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)`,
@@ -1187,7 +1187,7 @@ export default function HomeV6() {
                 <motion.div
                   key={p.name}
                   whileHover={reduced ? {} : { backgroundColor:"rgba(255,255,255,0.02)", transition:{ duration:0.2 } }}
-                  className="flex items-center gap-4 px-6 py-5 cursor-default"
+                  className="flex items-center gap-3 px-4 py-4 md:gap-4 md:px-6 md:py-5 cursor-default"
                 >
                   <motion.span
                     style={{ color:p.color }}

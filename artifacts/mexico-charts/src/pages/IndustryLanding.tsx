@@ -127,7 +127,7 @@ export default function IndustryLanding() {
           STAT STRIP
       ══════════════════════════════════════════════════ */}
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.07)", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-        <div className="grid grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           {[
             { icon: Trophy,       v: "#10",     l: "Mercado global\nmúsica grabada",      src: "IFPI 2026",  hi: true  },
             { icon: TrendingUp,   v: "+13.3%",  l: "Crecimiento de\ningresos en 2025",    src: "IFPI",       hi: false },
@@ -136,8 +136,8 @@ export default function IndustryLanding() {
             { icon: Layers,       v: "2×",      l: "Ingresos duplicados\nen cinco años",  src: "AMPROFON",   hi: false },
           ].map(({ icon: Icon, v, l, src, hi }, i) => (
             <FadeUp key={i} delay={i * 0.04}>
-              <div className="relative px-5 py-9"
-                style={{ borderRight: i < 4 ? "1px solid rgba(255,255,255,0.07)" : "none", background: hi ? "rgba(57,255,20,0.022)" : "transparent" }}>
+              <div className="relative px-3 py-5 md:px-5 md:py-8"
+                style={{ borderRight: "1px solid rgba(255,255,255,0.07)", background: hi ? "rgba(57,255,20,0.022)" : "transparent" }}>
                 {hi && <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.07) 0%, transparent 70%)" }} />}
                 <Icon className="w-4 h-4 mb-5 relative z-10" style={{ color: hi ? G : "rgba(255,255,255,0.35)" }} />
                 <div className="font-black leading-none mb-2.5 relative z-10"

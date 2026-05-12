@@ -153,7 +153,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
           {/* Info panel */}
           <div className="flex-1 flex flex-col px-4 pb-4 pt-3 relative z-10">
             <h3
-              className="font-black text-sm uppercase tracking-wide text-white mb-1.5 truncate leading-tight"
+              className="font-black text-[13px] uppercase tracking-[0.06em] text-white mb-1.5 line-clamp-2 break-words leading-snug"
               title={name}
             >
               {name}
