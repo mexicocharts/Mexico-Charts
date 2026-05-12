@@ -8,17 +8,21 @@ import _imgCrowd    from "@assets/concertcrowd_1778591170250.jpeg";
 import _imgStage1   from "@assets/Junior_H2-2_1778591170250.jpg";
 import _imgStage2   from "@assets/DSC06007-Edit.jpg_1778591170250.webp";
 import _imgPortrait from "@assets/31f837484b7ef9fc9b4b56589d6da178_1778591170250.jpg";
+import _imgBlueArena from "@assets/536273332_1218148096783736_815010960571842960_n_1778591705965.jpg";
+import _imgPyro     from "@assets/Junior_H-6.jpg_1778591705965.webp";
+import _imgLasers   from "@assets/556661257_1253304393508985_3929356419242217826_n_1778591705965.jpg";
 
-const BG_HERO    = _imgArena;
-const BG_CROWD   = _imgCrowd;
-const BG_STAGE   = _imgStage1;
-const BG_LIGHTS  = _imgStage2;
-const BG_CLOSE   = _imgCrowd;
-const ARTIST_IMG = _imgPortrait;
-const MARKET_IMG = _imgArena;
-const SHOW_IMG_1 = _imgArena;
-const SHOW_IMG_2 = _imgStage1;
-const SHOW_IMG_3 = _imgStage2;
+const BG_HERO      = _imgArena;
+const BG_CROWD     = _imgCrowd;
+const BG_STAGE     = _imgStage1;
+const BG_LIGHTS    = _imgStage2;
+const BG_FOOTPRINT = _imgLasers;
+const BG_CLOSE     = _imgPyro;
+const ARTIST_IMG   = _imgPortrait;
+const MARKET_IMG   = _imgBlueArena;
+const SHOW_IMG_1   = _imgArena;
+const SHOW_IMG_2   = _imgPyro;
+const SHOW_IMG_3   = _imgLasers;
 
 function AnimCount({ to, prefix = "", suffix = "", decimals = 0 }: {
   to: number; prefix?: string; suffix?: string; decimals?: number;
@@ -189,7 +193,7 @@ export default function TouringProfile() {
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "46%", zIndex: 0 }}>
-          <img src={BG_STAGE} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%", filter: "brightness(0.44) saturate(0.78)" }} />
+          <img src={BG_FOOTPRINT} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 20%", filter: "brightness(0.44) saturate(0.78)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.45) 30%, rgba(6,6,6,0.0) 70%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.7) 0%, transparent 16%, transparent 84%, rgba(6,6,6,0.7) 100%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 60% 50%, rgba(57,255,20,0.06) 0%, transparent 60%)" }} />
