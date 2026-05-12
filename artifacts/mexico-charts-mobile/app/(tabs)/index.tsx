@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Platform,
   Dimensions,
   FlatList,
+  Animated,
+  Easing,
   ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,22 +19,76 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { TOP_ARTISTS, GENRES, ASCENSO, Artist } from "@/data/chartData";
+import { useHubData, HubRow } from "@/hooks/useHubData";
+import { TOP_ARTISTS, GENRES, Artist } from "@/data/chartData";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const HERO_ARTISTS = TOP_ARTISTS.slice(0, 5);
-const TOP_10 = TOP_ARTISTS.slice(0, 10);
-
-const HOME_NAMES = [
-  ...TOP_10.map((a) => a.name),
-  ...ASCENSO.map((a) => a.name),
-];
 
 const NEON = "#39FF14";
 const BG = "#050505";
 
-function InitialAvatar({ initial, size, accent, fontSize }: { initial: string; size: number; accent?: string; fontSize?: number }) {
+const ASCENSO_ACCENTS = [
+  NEON,
+  "rgba(57,255,20,0.78)",
+  "rgba(57,255,20,0.58)",
+  "rgba(57,255,20,0.40)",
+  "rgba(57,255,20,0.26)",
+];
+
+function buildArtist(row: HubRow): Artist {
+  const st = TOP_ARTISTS.find(
+    (a) => a.name.toLowerCase() === row.Artist.toLowerCase()
+  );
+  const gained = row.Prev > 0 && row.Rank > 0 ? row.Prev - row.Rank : 0;
+  const growthStr =
+    gained > 0 ? `+${gained} pos` : gained < 0 ? `${gained} pos` : "=";
+  return {
+    rank: row.Rank,
+    name: row.Artist,
+    genre: st?.genre ?? "Regional Mexicano",
+    streams: st?.streams ?? "—",
+    listeners: st?.listeners ?? "—",
+    growth: st?.growth ?? (gained !== 0 ? growthStr : "="),
+    countries: st?.countries ?? "—",
+    tag: st?.tag ?? "REGIONAL MEXICANO",
+    accent: st?.accent ?? NEON,
+    tour: st?.tour,
+    tourDates: st?.tourDates,
+    tourGross: st?.tourGross,
+  };
+}
+
+function buildAscenso(rows: HubRow[]) {
+  const climbers = rows
+    .filter((r) => r.isMexican)
+    .map((r) => {
+      const gained = r.Prev > 0 && r.Rank > 0 ? r.Prev - r.Rank : 0;
+      return { name: r.Artist, rank: r.Rank, gained };
+    })
+    .filter((a) => a.gained > 0)
+    .sort((a, b) => b.gained - a.gained)
+    .slice(0, 5);
+  if (climbers.length < 3) return null;
+  const maxGained = climbers[0].gained;
+  return climbers.map((a, i) => ({
+    name: a.name,
+    growth: `+${a.gained} pos · #${a.rank}`,
+    bar: maxGained > 0 ? Math.round((a.gained / maxGained) * 100) : 0,
+    accent: ASCENSO_ACCENTS[i] ?? ASCENSO_ACCENTS[ASCENSO_ACCENTS.length - 1],
+  }));
+}
+
+function InitialAvatar({
+  initial,
+  size,
+  accent,
+  fontSize,
+}: {
+  initial: string;
+  size: number;
+  accent?: string;
+  fontSize?: number;
+}) {
   return (
     <View
       style={{
@@ -60,15 +116,81 @@ function InitialAvatar({ initial, size, accent, fontSize }: { initial: string; s
   );
 }
 
-function HeroArtistCard({ artist, photo }: { artist: Artist; photo: string | null }) {
+function LiveTicker({ names }: { names: string[] }) {
+  const tickerText =
+    names.length > 0
+      ? names.map((n) => `${n.toUpperCase()} ·`).join("  ") + "  "
+      : "CARGANDO DATOS EN VIVO ·  ";
+
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [textWidth, setTextWidth] = useState(0);
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => {
+    if (textWidth <= 0) return;
+    if (animRef.current) animRef.current.stop();
+    translateX.setValue(0);
+    animRef.current = Animated.loop(
+      Animated.timing(translateX, {
+        toValue: -textWidth,
+        duration: textWidth * 22,
+        useNativeDriver: true,
+        easing: Easing.linear,
+      })
+    );
+    animRef.current.start();
+    return () => {
+      animRef.current?.stop();
+    };
+  }, [textWidth, tickerText]);
+
+  return (
+    <View style={styles.tickerOuter}>
+      <Animated.View
+        style={[styles.tickerInner, { transform: [{ translateX }] }]}
+      >
+        <Text
+          style={styles.tickerText}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width / 2;
+            if (w > 0 && textWidth === 0) setTextWidth(w);
+          }}
+          numberOfLines={1}
+        >
+          {tickerText}
+          {tickerText}
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+function HeroArtistCard({
+  artist,
+  photo,
+}: {
+  artist: Artist;
+  photo: string | null;
+}) {
   const initial = artist.name.charAt(0);
   return (
     <View style={[styles.heroCard, { width: SCREEN_WIDTH }]}>
       {photo ? (
-        <Image source={{ uri: photo }} style={styles.heroPhoto} resizeMode="cover" />
+        <Image
+          source={{ uri: photo }}
+          style={styles.heroPhoto}
+          resizeMode="cover"
+        />
       ) : (
-        <View style={[styles.heroPhotoPlaceholder, { alignItems: "center", justifyContent: "center" }]}>
-          <Text style={{ color: "rgba(255,255,255,0.18)", fontFamily: "Inter_700Bold", fontSize: 120, lineHeight: 130 }}>
+        <View style={[styles.heroPhotoPlaceholder]}>
+          <Text
+            style={{
+              color: "rgba(255,255,255,0.06)",
+              fontFamily: "Inter_700Bold",
+              fontSize: 180,
+              lineHeight: 190,
+            }}
+          >
             {initial.toUpperCase()}
           </Text>
         </View>
@@ -84,8 +206,7 @@ function HeroArtistCard({ artist, photo }: { artist: Artist; photo: string | nul
           {artist.name.toUpperCase()}
         </Text>
         <Text style={styles.heroStats}>
-          {artist.listeners} OYENTES  ·  {artist.countries}
-          {"  "}
+          {artist.listeners} OYENTES{"  "}
           <Text style={{ color: NEON }}>{artist.growth} esta semana</Text>
         </Text>
         <View style={styles.heroButtons}>
@@ -93,7 +214,10 @@ function HeroArtistCard({ artist, photo }: { artist: Artist; photo: string | nul
             style={styles.heroPrimaryBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              router.push({ pathname: "/artist/[name]", params: { name: artist.name } });
+              router.push({
+                pathname: "/artist/[name]",
+                params: { name: artist.name },
+              });
             }}
           >
             <Text style={styles.heroPrimaryBtnText}>Ver Perfil</Text>
@@ -113,44 +237,81 @@ function HeroArtistCard({ artist, photo }: { artist: Artist; photo: string | nul
   );
 }
 
-function Top10Card({ artist, photo }: { artist: Artist; photo: string | null }) {
+function Top10Card({
+  artist,
+  photo,
+}: {
+  artist: Artist;
+  photo: string | null;
+}) {
   return (
     <TouchableOpacity
       style={styles.top10Card}
       activeOpacity={0.75}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push({ pathname: "/artist/[name]", params: { name: artist.name } });
+        router.push({
+          pathname: "/artist/[name]",
+          params: { name: artist.name },
+        });
       }}
     >
       <View style={[styles.top10RankBadge, { borderColor: artist.accent }]}>
-        <Text style={[styles.top10Rank, { color: artist.accent }]}>{artist.rank}</Text>
+        <Text style={[styles.top10Rank, { color: artist.accent }]}>
+          {artist.rank}
+        </Text>
       </View>
       {photo ? (
         <Image source={{ uri: photo }} style={styles.top10Photo} />
       ) : (
-        <InitialAvatar initial={artist.name.charAt(0)} size={80} accent={artist.accent} fontSize={30} />
+        <InitialAvatar
+          initial={artist.name.charAt(0)}
+          size={80}
+          accent={artist.accent}
+          fontSize={30}
+        />
       )}
-      <Text style={styles.top10Name} numberOfLines={1}>{artist.name}</Text>
-      <Text style={styles.top10Genre} numberOfLines={1}>{artist.genre}</Text>
-      <Text style={[styles.top10Streams, { color: artist.accent }]}>{artist.streams}</Text>
+      <Text style={styles.top10Name} numberOfLines={1}>
+        {artist.name}
+      </Text>
+      <Text style={styles.top10Genre} numberOfLines={1}>
+        {artist.genre}
+      </Text>
+      <Text style={[styles.top10Streams, { color: artist.accent }]}>
+        {artist.streams}
+      </Text>
     </TouchableOpacity>
   );
 }
 
-function GenreCard({ genre }: { genre: typeof GENRES[0] }) {
+function GenreCard({ genre }: { genre: (typeof GENRES)[0] }) {
   return (
-    <View style={[styles.genreCard, { borderLeftColor: genre.accent, borderLeftWidth: 3 }]}>
-      <Text style={styles.genreName} numberOfLines={1}>{genre.name}</Text>
+    <View
+      style={[
+        styles.genreCard,
+        { borderLeftColor: genre.accent, borderLeftWidth: 3 },
+      ]}
+    >
+      <Text style={styles.genreName} numberOfLines={1}>
+        {genre.name}
+      </Text>
       <View style={styles.genreStats}>
-        <Text style={[styles.genreStreams, { color: genre.accent }]}>{genre.streams}</Text>
+        <Text style={[styles.genreStreams, { color: genre.accent }]}>
+          {genre.streams}
+        </Text>
         <Text style={styles.genreArtists}>{genre.artists} artistas</Text>
       </View>
     </View>
   );
 }
 
-function AscensoRow({ item, photo }: { item: typeof ASCENSO[0]; photo: string | null }) {
+function AscensoRow({
+  item,
+  photo,
+}: {
+  item: { name: string; growth: string; bar: number; accent: string };
+  photo: string | null;
+}) {
   const barFillStyle: ViewStyle = {
     height: 4,
     borderRadius: 2,
@@ -162,24 +323,46 @@ function AscensoRow({ item, photo }: { item: typeof ASCENSO[0]; photo: string | 
       {photo ? (
         <Image source={{ uri: photo }} style={styles.ascensoAvatar} />
       ) : (
-        <InitialAvatar initial={item.name.charAt(0)} size={36} accent={item.accent} fontSize={14} />
+        <InitialAvatar
+          initial={item.name.charAt(0)}
+          size={36}
+          accent={item.accent}
+          fontSize={14}
+        />
       )}
-      <Text style={styles.ascensoName} numberOfLines={1}>{item.name}</Text>
+      <Text style={styles.ascensoName} numberOfLines={1}>
+        {item.name}
+      </Text>
       <View style={styles.ascensoBarBg}>
         <View style={barFillStyle} />
       </View>
-      <Text style={[styles.ascensoGrowth, { color: item.accent }]}>{item.growth}</Text>
+      <Text style={[styles.ascensoGrowth, { color: item.accent }]}>
+        {item.growth}
+      </Text>
     </View>
   );
 }
 
 type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
 
-function SectionHeader({ icon, label }: { icon: FeatherIconName; label: string }) {
+function SectionHeader({
+  icon,
+  label,
+  live,
+}: {
+  icon: FeatherIconName;
+  label: string;
+  live?: boolean;
+}) {
   return (
     <View style={styles.sectionHeader}>
       <Feather name={icon} size={14} color={NEON} />
       <Text style={styles.sectionLabel}>{label}</Text>
+      {live && (
+        <View style={styles.livePill}>
+          <Text style={styles.livePillText}>EN VIVO</Text>
+        </View>
+      )}
       <View style={styles.sectionLine} />
     </View>
   );
@@ -191,12 +374,41 @@ export default function HomeScreen() {
   const heroScrollRef = useRef<FlatList>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const imageMap = useArtistImages(HOME_NAMES);
+  const { rows } = useHubData();
+
+  const liveArtists = useMemo<Artist[]>(() => {
+    if (rows.length === 0) return TOP_ARTISTS.slice(0, 25);
+    return rows.slice(0, 25).map(buildArtist);
+  }, [rows]);
+
+  const heroArtists = useMemo(() => liveArtists.slice(0, 5), [liveArtists]);
+  const top10 = useMemo(() => liveArtists.slice(0, 10), [liveArtists]);
+
+  const ascenso = useMemo(() => {
+    if (rows.length === 0) return null;
+    return buildAscenso(rows);
+  }, [rows]);
+
+  const tickerNames = useMemo(
+    () => liveArtists.slice(0, 15).map((a) => a.name),
+    [liveArtists]
+  );
+
+  const allNames = useMemo(
+    () => [
+      ...top10.map((a) => a.name),
+      ...(ascenso ?? []).map((a) => a.name),
+    ],
+    [top10, ascenso]
+  );
+
+  const imageMap = useArtistImages(allNames);
 
   useEffect(() => {
+    if (heroArtists.length === 0) return;
     timerRef.current = setInterval(() => {
       setHeroIndex((i) => {
-        const next = (i + 1) % HERO_ARTISTS.length;
+        const next = (i + 1) % heroArtists.length;
         heroScrollRef.current?.scrollToIndex({ index: next, animated: true });
         return next;
       });
@@ -204,7 +416,7 @@ export default function HomeScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [heroArtists.length]);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : 0;
@@ -216,21 +428,20 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: bottomInset + 20 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Green ticker bar */}
-        <View style={[styles.ticker, { paddingTop: topInset }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <Text style={styles.tickerText}>
-              PESO PLUMA · 32.4M OYENTES · FUERZA REGIDA · 12.4M OYENTES · NATANAEL CANO · CORRIDOS TUMBADOS · JUNIOR H · CARIN LEÓN · 7.1M OYENTES ·{" "}
-            </Text>
-          </ScrollView>
+        {/* Live animated ticker */}
+        <View style={{ paddingTop: topInset, backgroundColor: NEON }}>
+          <LiveTicker names={tickerNames} />
         </View>
 
         {/* Hero carousel */}
         <FlatList
           ref={heroScrollRef}
-          data={HERO_ARTISTS}
+          data={heroArtists}
           renderItem={({ item }) => (
-            <HeroArtistCard artist={item} photo={imageMap[item.name] ?? null} />
+            <HeroArtistCard
+              artist={item}
+              photo={imageMap[item.name] ?? null}
+            />
           )}
           keyExtractor={(item) => item.name}
           horizontal
@@ -238,20 +449,29 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           scrollEnabled
           onMomentumScrollEnd={(e) => {
-            const index = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+            const index = Math.round(
+              e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+            );
             setHeroIndex(index);
           }}
-          style={{ height: 380 }}
-          getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
+          style={{ height: 460 }}
+          getItemLayout={(_, index) => ({
+            length: SCREEN_WIDTH,
+            offset: SCREEN_WIDTH * index,
+            index,
+          })}
         />
 
         {/* Hero dot indicators */}
         <View style={styles.heroDots}>
-          {HERO_ARTISTS.map((_, i) => (
+          {heroArtists.map((_, i) => (
             <TouchableOpacity
               key={i}
               onPress={() => {
-                heroScrollRef.current?.scrollToIndex({ index: i, animated: true });
+                heroScrollRef.current?.scrollToIndex({
+                  index: i,
+                  animated: true,
+                });
                 setHeroIndex(i);
               }}
             >
@@ -265,11 +485,15 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Top 10 horizontal scroll */}
+        {/* Top 10 */}
         <View style={{ marginTop: 8 }}>
-          <SectionHeader icon="trending-up" label="TOP 10 · MÉXICO · ESTA SEMANA" />
+          <SectionHeader
+            icon="trending-up"
+            label="TOP 10 · MÉXICO · ESTA SEMANA"
+            live={rows.length > 0}
+          />
           <FlatList
-            data={TOP_10}
+            data={top10}
             renderItem={({ item }) => (
               <Top10Card artist={item} photo={imageMap[item.name] ?? null} />
             )}
@@ -277,11 +501,11 @@ export default function HomeScreen() {
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-            scrollEnabled={true}
+            scrollEnabled
           />
         </View>
 
-        {/* Genre blocks */}
+        {/* Genres — static, curated */}
         <View style={{ marginTop: 20 }}>
           <SectionHeader icon="music" label="GÉNEROS · STREAMS TOTALES" />
           <View style={styles.genreGrid}>
@@ -291,25 +515,38 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* En ascenso */}
-        <View style={{ marginTop: 20 }}>
-          <SectionHeader icon="arrow-up-right" label="EN ASCENSO · ESTA SEMANA" />
-          <View style={{ paddingHorizontal: 16, gap: 10 }}>
-            {ASCENSO.map((a) => (
-              <AscensoRow key={a.name} item={a} photo={imageMap[a.name] ?? null} />
-            ))}
+        {/* EN ASCENSO — live computed */}
+        {ascenso && (
+          <View style={{ marginTop: 20 }}>
+            <SectionHeader
+              icon="arrow-up-right"
+              label="EN ASCENSO · ARTISTAS MEXICANOS"
+              live
+            />
+            <View style={{ paddingHorizontal: 16, gap: 10 }}>
+              {ascenso.map((a) => (
+                <AscensoRow
+                  key={a.name}
+                  item={a}
+                  photo={imageMap[a.name] ?? null}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  ticker: {
-    backgroundColor: "#39FF14",
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+  tickerOuter: {
+    overflow: "hidden",
+    height: 30,
+    justifyContent: "center",
+  },
+  tickerInner: {
+    flexDirection: "row",
   },
   tickerText: {
     color: "#000000",
@@ -317,88 +554,84 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2,
     textTransform: "uppercase",
+    lineHeight: 30,
   },
   heroCard: {
-    height: 380,
+    height: 460,
     position: "relative",
     backgroundColor: "#050505",
+    overflow: "hidden",
   },
   heroPhoto: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: "60%",
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.75,
   },
   heroPhotoPlaceholder: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: "60%",
-    backgroundColor: "#111",
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#0D0D0D",
+    alignItems: "center",
+    justifyContent: "center",
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(5,5,5,0.45)",
+    backgroundColor: "rgba(5,5,5,0.28)",
   },
   heroGradientLeft: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
-    width: "65%",
-    backgroundColor: "rgba(5,5,5,0.72)",
+    width: "72%",
+    backgroundColor: "rgba(5,5,5,0.80)",
   },
   heroGradientBottom: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: 180,
-    backgroundColor: "rgba(5,5,5,0.88)",
+    height: 230,
+    backgroundColor: "rgba(5,5,5,0.94)",
   },
   heroContent: {
     position: "absolute",
     left: 0,
     bottom: 0,
     right: 0,
-    padding: 20,
-    paddingBottom: 24,
-    backgroundColor: "transparent",
+    padding: 22,
+    paddingBottom: 30,
   },
   heroRankTag: {
-    color: "#39FF14",
+    color: NEON,
     fontFamily: "Inter_700Bold",
     fontSize: 10,
     letterSpacing: 2.5,
     textTransform: "uppercase",
-    marginBottom: 6,
+    marginBottom: 8,
   },
   heroName: {
     color: "#FFFFFF",
     fontFamily: "Inter_700Bold",
-    fontSize: 36,
-    lineHeight: 38,
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    fontSize: 44,
+    lineHeight: 46,
+    letterSpacing: -1.5,
+    marginBottom: 10,
   },
   heroStats: {
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.52)",
     fontFamily: "Inter_500Medium",
     fontSize: 11,
     letterSpacing: 1.5,
     textTransform: "uppercase",
-    marginBottom: 16,
+    marginBottom: 20,
   },
   heroButtons: {
     flexDirection: "row",
     gap: 10,
   },
   heroPrimaryBtn: {
-    backgroundColor: "#39FF14",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    backgroundColor: NEON,
+    paddingHorizontal: 20,
+    paddingVertical: 11,
     borderRadius: 100,
   },
   heroPrimaryBtnText: {
@@ -410,9 +643,9 @@ const styles = StyleSheet.create({
   },
   heroSecondaryBtn: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderColor: "rgba(255,255,255,0.28)",
+    paddingHorizontal: 20,
+    paddingVertical: 11,
     borderRadius: 100,
   },
   heroSecondaryBtnText: {
@@ -432,11 +665,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
   heroDotActive: {
-    width: 20,
-    backgroundColor: "#39FF14",
+    width: 22,
+    backgroundColor: NEON,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -451,6 +684,20 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 2.5,
     textTransform: "uppercase",
+  },
+  livePill: {
+    backgroundColor: "rgba(57,255,20,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(57,255,20,0.3)",
+    borderRadius: 100,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  livePillText: {
+    color: NEON,
+    fontFamily: "Inter_700Bold",
+    fontSize: 8,
+    letterSpacing: 1.5,
   },
   sectionLine: {
     flex: 1,
@@ -500,6 +747,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     fontSize: 10,
     textAlign: "center",
+    letterSpacing: 0.3,
   },
   top10Streams: {
     fontFamily: "Inter_700Bold",
@@ -543,11 +791,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#111111",
+    backgroundColor: "#0D0D0D",
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.05)",
   },
   ascensoAvatar: {
     width: 36,
@@ -558,10 +806,10 @@ const styles = StyleSheet.create({
     color: "#E4E4E7",
     fontFamily: "Inter_600SemiBold",
     fontSize: 13,
-    width: 130,
+    flex: 1,
   },
   ascensoBarBg: {
-    flex: 1,
+    width: 60,
     height: 4,
     backgroundColor: "rgba(255,255,255,0.08)",
     borderRadius: 2,
@@ -569,8 +817,9 @@ const styles = StyleSheet.create({
   },
   ascensoGrowth: {
     fontFamily: "Inter_700Bold",
-    fontSize: 13,
-    width: 46,
+    fontSize: 11,
+    letterSpacing: 0.3,
+    minWidth: 72,
     textAlign: "right",
   },
 });

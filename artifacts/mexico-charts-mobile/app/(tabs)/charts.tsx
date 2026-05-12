@@ -14,6 +14,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useHubData, HubRow } from "@/hooks/useHubData";
 import { TOP_ARTISTS, Artist } from "@/data/chartData";
 
 const NEON = "#39FF14";
@@ -21,9 +22,61 @@ const BG = "#050505";
 
 const ALL_GENRES = ["TODOS", "CORRIDOS", "REG. MEX.", "NORTEÑO", "BANDA"];
 
-const ALL_NAMES = TOP_ARTISTS.map((a) => a.name);
+function buildArtist(row: HubRow): Artist {
+  const st = TOP_ARTISTS.find(
+    (a) => a.name.toLowerCase() === row.Artist.toLowerCase()
+  );
+  const gained = row.Prev > 0 && row.Rank > 0 ? row.Prev - row.Rank : 0;
+  return {
+    rank: row.Rank,
+    name: row.Artist,
+    genre: st?.genre ?? "Regional Mexicano",
+    streams: st?.streams ?? "—",
+    listeners: st?.listeners ?? "—",
+    growth:
+      st?.growth ??
+      (gained > 0 ? `+${gained}` : gained < 0 ? `${gained}` : "="),
+    countries: st?.countries ?? "—",
+    tag: st?.tag ?? "REGIONAL MEXICANO",
+    accent: st?.accent ?? "rgba(255,255,255,0.20)",
+    tour: st?.tour,
+    tourDates: st?.tourDates,
+    tourGross: st?.tourGross,
+  };
+}
 
-function InitialAvatar({ initial, size, fontSize }: { initial: string; size: number; fontSize?: number }) {
+function MovementBadge({ row }: { row: HubRow }) {
+  const gained = row.Prev > 0 && row.Rank > 0 ? row.Prev - row.Rank : 0;
+  if (gained === 0) {
+    return <Text style={styles.movFlat}>—</Text>;
+  }
+  if (gained > 0) {
+    return (
+      <View style={styles.movUpRow}>
+        <Feather name="arrow-up" size={9} color={NEON} />
+        <Text style={[styles.movText, { color: NEON }]}>{gained}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={styles.movDownRow}>
+      <Feather name="arrow-down" size={9} color="#EF4444" />
+      <Text style={[styles.movText, { color: "#EF4444" }]}>
+        {Math.abs(gained)}
+      </Text>
+    </View>
+  );
+}
+
+function InitialAvatar({
+  initial,
+  size,
+  fontSize,
+}: {
+  initial: string;
+  size: number;
+  fontSize?: number;
+}) {
   return (
     <View
       style={{
@@ -51,10 +104,12 @@ function InitialAvatar({ initial, size, fontSize }: { initial: string; size: num
 
 function ArtistRow({
   artist,
+  hubRow,
   index,
   photo,
 }: {
   artist: Artist;
+  hubRow?: HubRow;
   index: number;
   photo: string | null;
 }) {
@@ -71,7 +126,10 @@ function ArtistRow({
       activeOpacity={0.72}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        router.push({ pathname: "/artist/[name]", params: { name: artist.name } });
+        router.push({
+          pathname: "/artist/[name]",
+          params: { name: artist.name },
+        });
       }}
     >
       <View style={styles.rankContainer}>
@@ -83,15 +141,17 @@ function ArtistRow({
         >
           {artist.rank}
         </Text>
-        {isTop3 && (
-          <View style={[styles.rankDot, { backgroundColor: artist.accent }]} />
-        )}
+        {hubRow && <MovementBadge row={hubRow} />}
       </View>
 
       {photo ? (
         <Image source={{ uri: photo }} style={styles.rowPhoto} />
       ) : (
-        <InitialAvatar initial={artist.name.charAt(0)} size={44} fontSize={18} />
+        <InitialAvatar
+          initial={artist.name.charAt(0)}
+          size={44}
+          fontSize={18}
+        />
       )}
 
       <View style={{ flex: 1 }}>
@@ -124,19 +184,34 @@ export default function ChartsScreen() {
   const insets = useSafeAreaInsets();
   const [activeGenre, setActiveGenre] = useState(0);
 
-  const imageMap = useArtistImages(ALL_NAMES);
+  const { rows, isLoading } = useHubData();
+
+  const liveArtists = useMemo<Artist[]>(() => {
+    if (rows.length === 0) return TOP_ARTISTS;
+    return rows.map((r) => buildArtist(r));
+  }, [rows]);
+
+  const allNames = useMemo(() => liveArtists.map((a) => a.name), [liveArtists]);
+
+  const imageMap = useArtistImages(allNames);
+
+  const rowMap = useMemo(() => {
+    const m: Record<string, HubRow> = {};
+    for (const r of rows) m[r.Artist.toLowerCase()] = r;
+    return m;
+  }, [rows]);
 
   const filtered = useMemo(() => {
-    if (activeGenre === 0) return TOP_ARTISTS;
+    if (activeGenre === 0) return liveArtists;
     const genreFilter = ALL_GENRES[activeGenre];
-    return TOP_ARTISTS.filter((a) => {
+    return liveArtists.filter((a) => {
       if (genreFilter === "CORRIDOS") return a.tag === "CORRIDOS TUMBADOS";
       if (genreFilter === "REG. MEX.") return a.tag === "REGIONAL MEXICANO";
       if (genreFilter === "NORTEÑO") return a.tag === "NORTEÑO";
       if (genreFilter === "BANDA") return a.tag === "BANDA";
       return true;
     });
-  }, [activeGenre]);
+  }, [activeGenre, liveArtists]);
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
   const bottomInset = Platform.OS === "web" ? 84 : 0;
@@ -146,11 +221,13 @@ export default function ChartsScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>CHARTS</Text>
-          <Text style={styles.headerSub}>MÉXICO · SEMANA 19 · 2024</Text>
+          <Text style={styles.headerSub}>MÉXICO · DATOS EN VIVO</Text>
         </View>
         <View style={styles.headerBadge}>
           <Feather name="trending-up" size={12} color={NEON} />
-          <Text style={styles.headerBadgeText}>EN VIVO</Text>
+          <Text style={styles.headerBadgeText}>
+            {isLoading ? "CARGANDO" : rows.length > 0 ? "EN VIVO" : "DATOS"}
+          </Text>
         </View>
       </View>
 
@@ -180,7 +257,7 @@ export default function ChartsScreen() {
       </View>
 
       <View style={styles.columnHeaders}>
-        <Text style={[styles.columnHeader, { width: 44 }]}>#</Text>
+        <Text style={[styles.columnHeader, { width: 52 }]}>#  MOV</Text>
         <Text style={[styles.columnHeader, { flex: 1, marginLeft: 44 }]}>
           ARTISTA
         </Text>
@@ -199,6 +276,7 @@ export default function ChartsScreen() {
         renderItem={({ item, index }) => (
           <ArtistRow
             artist={item}
+            hubRow={rowMap[item.name.toLowerCase()]}
             index={index}
             photo={imageMap[item.name] ?? null}
           />
@@ -213,10 +291,7 @@ export default function ChartsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: BG,
-  },
+  container: { flex: 1, backgroundColor: BG },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -272,19 +347,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
-  filterPillActive: {
-    backgroundColor: "#39FF14",
-    borderColor: "#39FF14",
-  },
+  filterPillActive: { backgroundColor: NEON, borderColor: NEON },
   filterPillText: {
     color: "#71717A",
     fontFamily: "Inter_600SemiBold",
     fontSize: 10,
     letterSpacing: 1.2,
   },
-  filterPillTextActive: {
-    color: "#000000",
-  },
+  filterPillTextActive: { color: "#000000" },
   columnHeaders: {
     flexDirection: "row",
     alignItems: "center",
@@ -310,31 +380,25 @@ const styles = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.04)",
   },
   rankContainer: {
-    width: 28,
+    width: 38,
     alignItems: "center",
-    position: "relative",
+    gap: 3,
   },
   rankNum: {
     fontFamily: "Inter_700Bold",
     fontSize: 14,
     letterSpacing: -0.5,
   },
-  rankDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginTop: 2,
+  movUpRow: { flexDirection: "row", alignItems: "center", gap: 1 },
+  movDownRow: { flexDirection: "row", alignItems: "center", gap: 1 },
+  movText: { fontFamily: "Inter_700Bold", fontSize: 9 },
+  movFlat: {
+    color: "#3F3F46",
+    fontFamily: "Inter_400Regular",
+    fontSize: 9,
   },
-  rowPhoto: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  rowName: {
-    color: "#E4E4E7",
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 14,
-  },
+  rowPhoto: { width: 44, height: 44, borderRadius: 22 },
+  rowName: { color: "#E4E4E7", fontFamily: "Inter_600SemiBold", fontSize: 14 },
   rowGenre: {
     color: "#71717A",
     fontFamily: "Inter_400Regular",
@@ -342,16 +406,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.5,
   },
-  rowStats: {
-    alignItems: "flex-end",
-    gap: 2,
-  },
-  rowStreams: {
-    fontFamily: "Inter_700Bold",
-    fontSize: 13,
-  },
-  rowGrowth: {
-    fontFamily: "Inter_600SemiBold",
-    fontSize: 11,
-  },
+  rowStats: { alignItems: "flex-end", gap: 2 },
+  rowStreams: { fontFamily: "Inter_700Bold", fontSize: 13 },
+  rowGrowth: { fontFamily: "Inter_600SemiBold", fontSize: 11 },
 });
