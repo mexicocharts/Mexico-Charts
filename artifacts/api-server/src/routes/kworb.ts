@@ -13,12 +13,12 @@ const FETCHING_ENABLED = (): boolean =>
   process.env["KWORB_FETCHING_ENABLED"] !== "false";
 
 /* ══ Constants ════════════════════════════════════════════════════════════ */
-const DAILY_CAP      = 100_000; // effectively unlimited — blast through full catalog
+const DAILY_CAP      = 100_000; // effectively unlimited — initial catalog blast
 const HOURLY_CAP     = 100_000; // effectively unlimited
 const MAX_ATTEMPTS   = 5;       // before marking artist as not_found
 const WORKER_CONCURRENCY = 15;  // parallel workers
 
-// No pacing — run as fast as kworb allows
+// No pacing for initial full-catalog fetch
 const PACE_MIN_MS    = 0;
 const PACE_JITTER_MS = 0;
 
