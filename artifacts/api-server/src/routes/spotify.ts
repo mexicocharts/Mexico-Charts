@@ -62,6 +62,7 @@ for (const [name, url] of Object.entries(SEED)) {
 /* ── Strip special characters to produce a cleaner Deezer search query ── */
 function cleanNameForSearch(name: string): string {
   return name
+    .replace(/"+/g, "")              // remove stray quote chars (CSV artifact)
     .replace(/[$#@!]/g, "")          // remove common special chars ($HUPE → HUPE)
     .replace(/\s+/g, " ")
     .trim();

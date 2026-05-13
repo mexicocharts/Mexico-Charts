@@ -223,11 +223,21 @@ function applySubgenreFallback(row: Record<string, string>): Record<string, stri
   return { ...row, subgenre: fallback };
 }
 
+/* Strip stray quote characters that Google Sheets CSV export sometimes leaves
+   at the start or end of field values (e.g. `Sergio Vega El Shaka""` → `Sergio Vega El Shaka`). */
+function sanitizeRow(row: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(row)) {
+    out[k] = v.replace(/^"+|"+$/g, "").trim();
+  }
+  return out;
+}
+
 async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
-  return rows.map(applySubgenreFallback);
+  return rows.map(sanitizeRow).map(applySubgenreFallback);
 }
 
 router.get("/artists/metadata", async (_req, res) => {

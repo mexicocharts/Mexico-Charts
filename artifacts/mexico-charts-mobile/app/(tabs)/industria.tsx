@@ -44,7 +44,12 @@ function StatCard({ icon, value, label, hi }: {
         <View style={styles.statCardGlow} />
       )}
       <Feather name={icon as FeatherIconName} size={14} color={hi ? NEON : "#52525B"} style={{ marginBottom: 10 }} />
-      <Text style={[styles.statValue, hi && { color: NEON, textShadowColor: `${NEON}60`, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 }]}>
+      <Text
+        style={[styles.statValue, hi && { color: NEON, textShadowColor: `${NEON}60`, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 12 }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
         {value}
       </Text>
       <Text style={styles.statLabel}>{label}</Text>
