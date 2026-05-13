@@ -1147,7 +1147,7 @@ router.get("/kworb/artist-stats", async (req, res) => {
     spotifyId,
     spotify:        (snapMap.get("spotify") as KworbStats["spotify"])        ?? null,
     youtube:        (snapMap.get("youtube") as KworbStats["youtube"])        ?? null,
-    chartPositions: (snapMap.get("itunes")  as KworbStats["chartPositions"]) ?? null,
+    chartPositions: (snapMap.get("itunes")  as unknown as KworbStats["chartPositions"]) ?? null,
   };
 
   const hasCachedData = !!(stats.spotify || stats.youtube || stats.chartPositions);
