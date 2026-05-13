@@ -384,6 +384,7 @@ function Lightbox({
   const [values, setValues] = useState<Record<string, any>>({ ...defaultProps });
   const [downloading, setDownloading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const captureRef = useRef<HTMLDivElement>(null);
 
   // Create a stable portal container div and append it to document.body.
@@ -525,6 +526,25 @@ function Lightbox({
             }
           </button>
 
+          {/* Ver completo button */}
+          <button
+            onClick={() => setFullscreen(true)}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 28px",
+              borderRadius: 40,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.7)",
+              fontSize: 13, fontWeight: 700,
+              letterSpacing: "0.08em", textTransform: "uppercase",
+              cursor: "pointer",
+              transition: "all 0.15s",
+            }}
+          >
+            Ver completo
+          </button>
+
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
             Instagram 4:5 · listo para publicar
           </div>
@@ -639,6 +659,53 @@ function Lightbox({
           </div>
         ) : null}
       </div>
+
+      {/* Fullscreen overlay for screenshotting */}
+      {fullscreen && ReactDOM.createPortal(
+        <div
+          onClick={() => setFullscreen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 200,
+            background: "#000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setFullscreen(false)}
+            style={{
+              position: "absolute", top: 20, right: 20,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.6)",
+              borderRadius: 8,
+              padding: "8px 16px",
+              fontSize: 12, fontWeight: 800,
+              letterSpacing: "0.1em", textTransform: "uppercase",
+              cursor: "pointer", zIndex: 1,
+            }}
+          >
+            Cerrar ✕
+          </button>
+
+          {/* Template at maximum scale */}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 1080,
+              height: 1350,
+              transform: `scale(${Math.min(window.innerWidth / 1080, window.innerHeight / 1350)})`,
+              transformOrigin: "center center",
+              flexShrink: 0,
+            }}
+          >
+            <Component {...values} />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
