@@ -491,6 +491,78 @@ export default function ArtistDetail() {
       <div className="max-w-[1200px] mx-auto px-6 py-10 flex flex-col gap-10">
 
         {/* ══════════════════════════════════════════════════════════
+            SOCIAL & PLATFORM STATS — from metadata sheet
+        ══════════════════════════════════════════════════════════ */}
+        {metaArtist && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-social-stats"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-6"
+              style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="relative z-10">
+                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia & Seguidores</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                  {metaArtist.spotifyListeners > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
+                      <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.spotifyListenersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Oyentes mensuales</div>
+                    </div>
+                  )}
+                  {metaArtist.spotifyFollowers > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
+                      <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.spotifyFollowersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Spotify</div>
+                    </div>
+                  )}
+                  {metaArtist.instagramFollowers > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
+                      <SiInstagram className="w-4 h-4 text-pink-500" />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.instagramFollowersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Instagram</div>
+                    </div>
+                  )}
+                  {metaArtist.tiktokFollowers > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                      <SiTiktok className="w-4 h-4 text-zinc-300" />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.tiktokFollowersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
+                    </div>
+                  )}
+                  {metaArtist.youtubeSubscribers > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-500" />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.youtubeSubscribersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                    </div>
+                  )}
+                  {metaArtist.deezerFans > 0 && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
+                      <Music className="w-4 h-4" style={{ color: "#A238FF" }} />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.deezerFansFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Fans Deezer</div>
+                    </div>
+                  )}
+                </div>
+                {metaArtist.label && (
+                  <div className="mt-4 pt-4 border-t border-white/[0.05] flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-zinc-600">
+                    <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>
+                    {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
             TOP TRACKS — standalone full-width card
         ══════════════════════════════════════════════════════════ */}
         {topTracks.length > 0 && (
