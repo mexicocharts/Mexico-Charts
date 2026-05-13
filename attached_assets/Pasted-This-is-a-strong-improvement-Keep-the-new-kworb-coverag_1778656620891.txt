@@ -1,0 +1,66 @@
+This is a strong improvement. Keep the new kworb_coverage, kworb_snapshots, and kworb_jobs architecture. Keep the background worker, tier system, sentinel detector, kill switch, durable snapshots, job queue, and admin endpoints
+Now polish the system with these refinements:
+1. Public routes must be fully cache-first
+Public routes should not trigger live Kworb scraping
+Artist profiles, roster pages, and batch stream routes should read from kworb_snapshots / stored cache only. If a profile or roster page has no cached value yet, return null, pending, or last_known_good_value, then enqueue a background job
+Live Kworb fetching should only happen inside:
+the background worker
+admin-triggered refresh tools
+controlled scheduled jobs
+Public traffic should never directly create scraping spikes
+2. Increase the request budget for full daily coverage, but only with smooth pacing
+The current hard cap of 800 requests/day may be too low if the long-term goal is daily coverage for all 541 artists
+Worst case:
+541 artists × 3 Kworb pages = 1,623 requests/day
+That is acceptable only if it is spread smoothly across the day, not sent in bursts
+Update the limits to support full daily coverage safely:
+Daily cap: around 1,800–2,000 requests/day
+Hourly cap: around 150–200 requests/hour
+Worker concurrency: 1 worker by default, 2 max only if absolutely needed
+No startup warm-up
+No frontend-triggered live scraping
+No large parallel batches
+3. Replace short jitter with smoother pacing
+The current 1.5–5 second jitter may still allow the worker to burn through requests too quickly
+Add a token-bucket limiter or average spacing target so Kworb requests are spread naturally across the day
+Normal pacing target:
+Around 1 request every 25–60 seconds
+Faster only during controlled refresh windows
+Never burst until the hourly cap is hit
+The goal is smooth collection, not fast collection
+4. Add no-starvation logic
+Do not let Tier A artists consume the entire daily request budget every day
+Priority should control how often artists refresh, not whether lower-tier artists ever get data
+Add guaranteed coverage rules:
+Tier A: daily refresh
+Tier B: every 2–3 days
+Tier C: weekly, or daily if full coverage mode is enabled
+Tier D / missing artists: retry discovery every 2–4 weeks
+If an artist has not been updated within its target window, its job should become more urgent automatically
+Add admin stats showing:
+how many artists refreshed today by tier
+oldest stale artist per tier
+artists with no snapshot yet
+estimated time to full coverage
+request budget used today
+request budget used by metric type
+5. Keep fallback behavior safe
+If a Kworb fetch fails:
+keep the last known good value
+mark the snapshot as stale internally
+retry later with exponential backoff
+do not spam the same failed artist repeatedly
+do not break the public artist profile
+Goal
+Keep all Kworb-derived artist metrics, including Spotify streams, YouTube views/streams, iTunes placements, Spotify song streams, and YouTube video stats
+But the system must behave like a responsible rolling collector:
+cache-first public routes
+durable stored snapshots
+no startup scraping
+no public traffic scraping
+smooth pacing
+no tier starvation
+daily coverage possible for all available Kworb artists
+kill switch remains available at all times
+Final principle:
+Mexico Charts should be able to track all 541 artists over time without creating request bursts or depending on live scraping during public page views

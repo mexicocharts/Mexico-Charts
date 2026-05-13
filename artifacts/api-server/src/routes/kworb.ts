@@ -13,11 +13,14 @@ const FETCHING_ENABLED = (): boolean =>
   process.env["KWORB_FETCHING_ENABLED"] !== "false";
 
 /* ══ Constants ════════════════════════════════════════════════════════════ */
-const DAILY_CAP    = 800;    // max outbound kworb HTTP requests per day
-const HOURLY_CAP   = 120;    // max per hour
-const JITTER_MIN   = 1_500;  // ms min inter-request pause
-const JITTER_MAX   = 5_000;  // ms max inter-request pause
-const MAX_ATTEMPTS = 5;      // before marking artist as not_found
+const DAILY_CAP      = 1_800; // max outbound kworb HTTP requests per day (541 × 3 + margin)
+const HOURLY_CAP     = 180;   // max per hour (~4.3 req/min headroom)
+const MAX_ATTEMPTS   = 5;     // before marking artist as not_found
+
+// Smooth pacing: target ~1 request every 25–60 s to avoid bursting kworb
+// At the midpoint (42.5 s avg) → ~2,023 requests/day, within DAILY_CAP
+const PACE_MIN_MS    = 25_000;  // minimum gap between individual kworb page fetches
+const PACE_JITTER_MS = 35_000;  // extra random jitter (0–35 s) on top of min
 
 // Tier refresh intervals (ms) — ±20% jitter is added at enqueue time
 const TIER_INTERVAL_MS: Record<string, number> = {
@@ -68,6 +71,7 @@ const TIER_A_SLUGS = new Set([
 /* ══ Rate limiter ═════════════════════════════════════════════════════════ */
 let requestsToday    = 0;
 let requestsThisHour = 0;
+const requestsByMetric: Record<string, number> = { spotify: 0, youtube: 0, itunes: 0 };
 
 function nextDayMs():  number { const d = new Date(); d.setHours(24, 0, 0, 0); return d.getTime(); }
 function nextHourMs(): number { const d = new Date(); d.setMinutes(60, 0, 0);  return d.getTime(); }
@@ -75,19 +79,39 @@ function nextHourMs(): number { const d = new Date(); d.setMinutes(60, 0, 0);  r
 let dailyResetAt  = nextDayMs();
 let hourlyResetAt = nextHourMs();
 
-function acquireSlot(): boolean {
+function acquireSlot(metricType?: string): boolean {
   const now = Date.now();
   if (now >= dailyResetAt)  { requestsToday    = 0; dailyResetAt  = nextDayMs();  }
   if (now >= hourlyResetAt) { requestsThisHour = 0; hourlyResetAt = nextHourMs(); }
   if (requestsToday >= DAILY_CAP || requestsThisHour >= HOURLY_CAP) return false;
   requestsToday++;
   requestsThisHour++;
+  if (metricType && metricType in requestsByMetric) {
+    requestsByMetric[metricType] = (requestsByMetric[metricType] ?? 0) + 1;
+  }
   return true;
 }
 
 /* ══ Micro helpers ════════════════════════════════════════════════════════ */
-const sleep  = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
-const jitter = (): Promise<void> => sleep(JITTER_MIN + Math.random() * (JITTER_MAX - JITTER_MIN));
+const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
+/* ══ Smooth pacer ═════════════════════════════════════════════════════════
+   Ensures kworb HTTP requests are spaced PACE_MIN_MS–(PACE_MIN_MS+PACE_JITTER_MS)
+   apart regardless of how many jobs are pending. This prevents bursting even
+   when many artists are due simultaneously.
+══════════════════════════════════════════════════════════════════════════ */
+let lastRequestAt = 0;
+
+async function pacedSlot(metricType: string): Promise<boolean> {
+  if (!acquireSlot(metricType)) return false;
+  const now      = Date.now();
+  const elapsed  = now - lastRequestAt;
+  const minGap   = PACE_MIN_MS;
+  if (elapsed < minGap) await sleep(minGap - elapsed);
+  await sleep(Math.random() * PACE_JITTER_MS); // 0–35 s extra jitter
+  lastRequestAt = Date.now();
+  return true;
+}
 
 /* ══ Slug utility ═════════════════════════════════════════════════════════ */
 function toSlug(name: string): string {
@@ -553,24 +577,21 @@ async function fetchAndStore(
 
   // Spotify
   if ((doAll || metricType === "spotify") && spotifyId) {
-    if (!acquireSlot()) return "rate_limited";
-    await jitter();
+    if (!await pacedSlot("spotify")) return "rate_limited";
     const html = await fetchPage(`https://kworb.net/spotify/artist/${spotifyId}_songs.html`);
     if (html) spotify = parseSpotifyPage(html);
   }
 
   // YouTube
   if (doAll || metricType === "youtube") {
-    if (!acquireSlot()) return "rate_limited";
-    await jitter();
+    if (!await pacedSlot("youtube")) return "rate_limited";
     const html = await fetchPage(`https://kworb.net/youtube/artist/${slug}.html`);
     if (html) youtube = parseYouTubePage(html);
   }
 
   // iTunes / chart positions
   if (doAll || metricType === "itunes") {
-    if (!acquireSlot()) return "rate_limited";
-    await jitter();
+    if (!await pacedSlot("itunes")) return "rate_limited";
     const html = await fetchPage(`https://kworb.net/itunes/artist/${slug}.html`);
     if (html) itunes = parseItunesPage(html);
   }
@@ -663,11 +684,17 @@ async function runWorker(): Promise<void> {
           `UPDATE kworb_jobs SET status='done', updated_at=now() WHERE id=$1`,
           [job.id],
         );
-        // Schedule next refresh with ±20% jitter
+        // Schedule next refresh with ±10% jitter
         const base    = TIER_INTERVAL_MS[tier] ?? TIER_INTERVAL_MS.B;
-        const drift   = base * 0.2 * (Math.random() - 0.5); // ±10% of interval
+        const drift   = base * 0.1 * (Math.random() - 0.5);
         const nextDue = new Date(Date.now() + base + drift);
-        await enqueueJob(job.artist_key, "all", TIER_PRIORITY[tier] ?? 30, nextDue);
+        // Urgency escalation: if this artist was already overdue by >1 interval,
+        // schedule with boosted priority (lower number = runs sooner) so
+        // consistently late artists self-correct without skipping lower tiers.
+        const wasOverdue = job.due_at < new Date(Date.now() - base);
+        const basePriority = TIER_PRIORITY[tier] ?? 30;
+        const nextPriority = wasOverdue ? Math.max(1, basePriority - 15) : basePriority;
+        await enqueueJob(job.artist_key, "all", nextPriority, nextDue);
 
       } else {
         // not_found | error — apply exponential backoff
@@ -900,17 +927,22 @@ router.get("/kworb/artist-stats", async (req, res) => {
     chartPositions: (snapMap.get("itunes")  as KworbStats["chartPositions"]) ?? null,
   };
 
-  // No data → enqueue high-priority background job (user is viewing this artist)
-  if (!stats.spotify && !stats.youtube && !stats.chartPositions && FETCHING_ENABLED()) {
+  const hasCachedData = !!(stats.spotify || stats.youtube || stats.chartPositions);
+
+  // No cached data → enqueue a normal-priority background job so the worker
+  // will fetch it on its next cycle. We do NOT scrape live from public routes.
+  // Priority 20 = above Tier B defaults (30) but well below admin-triggered (5).
+  if (!hasCachedData && FETCHING_ENABLED()) {
     await db.insert(kworbCoverage)
       .values({ artistKey: slug, artistName: name, spotifyId: spotifyId ?? undefined, tier, status: "pending" })
       .onConflictDoNothing();
-    await enqueueJob(slug, "all", 5 /* user-triggered: highest priority */, new Date());
+    await enqueueJob(slug, "all", 20, new Date());
   }
 
   res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
-  res.setHeader("X-Cache", stats.spotify || stats.youtube || stats.chartPositions ? "HIT" : "MISS");
-  res.json(stats);
+  res.setHeader("X-Cache", hasCachedData ? "HIT" : "MISS");
+  res.setHeader("X-Data-Status", hasCachedData ? "cached" : "pending");
+  res.json({ ...stats, _status: hasCachedData ? "cached" : "pending" });
 });
 
 /* GET /api/kworb/batch-streams?names=A,B,C  — cache-first, single DB query */
@@ -966,7 +998,8 @@ router.get("/kworb/refresh-status", async (_req, res) => {
 
 /* GET /api/kworb/admin/stats */
 router.get("/kworb/admin/stats", async (_req, res) => {
-  const [jobRow, covRow, snapRow] = await Promise.all([
+  const [jobRow, covRow, snapRow, refreshedTodayRow, oldestStaleRow, noSnapshotRow, etaRow] = await Promise.all([
+    // Queue status
     pool.query(`
       SELECT
         COUNT(*) FILTER (WHERE status='pending') AS pending,
@@ -975,6 +1008,8 @@ router.get("/kworb/admin/stats", async (_req, res) => {
         COUNT(*) FILTER (WHERE status='failed')  AS failed
       FROM kworb_jobs
     `).then(r => r.rows[0]),
+
+    // Coverage by tier
     pool.query(`
       SELECT
         COUNT(*)                                                            AS total,
@@ -990,24 +1025,79 @@ router.get("/kworb/admin/stats", async (_req, res) => {
         COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes) AS no_coverage
       FROM kworb_coverage
     `).then(r => r.rows[0]),
+
+    // Snapshot freshness
     pool.query(`
       SELECT
         COUNT(DISTINCT artist_key)                          AS artists_with_snapshots,
         COUNT(*) FILTER (WHERE expires_at < now())          AS stale_snapshots
       FROM kworb_snapshots
     `).then(r => r.rows[0]),
+
+    // Artists refreshed today, broken down by tier
+    pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE tier='A') AS tier_a,
+        COUNT(*) FILTER (WHERE tier='B') AS tier_b,
+        COUNT(*) FILTER (WHERE tier='C') AS tier_c,
+        COUNT(*) FILTER (WHERE tier='D') AS tier_d,
+        COUNT(*)                         AS total
+      FROM kworb_coverage
+      WHERE last_fetch_at >= date_trunc('day', now())
+    `).then(r => r.rows[0]),
+
+    // Oldest un-refreshed artist per tier (no-starvation audit)
+    pool.query(`
+      SELECT tier,
+             MIN(last_fetch_at)  AS oldest_fetch,
+             MIN(artist_key)     AS oldest_artist
+      FROM kworb_coverage
+      WHERE status != 'not_found'
+      GROUP BY tier
+      ORDER BY tier
+    `).then(r => r.rows),
+
+    // Artists in coverage but with zero snapshots (never successfully fetched)
+    pool.query(`
+      SELECT COUNT(*) AS count
+      FROM kworb_coverage c
+      WHERE NOT EXISTS (
+        SELECT 1 FROM kworb_snapshots s WHERE s.artist_key = c.artist_key
+      )
+    `).then(r => r.rows[0]),
+
+    // Estimated days to full coverage based on pending jobs + today's request rate
+    pool.query(`
+      SELECT COUNT(*) AS pending_jobs FROM kworb_jobs WHERE status = 'pending'
+    `).then(r => r.rows[0]),
   ]);
 
+  // Estimate days to full coverage: pending jobs × avg pages per job ÷ remaining daily budget
+  const pendingJobs         = parseInt(etaRow?.pending_jobs ?? "0", 10);
+  const remainingBudget     = Math.max(1, DAILY_CAP - requestsToday);
+  const pagesPerJob         = 3; // spotify + youtube + itunes
+  const estimatedDays       = pendingJobs > 0
+    ? ((pendingJobs * pagesPerJob) / remainingBudget).toFixed(1)
+    : "0";
+
   res.json({
-    fetchingEnabled:  FETCHING_ENABLED(),
-    requestsToday,
-    requestsThisHour,
-    caps:             { daily: DAILY_CAP, hourly: HOURLY_CAP },
-    queue:            jobRow   ?? {},
-    coverage:         covRow   ?? {},
-    snapshots:        snapRow  ?? {},
+    fetchingEnabled:     FETCHING_ENABLED(),
+    requestBudget: {
+      today:             requestsToday,
+      thisHour:          requestsThisHour,
+      caps:              { daily: DAILY_CAP, hourly: HOURLY_CAP },
+      remainingToday:    Math.max(0, DAILY_CAP - requestsToday),
+      byMetric:          requestsByMetric,
+    },
+    queue:               jobRow           ?? {},
+    coverage:            covRow           ?? {},
+    snapshots:           snapRow          ?? {},
+    refreshedToday:      refreshedTodayRow ?? {},
+    oldestStaleByTier:   oldestStaleRow   ?? [],
+    noSnapshotCount:     parseInt(noSnapshotRow?.count ?? "0", 10),
+    estimatedDaysToFull: estimatedDays,
     workerActive,
-    sentinelLastAt:   sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
+    sentinelLastAt:      sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
   });
 });
 
