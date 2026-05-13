@@ -326,80 +326,64 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 /* ── Inline all <img> srcs as base64 data URLs before toPng ──── */
 async function inlineImages(el: HTMLElement): Promise<void> {
   const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img[src]"));
+  console.log("[export] inlineImages: found", imgs.length, "img elements");
+  imgs.forEach((img, i) => console.log(`  [${i}] src=${img.getAttribute("src")?.substring(0, 80)}`));
   await Promise.allSettled(
     imgs.map(async (img) => {
       const src = img.getAttribute("src");
       if (!src || src.startsWith("data:") || src.startsWith("blob:")) return;
       try {
-        // External CDN URLs (Deezer, Spotify) send Access-Control-Allow-Origin: *
-        // so we can fetch them directly from the browser without a proxy.
-        // Same-origin paths (logo, etc.) are fetched directly too.
         const fetchInit: RequestInit = src.startsWith("http")
           ? { mode: "cors", cache: "no-cache" }
           : { cache: "no-cache" };
         const res = await fetch(src, fetchInit);
+        console.log(`[export] fetch ${src.substring(0, 60)} → ${res.status} ok=${res.ok}`);
         if (!res.ok) return;
         const blob = await res.blob();
         const dataUrl = await blobToDataUrl(blob);
         img.setAttribute("src", dataUrl);
-      } catch {
-        // If direct fetch failed (rare — some CDNs restrict fetch even with CORS header),
-        // fall back to server-side proxy which fetches and returns same-origin.
+        console.log(`[export] inlined ${src.substring(0, 60)} (${dataUrl.length} chars)`);
+      } catch (err) {
+        console.warn(`[export] direct fetch failed for ${src.substring(0, 60)}:`, err);
         if (src.startsWith("http")) {
           try {
             const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(src)}`, { cache: "no-cache" });
             if (!res.ok) return;
             const blob = await res.blob();
             img.setAttribute("src", await blobToDataUrl(blob));
-          } catch { /* leave placeholder */ }
+            console.log(`[export] proxy fallback succeeded for ${src.substring(0, 60)}`);
+          } catch (err2) {
+            console.warn(`[export] proxy fallback also failed:`, err2);
+          }
         }
       }
     })
   );
-  // Allow browser to apply new src values before toPng serialises the DOM
   await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   await document.fonts.ready;
-  // Let React finish any pending renders (setDownloading re-render, etc.)
-  // before we snapshot the DOM so the portal has settled with real data.
   await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await inlineImages(el);
 
-  // Clone the portal element into a plain DOM node outside the React tree.
-  // This is critical: React can't overwrite img.src on a clone, so inlineImages
-  // can safely replace CDN URLs with base64 data URLs without a React re-render
-  // resetting them before toPng serialises the DOM.
-  const clone = el.cloneNode(true) as HTMLElement;
-  clone.style.cssText =
-    "position:fixed;top:-9999px;left:0;" +
-    `width:${el.offsetWidth}px;height:${el.offsetHeight}px;` +
-    "overflow:visible;pointer-events:none;";
-  document.body.appendChild(clone);
+  const dataUrl = await toPng(el, {
+    width: 1080,
+    height: 1350,
+    pixelRatio: 1,
+    backgroundColor: "#050505",
+    skipFonts: false,
+  });
 
-  try {
-    await inlineImages(clone);
-
-    const dataUrl = await toPng(clone, {
-      width: 1080,
-      height: 1350,
-      pixelRatio: 1,
-      backgroundColor: "#050505",
-      skipFonts: false,
-    });
-
-    if (!dataUrl || dataUrl === "data:,") {
-      throw new Error("toPng returned empty data URL");
-    }
-
-    const link = document.createElement("a");
-    link.download = filename;
-    link.href = dataUrl;
-    link.click();
-  } finally {
-    document.body.removeChild(clone);
+  if (!dataUrl || dataUrl === "data:,") {
+    throw new Error("toPng returned empty data URL");
   }
+
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = dataUrl;
+  link.click();
 }
 
 /* ── Lightbox ─────────────────────────────────────────────────── */
