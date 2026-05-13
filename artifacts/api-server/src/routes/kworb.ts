@@ -56,6 +56,7 @@ const BACKOFF_MS = [
 const SENTINEL_SLUGS = new Set([
   "pesopluma", "fuerzaregida", "grupofrontera", "juniorh", "natanaelcano",
   "carinleon", "eslabonarmado", "gabitoballesteros", "titodoublep", "xavi",
+  "luismiguel",
 ]);
 
 // Tier A = highest-traffic artists, refreshed daily
@@ -65,7 +66,7 @@ const TIER_A_SLUGS = new Set([
   "xavi", "grupofirme", "ynglvcas", "luisrconriquez", "grupomarcaregistrada",
   "edenmunoz", "christiannodal", "angelaaguilar", "dannylux", "ivancornejo",
   "calle24", "leninramirez", "bandamsdesergiolizarraga", "chinopacas",
-  "elbogueto", "gerardoortiz", "virlangarcia", "eslabonarmado",
+  "elbogueto", "gerardoortiz", "virlangarcia", "luismiguel",
 ]);
 
 /* ══ Rate limiter ═════════════════════════════════════════════════════════ */
