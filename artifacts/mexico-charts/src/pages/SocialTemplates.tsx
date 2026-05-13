@@ -385,7 +385,18 @@ function Lightbox({
   const [downloading, setDownloading] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [fsScale, setFsScale] = useState(() =>
+    Math.min(window.innerWidth / 1080, window.innerHeight / 1350)
+  );
   const captureRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFullscreen(false); };
+    const onResize = () => setFsScale(Math.min(window.innerWidth / 1080, window.innerHeight / 1350));
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize); };
+  }, []);
 
   // Create a stable portal container div and append it to document.body.
   // Using useState initializer so it's created exactly once per Lightbox mount.
@@ -696,7 +707,7 @@ function Lightbox({
             style={{
               width: 1080,
               height: 1350,
-              transform: `scale(${Math.min(window.innerWidth / 1080, window.innerHeight / 1350)})`,
+              transform: `scale(${fsScale})`,
               transformOrigin: "center center",
               flexShrink: 0,
             }}
