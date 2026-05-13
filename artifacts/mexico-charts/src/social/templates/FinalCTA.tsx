@@ -87,6 +87,7 @@ export default function FinalCTA({
         <img
           src={LOGO_URL}
           alt="Mexico Charts"
+          crossOrigin="anonymous"
           style={{ height: 68, objectFit: "contain", opacity: 0.95, marginBottom: 52 }}
         />
 

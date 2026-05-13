@@ -1,0 +1,63 @@
+Yes, implement the changes.
+
+Please fix the PNG export pipeline based on the audit, but do it carefully without redesigning or changing the social templates visually.
+
+Implement:
+
+1. Replace manual DOM moving with a proper React Portal
+- Render the hidden 1080 × 1350 capture canvas directly into document.body using a React Portal
+- Do not manually move or reparent React-managed DOM nodes
+- Keep the capture canvas outside any lightbox/container with overflow:hidden
+- Make sure React owns the portal node properly
+
+2. Keep the hidden export canvas at exact size
+- Width: 1080px
+- Height: 1350px
+- It should render the same <Component {...values} /> as the preview
+- It should not be visible to the user
+- It should not affect page layout
+- Position it off-screen safely, not inside clipped containers
+
+3. Before export, wait for rendering readiness
+- await document.fonts.ready
+- wait for all images inside the capture canvas to complete loading
+- wait at least 2 requestAnimationFrame cycles after the portal render is committed
+- only then call html-to-image toPng
+
+4. Fix image caching/CORS issue
+- Change fetchRequestInit from cache: "force-cache" to cache: "no-cache"
+- Add crossOrigin="anonymous" to template images where possible
+- Make sure local assets like logos/globes still export correctly
+- If external CDN images cannot be exported due to CORS, gracefully fall back to placeholder/gradient instead of blanking the whole PNG
+
+5. Keep html-to-image
+- Continue using html-to-image toPng
+- Do not revert to html2canvas because ChartRow text clipping was worse there
+
+6. Reduce fragile export effects only if needed
+- If mix-blend-mode: overlay breaks export, replace it inside the export canvas with an export-safe opacity/gradient/noise treatment
+- Do not remove the visual atmosphere entirely
+- Preview and export should still look as close as possible
+
+7. Add export error handling
+- Show a clear error if export fails
+- Log which image/font failed if possible
+- Do not produce a blank PNG silently
+
+8. Test every social template
+Test downloads for:
+- Daily Top Songs
+- Daily Top Artists
+- Weekly Top Songs
+- Weekly Top Albums
+- Viral México
+- Artist Milestone
+- Industry/Market Insight
+- Touring Data
+- Quote/Headline
+- Carousel Cover
+- Carousel Data Slide
+- Final CTA Slide
+
+Expected result:
+Downloaded PNGs must match the template preview visually and export correctly at 1080 × 1350.

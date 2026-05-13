@@ -129,7 +129,7 @@ export default function CarouselCover({
       }}>
         {/* Logo + edition */}
         <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 48 }}>
-          <img src={LOGO_URL} alt="Mexico Charts" style={{ height: 46, objectFit: "contain", opacity: 0.95 }} />
+          <img src={LOGO_URL} alt="Mexico Charts" crossOrigin="anonymous" style={{ height: 46, objectFit: "contain", opacity: 0.95 }} />
           {edition && (
             <>
               <div style={{ width: 1, height: 28, background: "rgba(255,255,255,0.15)" }} />

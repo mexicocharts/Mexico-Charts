@@ -85,7 +85,7 @@ export default function CarouselDataSlide({
         padding: "40px 64px 30px",
         position: "relative", zIndex: 2,
       }}>
-        <img src={LOGO_URL} alt="" style={{ height: 30, objectFit: "contain", opacity: 0.75 }} />
+        <img src={LOGO_URL} alt="" crossOrigin="anonymous" style={{ height: 30, objectFit: "contain", opacity: 0.75 }} />
         <div style={{
           fontSize: 16, fontWeight: 900, color: "rgba(255,255,255,0.18)",
           letterSpacing: "0.14em", textTransform: "uppercase",

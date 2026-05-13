@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import ReactDOM from "react-dom";
 import { Link } from "wouter";
-import { ArrowLeft, ChevronRight, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Download, Loader2, AlertCircle } from "lucide-react";
 import { toPng } from "html-to-image";
 import DailyTopSongs from "@/social/templates/DailyTopSongs";
 import DailyTopArtists from "@/social/templates/DailyTopArtists";
@@ -312,18 +313,44 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
+/* ── Image load waiter ────────────────────────────────────────── */
+async function waitForImages(el: HTMLElement): Promise<void> {
+  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img"));
+  await Promise.allSettled(
+    imgs.map(img =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>(resolve => {
+            img.addEventListener("load", () => resolve(), { once: true });
+            img.addEventListener("error", () => resolve(), { once: true });
+          })
+    )
+  );
+}
+
 /* ── Download helper ─────────────────────────────────────────── */
-async function captureAndDownload(el: HTMLElement, filename: string) {
-  // html-to-image uses SVG foreignObject rendering — the browser's own
-  // engine — so text-overflow, flexbox, and font metrics are all correct.
+async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
+  // Wait for fonts to be fully loaded
+  await document.fonts.ready;
+  // Wait for every <img> inside the capture element
+  await waitForImages(el);
+  // Let the browser finish painting
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
   const dataUrl = await toPng(el, {
     width: 1080,
     height: 1350,
     pixelRatio: 1,
     backgroundColor: "#050505",
-    fetchRequestInit: { mode: "cors", cache: "force-cache" },
+    // no-cache forces a fresh CORS-aware fetch — avoids stale non-CORS cached responses
+    fetchRequestInit: { mode: "cors", cache: "no-cache" },
     skipFonts: false,
   });
+
+  if (!dataUrl || dataUrl === "data:,") {
+    throw new Error("toPng returned empty data URL");
+  }
+
   const link = document.createElement("a");
   link.download = filename;
   link.href = dataUrl;
@@ -341,7 +368,24 @@ function Lightbox({
   const { Component, defaultProps, fields, staticData } = config;
   const [values, setValues] = useState<Record<string, any>>({ ...defaultProps });
   const [downloading, setDownloading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const captureRef = useRef<HTMLDivElement>(null);
+
+  // Create a stable portal container div and append it to document.body.
+  // Using useState initializer so it's created exactly once per Lightbox mount.
+  // This keeps the full-size capture canvas in body (no overflow:hidden ancestor)
+  // without any manual DOM reparenting during download.
+  const [portalEl] = useState<HTMLDivElement>(() => {
+    const div = document.createElement("div");
+    div.style.cssText =
+      "position:fixed;top:-9999px;left:0;width:1080px;height:1350px;" +
+      "pointer-events:none;overflow:visible;z-index:-1;";
+    return div;
+  });
+  useEffect(() => {
+    document.body.appendChild(portalEl);
+    return () => { document.body.removeChild(portalEl); };
+  }, [portalEl]);
 
   const handleChange = (key: string, val: string) => {
     setValues(prev => ({ ...prev, [key]: val }));
@@ -350,31 +394,14 @@ function Lightbox({
   const handleDownload = useCallback(async () => {
     if (!captureRef.current || downloading) return;
     setDownloading(true);
-    const el = captureRef.current;
-
-    // Move element into document.body so it escapes the lightbox's
-    // overflow:hidden. position:absolute at a large negative top keeps it
-    // off-screen (user never sees it) without hitting any clipping ancestor.
-    // position:fixed would clip at the viewport edge if window < 1080px.
-    const originalParent = el.parentElement!;
-    const originalSibling = el.nextSibling;
-    const savedStyle = el.style.cssText;
-
-    el.style.cssText =
-      "position:absolute;top:-9999px;left:0;width:1080px;height:1350px;" +
-      "pointer-events:none;z-index:-1;overflow:hidden;";
-    document.body.appendChild(el);
-
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    setExportError(null);
     try {
-      await captureAndDownload(el, `${config.id}-mexicocharts.png`);
+      await captureAndDownload(captureRef.current, `${config.id}-mexicocharts.png`);
     } catch (e) {
-      console.error("Download failed:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[export] PNG generation failed:", msg, e);
+      setExportError(`Error al generar el PNG: ${msg}`);
     }
-
-    // Restore to original location in the React tree before re-render
-    originalParent.insertBefore(el, originalSibling);
-    el.style.cssText = savedStyle;
     setDownloading(false);
   }, [config.id, downloading]);
 
@@ -392,17 +419,16 @@ function Lightbox({
       }}
       onClick={onClose}
     >
-      {/* Hidden full-size render for download — clipped off-screen */}
-      <div style={{
-        position: "absolute", left: -9999, top: -9999,
-        width: 1080, height: 1350,
-        pointerEvents: "none",
-        zIndex: -1,
-      }}>
+      {/* Full-size capture canvas rendered via React Portal into document.body.
+          This keeps it outside any overflow:hidden ancestor so html-to-image
+          can serialize the full 1080×1350 element without clipping.
+          React owns the node properly — no manual DOM reparenting needed. */}
+      {ReactDOM.createPortal(
         <div ref={captureRef} style={{ width: 1080, height: 1350 }}>
           <Component {...values} />
-        </div>
-      </div>
+        </div>,
+        portalEl
+      )}
 
       {/* Main panel */}
       <div
@@ -487,6 +513,22 @@ function Lightbox({
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
             Instagram 4:5 · listo para publicar
           </div>
+
+          {exportError && (
+            <div style={{
+              display: "flex", alignItems: "flex-start", gap: 10,
+              maxWidth: LW,
+              padding: "12px 16px",
+              borderRadius: 8,
+              background: "rgba(255,60,60,0.08)",
+              border: "1px solid rgba(255,60,60,0.2)",
+            }}>
+              <AlertCircle style={{ width: 16, height: 16, color: "#ff4444", flexShrink: 0, marginTop: 1 }} />
+              <div style={{ fontSize: 12, color: "rgba(255,100,100,0.9)", lineHeight: 1.5, wordBreak: "break-word" }}>
+                {exportError}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: editor panel */}

@@ -211,6 +211,7 @@ export function LogoBar({
       <img
         src={LOGO_URL}
         alt="Mexico Charts"
+        crossOrigin="anonymous"
         style={{ height: compact ? 32 : 40, objectFit: "contain", opacity: 0.95 }}
       />
       {(date || source) && (
@@ -426,6 +427,7 @@ export function ChartRow({
             <img
               src={row.imageUrl}
               alt=""
+              crossOrigin="anonymous"
               style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }}
             />
           ) : (
@@ -601,6 +603,7 @@ export function AlbumFrame({
           <img
             src={src}
             alt=""
+            crossOrigin="anonymous"
             style={{
               width: "100%",
               height: "100%",
@@ -821,6 +824,7 @@ export function CTAFooter({
       <img
         src={LOGO_URL}
         alt="Mexico Charts"
+        crossOrigin="anonymous"
         style={{ height: compact ? 26 : 32, objectFit: "contain", opacity: 0.8 }}
       />
       <div style={{ display: "flex", gap: 28, alignItems: "center" }}>

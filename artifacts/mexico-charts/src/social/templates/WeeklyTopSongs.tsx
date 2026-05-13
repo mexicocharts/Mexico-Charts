@@ -110,7 +110,7 @@ export default function WeeklyTopSongs() {
               border: "1px solid rgba(255,255,255,0.07)",
             }}>
               {s.imageUrl ? (
-                <img src={s.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }} />
+                <img src={s.imageUrl} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }} />
               ) : (
                 <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 40% 35%, ${ACCENT}15,#0d0d0d)` }}>
                   <span style={{ fontSize: 22, color: ACCENT, opacity: 0.3 }}>♪</span>
