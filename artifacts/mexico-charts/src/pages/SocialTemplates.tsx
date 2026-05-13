@@ -326,32 +326,37 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 /* ── Inline all <img> srcs as base64 data URLs before toPng ──── */
 async function inlineImages(el: HTMLElement): Promise<void> {
   const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img[src]"));
-  console.log("[export] inlining", imgs.length, "images:", imgs.map(i => i.getAttribute("src")));
   await Promise.allSettled(
     imgs.map(async (img) => {
       const src = img.getAttribute("src");
-      if (!src || src.startsWith("data:")) return;
+      if (!src || src.startsWith("data:") || src.startsWith("blob:")) return;
       try {
-        // Route through our proxy for any http/https URL, fetch same-origin paths directly
-        const fetchUrl = src.startsWith("http")
-          ? `/api/image-proxy?url=${encodeURIComponent(src)}`
-          : src;
-        console.log("[export] fetching", fetchUrl);
-        const res = await fetch(fetchUrl, { cache: "no-cache" });
-        if (!res.ok) {
-          console.warn("[export] image fetch failed:", fetchUrl, res.status);
-          return;
-        }
+        // External CDN URLs (Deezer, Spotify) send Access-Control-Allow-Origin: *
+        // so we can fetch them directly from the browser without a proxy.
+        // Same-origin paths (logo, etc.) are fetched directly too.
+        const fetchInit: RequestInit = src.startsWith("http")
+          ? { mode: "cors", cache: "no-cache" }
+          : { cache: "no-cache" };
+        const res = await fetch(src, fetchInit);
+        if (!res.ok) return;
         const blob = await res.blob();
         const dataUrl = await blobToDataUrl(blob);
         img.setAttribute("src", dataUrl);
-        console.log("[export] inlined", src.substring(0, 60));
-      } catch (err) {
-        console.warn("[export] image inline error:", src, err);
+      } catch {
+        // If direct fetch failed (rare — some CDNs restrict fetch even with CORS header),
+        // fall back to server-side proxy which fetches and returns same-origin.
+        if (src.startsWith("http")) {
+          try {
+            const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(src)}`, { cache: "no-cache" });
+            if (!res.ok) return;
+            const blob = await res.blob();
+            img.setAttribute("src", await blobToDataUrl(blob));
+          } catch { /* leave placeholder */ }
+        }
       }
     })
   );
-  // Allow browser to apply new src values
+  // Allow browser to apply new src values before toPng serialises the DOM
   await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 

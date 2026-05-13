@@ -27,7 +27,7 @@ export default function DailyTopSongs() {
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: proxyImageUrl(e.coverUrl),
+    imageUrl: e.coverUrl,
   })) ?? FALLBACK;
 
   return (

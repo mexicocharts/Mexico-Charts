@@ -29,7 +29,7 @@ export default function WeeklyTopSongs() {
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: proxyImageUrl(e.coverUrl),
+    imageUrl: e.coverUrl,
   })) ?? [];
 
   const top3 = allRows.length > 0 ? allRows.slice(0, 3) : FALLBACK_TOP3;

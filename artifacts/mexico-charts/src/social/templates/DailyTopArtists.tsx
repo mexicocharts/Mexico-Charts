@@ -32,7 +32,7 @@ export default function DailyTopArtists() {
         stat: r["Peak"] ? `#${r["Peak"]}` : undefined,
         statLabel: r["Peak"] ? "Pico" : undefined,
         movement: 0,
-        imageUrl: proxyImageUrl(images?.[r["Artist"] ?? ""] ?? null),
+        imageUrl: images?.[r["Artist"] ?? ""] ?? null,
         roundImage: true,
       }))
     : FALLBACK;

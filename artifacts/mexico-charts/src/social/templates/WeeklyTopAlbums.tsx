@@ -35,7 +35,7 @@ export default function WeeklyTopAlbums() {
         rank: i + 1,
         title: r["Title"] ?? "",
         artist: r["Artist Names"] ?? "",
-        imageUrl: proxyImageUrl(images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null),
+        imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
       }))
     : FALLBACK;
 

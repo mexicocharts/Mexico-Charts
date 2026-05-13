@@ -31,7 +31,7 @@ export default function ViralSongs() {
         subtitle: r["artist_names"] ?? "",
         stat: r["days_on_chart"] ? `${r["days_on_chart"]}d` : undefined,
         movement: 0,
-        imageUrl: proxyImageUrl(images?.[primaryArtist(r["artist_names"] ?? "")] ?? null),
+        imageUrl: images?.[primaryArtist(r["artist_names"] ?? "")] ?? null,
         roundImage: true,
       }))
     : FALLBACK;
