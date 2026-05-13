@@ -1,0 +1,138 @@
+Create four static information pages for Mexico Charts:
+
+Pages:
+- /acerca-de
+- /contacto
+- /metodologia
+- /privacidad
+
+Use the existing Mexico Charts design system:
+black background, emerald green accents, white/gray text, cinematic editorial layout, large typography, subtle glow/grain, no generic dashboard look.
+
+1. ACERCA DE
+
+Title:
+ACERCA DE MEXICO CHARTS
+
+Subtitle:
+Datos, cultura e impacto de la música mexicana
+
+Body:
+Mexico Charts es una plataforma independiente dedicada a documentar el crecimiento, desempeño e impacto de la música mexicana dentro de México y alrededor del mundo.
+
+Nuestro objetivo es reunir charts, rankings, datos de streaming, touring, industria, artistas y tendencias culturales en un solo espacio con una presentación moderna, clara y visualmente premium.
+
+Mexico Charts nace para conectar los números con la cultura. Detrás de cada chart hay canciones, artistas, comunidades, fans y momentos que impulsan la música mexicana todos los días.
+
+Qué cubrimos:
+- Charts de plataformas digitales
+- Artistas mexicanos y de música mexicana
+- Streaming, audiencia y crecimiento
+- Touring y presentaciones en vivo
+- Industria musical mexicana
+- Tendencias, logros y contexto cultural
+
+Disclaimer:
+Mexico Charts es una plataforma independiente. No estamos afiliados oficialmente con Spotify, YouTube, Apple Music, Deezer, Billboard, IFPI, AMPROFON, Pollstar, Ticketmaster ni con ningún artista, sello discográfico o plataforma mencionada, salvo que se indique lo contrario.
+
+2. CONTACTO
+
+Title:
+CONTACTO
+
+Subtitle:
+Para colaboraciones, correcciones, prensa y oportunidades
+
+Body:
+Para consultas relacionadas con Mexico Charts, colaboraciones, correcciones de datos, propuestas editoriales, prensa, publicidad o alianzas, puedes contactarnos a través de:
+
+Email:
+contacto@mexicochart.com
+
+Social:
+Instagram: @mexicocharts
+Website: mexicochart.com
+
+Sections:
+- Correcciones de datos
+Si detectas un error en un chart, perfil de artista, cifra o fuente, envíanos el enlace y la información correcta para revisarlo.
+
+- Colaboraciones
+Estamos abiertos a colaboraciones con comunidades de fans, plataformas musicales, creadores, medios, artistas emergentes y proyectos relacionados con la música mexicana.
+
+- Prensa y publicidad
+Para oportunidades de prensa, patrocinios o integración de marca, escríbenos con detalles de la propuesta.
+
+3. METODOLOGÍA
+
+Title:
+METODOLOGÍA
+
+Subtitle:
+Cómo recopilamos, organizamos y presentamos los datos
+
+Body:
+Mexico Charts recopila, organiza y presenta información pública y/o licenciada de distintas fuentes relacionadas con música, streaming, charts, touring e industria.
+
+Nuestros rankings y perfiles pueden incluir datos provenientes de plataformas como Spotify, YouTube, Apple Music, Deezer, Ticketmaster, Pollstar, IFPI, AMPROFON, Chartmetric, Soundcharts, Songstats, Chartmasters u otras fuentes públicas, privadas o editoriales, dependiendo de la disponibilidad y el tipo de sección.
+
+Principios:
+- Transparencia de fuente cuando sea posible
+- Actualización regular de datos
+- Separación entre charts oficiales, datos agregados y análisis editorial
+- Corrección de errores cuando sean identificados
+- Contexto cultural junto a los números
+
+Importante:
+Mexico Charts no inventa cifras. Cuando una cifra es estimada, agregada o editorial, debe indicarse claramente.
+
+Charts:
+Los charts pueden provenir de plataformas públicas o fuentes externas. Cuando un chart pertenece a una plataforma específica, Mexico Charts lo presenta como ranking de esa plataforma y no como ranking propio, salvo que se indique claramente que es una lista editorial o agregada.
+
+Artistas:
+La base de datos de artistas se enfoca principalmente en artistas mexicanos y artistas vinculados a la música mexicana. Algunos casos pueden incluir artistas nacidos fuera de México pero culturalmente vinculados al mercado, género o comunidad mexicana.
+
+Streaming:
+Las cifras de streaming, oyentes, seguidores o reproducciones pueden cambiar con el tiempo y depender de la disponibilidad de cada plataforma o fuente.
+
+Touring:
+Los datos de touring pueden provenir de fuentes oficiales, reportes de la industria, plataformas de venta de boletos o bases de datos especializadas. Cuando los datos sean estimados o incompletos, debe indicarse.
+
+Correcciones:
+Si detectas un error, puedes contactarnos en contacto@mexicochart.com con la fuente o información correspondiente.
+
+4. PRIVACIDAD
+
+Title:
+PRIVACIDAD
+
+Subtitle:
+Cómo manejamos información y uso del sitio
+
+Body:
+Mexico Charts respeta la privacidad de sus usuarios. Esta página explica de forma general cómo puede manejarse la información al visitar mexicochart.com.
+
+Información recopilada:
+Mexico Charts puede recopilar información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Esta información se usa para entender el rendimiento del sitio y mejorar la experiencia del usuario.
+
+Cookies y analítica:
+El sitio puede utilizar cookies, herramientas de analítica o servicios de terceros para medir tráfico, rendimiento, errores y comportamiento general de navegación.
+
+Servicios de terceros:
+Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.
+
+Datos personales:
+Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar la consulta.
+
+Publicidad:
+En el futuro, Mexico Charts podría utilizar publicidad, patrocinios o herramientas de monetización. Si se implementan, esta página deberá actualizarse.
+
+Cambios:
+Esta política puede actualizarse conforme el sitio evolucione.
+
+Contacto:
+Para dudas relacionadas con privacidad:
+contacto@mexicochart.com
+
+Footer note for all pages:
+Mexico Charts © 2026 — Plataforma independiente de datos, cultura e impacto de la música mexicana

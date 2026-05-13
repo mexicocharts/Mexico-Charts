@@ -17,6 +17,10 @@ import TouringHub from "@/pages/TouringHub";
 import TouringProfile from "@/pages/TouringProfile";
 import LuisMiguelProfile from "@/pages/LuisMiguelProfile";
 import SocialTemplates from "@/pages/SocialTemplates";
+import AcercaDe from "@/pages/AcercaDe";
+import Contacto from "@/pages/Contacto";
+import Metodologia from "@/pages/Metodologia";
+import Privacidad from "@/pages/Privacidad";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +49,10 @@ function Router() {
       <Route path="/touring" component={TouringHub} />
       <Route path="/artist/:slug" component={ArtistDetail} />
       <Route path="/social-templates" component={SocialTemplates} />
+      <Route path="/acerca-de" component={AcercaDe} />
+      <Route path="/contacto" component={Contacto} />
+      <Route path="/metodologia" component={Metodologia} />
+      <Route path="/privacidad" component={Privacidad} />
       <Route component={NotFound} />
     </Switch>
     </>

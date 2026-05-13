@@ -1204,7 +1204,7 @@ router.get("/kworb/refresh-status", async (_req, res) => {
     FROM kworb_jobs
   `);
   res.json({
-    workerActive,
+    workerActive: activeWorkers > 0,
     fetchingEnabled:  FETCHING_ENABLED(),
     requestsToday,
     requestsThisHour,
@@ -1361,7 +1361,7 @@ router.get("/kworb/admin/stats", async (_req, res) => {
     oldestStaleByTier:   oldestStaleRow   ?? [],
     noSnapshotCount:     parseInt(noSnapshotRow?.count ?? "0", 10),
     estimatedDaysToFull: estimatedDays,
-    workerActive,
+    workerActive: activeWorkers > 0,
     sentinelLastAt:      sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
   });
 });

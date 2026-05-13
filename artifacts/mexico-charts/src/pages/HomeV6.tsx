@@ -1271,10 +1271,10 @@ export default function HomeV6() {
                 { label:"Industria",        href:"/industria" },
               ]},
               { title:"Compañía", links:[
-                { label:"Acerca de",   href:"#" },
-                { label:"Metodología", href:"#" },
-                { label:"Contacto",    href:"#" },
-                { label:"Privacidad",  href:"#" },
+                { label:"Acerca de",   href:"/acerca-de" },
+                { label:"Metodología", href:"/metodologia" },
+                { label:"Contacto",    href:"/contacto" },
+                { label:"Privacidad",  href:"/privacidad" },
               ]},
             ].map(col => (
               <div key={col.title}>
