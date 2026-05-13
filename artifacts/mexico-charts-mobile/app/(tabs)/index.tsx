@@ -23,7 +23,8 @@ import { useHubData, HubRow, TickerItem } from "@/hooks/useHubData";
 import { useArtistMetadata, ArtistMeta } from "@/hooks/useArtistMetadata";
 import { Artist } from "@/data/chartData";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const HERO_H = Math.round(SCREEN_HEIGHT * 0.68);
 
 const NEON = "#39FF14";
 const BG = "#050505";
@@ -215,10 +216,10 @@ function HeroArtistCard({
         <View style={styles.heroPhotoPlaceholder}>
           <Text
             style={{
-              color: "rgba(255,255,255,0.06)",
-              fontFamily: "Inter_700Bold",
-              fontSize: 180,
-              lineHeight: 190,
+              color: "rgba(255,255,255,0.05)",
+              fontFamily: "Anton_400Regular",
+              fontSize: 220,
+              lineHeight: 230,
             }}
           >
             {artist.name.charAt(0).toUpperCase()}
@@ -505,7 +506,7 @@ export default function HomeScreen() {
               );
               setHeroIndex(index);
             }}
-            style={{ height: 500 }}
+            style={{ height: HERO_H }}
             getItemLayout={(_, index) => ({
               length: SCREEN_WIDTH,
               offset: SCREEN_WIDTH * index,
@@ -617,7 +618,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   heroCard: {
-    height: 500,
+    height: HERO_H,
     position: "relative",
     backgroundColor: "#050505",
     overflow: "hidden",
@@ -642,7 +643,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: "72%",
-    backgroundColor: "rgba(5,5,5,0.80)",
+    backgroundColor: "rgba(5,5,5,0.65)",
   },
   heroGradientBottom: {
     position: "absolute",
@@ -671,10 +672,10 @@ const styles = StyleSheet.create({
   heroName: {
     color: "#FFFFFF",
     fontFamily: "Anton_400Regular",
-    fontSize: 68,
-    lineHeight: 74,
+    fontSize: 76,
+    lineHeight: 82,
     marginBottom: 10,
-    letterSpacing: -0.5,
+    letterSpacing: -1,
   },
   heroStats: {
     color: "rgba(255,255,255,0.52)",

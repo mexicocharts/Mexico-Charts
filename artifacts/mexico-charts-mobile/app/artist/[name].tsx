@@ -62,12 +62,24 @@ export default function ArtistDetailScreen() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const insets = useSafeAreaInsets();
 
-  const { byName, isLoading } = useArtistMetadata();
+  const { byName, artists, isLoading } = useArtistMetadata();
 
   const artist = useMemo(() => {
     if (!name) return undefined;
-    return byName.get(name.toLowerCase());
-  }, [byName, name]);
+    const key = name.toLowerCase();
+    const byDisplayName = byName.get(key);
+    if (byDisplayName) return byDisplayName;
+    const normalized = key
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, "")
+      .trim();
+    return artists.find(
+      (a) =>
+        a.artistKey === normalized ||
+        a.artistKey.replace(/\s+/g, "") === normalized.replace(/\s+/g, "")
+    );
+  }, [byName, artists, name]);
 
   const imageMap = useArtistImages(artist ? [artist.displayName] : []);
   const photo = artist ? (imageMap[artist.displayName] ?? null) : null;

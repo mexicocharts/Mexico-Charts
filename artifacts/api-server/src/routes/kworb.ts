@@ -1,10 +1,95 @@
 import { Router } from "express";
+import { db, pool, kworbCoverage, kworbSnapshots } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
 
-/* ── Slug utility — matches kworb's URL scheme ─────────────────────────────
-   kworb uses: lowercase + strip NFD diacritics + strip all non-alphanumeric
-────────────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   KILL SWITCH
+   Set KWORB_FETCHING_ENABLED=false to disable all outbound kworb scraping
+   instantly, without breaking Mexico Charts (cached snapshots still served).
+══════════════════════════════════════════════════════════════════════════ */
+const FETCHING_ENABLED = (): boolean =>
+  process.env["KWORB_FETCHING_ENABLED"] !== "false";
+
+/* ══ Constants ════════════════════════════════════════════════════════════ */
+const DAILY_CAP    = 800;    // max outbound kworb HTTP requests per day
+const HOURLY_CAP   = 120;    // max per hour
+const JITTER_MIN   = 1_500;  // ms min inter-request pause
+const JITTER_MAX   = 5_000;  // ms max inter-request pause
+const MAX_ATTEMPTS = 5;      // before marking artist as not_found
+
+// Tier refresh intervals (ms) — ±20% jitter is added at enqueue time
+const TIER_INTERVAL_MS: Record<string, number> = {
+  A: 24 * 3_600_000,         // daily
+  B: 2.5 * 24 * 3_600_000,  // ~2.5 days
+  C: 7 * 24 * 3_600_000,    // weekly
+  D: 21 * 24 * 3_600_000,   // ~3 weeks (rare retry for not_found)
+};
+
+// Job priority — lower number = runs sooner
+const TIER_PRIORITY: Record<string, number> = { A: 10, B: 30, C: 50, D: 80 };
+
+// How long before a snapshot is considered stale (still served, flagged in admin)
+const SNAPSHOT_TTL_MS: Record<string, number> = {
+  A: 26 * 3_600_000,
+  B: 3.5 * 24 * 3_600_000,
+  C: 8 * 24 * 3_600_000,
+  D: 30 * 24 * 3_600_000,
+};
+
+// Exponential backoff for failures (ms), indexed by 0-based attempt count
+const BACKOFF_MS = [
+  5 * 60_000,      // 5 min
+  15 * 60_000,     // 15 min
+  3_600_000,       // 1 h
+  4 * 3_600_000,   // 4 h
+  24 * 3_600_000,  // 24 h
+];
+
+/* ══ Tier / sentinel slugs ════════════════════════════════════════════════ */
+
+// 10 sentinel artists used to detect whether kworb has published today's update
+const SENTINEL_SLUGS = new Set([
+  "pesopluma", "fuerzaregida", "grupofrontera", "juniorh", "natanaelcano",
+  "carinleon", "eslabonarmado", "gabitoballesteros", "titodoublep", "xavi",
+]);
+
+// Tier A = highest-traffic artists, refreshed daily
+const TIER_A_SLUGS = new Set([
+  "pesopluma", "fuerzaregida", "grupofrontera", "juniorh", "natanaelcano",
+  "carinleon", "eslabonarmado", "gabitoballesteros", "titodoublep", "oscarmaydon",
+  "xavi", "grupofirme", "ynglvcas", "luisrconriquez", "grupomarcaregistrada",
+  "edenmunoz", "christiannodal", "angelaaguilar", "dannylux", "ivancornejo",
+  "calle24", "leninramirez", "bandamsdesergiolizarraga", "chinopacas",
+  "elbogueto", "gerardoortiz", "virlangarcia", "eslabonarmado",
+]);
+
+/* ══ Rate limiter ═════════════════════════════════════════════════════════ */
+let requestsToday    = 0;
+let requestsThisHour = 0;
+
+function nextDayMs():  number { const d = new Date(); d.setHours(24, 0, 0, 0); return d.getTime(); }
+function nextHourMs(): number { const d = new Date(); d.setMinutes(60, 0, 0);  return d.getTime(); }
+
+let dailyResetAt  = nextDayMs();
+let hourlyResetAt = nextHourMs();
+
+function acquireSlot(): boolean {
+  const now = Date.now();
+  if (now >= dailyResetAt)  { requestsToday    = 0; dailyResetAt  = nextDayMs();  }
+  if (now >= hourlyResetAt) { requestsThisHour = 0; hourlyResetAt = nextHourMs(); }
+  if (requestsToday >= DAILY_CAP || requestsThisHour >= HOURLY_CAP) return false;
+  requestsToday++;
+  requestsThisHour++;
+  return true;
+}
+
+/* ══ Micro helpers ════════════════════════════════════════════════════════ */
+const sleep  = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+const jitter = (): Promise<void> => sleep(JITTER_MIN + Math.random() * (JITTER_MAX - JITTER_MIN));
+
+/* ══ Slug utility ═════════════════════════════════════════════════════════ */
 function toSlug(name: string): string {
   return name
     .toLowerCase()
@@ -13,7 +98,7 @@ function toSlug(name: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
-/* ── Hardcoded seed: 109 confirmed slug → Spotify ID pairs ─────────────── */
+/* ══ SPOTIFY_ID_SEED (109 confirmed slug → SpotifyID pairs) ══════════════ */
 const SPOTIFY_ID_SEED: Record<string, string> = {
   fuerzaregida:                     "0ys2OFYzWYB5hRDLCsBqxt",
   pesopluma:                        "12GqGscKJx3aE4t07u7eVZ",
@@ -57,7 +142,7 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   lostigresdelrtonne:               "3hYtANQYrE6pd2PbtEyTIy",
   edgardonunez:                     "0mA4dkNGiN4fqTBi2SLlAv",
   juangabriel:                      "2MRBDr0crHWE5JwPceFncq",
-  lostucanesdetijuana:               "014WIDx7H4BRCHB1faiisK",
+  lostucanesdetijuana:              "014WIDx7H4BRCHB1faiisK",
   claveespecial:                    "0NlNru2YcUz6RbnpYGQz26",
   josejose:                         "4mN0qcMxWX8oToqfDPM5yV",
   cardenalesdenuevoleon:            "0GpuSge5ffZ053NhXxgQkV",
@@ -94,7 +179,7 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   pepeaguilar:                      "03Yb3iBy9GCifXiATEFcit",
   arielcamachoylosplebes:           "2Lxa3SFNEW0alfRvtdXOul",
   yuridia:                          "5B8ApeENp4bE4EE3LI8jK2",
-  losinvasioresdenuevoleon:          "5CGtBYmVPeLhI1kM2Fn9Gv",
+  losinvasioresdenuevoleon:         "5CGtBYmVPeLhI1kM2Fn9Gv",
   keniaos:                          "31VFEohvhOUKrtAONEBhMG",
   elfantasma:                       "0my6Pg4I28dVcZLSpAkqhv",
   humbe:                            "1b7AEdUSudOQoZF5ebUxCL",
@@ -105,19 +190,19 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   valentinelizalde:                 "3CAhiUHkUYT1mFtVHM9SHA",
   paulinarubio:                     "1d6dwipPrsFSJVmFTTdFSS",
   elkomander:                       "2wC90WSKQd0BvdxJZ0mObr",
-  panterbelico:                      "7pESOE4dEq8Yk4OKlJa3pS",
+  panterbelico:                     "7pESOE4dEq8Yk4OKlJa3pS",
   elcoyoteysubandatierrasanta:      "7sQ3Q6yYyg0SdpEezJN8UT",
   gerardocoronel:                   "6JoYL9QYbdgPb6EuE5J2pC",
   bellakath:                        "4yjm4SvYqC5FFuLbB6TyHr",
   grupoarriesgado:                  "5NUPPRjsbXHNyVDrUESYeh",
-  edwinlunaylatrakalosademonterrey:  "4LFOoXhMhnq9U8VsZkSwxl",
+  edwinlunaylatrakalosademonterrey: "4LFOoXhMhnq9U8VsZkSwxl",
   t3relemenro:                      "34nbQa7Hug9DYkRJpfKNFv",
   angelaaguilar:                    "3abT87tqQ4Q5PA5nw6CYyH",
   chalinosanchez:                   "7u9m43vPVTERaALXXOzrRq",
-  losalegredelbarranco:              "2TSslwx9J30KElgEr68sdv",
+  losalegredelbarranco:             "2TSslwx9J30KElgEr68sdv",
   panchobarraza:                    "5dmU7FrmtbQaSzIvGsE4Jp",
   carlosrivera:                     "39yVoqm6sYFvvqF1RciUVf",
-  losangelesdecharly:                "01pQZzNIPRiVaCozNUrnyL",
+  losangelesdecharly:               "01pQZzNIPRiVaCozNUrnyL",
   alejandraguzman:                  "7Hf9AwMO37bSdxHb0FBGmO",
   elbebeto:                         "1YhMWppPt9RVODKD1KCs7W",
   grupobryndis:                     "44WCHvwXBOMz6nm7Mu2ReO",
@@ -126,37 +211,27 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   codigofn:                         "4A4qYy2jK9DDN1OHV0nLkH",
 };
 
-/* ── In-memory maps ────────────────────────────────────────────────────── */
-// slug → spotifyId — seeded from hardcoded 109 pairs, expanded at startup
+/* ══ In-memory slug → Spotify ID map ═════════════════════════════════════ */
 const spotifyIdMap = new Map<string, string>(Object.entries(SPOTIFY_ID_SEED));
 
-/* ── Startup ingestion: parse kworb Spotify artists index ──────────────────
-   kworb.net/spotify/artists.html contains ~3000 rows with hrefs like:
-     /spotify/artist/12GqGscKJx3aE4t07u7eVZ_songs.html
-   We derive the artist slug from the link text and map it to the Spotify ID.
-   Runs once at process start; falls back silently to hardcoded seed if it fails.
-────────────────────────────────────────────────────────────────────────── */
+/* ══ Startup: ingest kworb artists index (lightweight — 1 HTTP request) ══ */
 async function ingestKworbArtistsIndex(): Promise<void> {
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    const resp = await fetch("https://kworb.net/spotify/artists.html", {
-      signal: ctrl.signal,
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)",
-        "Accept": "text/html",
-      },
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15_000);
+    const resp  = await fetch("https://kworb.net/spotify/artists.html", {
+      signal:  ctrl.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)", "Accept": "text/html" },
     });
     clearTimeout(timer);
     if (!resp.ok) return;
     const html = await resp.text();
 
-    // Each row: <a href="/spotify/artist/{ID}_songs.html">{Artist Name}</a>
     const RE = /href="\/spotify\/artist\/([A-Za-z0-9]{22})_songs\.html"[^>]*>([^<]+)<\/a>/g;
     let match: RegExpExecArray | null;
     let count = 0;
     while ((match = RE.exec(html)) !== null) {
-      const spotifyId = match[1];
+      const spotifyId  = match[1];
       const artistName = match[2].trim();
       if (!artistName || !spotifyId) continue;
       const slug = toSlug(artistName);
@@ -165,18 +240,13 @@ async function ingestKworbArtistsIndex(): Promise<void> {
         count++;
       }
     }
-    if (count > 0) {
-      console.log(`[kworb] Ingested ${count} new slug→SpotifyID pairs from artists index (total: ${spotifyIdMap.size})`);
-    }
+    if (count > 0) console.log(`[kworb] Ingested ${count} new slug→SpotifyID pairs (total: ${spotifyIdMap.size})`);
   } catch {
     // Silently fall back to seed map — non-fatal
   }
 }
 
-// Fire ingestion in background — does not block server startup
-ingestKworbArtistsIndex();
-
-/* ── Types ─────────────────────────────────────────────────────────────── */
+/* ══ Types ════════════════════════════════════════════════════════════════ */
 interface TrackEntry {
   title: string;
   streams: number;
@@ -224,21 +294,18 @@ interface KworbStats {
   chartPositions: ChartPosition[] | null;
 }
 
-/* ── Cache ─────────────────────────────────────────────────────────────── */
-const statsCache = new Map<string, { data: KworbStats; cachedAt: number }>();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-function getCachedStats(slug: string): KworbStats | undefined {
-  const entry = statsCache.get(slug);
-  if (!entry) return undefined;
-  if (Date.now() - entry.cachedAt > CACHE_TTL) {
-    statsCache.delete(slug);
-    return undefined;
-  }
-  return entry.data;
+// Raw postgres row shape for jobs (snake_case from pg driver)
+interface KworbJobRow {
+  id: number;
+  artist_key: string;
+  metric_type: string;
+  priority: number;
+  due_at: Date;
+  attempts: number;
+  status: string;
 }
 
-/* ── Number helpers ────────────────────────────────────────────────────── */
+/* ══ Number helpers ═══════════════════════════════════════════════════════ */
 function parseCommaNum(s: string): number {
   if (!s) return 0;
   return parseInt(s.replace(/,/g, "").trim(), 10) || 0;
@@ -247,12 +314,12 @@ function parseCommaNum(s: string): number {
 function fmtNum(n: number): string {
   if (!n || n <= 0) return "—";
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)         return `${Math.round(n / 1_000)}K`;
   return String(n);
 }
 
-/* ── HTML helpers ──────────────────────────────────────────────────────── */
+/* ══ HTML helpers ═════════════════════════════════════════════════════════ */
 function stripTags(s: string): string {
   return s.replace(/<[^>]+>/g, "").trim();
 }
@@ -263,24 +330,22 @@ function parseTableRows(html: string): string[][] {
   for (const rm of rowMatches) {
     const cells: string[] = [];
     const cellMatches = rm[1].matchAll(/<td[^>]*>(.*?)<\/td>/gs);
-    for (const cm of cellMatches) {
-      cells.push(stripTags(cm[1]));
-    }
+    for (const cm of cellMatches) cells.push(stripTags(cm[1]));
     if (cells.length) rows.push(cells);
   }
   return rows;
 }
 
-/* ── HTTP fetch with timeout ───────────────────────────────────────────── */
+/* ══ HTTP fetch with timeout ══════════════════════════════════════════════ */
 async function fetchPage(url: string): Promise<string | null> {
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 12000);
-    const resp = await fetch(url, {
-      signal: ctrl.signal,
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 12_000);
+    const resp  = await fetch(url, {
+      signal:  ctrl.signal,
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)",
-        "Accept": "text/html",
+        "User-Agent":      "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)",
+        "Accept":          "text/html",
         "Accept-Language": "en-US,en;q=0.9",
       },
     });
@@ -292,122 +357,73 @@ async function fetchPage(url: string): Promise<string | null> {
   }
 }
 
-/* ── Parsers ───────────────────────────────────────────────────────────── */
-
+/* ══ Parsers ══════════════════════════════════════════════════════════════ */
 function parseSpotifyPage(html: string): KworbStats["spotify"] {
   const rows = parseTableRows(html);
-  let totalStreams = 0;
-  let dailyStreams = 0;
-  let trackCount = 0;
+  let totalStreams = 0, dailyStreams = 0, trackCount = 0;
   const topTracks: TrackEntry[] = [];
 
   for (const cells of rows) {
     if (!cells.length) continue;
     const first = cells[0];
-    if (first === "Streams" && cells[1]) {
-      totalStreams = parseCommaNum(cells[1]);
-    } else if (first === "Daily" && cells[1]) {
-      dailyStreams = parseCommaNum(cells[1]);
-    } else if (first === "Tracks" && cells[1]) {
-      trackCount = parseCommaNum(cells[1]);
-    } else if (
-      topTracks.length < 10 &&
-      cells.length >= 2 &&
-      first &&
-      cells[1] &&
-      /^\d[\d,]+$/.test(cells[1])
+    if      (first === "Streams" && cells[1]) totalStreams = parseCommaNum(cells[1]);
+    else if (first === "Daily"   && cells[1]) dailyStreams = parseCommaNum(cells[1]);
+    else if (first === "Tracks"  && cells[1]) trackCount   = parseCommaNum(cells[1]);
+    else if (
+      topTracks.length < 10 && cells.length >= 2 &&
+      first && cells[1] && /^\d[\d,]+$/.test(cells[1])
     ) {
       const streams = parseCommaNum(cells[1]);
-      const daily = cells[2] ? parseCommaNum(cells[2]) : 0;
-      topTracks.push({
-        title: first.replace(/^\* /, ""),
-        streams,
-        streamsFmt: fmtNum(streams),
-        daily,
-        dailyFmt: fmtNum(daily),
-      });
+      const daily   = cells[2] ? parseCommaNum(cells[2]) : 0;
+      topTracks.push({ title: first.replace(/^\* /, ""), streams, streamsFmt: fmtNum(streams), daily, dailyFmt: fmtNum(daily) });
     }
   }
 
   if (!totalStreams) return null;
-  return {
-    totalStreams,
-    totalStreamsFmt: fmtNum(totalStreams),
-    dailyStreams,
-    dailyStreamsFmt: fmtNum(dailyStreams),
-    trackCount,
-    topTracks,
-  };
+  return { totalStreams, totalStreamsFmt: fmtNum(totalStreams), dailyStreams, dailyStreamsFmt: fmtNum(dailyStreams), trackCount, topTracks };
 }
 
 function parseYouTubePage(html: string): KworbStats["youtube"] {
   const rows = parseTableRows(html);
-  let totalViews = 0;
-  let dailyAvg = 0;
+  let totalViews = 0, dailyAvg = 0;
   const topVideos: VideoEntry[] = [];
 
   for (const cells of rows) {
     if (!cells.length) continue;
-    if (cells[0] === "Total views:" && cells[1]) {
-      totalViews = parseCommaNum(cells[1]);
-    } else if (cells[0] === "Current daily avg:" && cells[1]) {
-      dailyAvg = parseCommaNum(cells[1]);
-    } else if (
-      topVideos.length < 10 &&
-      cells.length >= 2 &&
-      cells[0] &&
-      cells[1] &&
-      /^\d[\d,]+$/.test(cells[1])
+    if      (cells[0] === "Total views:"       && cells[1]) totalViews = parseCommaNum(cells[1]);
+    else if (cells[0] === "Current daily avg:" && cells[1]) dailyAvg   = parseCommaNum(cells[1]);
+    else if (
+      topVideos.length < 10 && cells.length >= 2 &&
+      cells[0] && cells[1] && /^\d[\d,]+$/.test(cells[1])
     ) {
       const views = parseCommaNum(cells[1]);
       const daily = cells[2] ? parseCommaNum(cells[2]) : 0;
-      topVideos.push({
-        title: cells[0],
-        views,
-        viewsFmt: fmtNum(views),
-        daily,
-        dailyFmt: fmtNum(daily),
-        published: cells[3] ?? "",
-      });
+      topVideos.push({ title: cells[0], views, viewsFmt: fmtNum(views), daily, dailyFmt: fmtNum(daily), published: cells[3] ?? "" });
     }
   }
 
   if (!totalViews) return null;
-  return {
-    totalViews,
-    totalViewsFmt: fmtNum(totalViews),
-    dailyAvg,
-    dailyAvgFmt: fmtNum(dailyAvg),
-    topVideos,
-  };
+  return { totalViews, totalViewsFmt: fmtNum(totalViews), dailyAvg, dailyAvgFmt: fmtNum(dailyAvg), topVideos };
 }
 
-// Platform section markers in the iTunes page cell text
 const PLATFORM_MARKERS: { key: string; field: keyof ChartPosition }[] = [
-  { key: "Spotify:",     field: "spotifyMx" },
-  { key: "Apple Music:", field: "appleMusicMx" },
-  { key: "YouTube:",     field: "youtubeMx" },
-  { key: "iTunes:",      field: "itunesMx" },
-  { key: "Deezer:",      field: "deezerMx" },
+  { key: "Spotify:",      field: "spotifyMx"     },
+  { key: "Apple Music:",  field: "appleMusicMx"  },
+  { key: "YouTube:",      field: "youtubeMx"     },
+  { key: "iTunes:",       field: "itunesMx"      },
+  { key: "Deezer:",       field: "deezerMx"      },
 ];
 
 function parseItunesPage(html: string): KworbStats["chartPositions"] {
-  // Each table cell contains an entire song block: song name + platform chart positions
   const cellMatches = [...html.matchAll(/<td[^>]*>(.*?)<\/td>/gs)];
   const positions: ChartPosition[] = [];
 
   for (const cm of cellMatches) {
-    // Replace <br>, </div>, newlines → space-separated text for easier regex
     const raw = cm[1]
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/div>/gi, "\n")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/[ \t]+/g, " ")
-      .trim();
-
+      .replace(/<br\s*\/?>/gi, "\n").replace(/<\/div>/gi, "\n")
+      .replace(/<[^>]+>/g, " ").replace(/[ \t]+/g, " ").trim();
     if (!raw) continue;
 
-    // Song name is everything before the first platform keyword
     const firstPlatformIdx = PLATFORM_MARKERS.reduce((min, p) => {
       const idx = raw.indexOf(p.key);
       return idx >= 0 && idx < min ? idx : min;
@@ -415,17 +431,14 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
 
     const song = raw.slice(0, firstPlatformIdx).replace(/\n/g, " ").trim();
     if (!song || song.length > 80 || song.length < 1) continue;
-    // Filter out album/compilation entries (kworb labels them "Album: X")
     if (/^Album:/i.test(song) || /^Álbum:/i.test(song)) continue;
 
     const entry: ChartPosition = { song };
     let hasMexico = false;
 
-    // For each platform section, find "#N Mexico" pattern
     for (const { key, field } of PLATFORM_MARKERS) {
       const start = raw.indexOf(key);
       if (start < 0) continue;
-      // Platform section ends at the next platform keyword or end of string
       let end = raw.length;
       for (const { key: k2 } of PLATFORM_MARKERS) {
         const idx2 = raw.indexOf(k2, start + key.length);
@@ -435,21 +448,17 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
       const mxMatch = section.match(/#(\d+)\s*Mexico/);
       if (mxMatch) {
         const pos = parseInt(mxMatch[1], 10);
-        if (field === "spotifyMx")         entry.spotifyMx     = pos;
-        else if (field === "appleMusicMx") entry.appleMusicMx  = pos;
-        else if (field === "youtubeMx")    entry.youtubeMx     = pos;
-        else if (field === "itunesMx")     entry.itunesMx      = pos;
-        else if (field === "deezerMx")     entry.deezerMx      = pos;
+        if      (field === "spotifyMx")     entry.spotifyMx     = pos;
+        else if (field === "appleMusicMx")  entry.appleMusicMx  = pos;
+        else if (field === "youtubeMx")     entry.youtubeMx     = pos;
+        else if (field === "itunesMx")      entry.itunesMx      = pos;
+        else if (field === "deezerMx")      entry.deezerMx      = pos;
         hasMexico = true;
       }
     }
-
-    if (hasMexico) {
-      positions.push(entry);
-    }
+    if (hasMexico) positions.push(entry);
   }
 
-  // Deduplicate by normalized song title (kworb sometimes repeats entries)
   const seen = new Set<string>();
   const deduped = positions.filter(p => {
     const key = p.song.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -457,339 +466,569 @@ function parseItunesPage(html: string): KworbStats["chartPositions"] {
     seen.add(key);
     return true;
   });
-
   return deduped.length > 0 ? deduped.slice(0, 10) : null;
 }
 
-/* ── Fetch full stats for one artist ───────────────────────────────────── */
-async function fetchArtistStats(slug: string): Promise<KworbStats> {
-  const spotifyId = spotifyIdMap.get(slug) ?? null;
+/* ══ ALL_ARTIST_SLUGS (for /known-slugs endpoint) ════════════════════════ */
+let ALL_ARTIST_SLUGS: string[] = [...Object.keys(SPOTIFY_ID_SEED)];
 
-  // Fan out all three fetches in parallel
-  const [spotifyHtml, youtubeHtml, itunesHtml] = await Promise.all([
-    spotifyId
-      ? fetchPage(`https://kworb.net/spotify/artist/${spotifyId}_songs.html`)
-      : Promise.resolve(null),
-    fetchPage(`https://kworb.net/youtube/artist/${slug}.html`),
-    fetchPage(`https://kworb.net/itunes/artist/${slug}.html`),
-  ]);
-
-  const spotify   = spotifyHtml  ? parseSpotifyPage(spotifyHtml)   : null;
-  const youtube   = youtubeHtml  ? parseYouTubePage(youtubeHtml)   : null;
-  const chartPositions = itunesHtml ? parseItunesPage(itunesHtml) : null;
-
-  return { slug, spotifyId, spotify, youtube, chartPositions };
+async function loadSlugListFromCoverage(): Promise<void> {
+  try {
+    const rows = await db.select({ slug: kworbCoverage.artistKey }).from(kworbCoverage);
+    if (rows.length > 0) ALL_ARTIST_SLUGS = rows.map(r => r.slug);
+  } catch { /* fall back to seed list */ }
 }
 
-/* ── Route: GET /api/kworb/artist-stats?name=ARTIST_NAME ───────────────── */
+/* ══ DB helpers ═══════════════════════════════════════════════════════════ */
+async function getSnapshot(artistKey: string, metricType: string): Promise<unknown | null> {
+  const rows = await db
+    .select({ value: kworbSnapshots.value })
+    .from(kworbSnapshots)
+    .where(and(eq(kworbSnapshots.artistKey, artistKey), eq(kworbSnapshots.metricType, metricType)))
+    .limit(1);
+  return rows[0]?.value ?? null;
+}
+
+async function saveSnapshot(
+  artistKey: string, metricType: string, value: unknown, tier: string,
+): Promise<void> {
+  const expiresAt = new Date(Date.now() + (SNAPSHOT_TTL_MS[tier] ?? SNAPSHOT_TTL_MS.B));
+  await db
+    .insert(kworbSnapshots)
+    .values({ artistKey, metricType, value: value as Record<string, unknown>, expiresAt })
+    .onConflictDoUpdate({
+      target: [kworbSnapshots.artistKey, kworbSnapshots.metricType],
+      set: {
+        value:     sql`EXCLUDED.value`,
+        fetchedAt: sql`now()`,
+        expiresAt: sql`EXCLUDED.expires_at`,
+      },
+    });
+}
+
+/* ══ Job queue ════════════════════════════════════════════════════════════ */
+async function claimNextJob(): Promise<KworbJobRow | null> {
+  const r = await pool.query<KworbJobRow>(`
+    UPDATE kworb_jobs
+    SET  status       = 'running',
+         locked_until = now() + interval '20 minutes',
+         attempts     = attempts + 1,
+         updated_at   = now()
+    WHERE id = (
+      SELECT id FROM kworb_jobs
+      WHERE  status = 'pending' AND due_at <= now()
+      ORDER  BY priority ASC, due_at ASC
+      LIMIT  1
+      FOR    UPDATE SKIP LOCKED
+    )
+    RETURNING id, artist_key, metric_type, priority, due_at, attempts, status
+  `);
+  return r.rows[0] ?? null;
+}
+
+async function enqueueJob(
+  artistKey: string, metricType: string, priority: number, dueAt: Date,
+): Promise<void> {
+  // Skip if a pending or running job already exists for this artist+metric
+  await pool.query(`
+    INSERT INTO kworb_jobs (artist_key, metric_type, priority, due_at, status)
+    SELECT $1, $2, $3, $4, 'pending'
+    WHERE  NOT EXISTS (
+      SELECT 1 FROM kworb_jobs
+      WHERE  artist_key = $1 AND metric_type = $2 AND status IN ('pending','running')
+    )
+  `, [artistKey, metricType, priority, dueAt]);
+}
+
+/* ══ Core fetch & store ═══════════════════════════════════════════════════ */
+async function fetchAndStore(
+  slug: string, metricType: string, tier: string, spotifyId: string | null,
+): Promise<"success" | "not_found" | "rate_limited" | "error"> {
+  if (!FETCHING_ENABLED()) return "rate_limited";
+
+  const doAll = metricType === "all";
+  let spotify: ReturnType<typeof parseSpotifyPage> = null;
+  let youtube: ReturnType<typeof parseYouTubePage> = null;
+  let itunes:  ReturnType<typeof parseItunesPage>  = null;
+
+  // Spotify
+  if ((doAll || metricType === "spotify") && spotifyId) {
+    if (!acquireSlot()) return "rate_limited";
+    await jitter();
+    const html = await fetchPage(`https://kworb.net/spotify/artist/${spotifyId}_songs.html`);
+    if (html) spotify = parseSpotifyPage(html);
+  }
+
+  // YouTube
+  if (doAll || metricType === "youtube") {
+    if (!acquireSlot()) return "rate_limited";
+    await jitter();
+    const html = await fetchPage(`https://kworb.net/youtube/artist/${slug}.html`);
+    if (html) youtube = parseYouTubePage(html);
+  }
+
+  // iTunes / chart positions
+  if (doAll || metricType === "itunes") {
+    if (!acquireSlot()) return "rate_limited";
+    await jitter();
+    const html = await fetchPage(`https://kworb.net/itunes/artist/${slug}.html`);
+    if (html) itunes = parseItunesPage(html);
+  }
+
+  if (!spotify && !youtube && !itunes) return "not_found";
+
+  if (spotify) await saveSnapshot(slug, "spotify", spotify, tier);
+  if (youtube) await saveSnapshot(slug, "youtube", youtube, tier);
+  if (itunes)  await saveSnapshot(slug, "itunes",  itunes,  tier);
+
+  // Upsert coverage record
+  await db
+    .insert(kworbCoverage)
+    .values({
+      artistKey:           slug,
+      artistName:          slug,
+      spotifyId:           spotifyId ?? undefined,
+      hasSpotify:          !!spotify,
+      hasYoutube:          !!youtube,
+      hasItunes:           !!itunes,
+      tier,
+      status:              "active",
+      consecutiveFailures: 0,
+      lastFetchAt:         new Date(),
+      lastDiscoveredAt:    new Date(),
+    })
+    .onConflictDoUpdate({
+      target: kworbCoverage.artistKey,
+      set: {
+        spotifyId:           spotifyId !== null ? spotifyId : sql`kworb_coverage.spotify_id`,
+        hasSpotify:          !!spotify,
+        hasYoutube:          !!youtube,
+        hasItunes:           !!itunes,
+        status:              "active",
+        consecutiveFailures: 0,
+        lastFetchAt:         new Date(),
+        lastDiscoveredAt:    new Date(),
+      },
+    });
+
+  return "success";
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   BACKGROUND WORKER
+   Single worker, rate-limited, with jitter between requests.
+   Never started in bulk at startup — picks up pending DB jobs organically.
+══════════════════════════════════════════════════════════════════════════ */
+let workerActive = false;
+
+async function runWorker(): Promise<void> {
+  if (workerActive) return;
+  workerActive = true;
+  console.log("[kworb:worker] Started");
+  console.log(`[kworb:worker] Fetching: ${FETCHING_ENABLED() ? "ENABLED" : "DISABLED (kill switch)"}`);
+
+  while (true) {
+    try {
+      if (!FETCHING_ENABLED()) { await sleep(30_000); continue; }
+
+      const job = await claimNextJob();
+      if (!job) { await sleep(60_000); continue; } // no pending jobs
+
+      const [cov] = await db.select()
+        .from(kworbCoverage)
+        .where(eq(kworbCoverage.artistKey, job.artist_key))
+        .limit(1);
+
+      const tier      = cov?.tier      ?? (TIER_A_SLUGS.has(job.artist_key) ? "A" : "B");
+      const spotifyId = cov?.spotifyId ?? spotifyIdMap.get(job.artist_key)  ?? null;
+
+      const result = await fetchAndStore(job.artist_key, job.metric_type, tier, spotifyId);
+
+      if (result === "rate_limited") {
+        // Release the job without consuming the attempt
+        await pool.query(`
+          UPDATE kworb_jobs
+          SET  status       = 'pending',
+               locked_until = null,
+               attempts     = GREATEST(0, attempts - 1),
+               updated_at   = now()
+          WHERE id = $1
+        `, [job.id]);
+        await sleep(5 * 60_000); // 5 min cooldown when rate-limited
+        continue;
+      }
+
+      if (result === "success") {
+        await pool.query(
+          `UPDATE kworb_jobs SET status='done', updated_at=now() WHERE id=$1`,
+          [job.id],
+        );
+        // Schedule next refresh with ±20% jitter
+        const base    = TIER_INTERVAL_MS[tier] ?? TIER_INTERVAL_MS.B;
+        const drift   = base * 0.2 * (Math.random() - 0.5); // ±10% of interval
+        const nextDue = new Date(Date.now() + base + drift);
+        await enqueueJob(job.artist_key, "all", TIER_PRIORITY[tier] ?? 30, nextDue);
+
+      } else {
+        // not_found | error — apply exponential backoff
+        const failures = job.attempts; // already incremented by claimNextJob
+
+        await db.update(kworbCoverage)
+          .set({ consecutiveFailures: failures, lastFailedAt: new Date() })
+          .where(eq(kworbCoverage.artistKey, job.artist_key));
+
+        if (failures >= MAX_ATTEMPTS) {
+          await pool.query(
+            `UPDATE kworb_jobs SET status='done', updated_at=now() WHERE id=$1`,
+            [job.id],
+          );
+          await db.update(kworbCoverage)
+            .set({ status: "not_found" })
+            .where(eq(kworbCoverage.artistKey, job.artist_key));
+          // Rare retry ~3 weeks out with random spread
+          const retryDue = new Date(
+            Date.now() + 21 * 24 * 3_600_000 + Math.random() * 7 * 24 * 3_600_000,
+          );
+          await enqueueJob(job.artist_key, "all", TIER_PRIORITY.D, retryDue);
+          console.log(`[kworb:worker] ${job.artist_key}: not found after ${failures} attempts — retry in ~3w`);
+        } else {
+          const backoffMs = BACKOFF_MS[Math.min(failures - 1, BACKOFF_MS.length - 1)] ?? BACKOFF_MS[4];
+          const nextDue   = new Date(Date.now() + backoffMs);
+          await pool.query(`
+            UPDATE kworb_jobs
+            SET  status='pending', due_at=$2, locked_until=null, updated_at=now()
+            WHERE id=$1
+          `, [job.id, nextDue]);
+        }
+      }
+
+      await sleep(2_000); // brief pause between jobs
+
+    } catch (err) {
+      console.error("[kworb:worker] Unhandled error:", err);
+      await sleep(30_000);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SENTINEL DETECTOR
+   Checks 10 major artists to detect when kworb publishes today's update.
+   Runs every 15 min but enforces a 1h minimum gap between actual enqueues.
+   Only active during 12pm–9pm ET (kworb's known update window).
+══════════════════════════════════════════════════════════════════════════ */
+let sentinelLastAt = 0;
+const SENTINEL_INTERVAL_MS = 60 * 60_000; // 1 h between actual checks
+
+function etHour(): number {
+  return +new Date().toLocaleString("en-US", {
+    timeZone: "America/New_York", hour: "numeric", hour12: false,
+  });
+}
+
+async function runSentinel(): Promise<void> {
+  const now = Date.now();
+  const hour = etHour();
+  if (hour < 12 || hour >= 21) return; // outside kworb update window
+  if (now - sentinelLastAt < SENTINEL_INTERVAL_MS) return;
+  sentinelLastAt = now;
+
+  try {
+    // Check if sentinel artists' snapshots are older than 20 h
+    const rows = await db
+      .select({ artistKey: kworbSnapshots.artistKey, fetchedAt: kworbSnapshots.fetchedAt })
+      .from(kworbSnapshots)
+      .where(eq(kworbSnapshots.metricType, "spotify"));
+
+    const staleThreshold = new Date(now - 20 * 3_600_000);
+    const freshCount = rows.filter(
+      r => SENTINEL_SLUGS.has(r.artistKey) && r.fetchedAt > staleThreshold,
+    ).length;
+
+    if (freshCount >= SENTINEL_SLUGS.size) {
+      console.log("[kworb:sentinel] All sentinels fresh — skipping enqueue");
+      return;
+    }
+
+    console.log(`[kworb:sentinel] ${SENTINEL_SLUGS.size - freshCount} sentinel(s) stale — enqueuing Tier A`);
+
+    // Immediately enqueue Tier A artists
+    const tierARows = await db
+      .select({ artistKey: kworbCoverage.artistKey })
+      .from(kworbCoverage)
+      .where(eq(kworbCoverage.tier, "A"));
+
+    for (const { artistKey } of tierARows) {
+      await enqueueJob(artistKey, "all", TIER_PRIORITY.A, new Date());
+    }
+
+    // Enqueue Tier B with 0–4h spread to avoid a burst
+    const tierBRows = await db
+      .select({ artistKey: kworbCoverage.artistKey })
+      .from(kworbCoverage)
+      .where(eq(kworbCoverage.tier, "B"));
+
+    for (const { artistKey } of tierBRows) {
+      const dueAt = new Date(Date.now() + Math.random() * 4 * 3_600_000);
+      await enqueueJob(artistKey, "all", TIER_PRIORITY.B, dueAt);
+    }
+
+  } catch (err) {
+    console.error("[kworb:sentinel] Error:", err);
+  }
+}
+
+async function startSentinelLoop(): Promise<void> {
+  while (true) {
+    await runSentinel().catch(() => {});
+    await sleep(15 * 60_000);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SEED COVERAGE
+   Populates kworb_coverage from the 541-artist metadata sheet.
+   Called via POST /api/kworb/admin/seed-coverage.
+   Spreads initial job due_at over hours/days to avoid a startup burst.
+══════════════════════════════════════════════════════════════════════════ */
+const METADATA_SHEET_URL =
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+
+async function seedCoverage(
+  enqueueInitialJobs = true,
+): Promise<{ upserted: number; queued: number }> {
+  const resp = await fetch(METADATA_SHEET_URL, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!resp.ok) throw new Error(`Metadata sheet HTTP ${resp.status}`);
+
+  const csv   = await resp.text();
+  const lines = csv.split("\n").filter(Boolean);
+  const hdrs  = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").toLowerCase().trim());
+  const nameIdx = hdrs.indexOf("artist_name");
+  if (nameIdx < 0) throw new Error("artist_name column not found in metadata sheet");
+
+  const artists: { name: string; slug: string }[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].match(/"([^"]*)"/g);
+    const name  = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
+    if (name) artists.push({ name, slug: toSlug(name) });
+  }
+
+  let upserted = 0;
+  let queued   = 0;
+
+  for (const { name, slug } of artists) {
+    if (!slug) continue;
+    const tier      = TIER_A_SLUGS.has(slug) ? "A" : "B";
+    const spotifyId = spotifyIdMap.get(slug) ?? null;
+
+    await db
+      .insert(kworbCoverage)
+      .values({ artistKey: slug, artistName: name, spotifyId: spotifyId ?? undefined, tier, status: "pending" })
+      .onConflictDoUpdate({
+        target: kworbCoverage.artistKey,
+        set: {
+          artistName: name,
+          spotifyId:  spotifyId !== null ? spotifyId : sql`kworb_coverage.spotify_id`,
+          tier,
+        },
+      });
+    upserted++;
+
+    if (enqueueInitialJobs) {
+      // Tier A = fetch immediately; Tier B = spread over 0–48h
+      const spreadMs = tier === "A" ? 0 : Math.random() * 48 * 3_600_000;
+      await enqueueJob(slug, "all", TIER_PRIORITY[tier] ?? 30, new Date(Date.now() + spreadMs));
+      queued++;
+    }
+  }
+
+  ALL_ARTIST_SLUGS = artists.map(a => a.slug).filter(Boolean);
+  console.log(`[kworb:seed] ${upserted} artists upserted, ${queued} jobs queued`);
+  return { upserted, queued };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   STARTUP
+   1. Ingest Spotify ID map from kworb's artists index (1 HTTP request)
+   2. Load slug list from coverage table
+   3. Start worker — resumes any existing pending jobs from DB
+   4. Start sentinel loop
+   Does NOT warm up all 541 artists at boot.
+══════════════════════════════════════════════════════════════════════════ */
+async function startup(): Promise<void> {
+  await ingestKworbArtistsIndex();
+  await loadSlugListFromCoverage();
+  void runWorker();
+  void startSentinelLoop();
+  console.log("[kworb] Startup complete — worker running, sentinel active");
+  console.log(`[kworb] Kill switch: KWORB_FETCHING_ENABLED=${FETCHING_ENABLED()}`);
+  console.log(`[kworb] Daily cap: ${DAILY_CAP}  Hourly cap: ${HOURLY_CAP}`);
+}
+
+setTimeout(() => void startup(), 3_000);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ROUTES
+══════════════════════════════════════════════════════════════════════════ */
+
+/* GET /api/kworb/artist-stats?name=X  — cache-first, never scrapes live */
 router.get("/kworb/artist-stats", async (req, res) => {
   const name = (req.query.name as string | undefined)?.trim();
-  if (!name) {
-    res.status(400).json({ error: "name query parameter required" });
-    return;
-  }
+  if (!name) { res.status(400).json({ error: "name query parameter required" }); return; }
 
   const slug = toSlug(name);
 
-  const cached = getCachedStats(slug);
-  if (cached) {
-    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-    res.setHeader("X-Cache", "HIT");
-    res.json(cached);
-    return;
+  const [cov] = await db.select().from(kworbCoverage).where(eq(kworbCoverage.artistKey, slug)).limit(1);
+  const tier      = cov?.tier      ?? (TIER_A_SLUGS.has(slug) ? "A" : "B");
+  const spotifyId = cov?.spotifyId ?? spotifyIdMap.get(slug) ?? null;
+
+  const snaps = await db
+    .select({ metricType: kworbSnapshots.metricType, value: kworbSnapshots.value })
+    .from(kworbSnapshots)
+    .where(eq(kworbSnapshots.artistKey, slug));
+
+  const snapMap = new Map(snaps.map(s => [s.metricType, s.value]));
+
+  const stats: KworbStats = {
+    slug,
+    spotifyId,
+    spotify:        (snapMap.get("spotify") as KworbStats["spotify"])        ?? null,
+    youtube:        (snapMap.get("youtube") as KworbStats["youtube"])        ?? null,
+    chartPositions: (snapMap.get("itunes")  as KworbStats["chartPositions"]) ?? null,
+  };
+
+  // No data → enqueue high-priority background job (user is viewing this artist)
+  if (!stats.spotify && !stats.youtube && !stats.chartPositions && FETCHING_ENABLED()) {
+    await db.insert(kworbCoverage)
+      .values({ artistKey: slug, artistName: name, spotifyId: spotifyId ?? undefined, tier, status: "pending" })
+      .onConflictDoNothing();
+    await enqueueJob(slug, "all", 5 /* user-triggered: highest priority */, new Date());
   }
 
-  try {
-    const stats = await fetchArtistStats(slug);
-    // Only cache for full 24h when at least one platform parse succeeded;
-    // cache all-null results for 1h so transient failures self-heal quickly.
-    const hasData = !!(stats.spotify || stats.youtube || stats.chartPositions);
-    const ttl = hasData ? CACHE_TTL : 60 * 60 * 1000; // 24h vs 1h
-    statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
-    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-    res.setHeader("X-Cache", "MISS");
-    res.json(stats);
-  } catch (err) {
-    res.status(502).json({ error: "Failed to fetch kworb data", detail: String(err) });
-  }
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  res.setHeader("X-Cache", stats.spotify || stats.youtube || stats.chartPositions ? "HIT" : "MISS");
+  res.json(stats);
 });
 
-/* ── Route: GET /api/kworb/batch-streams?names=A,B,C ───────────────────── */
-// Returns { [artistName]: totalSpotifyStreams | null } for roster usage.
-// Server-side concurrency is capped at 10 parallel kworb fetches.
+/* GET /api/kworb/batch-streams?names=A,B,C  — cache-first, single DB query */
 router.get("/kworb/batch-streams", async (req, res) => {
   const namesParam = (req.query.names as string | undefined)?.trim();
-  if (!namesParam) {
-    res.status(400).json({ error: "names query parameter required" });
-    return;
-  }
+  if (!namesParam) { res.status(400).json({ error: "names query parameter required" }); return; }
 
   const names = namesParam.split(",").map(n => n.trim()).filter(Boolean).slice(0, 150);
-  const result: Record<string, number | null> = {};
 
-  // Process in batches of 10 parallel requests to avoid hammering kworb
-  for (let i = 0; i < names.length; i += 10) {
-    const batch = names.slice(i, i + 10);
-    await Promise.all(
-      batch.map(async (name) => {
-        const slug = toSlug(name);
-        let stats = getCachedStats(slug);
-        if (!stats) {
-          try {
-            stats = await fetchArtistStats(slug);
-            // Mirror artist-stats cache policy: 24h for real data, 1h for all-null
-            const hasData = !!(stats.spotify || stats.youtube || stats.chartPositions);
-            const ttl = hasData ? CACHE_TTL : 60 * 60 * 1000;
-            statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
-          } catch {
-            result[name] = null;
-            return;
-          }
-        }
-        result[name] = stats.spotify?.totalStreams ?? null;
-      })
-    );
+  // Single DB read for all Spotify snapshots
+  const rows = await db
+    .select({ artistKey: kworbSnapshots.artistKey, value: kworbSnapshots.value })
+    .from(kworbSnapshots)
+    .where(eq(kworbSnapshots.metricType, "spotify"));
+
+  const snapMap = new Map(rows.map(r => [r.artistKey, r.value as { totalStreams?: number } | null]));
+
+  const result: Record<string, number | null> = {};
+  for (const name of names) {
+    result[name] = snapMap.get(toSlug(name))?.totalStreams ?? null;
   }
 
-  res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
   res.json(result);
 });
 
-/* ── Route: GET /api/kworb/known-slugs ──────────────────────────────────── */
-// Returns the list of artist slugs that have profile pages on this site.
-// Used by the Charts frontend to decide whether to link an artist name.
+/* GET /api/kworb/known-slugs */
 router.get("/kworb/known-slugs", (_req, res) => {
   res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
   res.json({ slugs: ALL_ARTIST_SLUGS });
 });
 
-/* ══════════════════════════════════════════════════════════════════════════
-   DAILY REFRESH SCHEDULER
-   Polls kworb every 60 min during their update window (12pm–9pm ET).
-   Stops as soon as a change is detected, then waits for next day's 12pm ET.
-   If no change detected by 9:15pm ET, runs one final forced refresh.
-══════════════════════════════════════════════════════════════════════════ */
-
-const METADATA_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
-
-// All artist slugs covered by the scheduler; starts from the 109 seeds,
-// then expanded to all 145+ artists loaded from the metadata sheet at startup.
-let ALL_ARTIST_SLUGS: string[] = Object.keys(SPOTIFY_ID_SEED);
-
-async function loadAllArtistSlugs(): Promise<void> {
-  try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000);
-    const resp = await fetch(METADATA_SHEET_URL, {
-      signal: ctrl.signal,
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)" },
-    });
-    clearTimeout(timer);
-    if (!resp.ok) return;
-    const csv = await resp.text();
-    const lines = csv.split("\n").filter(Boolean);
-    if (lines.length < 2) return;
-
-    // Header line — find artist_name column index
-    const headers = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").toLowerCase().trim());
-    const nameIdx = headers.indexOf("artist_name");
-    if (nameIdx < 0) return;
-
-    const slugSet = new Set<string>(Object.keys(SPOTIFY_ID_SEED));
-    for (let i = 1; i < lines.length; i++) {
-      // Simple quoted-CSV split for the name column
-      const parts = lines[i].match(/"([^"]*)"/g);
-      const name = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
-      if (name) slugSet.add(toSlug(name));
-    }
-    ALL_ARTIST_SLUGS = [...slugSet].filter(Boolean);
-    console.log(`[kworb:scheduler] Loaded ${ALL_ARTIST_SLUGS.length} artist slugs for daily refresh`);
-  } catch {
-    console.log(`[kworb:scheduler] Could not load artist list from sheet — using ${ALL_ARTIST_SLUGS.length} seed slugs`);
-  }
-}
-
-/* ── Change-detection snapshot ─────────────────────────────────────────── */
-// Maps slug → most recently observed stream/view count for delta detection
-const streamSnapshot = new Map<string, number>();
-
-/* ── Refresh state ─────────────────────────────────────────────────────── */
-const refreshStatus = {
-  lastRefreshedAt:  null as number | null,
-  artistsUpdated:   0,
-  todayUpdated:     false,
-  inProgress:       false,
-  nextPollAt:       null as number | null,
-};
-
-/* ── ET timezone helper ────────────────────────────────────────────────── */
-function msUntilNextETTime(targetHour: number, targetMin: number): number {
-  // Use the toLocaleString trick to get current wall-clock time in ET
-  const etNow  = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const target = new Date(etNow);
-  target.setHours(targetHour, targetMin, 0, 0);
-  if (target <= etNow) target.setDate(target.getDate() + 1);
-  return target.getTime() - etNow.getTime();
-}
-
-function currentETHourMin(): { hour: number; min: number } {
-  const etNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  return { hour: etNow.getHours(), min: etNow.getMinutes() };
-}
-
-/* ── Core refresh cycle ────────────────────────────────────────────────── */
-// forced=true  → always update cache, do NOT trigger change-detection stop
-// forced=false → compare against snapshot; stop polling for the day if changed
-async function runRefreshCycle(forced: boolean): Promise<number> {
-  refreshStatus.inProgress = true;
-  const label = forced ? "forced" : "poll";
-  console.log(`[kworb:scheduler] ${label} started — ${ALL_ARTIST_SLUGS.length} artists`);
-
-  let changedCount = 0;
-  const BATCH = 10;
-  const DELAY = 2000; // ms between batches
-
-  for (let i = 0; i < ALL_ARTIST_SLUGS.length; i += BATCH) {
-    const batch = ALL_ARTIST_SLUGS.slice(i, i + BATCH);
-    await Promise.all(batch.map(async (slug) => {
-      try {
-        const stats     = await fetchArtistStats(slug);
-        const hasData   = !!(stats.spotify || stats.youtube || stats.chartPositions);
-        const ttl       = hasData ? CACHE_TTL : 60 * 60 * 1000;
-        const newVal    = stats.spotify?.totalStreams ?? stats.youtube?.totalViews ?? null;
-        const prevVal   = streamSnapshot.get(slug) ?? null;
-
-        // Detect a real numeric change (ignore null→null or first-run nulls)
-        if (!forced && newVal !== null && prevVal !== null && newVal !== prevVal) {
-          changedCount++;
-        }
-        if (newVal !== null) streamSnapshot.set(slug, newVal);
-
-        statsCache.set(slug, { data: stats, cachedAt: Date.now() - (CACHE_TTL - ttl) });
-      } catch { /* skip individual artist errors */ }
-    }));
-
-    const batchNum = Math.floor(i / BATCH) + 1;
-    const totalBatches = Math.ceil(ALL_ARTIST_SLUGS.length / BATCH);
-    if (i + BATCH < ALL_ARTIST_SLUGS.length) {
-      console.log(`[kworb:scheduler] batch ${batchNum}/${totalBatches} done`);
-      await new Promise(r => setTimeout(r, DELAY));
-    }
-  }
-
-  refreshStatus.lastRefreshedAt = Date.now();
-  refreshStatus.inProgress      = false;
-  console.log(`[kworb:scheduler] ${label} complete — ${changedCount} artist(s) changed`);
-  return changedCount;
-}
-
-/* ── Scheduler state ───────────────────────────────────────────────────── */
-let pollTimer:     NodeJS.Timeout | null = null;
-let endOfDayTimer: NodeJS.Timeout | null = null;
-
-function clearSchedulerTimers() {
-  if (pollTimer)     { clearTimeout(pollTimer);     pollTimer     = null; }
-  if (endOfDayTimer) { clearTimeout(endOfDayTimer); endOfDayTimer = null; }
-}
-
-function scheduleNextWindow() {
-  clearSchedulerTimers();
-  // NOTE: do NOT reset todayUpdated here — it must stay true until the next
-  // polling window actually opens so /refresh-status reflects it all day.
-  const ms = msUntilNextETTime(12, 0);
-  refreshStatus.nextPollAt   = Date.now() + ms;
-  const hrs = (ms / 3_600_000).toFixed(1);
-  console.log(`[kworb:scheduler] Next polling window in ${hrs}h (12pm ET)`);
-  pollTimer = setTimeout(() => void startPollingWindow(), ms);
-}
-
-async function doPoll(): Promise<void> {
-  if (refreshStatus.todayUpdated || refreshStatus.inProgress) return;
-
-  const changed = await runRefreshCycle(false);
-  refreshStatus.artistsUpdated = changed;
-
-  if (changed > 0) {
-    console.log(`[kworb:scheduler] ✓ Update detected (${changed} artists) — polls done for today`);
-    refreshStatus.todayUpdated = true;
-    clearSchedulerTimers();
-    scheduleNextWindow();
-    return;
-  }
-
-  // Schedule next hourly poll
-  const ms = 60 * 60 * 1000;
-  refreshStatus.nextPollAt = Date.now() + ms;
-  console.log(`[kworb:scheduler] No changes yet — next poll in 60 min`);
-  pollTimer = setTimeout(() => void doPoll(), ms);
-}
-
-function startPollingWindow() {
-  clearSchedulerTimers();
-  refreshStatus.todayUpdated = false; // reset at the start of each new day's window
-  console.log(`[kworb:scheduler] Polling window open (12pm–9:15pm ET)`);
-
-  // Final forced refresh at 9:15pm ET regardless of whether we already detected a change
-  const msToEnd = msUntilNextETTime(21, 15);
-  endOfDayTimer = setTimeout(async () => {
-    clearSchedulerTimers();
-    if (!refreshStatus.todayUpdated) {
-      console.log(`[kworb:scheduler] 9:15pm ET — no change detected today, running final forced refresh`);
-      await runRefreshCycle(true);
-    }
-    scheduleNextWindow();
-  }, msToEnd);
-
-  // Start hourly polling immediately
-  void doPoll();
-}
-
-async function initScheduler(): Promise<void> {
-  // Load full artist list from metadata sheet before starting
-  await loadAllArtistSlugs();
-
-  // Warm the cache and populate the snapshot before polling begins
-  console.log(`[kworb:scheduler] Startup refresh — warming cache and populating snapshot`);
-  await runRefreshCycle(true);
-
-  // Determine where we are relative to the ET polling window
-  const { hour, min } = currentETHourMin();
-  const totalMin      = hour * 60 + min;
-  const windowStart   = 12 * 60;       // 12:00 ET
-  const windowEnd     = 21 * 60 + 15;  // 21:15 ET
-
-  if (totalMin >= windowStart && totalMin < windowEnd) {
-    console.log(`[kworb:scheduler] Started inside polling window (${hour}:${String(min).padStart(2, "0")} ET)`);
-    startPollingWindow();
-  } else if (totalMin >= windowEnd) {
-    console.log(`[kworb:scheduler] Past today's window — waiting for tomorrow 12pm ET`);
-    scheduleNextWindow();
-  } else {
-    console.log(`[kworb:scheduler] Before today's window — waiting for 12pm ET`);
-    scheduleNextWindow();
-  }
-}
-
-// Kick off scheduler 3 s after startup (lets the server bind and kworb index ingest first)
-setTimeout(() => void initScheduler(), 3000);
-
-/* ── Route: GET /api/kworb/refresh-status ─────────────────────────────── */
-router.get("/kworb/refresh-status", (_req, res) => {
+/* GET /api/kworb/refresh-status */
+router.get("/kworb/refresh-status", async (_req, res) => {
+  const qr = await pool.query<{ pending: string; running: string; done: string }>(`
+    SELECT
+      COUNT(*) FILTER (WHERE status='pending') AS pending,
+      COUNT(*) FILTER (WHERE status='running') AS running,
+      COUNT(*) FILTER (WHERE status='done')    AS done
+    FROM kworb_jobs
+  `);
   res.json({
-    lastRefreshedAt:  refreshStatus.lastRefreshedAt,
-    lastRefreshedFmt: refreshStatus.lastRefreshedAt
-      ? new Date(refreshStatus.lastRefreshedAt).toISOString()
-      : null,
-    nextPollAt:       refreshStatus.nextPollAt,
-    nextPollFmt:      refreshStatus.nextPollAt
-      ? new Date(refreshStatus.nextPollAt).toISOString()
-      : null,
-    todayUpdated:     refreshStatus.todayUpdated,
-    artistsUpdated:   refreshStatus.artistsUpdated,
-    inProgress:       refreshStatus.inProgress,
+    workerActive,
+    fetchingEnabled:  FETCHING_ENABLED(),
+    requestsToday,
+    requestsThisHour,
+    caps:             { daily: DAILY_CAP, hourly: HOURLY_CAP },
+    jobs:             qr.rows[0] ?? {},
     totalArtists:     ALL_ARTIST_SLUGS.length,
+    sentinelLastAt:   sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
   });
+});
+
+/* GET /api/kworb/admin/stats */
+router.get("/kworb/admin/stats", async (_req, res) => {
+  const [jobRow, covRow, snapRow] = await Promise.all([
+    pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status='pending') AS pending,
+        COUNT(*) FILTER (WHERE status='running') AS running,
+        COUNT(*) FILTER (WHERE status='done')    AS done,
+        COUNT(*) FILTER (WHERE status='failed')  AS failed
+      FROM kworb_jobs
+    `).then(r => r.rows[0]),
+    pool.query(`
+      SELECT
+        COUNT(*)                                                            AS total,
+        COUNT(*) FILTER (WHERE tier='A')                                   AS tier_a,
+        COUNT(*) FILTER (WHERE tier='B')                                   AS tier_b,
+        COUNT(*) FILTER (WHERE tier='C')                                   AS tier_c,
+        COUNT(*) FILTER (WHERE tier='D')                                   AS tier_d,
+        COUNT(*) FILTER (WHERE status='active')                            AS active,
+        COUNT(*) FILTER (WHERE status='not_found')                         AS not_found,
+        COUNT(*) FILTER (WHERE has_spotify)                                AS has_spotify,
+        COUNT(*) FILTER (WHERE has_youtube)                                AS has_youtube,
+        COUNT(*) FILTER (WHERE has_itunes)                                 AS has_itunes,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes) AS no_coverage
+      FROM kworb_coverage
+    `).then(r => r.rows[0]),
+    pool.query(`
+      SELECT
+        COUNT(DISTINCT artist_key)                          AS artists_with_snapshots,
+        COUNT(*) FILTER (WHERE expires_at < now())          AS stale_snapshots
+      FROM kworb_snapshots
+    `).then(r => r.rows[0]),
+  ]);
+
+  res.json({
+    fetchingEnabled:  FETCHING_ENABLED(),
+    requestsToday,
+    requestsThisHour,
+    caps:             { daily: DAILY_CAP, hourly: HOURLY_CAP },
+    queue:            jobRow   ?? {},
+    coverage:         covRow   ?? {},
+    snapshots:        snapRow  ?? {},
+    workerActive,
+    sentinelLastAt:   sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
+  });
+});
+
+/* POST /api/kworb/admin/seed-coverage  — populate coverage + queue initial jobs */
+router.post("/kworb/admin/seed-coverage", async (_req, res) => {
+  try {
+    const result = await seedCoverage(true);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/* POST /api/kworb/admin/enqueue?name=X&priority=5  — manual enqueue */
+router.post("/kworb/admin/enqueue", async (req, res) => {
+  const name     = (req.query.name as string | undefined)?.trim();
+  const priority = parseInt((req.query.priority as string | undefined) ?? "5", 10);
+  if (!name) { res.status(400).json({ error: "name required" }); return; }
+  const slug = toSlug(name);
+  await enqueueJob(slug, "all", isNaN(priority) ? 5 : priority, new Date());
+  res.json({ ok: true, slug, priority: isNaN(priority) ? 5 : priority });
 });
 
 export default router;

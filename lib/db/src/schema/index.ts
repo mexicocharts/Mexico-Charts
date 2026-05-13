@@ -18,3 +18,6 @@
 //   export type Post = typeof postsTable.$inferSelect;
 
 export * from "./artist_images";
+export * from "./kworb_coverage";
+export * from "./kworb_snapshots";
+export * from "./kworb_jobs";

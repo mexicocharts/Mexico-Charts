@@ -20,7 +20,7 @@ const BG = "#050505";
 const STATS = [
   { icon: "award",       value: "#10",     label: "Mercado global\nmúsica grabada", src: "IFPI 2026",  hi: true  },
   { icon: "trending-up", value: "+13.3%",  label: "Crecimiento de\ningresos · 2025", src: "IFPI",      hi: false },
-  { icon: "arrow-up",    value: "#15→#10", label: "Avance global\n2022 a 2024",    src: "AMPROFON",   hi: false },
+  { icon: "arrow-up",    value: "#15 al #10", label: "Avance global\n2022–2024",    src: "AMPROFON",   hi: false },
   { icon: "calendar",    value: "10 años", label: "Crecimiento\nsostenido",        src: "AMPROFON",   hi: false },
   { icon: "layers",      value: "2×",      label: "Ingresos dup.\nen cinco años",  src: "AMPROFON",   hi: false },
 ];
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     color: "#FFFFFF", fontFamily: "Anton_400Regular",
-    fontSize: 30, letterSpacing: -0.5, marginBottom: 6, lineHeight: 34,
+    fontSize: 24, letterSpacing: -0.5, marginBottom: 6, lineHeight: 28,
   },
   statLabel: {
     color: "#52525B", fontFamily: "Inter_400Regular",

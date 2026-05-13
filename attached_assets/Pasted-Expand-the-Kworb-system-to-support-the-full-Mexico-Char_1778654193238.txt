@@ -1,0 +1,34 @@
+Expand the Kworb system to support the full Mexico Charts artist database of 541 artists, but do not fetch all 541 artists in one startup warm-up or one burst.
+Goal: every artist in the database should eventually have Kworb-derived metrics if they exist on Kworb, including Spotify artist streams, YouTube views/streams, iTunes placements, Spotify song streams, and YouTube video stats where available. However, this must be done through a durable, rolling background system.
+Required architecture:
+Create a Kworb coverage table for all 541 artists. Track artist_id, artist_name, normalized_slug, kworb_spotify_id, has_kworb_spotify, has_kworb_youtube, has_kworb_itunes, last_discovered_at, last_successful_fetch_at, last_failed_fetch_at, consecutive_failures, and status.
+Do not run a full warm-up on server startup. Server startup should not trigger hundreds or thousands of Kworb requests. On startup, only resume existing queued jobs.
+Build a durable job queue for Kworb metric refreshes. Each job should include artist_id, metric_type, priority, due_at, attempts, status, and locked_at/locked_until.
+Public API routes should be cache-first. Artist profile pages and roster pages should read stored snapshots only. If data is missing or stale, return last_known_good_value and enqueue a background refresh. Do not scrape Kworb live because a user opened a page.
+Add artist priority tiers:
+Tier A: priority/current/high-traffic artists refresh daily
+Tier B: active/mid-level artists refresh every 2–3 days
+Tier C: legacy/low-change artists refresh weekly
+Tier D: missing/not found artists retry discovery every 2–4 weeks only
+Split refresh frequency by metric type:
+Spotify artist daily streams: daily for Tier A, every 2–3 days for Tier B, weekly for Tier C
+YouTube artist/video stats: daily for Tier A, every 2–3 days or weekly for lower tiers
+iTunes placements: daily only for Tier A or artists recently charting; otherwise less frequent
+Add request limits:
+No large parallel bursts
+1–2 workers max
+Random delay/jitter between requests
+Hard daily Kworb request cap
+Hard hourly request cap
+Exponential backoff after failures/null results
+Add a small sentinel update detector. Do not check all 541 artists hourly. Use a small group of major active artists to detect whether Kworb has updated for the day. Once an update is detected, enqueue the normal refresh plan.
+Store all results as durable snapshots, not only in memory. Store source, metric_type, artist_id, value, raw_value if needed, fetched_at, expires_at, and last_known_good_value.
+Add admin visibility: total Kworb requests today, queue size, failed jobs, stale artists, artists missing Kworb coverage, and last successful refresh.
+Add a kill switch like KWORB_FETCHING_ENABLED=false so Kworb fetching can be disabled instantly without breaking Mexico Charts.
+The system should support all 541 artists over time, but it must behave like a responsible rolling collector, not a startup scraper.
+The strategy is basically:
+541 artists, yes
+all at once, no
+rolling updates, yes
+cache-first profiles, absolutely
+That way Mexico Charts can grow into a real database without Kworb looking at your server like “this emerald demon is back again

@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 
@@ -171,7 +172,14 @@ function ArtistGridCard({
   photo: string | null;
 }) {
   return (
-    <View style={[styles.artistCard, { borderColor: index < 3 ? `${color}40` : "rgba(255,255,255,0.06)" }]}>
+    <TouchableOpacity
+      style={[styles.artistCard, { borderColor: index < 3 ? `${color}40` : "rgba(255,255,255,0.06)" }]}
+      activeOpacity={0.75}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push({ pathname: "/artist/[name]", params: { name: meta.displayName } });
+      }}
+    >
       {/* Rank badge */}
       <View style={[styles.artistCardRank, { backgroundColor: index < 3 ? `${color}22` : "rgba(255,255,255,0.05)" }]}>
         <Text style={[styles.artistCardRankText, { color: index < 3 ? color : "#52525B" }]}>
@@ -196,7 +204,7 @@ function ArtistGridCard({
           {meta.spotifyListenersFmt}
         </Text>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
