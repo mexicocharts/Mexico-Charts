@@ -13,15 +13,14 @@ const FETCHING_ENABLED = (): boolean =>
   process.env["KWORB_FETCHING_ENABLED"] !== "false";
 
 /* ══ Constants ════════════════════════════════════════════════════════════ */
-const DAILY_CAP      = 2_000; // max outbound kworb HTTP requests per day (541 × 3 = 1,623 + margin)
-const HOURLY_CAP     = 600;   // max per hour — allows full batch to complete in ~2.7 h
-const MAX_ATTEMPTS   = 5;     // before marking artist as not_found
+const DAILY_CAP      = 100_000; // effectively unlimited — blast through full catalog
+const HOURLY_CAP     = 100_000; // effectively unlimited
+const MAX_ATTEMPTS   = 5;       // before marking artist as not_found
+const WORKER_CONCURRENCY = 15;  // parallel workers
 
-// Fast-sync pacing: 5 s min + 0–3 s jitter = ~6.5 s avg per request
-// 541 artists × 3 pages × 6.5 s ≈ 2.9 h to complete a full daily batch
-// Worker token bucket + kill switch remain the only burst controls.
-const PACE_MIN_MS    = 5_000;  // minimum gap between individual kworb page fetches
-const PACE_JITTER_MS = 3_000;  // extra random jitter (0–3 s) on top of min
+// No pacing — run as fast as kworb allows
+const PACE_MIN_MS    = 0;
+const PACE_JITTER_MS = 0;
 
 // Tier refresh intervals (ms) — ±20% jitter is added at enqueue time
 const TIER_INTERVAL_MS: Record<string, number> = {
@@ -639,23 +638,20 @@ async function fetchAndStore(
 
 /* ══════════════════════════════════════════════════════════════════════════
    BACKGROUND WORKER
-   Single worker, rate-limited, with jitter between requests.
-   Never started in bulk at startup — picks up pending DB jobs organically.
+   Runs WORKER_CONCURRENCY parallel loops for maximum throughput.
 ══════════════════════════════════════════════════════════════════════════ */
-let workerActive = false;
+let activeWorkers = 0;
 
-async function runWorker(): Promise<void> {
-  if (workerActive) return;
-  workerActive = true;
-  console.log("[kworb:worker] Started");
-  console.log(`[kworb:worker] Fetching: ${FETCHING_ENABLED() ? "ENABLED" : "DISABLED (kill switch)"}`);
+async function runWorker(workerId: number): Promise<void> {
+  console.log(`[kworb:worker:${workerId}] Started`);
+  console.log(`[kworb:worker:${workerId}] Fetching: ${FETCHING_ENABLED() ? "ENABLED" : "DISABLED (kill switch)"}`);
 
   while (true) {
     try {
-      if (!FETCHING_ENABLED()) { await sleep(30_000); continue; }
+      if (!FETCHING_ENABLED()) { await sleep(5_000); continue; }
 
       const job = await claimNextJob();
-      if (!job) { await sleep(60_000); continue; } // no pending jobs
+      if (!job) { await sleep(5_000); continue; } // no pending jobs
 
       const [cov] = await db.select()
         .from(kworbCoverage)
@@ -731,13 +727,19 @@ async function runWorker(): Promise<void> {
         }
       }
 
-      await sleep(2_000); // brief pause between jobs
-
     } catch (err) {
-      console.error("[kworb:worker] Unhandled error:", err);
-      await sleep(30_000);
+      console.error(`[kworb:worker:${workerId}] Unhandled error:`, err);
+      await sleep(2_000);
     }
   }
+}
+
+function startWorkers(): void {
+  for (let i = 0; i < WORKER_CONCURRENCY; i++) {
+    activeWorkers++;
+    void runWorker(i + 1);
+  }
+  console.log(`[kworb:worker] ${WORKER_CONCURRENCY} parallel workers started`);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -1105,9 +1107,9 @@ async function syncCoverage(): Promise<SyncResult> {
 async function startup(): Promise<void> {
   await ingestKworbArtistsIndex();
   await loadSlugListFromCoverage();
-  void runWorker();
+  startWorkers();
   void startSentinelLoop();
-  console.log("[kworb] Startup complete — worker running, sentinel active");
+  console.log("[kworb] Startup complete — workers running, sentinel active");
   console.log(`[kworb] Kill switch: KWORB_FETCHING_ENABLED=${FETCHING_ENABLED()}`);
   console.log(`[kworb] Daily cap: ${DAILY_CAP}  Hourly cap: ${HOURLY_CAP}`);
 }
