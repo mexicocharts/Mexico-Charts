@@ -887,14 +887,37 @@ async function seedCoverage(
    Respects kill switch, token-bucket pacing, and daily/hourly caps.
 ══════════════════════════════════════════════════════════════════════════ */
 
+interface SourceComboCounts {
+  spotifyYoutubeItunes: number;
+  spotifyYoutube:       number;
+  spotifyItunes:        number;
+  youtubeItunes:        number;
+  spotifyOnly:          number;
+  youtubeOnly:          number;
+  itunesOnly:           number;
+  noCoverage:           number;
+}
+
 interface SyncResult {
-  metadataTotal:    number;   // artists parsed from the metadata sheet
-  alreadyInCoverage: number;  // already had a kworb_coverage row (skipped)
-  newAdded:         number;   // newly inserted into kworb_coverage
-  foundOnKworb:     number;   // had a Spotify ID in the in-memory index map
-  notFoundOnKworb:  number;   // no Spotify ID found; worker will attempt discovery
-  jobsEnqueued:     number;   // pending jobs created for the worker
-  errors:           string[]; // non-fatal issues
+  metadataTotal:     number;   // artists parsed from the metadata sheet
+  alreadyInCoverage: number;   // already had a kworb_coverage row (skipped)
+  newAdded:          number;   // newly inserted into kworb_coverage
+  withSpotifyId:     number;   // had a Spotify ID in the in-memory index (not yet worker-verified)
+  withoutSpotifyId:  number;   // no Spotify ID; worker will still try YouTube + iTunes independently
+  jobsEnqueued:      number;   // pending jobs created for the worker
+  errors:            string[]; // non-fatal issues
+  // Post-insert snapshot of full coverage table (reflects all artists, not just newly added)
+  coverageSummary: {
+    total:         number;
+    withSpotify:   number;
+    withYoutube:   number;
+    withItunes:    number;
+    withAny:       number;    // has_spotify OR has_youtube OR has_itunes
+    withNone:      number;    // all three false
+    withAll:       number;    // all three true
+    partial:       number;    // some but not all three
+    bySourceCombo: SourceComboCounts;
+  };
 }
 
 async function syncCoverage(): Promise<SyncResult> {
@@ -931,15 +954,23 @@ async function syncCoverage(): Promise<SyncResult> {
     metadataTotal:     metadataArtists.length,
     alreadyInCoverage: 0,
     newAdded:          0,
-    foundOnKworb:      0,
-    notFoundOnKworb:   0,
+    withSpotifyId:     0,
+    withoutSpotifyId:  0,
     jobsEnqueued:      0,
     errors:            [],
+    coverageSummary:   {
+      total: 0, withSpotify: 0, withYoutube: 0, withItunes: 0,
+      withAny: 0, withNone: 0, withAll: 0, partial: 0,
+      bySourceCombo: {
+        spotifyYoutubeItunes: 0, spotifyYoutube: 0, spotifyItunes: 0,
+        youtubeItunes: 0, spotifyOnly: 0, youtubeOnly: 0, itunesOnly: 0, noCoverage: 0,
+      },
+    },
   };
 
   const newSlugs: string[] = [];
 
-  // 3 — Insert missing artists into coverage (one by one to avoid bulk conflicts)
+  // 3 — Insert missing artists into coverage (one by one for clean conflict handling)
   for (const { name, slug } of metadataArtists) {
     if (existingKeys.has(slug)) {
       result.alreadyInCoverage++;
@@ -965,8 +996,11 @@ async function syncCoverage(): Promise<SyncResult> {
 
       result.newAdded++;
       newSlugs.push(slug);
-      if (spotifyId) result.foundOnKworb++;
-      else           result.notFoundOnKworb++;
+      // Track Spotify ID presence for informational purposes only.
+      // "No Spotify ID" does NOT mean "not on Kworb" — the worker will
+      // independently probe YouTube and iTunes by slug for every artist.
+      if (spotifyId) result.withSpotifyId++;
+      else           result.withoutSpotifyId++;
 
     } catch (err) {
       result.errors.push(`${slug}: ${String(err)}`);
@@ -976,13 +1010,12 @@ async function syncCoverage(): Promise<SyncResult> {
   // 4 — Enqueue jobs for newly added artists (staggered — no burst)
   //     Tier A: due now (sentinel will reprioritise after kworb update)
   //     Tier B: spread over 0–72 h
-  //     Others: spread over 0–7 days
   for (const slug of newSlugs) {
     try {
       const tier = TIER_A_SLUGS.has(slug) ? "A" : "B";
       const spreadMs = tier === "A"
         ? 0
-        : Math.random() * 72 * 3_600_000; // 0–72 h for new Tier B artists
+        : Math.random() * 72 * 3_600_000;
       await enqueueJob(
         slug,
         "all",
@@ -998,11 +1031,70 @@ async function syncCoverage(): Promise<SyncResult> {
   // 5 — Refresh in-memory slug list so /known-slugs reflects new artists
   await loadSlugListFromCoverage();
 
+  // 6 — Post-insert per-source summary (full coverage table, not just new adds)
+  //     This reflects what the worker has already confirmed, not just what the
+  //     index map knows at insert time.
+  try {
+    const coverageRow = await pool.query<{
+      total: string; with_spotify: string; with_youtube: string; with_itunes: string;
+      with_any: string; with_none: string; with_all: string; partial: string;
+      sp_yt_it: string; sp_yt: string; sp_it: string; yt_it: string;
+      sp_only: string; yt_only: string; it_only: string; none: string;
+    }>(`
+      SELECT
+        COUNT(*)                                                                                 AS total,
+        COUNT(*) FILTER (WHERE has_spotify)                                                     AS with_spotify,
+        COUNT(*) FILTER (WHERE has_youtube)                                                     AS with_youtube,
+        COUNT(*) FILTER (WHERE has_itunes)                                                      AS with_itunes,
+        COUNT(*) FILTER (WHERE has_spotify OR  has_youtube OR  has_itunes)                     AS with_any,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes)          AS with_none,
+        COUNT(*) FILTER (WHERE has_spotify AND  has_youtube AND  has_itunes)                   AS with_all,
+        COUNT(*) FILTER (WHERE (has_spotify OR has_youtube OR has_itunes)
+                           AND NOT (has_spotify AND has_youtube AND has_itunes))                AS partial,
+        -- source combinations
+        COUNT(*) FILTER (WHERE  has_spotify AND  has_youtube AND  has_itunes)                  AS sp_yt_it,
+        COUNT(*) FILTER (WHERE  has_spotify AND  has_youtube AND NOT has_itunes)               AS sp_yt,
+        COUNT(*) FILTER (WHERE  has_spotify AND NOT has_youtube AND  has_itunes)               AS sp_it,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND  has_youtube AND  has_itunes)               AS yt_it,
+        COUNT(*) FILTER (WHERE  has_spotify AND NOT has_youtube AND NOT has_itunes)            AS sp_only,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND  has_youtube AND NOT has_itunes)            AS yt_only,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND  has_itunes)            AS it_only,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes)         AS none
+      FROM kworb_coverage
+    `);
+    const r = coverageRow.rows[0];
+    if (r) {
+      result.coverageSummary = {
+        total:       parseInt(r.total,       10),
+        withSpotify: parseInt(r.with_spotify, 10),
+        withYoutube: parseInt(r.with_youtube, 10),
+        withItunes:  parseInt(r.with_itunes,  10),
+        withAny:     parseInt(r.with_any,     10),
+        withNone:    parseInt(r.with_none,    10),
+        withAll:     parseInt(r.with_all,     10),
+        partial:     parseInt(r.partial,      10),
+        bySourceCombo: {
+          spotifyYoutubeItunes: parseInt(r.sp_yt_it, 10),
+          spotifyYoutube:       parseInt(r.sp_yt,    10),
+          spotifyItunes:        parseInt(r.sp_it,    10),
+          youtubeItunes:        parseInt(r.yt_it,    10),
+          spotifyOnly:          parseInt(r.sp_only,  10),
+          youtubeOnly:          parseInt(r.yt_only,  10),
+          itunesOnly:           parseInt(r.it_only,  10),
+          noCoverage:           parseInt(r.none,     10),
+        },
+      };
+    }
+  } catch (err) {
+    result.errors.push(`coverageSummary query: ${String(err)}`);
+  }
+
   console.log(
     `[kworb:sync] metadata=${result.metadataTotal} ` +
     `existing=${result.alreadyInCoverage} new=${result.newAdded} ` +
-    `foundOnKworb=${result.foundOnKworb} queued=${result.jobsEnqueued} ` +
-    `errors=${result.errors.length}`,
+    `withSpotifyId=${result.withSpotifyId} withoutSpotifyId=${result.withoutSpotifyId} ` +
+    `queued=${result.jobsEnqueued} errors=${result.errors.length} ` +
+    `coverageAny=${result.coverageSummary.withAny}/${result.coverageSummary.total}`,
   );
 
   return result;
@@ -1140,20 +1232,32 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       FROM kworb_jobs
     `).then(r => r.rows[0]),
 
-    // Coverage by tier
+    // Coverage by tier + per-source counts
     pool.query(`
       SELECT
-        COUNT(*)                                                            AS total,
-        COUNT(*) FILTER (WHERE tier='A')                                   AS tier_a,
-        COUNT(*) FILTER (WHERE tier='B')                                   AS tier_b,
-        COUNT(*) FILTER (WHERE tier='C')                                   AS tier_c,
-        COUNT(*) FILTER (WHERE tier='D')                                   AS tier_d,
-        COUNT(*) FILTER (WHERE status='active')                            AS active,
-        COUNT(*) FILTER (WHERE status='not_found')                         AS not_found,
-        COUNT(*) FILTER (WHERE has_spotify)                                AS has_spotify,
-        COUNT(*) FILTER (WHERE has_youtube)                                AS has_youtube,
-        COUNT(*) FILTER (WHERE has_itunes)                                 AS has_itunes,
-        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes) AS no_coverage
+        COUNT(*)                                                                         AS total,
+        COUNT(*) FILTER (WHERE tier='A')                                                AS tier_a,
+        COUNT(*) FILTER (WHERE tier='B')                                                AS tier_b,
+        COUNT(*) FILTER (WHERE tier='C')                                                AS tier_c,
+        COUNT(*) FILTER (WHERE tier='D')                                                AS tier_d,
+        COUNT(*) FILTER (WHERE status='active')                                         AS active,
+        COUNT(*) FILTER (WHERE status='not_found')                                      AS not_found,
+        COUNT(*) FILTER (WHERE has_spotify)                                             AS has_spotify,
+        COUNT(*) FILTER (WHERE has_youtube)                                             AS has_youtube,
+        COUNT(*) FILTER (WHERE has_itunes)                                              AS has_itunes,
+        COUNT(*) FILTER (WHERE has_spotify OR  has_youtube OR  has_itunes)             AS with_any,
+        COUNT(*) FILTER (WHERE has_spotify AND has_youtube AND has_itunes)             AS with_all,
+        COUNT(*) FILTER (WHERE (has_spotify OR has_youtube OR has_itunes)
+                           AND NOT (has_spotify AND has_youtube AND has_itunes))        AS partial,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes) AS no_coverage,
+        -- source-combination breakdown
+        COUNT(*) FILTER (WHERE  has_spotify AND  has_youtube AND  has_itunes)          AS sp_yt_it,
+        COUNT(*) FILTER (WHERE  has_spotify AND  has_youtube AND NOT has_itunes)       AS sp_yt,
+        COUNT(*) FILTER (WHERE  has_spotify AND NOT has_youtube AND  has_itunes)       AS sp_it,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND  has_youtube AND  has_itunes)       AS yt_it,
+        COUNT(*) FILTER (WHERE  has_spotify AND NOT has_youtube AND NOT has_itunes)    AS sp_only,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND  has_youtube AND NOT has_itunes)    AS yt_only,
+        COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND  has_itunes)    AS it_only
       FROM kworb_coverage
     `).then(r => r.rows[0]),
 
@@ -1211,6 +1315,9 @@ router.get("/kworb/admin/stats", async (_req, res) => {
     ? ((pendingJobs * pagesPerJob) / remainingBudget).toFixed(1)
     : "0";
 
+  const n = (v: string | undefined) => parseInt(v ?? "0", 10);
+  const c = covRow ?? {} as Record<string, string>;
+
   res.json({
     fetchingEnabled:     FETCHING_ENABLED(),
     requestBudget: {
@@ -1221,7 +1328,38 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       byMetric:          requestsByMetric,
     },
     queue:               jobRow           ?? {},
-    coverage:            covRow           ?? {},
+    coverage: {
+      total:             n(c.total),
+      byTier: {
+        a:               n(c.tier_a),
+        b:               n(c.tier_b),
+        c:               n(c.tier_c),
+        d:               n(c.tier_d),
+      },
+      byStatus: {
+        active:          n(c.active),
+        not_found:       n(c.not_found),
+      },
+      bySource: {
+        withSpotify:     n(c.has_spotify),
+        withYoutube:     n(c.has_youtube),
+        withItunes:      n(c.has_itunes),
+        withAny:         n(c.with_any),
+        withAll:         n(c.with_all),
+        partial:         n(c.partial),
+        noCoverage:      n(c.no_coverage),
+      },
+      bySourceCombo: {
+        spotifyYoutubeItunes: n(c.sp_yt_it),
+        spotifyYoutube:       n(c.sp_yt),
+        spotifyItunes:        n(c.sp_it),
+        youtubeItunes:        n(c.yt_it),
+        spotifyOnly:          n(c.sp_only),
+        youtubeOnly:          n(c.yt_only),
+        itunesOnly:           n(c.it_only),
+        noCoverage:           n(c.no_coverage),
+      },
+    },
     snapshots:           snapRow          ?? {},
     refreshedToday:      refreshedTodayRow ?? {},
     oldestStaleByTier:   oldestStaleRow   ?? [],

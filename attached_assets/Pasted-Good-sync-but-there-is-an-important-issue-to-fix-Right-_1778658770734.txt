@@ -1,0 +1,75 @@
+Good sync, but there is an important issue to fix
+Right now foundOnKworb appears to mean the artist had a Spotify ID in the Kworb Spotify artist index. That is useful, but it is not enough to determine full Kworb coverage
+Some artists may not have a Spotify artist ID/page on Kworb but may still have:
+YouTube coverage
+iTunes chart coverage
+only iTunes coverage
+only YouTube coverage
+YouTube + iTunes coverage but no Spotify coverage
+So please update the Kworb coverage discovery system so Spotify is not the only gate
+Required change
+kworb_coverage should track coverage per source independently:
+has_kworb_spotify
+kworb_spotify_id
+has_kworb_youtube
+kworb_youtube_key or slug if applicable
+has_kworb_itunes
+kworb_itunes_key or slug if applicable
+coverage_status
+coverage_sources_count
+last_discovered_at
+Important rule
+Do not treat “no Spotify ID found” as “not on Kworb”
+Instead:
+no Spotify ID = no Spotify coverage found yet
+then still check YouTube and iTunes availability independently
+Discovery behavior
+For every artist in the Mexico Charts database:
+Check Spotify coverage using the Kworb Spotify artist index
+Check YouTube coverage using the existing YouTube URL/slug logic already used by fetchAndStore
+Check iTunes coverage using the existing iTunes URL/slug logic already used by fetchAndStore
+Mark the artist as found on Kworb if any of the three sources exist
+So an artist should be considered usable if:
+has_kworb_spotify || has_kworb_youtube || has_kworb_itunes
+Not only if:
+kworb_spotify_id != null
+Worker behavior
+Please confirm that fetchAndStore(metric_type = "all") does not skip YouTube/iTunes just because there is no Spotify ID
+If the current code requires Spotify ID before attempting YouTube or iTunes, refactor it so each source is attempted independently:
+If Spotify ID exists, fetch Spotify
+If YouTube key/slug exists or can be tested, fetch YouTube
+If iTunes key/slug exists or can be tested, fetch iTunes
+Store partial snapshots if only one or two sources are available
+Snapshot behavior
+Do not require all three sources to succeed
+Examples:
+Artist has Spotify only → store Spotify snapshot, mark YouTube/iTunes unavailable
+Artist has YouTube only → store YouTube snapshot, Spotify null
+Artist has iTunes only → store iTunes snapshot, Spotify/YouTube null
+Artist has Spotify + iTunes → store both, YouTube null
+A partial match is still valuable for Mexico Charts
+Admin sync/report update
+Please update /api/kworb/admin/sync-coverage and /api/kworb/admin/stats so they report source-level coverage:
+total artists in metadata
+already in coverage
+new artists added
+artists with Spotify coverage
+artists with YouTube coverage
+artists with iTunes coverage
+artists with any Kworb coverage
+artists with no Kworb coverage
+artists with partial coverage
+jobs enqueued
+errors
+Also add a report/list for artists grouped as:
+Spotify + YouTube + iTunes
+Spotify only
+YouTube only
+iTunes only
+Spotify + YouTube
+Spotify + iTunes
+YouTube + iTunes
+no coverage found
+Goal
+The Kworb system should support every artist with any usable Kworb data, not only artists found in the Spotify artist index
+Spotify ID should help discovery, but it should not be the master gate for YouTube or iTunes coverage.
