@@ -13,14 +13,15 @@ const FETCHING_ENABLED = (): boolean =>
   process.env["KWORB_FETCHING_ENABLED"] !== "false";
 
 /* ══ Constants ════════════════════════════════════════════════════════════ */
-const DAILY_CAP      = 1_800; // max outbound kworb HTTP requests per day (541 × 3 + margin)
-const HOURLY_CAP     = 180;   // max per hour (~4.3 req/min headroom)
+const DAILY_CAP      = 2_000; // max outbound kworb HTTP requests per day (541 × 3 = 1,623 + margin)
+const HOURLY_CAP     = 600;   // max per hour — allows full batch to complete in ~2.7 h
 const MAX_ATTEMPTS   = 5;     // before marking artist as not_found
 
-// Smooth pacing: target ~1 request every 25–60 s to avoid bursting kworb
-// At the midpoint (42.5 s avg) → ~2,023 requests/day, within DAILY_CAP
-const PACE_MIN_MS    = 25_000;  // minimum gap between individual kworb page fetches
-const PACE_JITTER_MS = 35_000;  // extra random jitter (0–35 s) on top of min
+// Fast-sync pacing: 5 s min + 0–3 s jitter = ~6.5 s avg per request
+// 541 artists × 3 pages × 6.5 s ≈ 2.9 h to complete a full daily batch
+// Worker token bucket + kill switch remain the only burst controls.
+const PACE_MIN_MS    = 5_000;  // minimum gap between individual kworb page fetches
+const PACE_JITTER_MS = 3_000;  // extra random jitter (0–3 s) on top of min
 
 // Tier refresh intervals (ms) — ±20% jitter is added at enqueue time
 const TIER_INTERVAL_MS: Record<string, number> = {
@@ -778,27 +779,19 @@ async function runSentinel(): Promise<void> {
       return;
     }
 
-    console.log(`[kworb:sentinel] ${SENTINEL_SLUGS.size - freshCount} sentinel(s) stale — enqueuing Tier A`);
+    console.log(`[kworb:sentinel] ${SENTINEL_SLUGS.size - freshCount} sentinel(s) stale — enqueuing full daily batch`);
 
-    // Immediately enqueue Tier A artists
-    const tierARows = await db
-      .select({ artistKey: kworbCoverage.artistKey })
+    // Enqueue all tiers immediately — no artificial spread.
+    // The worker's per-request pacing (PACE_MIN_MS + PACE_JITTER_MS) and
+    // token-bucket caps are the only throttle. Priority ordering ensures
+    // Tier A finishes first, then B, C, D in sequence.
+    const allRows = await db
+      .select({ artistKey: kworbCoverage.artistKey, tier: kworbCoverage.tier })
       .from(kworbCoverage)
-      .where(eq(kworbCoverage.tier, "A"));
+      .where(sql`tier IN ('A','B','C')`);
 
-    for (const { artistKey } of tierARows) {
-      await enqueueJob(artistKey, "all", TIER_PRIORITY.A, new Date());
-    }
-
-    // Enqueue Tier B with 0–4h spread to avoid a burst
-    const tierBRows = await db
-      .select({ artistKey: kworbCoverage.artistKey })
-      .from(kworbCoverage)
-      .where(eq(kworbCoverage.tier, "B"));
-
-    for (const { artistKey } of tierBRows) {
-      const dueAt = new Date(Date.now() + Math.random() * 4 * 3_600_000);
-      await enqueueJob(artistKey, "all", TIER_PRIORITY.B, dueAt);
+    for (const { artistKey, tier } of allRows) {
+      await enqueueJob(artistKey, "all", TIER_PRIORITY[tier] ?? 30, new Date());
     }
 
   } catch (err) {
@@ -1007,15 +1000,16 @@ async function syncCoverage(): Promise<SyncResult> {
     }
   }
 
-  // 4 — Enqueue jobs for newly added artists (staggered — no burst)
-  //     Tier A: due now (sentinel will reprioritise after kworb update)
-  //     Tier B: spread over 0–72 h
+  // 4 — Enqueue jobs for newly added artists (light stagger for initial discovery only)
+  //     Tier A: due now  |  Tier B/C: spread over 0–6 h so the first discovery
+  //     pass doesn't collide with an ongoing daily refresh batch.
+  //     Normal daily batches are enqueued by the sentinel with no spread.
   for (const slug of newSlugs) {
     try {
       const tier = TIER_A_SLUGS.has(slug) ? "A" : "B";
       const spreadMs = tier === "A"
         ? 0
-        : Math.random() * 72 * 3_600_000;
+        : Math.random() * 6 * 3_600_000; // 0–6 h initial-discovery stagger only
       await enqueueJob(
         slug,
         "all",
