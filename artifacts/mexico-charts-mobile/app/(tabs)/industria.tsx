@@ -135,7 +135,7 @@ export default function IndustriaScreen() {
               <View key={m.year} style={styles.milestoneRow}>
                 {/* Line + dot */}
                 <View style={styles.milestoneLeft}>
-                  <View style={[styles.milestoneDot, i === MILESTONES.length - 1 && { backgroundColor: NEON, boxShadow: `0 0 8px ${NEON}` } as any]} />
+                  <View style={[styles.milestoneDot, i === MILESTONES.length - 1 && { backgroundColor: NEON }]} />
                   {i < MILESTONES.length - 1 && <View style={styles.milestoneLine} />}
                 </View>
                 <View style={styles.milestoneContent}>
