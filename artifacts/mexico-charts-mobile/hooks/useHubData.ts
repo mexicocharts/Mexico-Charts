@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useArtistMetadata, ArtistMeta } from "./useArtistMetadata";
 
 // ── Raw shape from /api/charts/hub ──────────────────────────────────────────
 
@@ -44,11 +46,63 @@ export interface TickerItem {
   display: string;
 }
 
+// ── Genre config (centralised here so all consumers share one source) ────────
+
+interface GenreConfig {
+  label: string;
+  displayLabel: string;
+  color: string;
+  synonyms: string[];
+  description: string;
+}
+
+const GENRE_CONFIG: GenreConfig[] = [
+  { label: "corridos-tumbados", displayLabel: "CORRIDOS TUMBADOS", color: "#39FF14", synonyms: ["corridos tumbados", "corrido tumbado", "corridos"], description: "El género que redefinió la música mexicana" },
+  { label: "regional-mexicano", displayLabel: "REGIONAL MEXICANO", color: "#4ade80", synonyms: ["regional mexicano", "regional", "reg. mexicano"], description: "Música que lleva las raíces de México al mundo" },
+  { label: "norteno", displayLabel: "NORTEÑO", color: "#86efac", synonyms: ["norteño", "norteno", "nortena"], description: "El sonido clásico del norte de México" },
+  { label: "banda", displayLabel: "BANDA", color: "#a3e635", synonyms: ["banda", "banda sinaloense"], description: "La banda que mueve masas en México y USA" },
+  { label: "hip-hop", displayLabel: "HIP-HOP MEXICANO", color: "#facc15", synonyms: ["hip-hop", "hip hop mexicano", "hip hop", "rap mexicano"], description: "El nuevo rap hecho en México" },
+  { label: "pop", displayLabel: "POP MEXICANO", color: "#fb923c", synonyms: ["pop", "pop mexicano", "pop latino"], description: "Pop hecho en México con alcance global" },
+];
+
+export interface GenreStat {
+  label: string;
+  displayLabel: string;
+  color: string;
+  description: string;
+  artists: ArtistMeta[];
+  totalStreams: number;
+}
+
+function matchesGenreConfig(meta: ArtistMeta, config: GenreConfig): boolean {
+  const sub = (meta.subgenre ?? "").toLowerCase();
+  const gen = (meta.genre ?? "").toLowerCase();
+  return config.synonyms.some((s) => sub.includes(s) || gen.includes(s));
+}
+
+function buildGenreStats(artists: ArtistMeta[]): GenreStat[] {
+  return GENRE_CONFIG.map((config) => {
+    const matched = artists
+      .filter((a) => matchesGenreConfig(a, config))
+      .sort((a, b) => b.spotifyStreams - a.spotifyStreams);
+    const totalStreams = matched.reduce((sum, a) => sum + a.spotifyStreams, 0);
+    return {
+      label: config.label,
+      displayLabel: config.displayLabel,
+      color: config.color,
+      description: config.description,
+      artists: matched,
+      totalStreams,
+    };
+  });
+}
+
 export interface HubData {
   rows: HubRow[];
   mexicanRows: HubRow[];
   ascensoItems: AscensoItem[];
   tickerItems: TickerItem[];
+  genreStats: GenreStat[];
   isLoading: boolean;
   hasError: boolean;
 }
@@ -197,12 +251,18 @@ export function useHubData(): HubData {
     retry: 2,
   });
 
+  // Artist metadata powers genre stats — sourced from /api/artists/metadata
+  const { artists, isLoading: metaLoading } = useArtistMetadata();
+
+  const genreStats = useMemo(() => buildGenreStats(artists), [artists]);
+
   return {
     rows: data?.rows ?? [],
     mexicanRows: data?.mexicanRows ?? [],
     ascensoItems: data?.ascensoItems ?? [],
     tickerItems: data?.tickerItems ?? [],
-    isLoading,
+    genreStats,
+    isLoading: isLoading || metaLoading,
     hasError: !!error,
   };
 }
