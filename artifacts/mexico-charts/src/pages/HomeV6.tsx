@@ -1263,14 +1263,30 @@ export default function HomeV6() {
               </div>
             </div>
             {[
-              { title:"Explorar",  links:["Charts","Artistas","Touring","Streaming","Noticias"] },
-              { title:"Géneros",   links:["Corridos Tumbados","Regional Mexicano","Banda","Norteño","Pop"] },
-              { title:"Compañía", links:["Acerca de","Metodología","Contacto","Privacidad"] },
+              { title:"Explorar", links:[
+                { label:"Charts",           href:"/charts" },
+                { label:"Artistas",         href:"/artists" },
+                { label:"Touring",          href:"/touring" },
+                { label:"Certificaciones",  href:"/industry/certifications" },
+                { label:"Industria",        href:"/industria" },
+              ]},
+              { title:"Compañía", links:[
+                { label:"Acerca de",   href:"#" },
+                { label:"Metodología", href:"#" },
+                { label:"Contacto",    href:"#" },
+                { label:"Privacidad",  href:"#" },
+              ]},
             ].map(col => (
               <div key={col.title}>
                 <h4 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-400 mb-4">{col.title}</h4>
                 <ul className="flex flex-col gap-2.5">
-                  {col.links.map(link => <li key={link}><a href="#" className="text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-xs">{link}</a></li>)}
+                  {col.links.map(({ label, href }) => (
+                    <li key={label}>
+                      <Link href={href}>
+                        <span className="text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-xs cursor-pointer">{label}</span>
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </div>
             ))}
