@@ -3,13 +3,14 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
+import { useSpotifyChart, parseMovement, fmtStreams } from "../useChartData";
 
-const TOP3: ChartRowData[] = [
+const FALLBACK_TOP3: ChartRowData[] = [
   { rank: 1, title: "Ella Baila Sola", subtitle: "Peso Pluma · Eslabon Armado", stat: "21.4M", movement: 0,  peak: 1, weeks: 12 },
   { rank: 2, title: "Cupido",          subtitle: "TINI · Myke Towers",          stat: "18.9M", movement: 1,  peak: 2, weeks: 8  },
   { rank: 3, title: "LALA",            subtitle: "Myke Towers",                 stat: "16.7M", movement: -1, peak: 1, weeks: 5  },
 ];
-const REST: ChartRowData[] = [
+const FALLBACK_REST: ChartRowData[] = [
   { rank: 4,  title: "La Bebe (Remix)",    subtitle: "Peso Pluma · Yng Lvcas",    stat: "14.2M", movement: 2,  peak: 3,  weeks: 7  },
   { rank: 5,  title: "Chanel",             subtitle: "Bizarrap · Peso Pluma",      stat: "13.1M", movement: 0,  peak: 5,  weeks: 4  },
   { rank: 6,  title: "Cayó La Noche",      subtitle: "Junior H · Peso Pluma",      stat: "11.8M", movement: -2, peak: 4,  weeks: 10 },
@@ -20,15 +21,31 @@ const REST: ChartRowData[] = [
 ];
 
 export default function WeeklyTopSongs() {
+  const { data } = useSpotifyChart("weekly");
+
+  const allRows: ChartRowData[] = data?.entries?.slice(0, 10).map(e => ({
+    rank: e.pos,
+    title: e.title,
+    subtitle: [e.artist, ...e.features].join(" · "),
+    stat: fmtStreams(e.streams),
+    ...parseMovement(e.posChange),
+    imageUrl: e.coverUrl,
+  })) ?? [];
+
+  const top3 = allRows.length > 0 ? allRows.slice(0, 3) : FALLBACK_TOP3;
+  const rest  = allRows.length > 0 ? allRows.slice(3, 10) : FALLBACK_REST;
+
+  const dateLabel = data
+    ? `Semana del ${new Date(data.fetchedAt).toLocaleDateString("es-MX", { day: "numeric", month: "long" })}`
+    : "Semana del 13 Mayo";
+
   return (
     <TemplateCanvas>
-      {/* Deep emerald overhead glow */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 700,
         background: `radial-gradient(ellipse 85% 100% at 50% -10%, ${ACCENT}12 0%, ${ACCENT}06 45%, transparent 70%)`,
         pointerEvents: "none",
       }} />
-      {/* Left side haze */}
       <div style={{
         position: "absolute", top: "10%", left: -60,
         width: 400, height: 400,
@@ -37,24 +54,17 @@ export default function WeeklyTopSongs() {
         pointerEvents: "none",
       }} />
 
-      <LogoBar date="Semana del 13 Mayo" />
+      <LogoBar date={dateLabel} />
       <AccentLine />
 
-      {/* Header */}
       <div style={{ padding: "24px 64px 18px", position: "relative", zIndex: 2 }}>
         <SectionLabel>Top Canciones</SectionLabel>
         <div style={{
-          fontSize: 108,
-          fontWeight: 900,
-          color: "#fff",
-          letterSpacing: "-0.05em",
-          lineHeight: 0.84,
-          textTransform: "uppercase",
-          marginTop: 4,
+          fontSize: 108, fontWeight: 900, color: "#fff",
+          letterSpacing: "-0.05em", lineHeight: 0.84,
+          textTransform: "uppercase", marginTop: 4,
           textShadow: "0 2px 60px rgba(0,0,0,0.8)",
-        }}>
-          SEMANALES
-        </div>
+        }}>SEMANALES</div>
         <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
           <PlatformBadge platform="spotify" />
         </div>
@@ -62,8 +72,8 @@ export default function WeeklyTopSongs() {
 
       <AccentLine opacity={0.35} />
 
-      {/* Top 3 — editorial treatment */}
-      {TOP3.map((s) => (
+      {/* Top 3 editorial rows */}
+      {top3.map((s) => (
         <div key={s.rank} style={{
           display: "flex", alignItems: "center", padding: "0 64px",
           height: 86,
@@ -90,15 +100,32 @@ export default function WeeklyTopSongs() {
           }}>
             {String(s.rank).padStart(2, "0")}
           </div>
-          <MovementBadge movement={s.movement} />
+          <MovementBadge movement={s.movement} isNew={s.isNew} />
+          {/* Album art thumbnail */}
+          {"imageUrl" in s && (
+            <div style={{
+              width: 52, height: 52, flexShrink: 0,
+              borderRadius: 8, overflow: "hidden",
+              background: "linear-gradient(135deg,#1e1e1e,#0c0c0c)",
+              border: "1px solid rgba(255,255,255,0.07)",
+            }}>
+              {s.imageUrl ? (
+                <img src={s.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }} />
+              ) : (
+                <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 40% 35%, ${ACCENT}15,#0d0d0d)` }}>
+                  <span style={{ fontSize: 22, color: ACCENT, opacity: 0.3 }}>♪</span>
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: s.rank === 1 ? 30 : 26, fontWeight: 800, color: "#fff", letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {s.title}
             </div>
             <div style={{ display: "flex", gap: 14, marginTop: 4 }}>
               <span style={{ fontSize: 16, color: "rgba(255,255,255,0.26)" }}>{s.subtitle}</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.14)", letterSpacing: "0.07em" }}>PICO #{s.peak}</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.14)", letterSpacing: "0.07em" }}>{s.weeks} SEM</span>
+              {s.peak && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.14)", letterSpacing: "0.07em" }}>PICO #{s.peak}</span>}
+              {s.weeks && <span style={{ fontSize: 13, color: "rgba(255,255,255,0.14)", letterSpacing: "0.07em" }}>{s.weeks} SEM</span>}
             </div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -111,7 +138,6 @@ export default function WeeklyTopSongs() {
         </div>
       ))}
 
-      {/* 4–10 divider */}
       <div style={{
         display: "flex", alignItems: "center", padding: "0 64px", height: 34,
         background: `${ACCENT}05`,
@@ -122,7 +148,7 @@ export default function WeeklyTopSongs() {
         <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.05)" }} />
       </div>
 
-      <div>{REST.map(s => <ChartRow key={s.rank} row={s} compact showMeta />)}</div>
+      <div>{rest.map(s => <ChartRow key={s.rank} row={s} compact showMeta={!data} />)}</div>
 
       <AccentLine opacity={0.08} />
       <CTAFooter compact />

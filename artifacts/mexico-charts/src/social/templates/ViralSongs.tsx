@@ -3,24 +3,41 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
+import { useChartsHub, useArtistImageMap, primaryArtist } from "../useChartData";
 
-const VIRAL: ChartRowData[] = [
-  { rank: 1,  title: "El Azul",             subtitle: "Fuerza Regida · Peso Pluma", stat: "↑ 840%", isNew: true },
-  { rank: 2,  title: "Chuy",                subtitle: "Junior H",                   stat: "↑ 610%", movement: 2 },
-  { rank: 3,  title: "Primera Cita",        subtitle: "Carin León",                 stat: "↑ 490%", isNew: true },
-  { rank: 4,  title: "El Mechón",           subtitle: "Natanael Cano",              stat: "↑ 380%", movement: -1 },
-  { rank: 5,  title: "Quedate",             subtitle: "Grupo Frontera",             stat: "↑ 310%", movement: 1 },
-  { rank: 6,  title: "Chabelo",             subtitle: "Peso Pluma",                 stat: "↑ 280%", movement: 0 },
-  { rank: 7,  title: "Del Rancho",          subtitle: "Grupo Frontera",             stat: "↑ 240%", isNew: true },
-  { rank: 8,  title: "La Noche de Anoche", subtitle: "Bad Bunny · Rosalía",        stat: "↑ 195%", movement: -3 },
-  { rank: 9,  title: "Mente en Blanco",    subtitle: "Junior H",                   stat: "↑ 175%", movement: 2 },
-  { rank: 10, title: "Playa Grande",        subtitle: "Carin León",                 stat: "↑ 160%", movement: 0 },
+const FALLBACK: ChartRowData[] = [
+  { rank: 1,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma", stat: "↑840%",  isNew: true  },
+  { rank: 2,  title: "Chuy",               subtitle: "Junior H",                  stat: "↑610%",  movement: 2  },
+  { rank: 3,  title: "Primera Cita",       subtitle: "Carin León",                stat: "↑490%",  isNew: true  },
+  { rank: 4,  title: "El Mechón",          subtitle: "Natanael Cano",             stat: "↑380%",  movement: -1 },
+  { rank: 5,  title: "Quedate",            subtitle: "Grupo Frontera",            stat: "↑310%",  movement: 1  },
+  { rank: 6,  title: "Chabelo",            subtitle: "Peso Pluma",               stat: "↑280%",  movement: 0  },
+  { rank: 7,  title: "Del Rancho",         subtitle: "Grupo Frontera",            stat: "↑240%",  isNew: true  },
+  { rank: 8,  title: "La Noche de Anoche", subtitle: "Bad Bunny · Rosalía",      stat: "↑195%",  movement: -3 },
+  { rank: 9,  title: "Mente en Blanco",    subtitle: "Junior H",                 stat: "↑175%",  movement: 2  },
+  { rank: 10, title: "Playa Grande",       subtitle: "Carin León",               stat: "↑160%",  movement: 0  },
 ];
 
 export default function ViralSongs() {
+  const { data: hub } = useChartsHub();
+  const viralRows = hub?.sheets?.Spotify_Viral_Daily?.rows?.slice(0, 10) ?? [];
+  const artistNames = viralRows.map(r => primaryArtist(r["artist_names"] ?? ""));
+  const { data: images } = useArtistImageMap(artistNames);
+
+  const rows: ChartRowData[] = viralRows.length > 0
+    ? viralRows.map((r, i) => ({
+        rank: i + 1,
+        title: r["track_name"] ?? "",
+        subtitle: r["artist_names"] ?? "",
+        stat: r["days_on_chart"] ? `${r["days_on_chart"]}d` : undefined,
+        movement: 0,
+        imageUrl: images?.[primaryArtist(r["artist_names"] ?? "")] ?? null,
+        roundImage: true,
+      }))
+    : FALLBACK;
+
   return (
     <TemplateCanvas>
-      {/* Intense green radial — top central */}
       <div style={{
         position: "absolute", top: "-15%", left: "50%",
         transform: "translateX(-50%)",
@@ -29,8 +46,6 @@ export default function ViralSongs() {
         filter: "blur(30px)",
         pointerEvents: "none",
       }} />
-
-      {/* Secondary glow — bottom right, softer */}
       <div style={{
         position: "absolute", bottom: -100, right: -100,
         width: 600, height: 600,
@@ -38,8 +53,6 @@ export default function ViralSongs() {
         filter: "blur(80px)",
         pointerEvents: "none",
       }} />
-
-      {/* Motion streak lines — diagonal energy */}
       {[...Array(7)].map((_, i) => (
         <div key={i} style={{
           position: "absolute",
@@ -51,10 +64,9 @@ export default function ViralSongs() {
         }} />
       ))}
 
-      <LogoBar date="13 Mayo 2026" />
+      <LogoBar date={hub ? new Date(hub.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }) : "13 Mayo 2026"} />
       <AccentLine color={ACCENT} opacity={0.9} />
 
-      {/* Header */}
       <div style={{ padding: "28px 64px 14px", position: "relative", zIndex: 2 }}>
         <SectionLabel>Tendencias · TikTok &amp; Redes</SectionLabel>
         <div style={{
@@ -78,7 +90,6 @@ export default function ViralSongs() {
         </div>
       </div>
 
-      {/* Column header with green accent */}
       <div style={{
         display: "flex", padding: "0 64px", height: 42, alignItems: "center", gap: 18,
         background: `linear-gradient(90deg, ${ACCENT}09 0%, transparent 70%)`,
@@ -88,15 +99,16 @@ export default function ViralSongs() {
       }}>
         <div style={{ width: 56 }} />
         <div style={{ width: 44 }} />
+        {viralRows.length > 0 && <div style={{ width: 44 }} />}
         <div style={{ flex: 1, fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.18)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
           Canción · Artista
         </div>
         <div style={{ fontSize: 12, fontWeight: 800, color: `${ACCENT}90`, letterSpacing: "0.2em", textTransform: "uppercase" }}>
-          Crecimiento
+          {viralRows.length > 0 ? "Días" : "Crecimiento"}
         </div>
       </div>
 
-      <div>{VIRAL.map(s => <ChartRow key={s.rank} row={s} compact accent={ACCENT} />)}</div>
+      <div>{rows.map(s => <ChartRow key={s.rank} row={s} compact accent={ACCENT} />)}</div>
 
       <div style={{ flex: 1 }} />
       <AccentLine color={ACCENT} opacity={0.2} />

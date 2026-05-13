@@ -349,6 +349,8 @@ export interface ChartRowData {
   isNew?: boolean;
   peak?: number;
   weeks?: number;
+  imageUrl?: string | null;
+  roundImage?: boolean;
 }
 
 export function ChartRow({
@@ -408,6 +410,35 @@ export function ChartRow({
       </div>
 
       <MovementBadge movement={row.movement} isNew={row.isNew} size={compact ? "sm" : "md"} />
+
+      {/* Thumbnail — only rendered when imageUrl is explicitly set */}
+      {"imageUrl" in row && (
+        <div style={{
+          width: compact ? 44 : 52,
+          height: compact ? 44 : 52,
+          flexShrink: 0,
+          borderRadius: row.roundImage ? "50%" : 8,
+          overflow: "hidden",
+          background: `linear-gradient(135deg, #1e1e1e, #0c0c0c)`,
+          border: "1px solid rgba(255,255,255,0.07)",
+        }}>
+          {row.imageUrl ? (
+            <img
+              src={row.imageUrl}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }}
+            />
+          ) : (
+            <div style={{
+              width: "100%", height: "100%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: `radial-gradient(circle at 40% 35%, ${accent}15, #0d0d0d)`,
+            }}>
+              <span style={{ fontSize: compact ? 18 : 22, color: accent, opacity: 0.3 }}>♪</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
