@@ -313,37 +313,62 @@ const inputStyle: React.CSSProperties = {
   boxSizing: "border-box",
 };
 
-/* ── Image load waiter ────────────────────────────────────────── */
-async function waitForImages(el: HTMLElement): Promise<void> {
-  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img"));
+/* ── Blob → data URL ──────────────────────────────────────────── */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/* ── Inline all <img> srcs as base64 data URLs before toPng ──── */
+async function inlineImages(el: HTMLElement): Promise<void> {
+  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img[src]"));
+  console.log("[export] inlining", imgs.length, "images:", imgs.map(i => i.getAttribute("src")));
   await Promise.allSettled(
-    imgs.map(img =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise<void>(resolve => {
-            img.addEventListener("load", () => resolve(), { once: true });
-            img.addEventListener("error", () => resolve(), { once: true });
-          })
-    )
+    imgs.map(async (img) => {
+      const src = img.getAttribute("src");
+      if (!src || src.startsWith("data:")) return;
+      try {
+        // Route through our proxy for any http/https URL, fetch same-origin paths directly
+        const fetchUrl = src.startsWith("http")
+          ? `/api/image-proxy?url=${encodeURIComponent(src)}`
+          : src;
+        console.log("[export] fetching", fetchUrl);
+        const res = await fetch(fetchUrl, { cache: "no-cache" });
+        if (!res.ok) {
+          console.warn("[export] image fetch failed:", fetchUrl, res.status);
+          return;
+        }
+        const blob = await res.blob();
+        const dataUrl = await blobToDataUrl(blob);
+        img.setAttribute("src", dataUrl);
+        console.log("[export] inlined", src.substring(0, 60));
+      } catch (err) {
+        console.warn("[export] image inline error:", src, err);
+      }
+    })
   );
+  // Allow browser to apply new src values
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 }
 
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   // Wait for fonts to be fully loaded
   await document.fonts.ready;
-  // Wait for every <img> inside the capture element
-  await waitForImages(el);
-  // Let the browser finish painting
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // Fetch every <img> via our proxy and replace src with base64 data URLs.
+  // This guarantees html-to-image sees only same-origin data: URLs and never
+  // needs to make any external CDN fetch (which would be blocked by CORS).
+  await inlineImages(el);
 
   const dataUrl = await toPng(el, {
     width: 1080,
     height: 1350,
     pixelRatio: 1,
     backgroundColor: "#050505",
-    // no-cache forces a fresh CORS-aware fetch — avoids stale non-CORS cached responses
-    fetchRequestInit: { mode: "cors", cache: "no-cache" },
     skipFonts: false,
   });
 
