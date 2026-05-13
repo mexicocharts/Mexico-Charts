@@ -350,12 +350,14 @@ function Lightbox({
     if (!captureRef.current || downloading) return;
     setDownloading(true);
     const el = captureRef.current;
-    // Temporarily escape the overflow:hidden fixed lightbox by switching to
-    // position:fixed at top-left corner — invisible but in the layout for html2canvas.
     const saved = el.style.cssText;
+    // Escape the overflow:hidden lightbox by going position:fixed.
+    // z-index:1 keeps it behind the lightbox (z-index:50) so the user
+    // never sees it, but html2canvas can capture it (visibility:hidden
+    // causes a blank render so we must NOT use it here).
     el.style.cssText =
       "position:fixed;top:0;left:0;width:1080px;height:1350px;" +
-      "visibility:hidden;pointer-events:none;z-index:-9999;overflow:hidden;";
+      "pointer-events:none;z-index:1;overflow:hidden;";
     // Wait two animation frames so the browser paints the repositioned element
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
