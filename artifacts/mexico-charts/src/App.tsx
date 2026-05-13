@@ -16,6 +16,7 @@ import GeneroHub from "@/pages/GeneroHub";
 import TouringHub from "@/pages/TouringHub";
 import TouringProfile from "@/pages/TouringProfile";
 import LuisMiguelProfile from "@/pages/LuisMiguelProfile";
+import SocialTemplates from "@/pages/SocialTemplates";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/touring/:slug" component={TouringProfile} />
       <Route path="/touring" component={TouringHub} />
       <Route path="/artist/:slug" component={ArtistDetail} />
+      <Route path="/social-templates" component={SocialTemplates} />
       <Route component={NotFound} />
     </Switch>
     </>

@@ -1,0 +1,118 @@
+Create a complete Mexico Charts social media template system for Instagram/Facebook posts.
+
+Goal: make reusable premium templates that match the Mexico Charts brand: cinematic, luxury, editorial, black background, neon emerald green accents, soft white/gray text, dramatic lighting, subtle grain/glow, modern music-platform energy. Think Spotify Wrapped + Apple keynote + Billboard chart authority, not esports, not generic analytics dashboard, not colorful clutter.
+
+Use the existing Mexico Charts logo/branding. Do not redesign the logo.
+
+Create templates in Instagram 4:5 vertical format first, with versions that can also adapt to square if needed.
+
+Templates needed:
+
+1. Daily Top Songs
+- Header: “TOP CANCIONES DIARIAS”
+- Platform/source label area: Spotify / Apple Music / YouTube / Deezer
+- Date area
+- Ranking list for Top 10
+- Keep artist photos optional/off by default so the account does not look like a fan page for the same #1 artist every day
+- Make the #1 feel premium but not oversized in a cheesy way
+
+2. Daily Top Artists
+- Header: “TOP ARTISTAS DIARIOS”
+- Rank, artist, movement, streams/listeners if available
+- Clean list format
+- Optional subtle artist silhouette/photo area, not required
+
+3. Weekly Top Songs
+- Header: “TOP CANCIONES SEMANALES”
+- Bigger editorial layout than daily posts
+- Include rank movement, peak, weeks if available
+- More premium and “official chart” looking
+
+4. Weekly Top Albums
+- Header: “TOP ÁLBUMES SEMANALES”
+- Include album cover area
+- Top 5 or Top 10 format
+- Make covers look cinematic with shadows/glow, not plain boxes
+
+5. Viral Songs
+- Header: “VIRAL MÉXICO”
+- More energetic design, but still Mexico Charts premium
+- Use green glow, motion lines, blurred background textures
+- Avoid neon rainbow colors
+
+6. Artist Milestone Post
+- Example headline: “[ARTISTA] supera [NÚMERO] streams”
+- Large dramatic headline
+- Artist image area
+- Supporting stat line
+- Small source/date area
+- Good for achievements, records, and milestones
+
+7. Industry/Market Insight
+- Example headline: “México entra al Top 10 global”
+- Editorial/report style
+- Big stat number
+- Short context paragraph
+- Source area
+- Should feel like a premium music-business report, not a chart card
+
+8. Touring Data Post
+- Headline: “[TOUR] recauda [GROSS]”
+- Include gross, tickets, shows, average gross if available
+- Use concert/stage-inspired background
+- Source/date area
+- Make it feel powerful and cinematic
+
+9. Quote/Headline Post
+- Big oversized typography
+- Minimal design
+- For bold statements, announcements, and captions
+- No unnecessary boxes
+
+10. Carousel Cover Template
+- Strong cover slide for Instagram carousel
+- Big cinematic title
+- Mexico Charts logo
+- Date/source
+- Designed to make people swipe
+
+11. Carousel Data Slide Template
+- For slides 2–8
+- Reusable layout for chart facts, bullet insights, small rankings, artist comparisons, or source notes
+- Consistent with cover design but slightly cleaner
+
+12. Final CTA Slide
+- Text examples:
+  - “Sigue a Mexico Charts para más datos de la música mexicana”
+  - “Datos. Cultura. Impacto.”
+  - “México en los charts globales”
+- Include website/social handle area
+
+Design rules:
+- Black/dark background
+- Emerald green as the only strong accent color
+- White and gray text only
+- No gold
+- No random colors
+- No esports style
+- No generic dashboard cards
+- No overuse of boxes
+- Use big typography, cinematic spacing, subtle depth, glows, shadows, gradients, atmospheric grain
+- Avoid clutter
+- Avoid periods at the end of short stylistic headlines
+- Spanish text only on the templates
+- Keep source/date areas clean and small
+- Every template must feel like part of the same Mexico Charts system
+
+Also create reusable components:
+- Chart row component
+- Rank number component
+- Movement indicator component
+- Source/date footer
+- Platform badge
+- Artist image frame
+- Album cover frame
+- Large stat number style
+- Mexico Charts branded CTA footer
+
+Deliver this as a template library inside the project so I can reuse these layouts for future social posts.
