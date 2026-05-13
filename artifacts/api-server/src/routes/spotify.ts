@@ -212,6 +212,27 @@ seedCacheFromDb().then(() => {
   setTimeout(() => void warmCacheFromSheet(), 2000);
 });
 
+/* ── Route: POST /api/admin/refresh-images
+   Force-runs the sheet warm-up again (picks up newly added artists).
+   Clears missCache first so previously failed lookups are retried.
+   Returns immediately — the actual fetch runs in the background.
+── */
+router.post("/admin/refresh-images", (_req, res) => {
+  missCache.clear();
+  void warmCacheFromSheet();
+  res.json({ ok: true, message: "Image refresh started in background — check server logs" });
+});
+
+/* ── Route: GET /api/admin/image-stats
+   Returns a quick summary of how many artists have images cached.
+── */
+router.get("/admin/image-stats", (_req, res) => {
+  res.json({
+    cached: imageCache.size,
+    recentMisses: missCache.size,
+  });
+});
+
 /* ── Route: GET /api/spotify/artist-images?names=A,B,C ── */
 router.get("/spotify/artist-images", async (req, res) => {
   const namesParam = req.query.names as string;

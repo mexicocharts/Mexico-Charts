@@ -1,51 +1,39 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
-import { useTouring, type ArtistTours, type TmEvent } from "@/hooks/useTouring";
+import { useTouring, type ArtistTours } from "@/hooks/useTouring";
+import { useArtistImages } from "@/hooks/useArtistImages";
 
-const HERO_BG     = "/touring-hero.png";
-const ARTIST_BACK = "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=640&h=620&fit=crop&q=80";
-const INSIGHT1    = "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=220&fit=crop&q=70";
-const INSIGHT2    = "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=220&fit=crop&q=70";
-const INSIGHT3    = "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=220&fit=crop&q=70";
-const INSIGHT4    = "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=220&fit=crop&q=70";
-
-const FALLBACK_IMGS: Record<string, string> = {
-  "fuerza-regida":    "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400&h=500&fit=crop&q=75",
-  "banda-ms":         "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&h=500&fit=crop&q=75",
-  "grupo-firme":      "https://images.unsplash.com/photo-1429962714451-bb934ecdc4ec?w=400&h=500&fit=crop&q=75",
-  "junior-h":         "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400&h=500&fit=crop&q=75",
-  "peso-pluma":       "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&h=500&fit=crop&q=75",
-  "eslabon-armado":   "https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=500&fit=crop&q=75",
-  "natanael-cano":    "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=500&fit=crop&q=75",
-  "carin-leon":       "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
-  "eden-munoz":       "https://images.unsplash.com/photo-1598387993281-cecf8b71a8f8?w=400&h=500&fit=crop&q=75",
-  "christian-nodal":  "https://images.unsplash.com/photo-1460723237483-7a6dc9d0b212?w=400&h=500&fit=crop&q=75",
-  "larry-hernandez":  "https://images.unsplash.com/photo-1504704911898-68304a7d2807?w=400&h=500&fit=crop&q=75",
-  "xavi":             "https://images.unsplash.com/photo-1571935441008-e6244ff434d8?w=400&h=500&fit=crop&q=75",
-  "los-dos-carnales": "https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400&h=500&fit=crop&q=75",
-  "luis-miguel":      "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400&h=500&fit=crop&q=75",
-};
+const HERO_BG = "/touring-hero.png";
 
 const PROFILE_SLUGS: Record<string, string> = {
   "junior-h":    "junior-h",
   "luis-miguel": "luis-miguel",
 };
 
+const profileCards = [
+  { artist: "Peso Pluma",   subtitle: "Éxodo Tour 2024",       gross: "$87.4M",  tickets: "758K",  shows: 288, slug: "peso-pluma"  },
+  { artist: "Luis Miguel",  subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel" },
+  { artist: "Junior H",     subtitle: "Sad Boyz",              gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h"   },
+  { artist: "Grupo Firme",  subtitle: "Tour 2022–2023",        gross: "$81.6M",  tickets: "687K",  shows: 72,  slug: "grupo-firme"},
+];
+
+const PROFILE_CARD_NAMES = profileCards.map((p) => p.artist);
+
 const insights = [
-  { tag: "Análisis",   title: "El Crecimiento Global de la Música Mexicana", date: "10 Mayo, 2024",  image: INSIGHT1 },
-  { tag: "Data Story", title: "Tumbado en USA: Números que Impactan",         date: "28 Abril, 2024", image: INSIGHT2 },
-  { tag: "Artículo",  title: "De la Calle a los Escenarios Más Grandes",     date: "15 Abril, 2024", image: INSIGHT3 },
-  { tag: "Mercados",  title: "México en los Escenarios del Mundo",            date: "03 Abril, 2024", image: INSIGHT4 },
+  { tag: "Análisis",   title: "El Crecimiento Global de la Música Mexicana", date: "10 Mayo, 2024"  },
+  { tag: "Data Story", title: "Tumbado en USA: Números que Impactan",         date: "28 Abril, 2024" },
+  { tag: "Artículo",  title: "De la Calle a los Escenarios Más Grandes",     date: "15 Abril, 2024" },
+  { tag: "Mercados",  title: "México en los Escenarios del Mundo",            date: "03 Abril, 2024" },
 ];
 
 function formatDate(iso: string): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  return `${d} ${months[parseInt(m,10)-1]} ${y}`;
+  return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 }
 
 const fadeUp = (delay = 0) => ({
@@ -71,8 +59,16 @@ function SectionHeading({ white, green }: { white: string; green: string }) {
   );
 }
 
-function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
-  const photo = artist.events[0]?.img ?? FALLBACK_IMGS[artist.id] ?? null;
+function ShelfCard({
+  artist,
+  idx,
+  deezerPhoto,
+}: {
+  artist: ArtistTours;
+  idx: number;
+  deezerPhoto: string | null;
+}) {
+  const photo = artist.events[0]?.img ?? deezerPhoto ?? null;
   const profileSlug = PROFILE_SLUGS[artist.id];
   const nextEv = artist.events[0];
   const accent = idx === 0 ? "#39FF14" : idx === 1 ? "rgba(57,255,20,0.7)" : "rgba(57,255,20,0.45)";
@@ -89,7 +85,9 @@ function ShelfCard({ artist, idx }: { artist: ArtistTours; idx: number }) {
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderRadius: 12 }}>
         <div style={{
           position: "absolute", inset: 0,
-          background: photo ? `url(${photo}) center top / cover no-repeat` : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
+          background: photo
+            ? `url(${photo}) center top / cover no-repeat`
+            : "linear-gradient(160deg, #0a0a0a 0%, #141414 100%)",
           filter: photo ? "brightness(0.8) saturate(0.6) contrast(1.1)" : undefined,
           transition: "filter 0.3s",
         }} />
@@ -136,13 +134,6 @@ function SkeletonShelfCard() {
   );
 }
 
-const profileCards = [
-  { artist: "Peso Pluma",  subtitle: "Éxodo Tour 2024",  gross: "$87.4M",  tickets: "758K", shows: 288, slug: "peso-pluma",    img: FALLBACK_IMGS["peso-pluma"] },
-  { artist: "Luis Miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel",   img: FALLBACK_IMGS["luis-miguel"] },
-  { artist: "Junior H",   subtitle: "Sad Boyz",          gross: "$90.4M",  tickets: "758K", shows: 69,  slug: "junior-h",     img: FALLBACK_IMGS["junior-h"] },
-  { artist: "Grupo Firme",subtitle: "Tour 2022–2023",    gross: "$81.6M",  tickets: "687K", shows: 72,  slug: "grupo-firme",  img: FALLBACK_IMGS["grupo-firme"] },
-];
-
 type CountryFilter = "ALL" | "US" | "MX" | "OTHER";
 
 const COUNTRY_LABELS: Record<CountryFilter, string> = {
@@ -175,6 +166,14 @@ export default function TouringHub() {
     if (countryFilter === "OTHER") return ev.country !== "US" && ev.country !== "MX";
     return true;
   });
+
+  const allImageNames = useMemo(() => {
+    const names = new Set<string>(PROFILE_CARD_NAMES);
+    sortedArtists.forEach((a) => names.add(a.name));
+    return [...names];
+  }, [sortedArtists]);
+
+  const deezerImages = useArtistImages(allImageNames);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
@@ -332,16 +331,9 @@ export default function TouringHub() {
 
       {/* ── HERO ── */}
       <section style={{ position: "relative", height: 540, overflow: "hidden" }}>
-        {/* Grain texture overlay */}
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.05, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 4 }} />
-
-        {/* Hero image */}
         <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
-
-        {/* Feathered left-side fade — text readability only */}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.74) 0%, rgba(4,10,4,0.40) 30%, transparent 56%)", zIndex: 3, pointerEvents: "none" }} />
-
-        {/* Bottom blend into page background */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #080808 0%, transparent 100%)", zIndex: 3, pointerEvents: "none" }} />
 
         <div style={{ position: "relative", zIndex: 10, padding: "56px 44px 44px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
@@ -407,7 +399,12 @@ export default function TouringHub() {
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => <SkeletonShelfCard key={i} />)
             : sortedArtists.map((artist, idx) => (
-                <ShelfCard key={artist.id} artist={artist} idx={idx} />
+                <ShelfCard
+                  key={artist.id}
+                  artist={artist}
+                  idx={idx}
+                  deezerPhoto={deezerImages[artist.name] ?? null}
+                />
               ))}
         </div>
       </section>
@@ -504,44 +501,51 @@ export default function TouringHub() {
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-          {profileCards.map((p, i) => (
-            <motion.div key={p.artist}
-              className="th-profile-card"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-32px" }}
-              transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
-              <div style={{ position: "relative", height: 168, overflow: "hidden" }}>
-                <img src={p.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 15%, rgba(9,9,9,0.97) 100%)" }} />
-                <div style={{ position: "absolute", bottom: 14, left: 14, right: 14 }}>
-                  <div className="th-anton" style={{ color: "#fff", fontSize: 21, textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.01em" }}>{p.artist}</div>
-                  <div style={{ color: "rgba(57,255,20,0.75)", fontSize: 10, fontWeight: 600, marginTop: 4, letterSpacing: "0.04em" }}>{p.subtitle}</div>
-                </div>
-              </div>
-              <div style={{ padding: "14px 14px 16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
-                  <div>
-                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
-                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
-                  </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
-                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
-                    <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
+          {profileCards.map((p, i) => {
+            const img = deezerImages[p.artist] ?? null;
+            return (
+              <motion.div key={p.artist}
+                className="th-profile-card"
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-32px" }}
+                transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
+                <div style={{ position: "relative", height: 168, overflow: "hidden", background: "#0a0a0a" }}>
+                  {img ? (
+                    <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
+                  ) : (
+                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0d0d0d 0%, #111 100%)" }} />
+                  )}
+                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 15%, rgba(9,9,9,0.97) 100%)" }} />
+                  <div style={{ position: "absolute", bottom: 14, left: 14, right: 14 }}>
+                    <div className="th-anton" style={{ color: "#fff", fontSize: 21, textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.01em" }}>{p.artist}</div>
+                    <div style={{ color: "rgba(57,255,20,0.75)", fontSize: 10, fontWeight: 600, marginTop: 4, letterSpacing: "0.04em" }}>{p.subtitle}</div>
                   </div>
                 </div>
-                <Link href={`/touring/${p.slug}`}>
-                  <button style={{ marginTop: 12, background: "none", border: "none", color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, padding: 0, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
-                    Ver Perfil Completo →
-                  </button>
-                </Link>
-              </div>
-            </motion.div>
-          ))}
+                <div style={{ padding: "14px 14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
+                    <div>
+                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
+                    </div>
+                    <div style={{ textAlign: "center" }}>
+                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
+                    </div>
+                  </div>
+                  <Link href={`/touring/${p.slug}`}>
+                    <button style={{ marginTop: 12, background: "none", border: "none", color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, padding: 0, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
+                      Ver Perfil Completo →
+                    </button>
+                  </Link>
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
       </section>
 
@@ -561,8 +565,9 @@ export default function TouringHub() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-32px" }}
               transition={{ delay: i * 0.06, duration: 0.55, ease: [0.16,1,0.3,1] }}>
-              <div style={{ position: "relative", height: 148, overflow: "hidden" }}>
-                <img src={ins.image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.42) saturate(0.35)", transition: "filter 0.35s" }} />
+              <div style={{ position: "relative", height: 148, overflow: "hidden", background: "#0a0a0a" }}>
+                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, #0a0a0a ${i * 15}%, #111 100%)` }} />
+                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 60% at 50% 110%, rgba(57,255,20,0.05) 0%, transparent 100%)" }} />
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 35%, rgba(9,9,9,0.92) 100%)" }} />
                 <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.22)", color: "rgba(57,255,20,0.8)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", padding: "3px 8px" }}>
                   {ins.tag}
