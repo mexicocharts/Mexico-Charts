@@ -100,19 +100,6 @@ export default function IndustryLanding() {
               <strong style={{ color: G }}>13.3%</strong> en 2025. Décimo año consecutivo de expansión.
             </p>
           </FadeUp>
-          <FadeUp delay={0.12}>
-            <div className="flex flex-wrap gap-3">
-              <a href="https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: G }}>
-                IFPI Global Music Report 2026 <ExternalLink className="w-2.5 h-2.5" />
-              </a>
-              <span style={{ color: "rgba(255,255,255,0.35)" }}>·</span>
-              <a href="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] hover:opacity-80 transition-opacity" style={{ color: "rgba(255,255,255,0.5)" }}>
-                AMPROFON Reporte Música México <ExternalLink className="w-2.5 h-2.5" />
-              </a>
-            </div>
-          </FadeUp>
         </div>
 
         {/* Badge */}
@@ -192,7 +179,6 @@ export default function IndustryLanding() {
               <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
                 México avanzó <strong style={{ color: "#fff" }}>5 posiciones</strong> en el ranking global de música grabada entre 2022 y 2024, el mayor ascenso de la región.
               </p>
-              <div className="mt-4 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(57,255,20,0.45)" }}>Fuente: IFPI · AMPROFON</div>
             </div>
           </FadeUp>
 
@@ -222,7 +208,6 @@ export default function IndustryLanding() {
                 <p className="text-xs mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
                   Los tres países de Norteamérica ocupan posiciones en el Top 10 global por primera vez simultáneamente.
                 </p>
-                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.48)" }}>Fuente: AMPROFON 2025</div>
               </div>
             </FadeUp>
 
@@ -253,7 +238,6 @@ export default function IndustryLanding() {
                 <p className="text-xs mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
                   Latinoamérica fue la <strong style={{ color: "#fff" }}>3ª región de mayor crecimiento</strong> del mundo en 2024. México es el <strong style={{ color: "#fff" }}>2° mercado más grande</strong> de la región, detrás de Brasil.
                 </p>
-                <div className="mt-3 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.48)" }}>Fuente: IFPI State of the Industry 2025 · AMPROFON</div>
               </div>
             </FadeUp>
           </div>
@@ -285,7 +269,6 @@ export default function IndustryLanding() {
                   style={{ fontSize: "clamp(2rem, 3.2vw, 2.8rem)", letterSpacing: "-0.04em", color: "#fff" }}>{stat}</div>
                 <h3 className="text-[10px] font-black uppercase tracking-[0.14em] mb-2 relative z-10" style={{ color: "rgba(255,255,255,0.65)" }}>{title}</h3>
                 <p className="text-xs leading-relaxed relative z-10 mb-4 flex-1" style={{ color: "rgba(255,255,255,0.45)", fontFamily: "system-ui" }}>{body}</p>
-                <div className="text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.48)" }}>{src}</div>
               </div>
             </FadeUp>
           ))}
@@ -305,83 +288,8 @@ export default function IndustryLanding() {
               style={{ fontSize: "clamp(1.05rem, 2.4vw, 1.8rem)", color: "#fff", letterSpacing: "-0.01em", fontStyle: "italic" }}>
               El lugar que México ha conquistado en el mapa global no es un punto de llegada, sino un punto de partida.
             </p>
-            <p className="relative z-10 text-center mt-4 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.3)" }}>
-              — AMPROFON, Reporte Música México 2025
-            </p>
           </div>
         </FadeUp>
-      </section>
-
-      {/* ══════════════════════════════════════════════════
-          FUENTES — Full cover images
-      ══════════════════════════════════════════════════ */}
-      <section className="px-6 lg:px-10 pb-14" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <FadeUp>
-          <p className="text-[10px] font-black uppercase tracking-[0.32em] my-8" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Fuentes y Reportes ////
-          </p>
-        </FadeUp>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-          {/* IFPI */}
-          <FadeUp delay={0.04}>
-            <div className="relative overflow-hidden rounded-2xl flex flex-col"
-              style={{ background: "#0e0e0e", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 0 40px rgba(57,255,20,0.04)" }}>
-              <div className="relative overflow-hidden" style={{ height: 260 }}>
-                <img src={ifpiCover} alt="IFPI Global Music Report 2026" className="w-full h-full object-cover object-top" />
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(14,14,14,0) 40%, rgba(14,14,14,1) 100%)" }} />
-                <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em]"
-                  style={{ background: "rgba(57,255,20,0.9)", color: "#000" }}>IFPI 2026</div>
-              </div>
-              <div className="px-7 pb-7 -mt-2 relative z-10">
-                <h3 className="text-base font-black text-white mb-2">IFPI Global Music Report 2026</h3>
-                <p className="text-sm leading-relaxed mb-1" style={{ color: "rgba(255,255,255,0.65)", fontFamily: "system-ui" }}>
-                  Ranking global de mercados de música grabada. Confirmó a México en el <strong style={{ color: "#fff" }}>#10</strong> con un crecimiento del <strong style={{ color: G }}>+13.3%</strong> en 2025.
-                </p>
-                <p className="text-xs leading-relaxed mb-5" style={{ color: "rgba(255,255,255,0.45)", fontFamily: "system-ui" }}>
-                  International Federation of the Phonographic Industry · State of the Industry
-                </p>
-                <div className="flex items-center gap-5">
-                  <a href="https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf" target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80" style={{ color: G }}>
-                    Ver Fuente <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <Link href="/insights/mexico-top-10-ifpi-2026">
-                    <span className="text-[10px] font-black uppercase tracking-[0.18em] cursor-pointer hover:opacity-80" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      Leer análisis →
-                    </span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </FadeUp>
-
-          {/* AMPROFON */}
-          <FadeUp delay={0.07}>
-            <div className="relative overflow-hidden rounded-2xl flex flex-col"
-              style={{ background: "#0e0e0e", border: "1px solid rgba(255,255,255,0.09)" }}>
-              <div className="relative overflow-hidden" style={{ height: 260 }}>
-                <img src={amprofonCover} alt="AMPROFON Estado de la Industria 2025" className="w-full h-full object-cover object-top" />
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(14,14,14,0) 35%, rgba(14,14,14,1) 100%)" }} />
-                <div className="absolute top-4 right-4 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em]"
-                  style={{ background: "rgba(255,255,255,0.92)", color: "#000" }}>AMPROFON 2025</div>
-              </div>
-              <div className="px-7 pb-7 -mt-2 relative z-10">
-                <h3 className="text-base font-black text-white mb-2">AMPROFON — Estado de la Industria 2025</h3>
-                <p className="text-sm leading-relaxed mb-1" style={{ color: "rgba(255,255,255,0.65)", fontFamily: "system-ui" }}>
-                  El reporte de la industria musical mexicana. Documenta el ascenso de <strong style={{ color: "#fff" }}>#15→#10</strong>, la duplicación de ingresos, el consumo digital y los ecosistemas por ciudad.
-                </p>
-                <p className="text-xs leading-relaxed mb-5" style={{ color: "rgba(255,255,255,0.45)", fontFamily: "system-ui" }}>
-                  Asociación Mexicana de Productores de Fonogramas y Videogramas · FIM GDL
-                </p>
-                <a href="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-80" style={{ color: "rgba(255,255,255,0.55)" }}>
-                  Ver Fuente <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            </div>
-          </FadeUp>
-        </div>
       </section>
 
       {/* ══════════════════════════════════════════════════

@@ -1156,7 +1156,7 @@ export default function HomeV6() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Mayor movimiento hoy · Spotify Artistas México</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Mayor movimiento hoy</p>
               </div>
             </div>
           </FadeUp>
@@ -1170,8 +1170,7 @@ export default function HomeV6() {
         <section className="px-6 lg:px-12 py-4" data-testid="platform-strip">
           <div className="rounded-xl overflow-hidden" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 6px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
             <div className="px-6 py-3 border-b border-white/[0.05] flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS TOTALES · BASE DE DATOS</h2>
-              <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Fuente: base de datos</span>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS TOTALES</h2>
             </div>
             <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
               {([

@@ -251,7 +251,7 @@ export default function TouringProfile() {
           <div style={{ height: 1, background: "rgba(255,255,255,0.06)" }} />
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.7, duration: 0.6 }}
             style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 24 }}>
-            Por número de shows reportados · Fuente: Pollstar Research
+            Por número de shows reportados
           </motion.div>
         </div>
       </section>

@@ -392,14 +392,14 @@ export default function TouringHub() {
           {!isLoading && !isError && totalShows > 0 && (
             <span style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
-              {totalShows} shows · Ticketmaster
+              {totalShows} shows próximos
             </span>
           )}
         </div>
 
         {isError && (
           <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.15)", padding: "14px 20px", color: "rgba(255,80,80,0.6)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em" }}>
-            Error cargando datos de Ticketmaster
+            Error cargando datos
           </div>
         )}
 
@@ -593,7 +593,6 @@ export default function TouringHub() {
       <footer style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2024 Mexico Charts</div>
         <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em" }}>El Movimiento No Para</div>
-        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>Datos: Ticketmaster Discovery API</div>
       </footer>
     </div>
   );

@@ -383,9 +383,6 @@ export default function LuisMiguelProfile() {
           <div className="lm-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.88 }}>
             Las Noches<br />Históricas
           </div>
-          <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 14 }}>
-            Fuente: Pollstar Tour History Report · Solo muestra shows con datos publicados
-          </div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>

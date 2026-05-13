@@ -90,7 +90,7 @@ function TouringHero({
         <View style={styles.heroLiveBadge}>
           <View style={styles.heroDot} />
           <Text style={styles.heroLiveBadgeText}>
-            {isLoading ? "CARGANDO…" : `${totalShows} shows · Ticketmaster`}
+            {isLoading ? "CARGANDO…" : `${totalShows} shows próximos`}
           </Text>
         </View>
       </View>
@@ -306,7 +306,7 @@ export default function TouringScreen() {
         ) : hasError ? (
           <View style={styles.errorBox}>
             <Feather name="alert-triangle" size={16} color="rgba(255,80,80,0.6)" />
-            <Text style={styles.errorText}>Error cargando datos de Ticketmaster</Text>
+            <Text style={styles.errorText}>Error cargando datos</Text>
           </View>
         ) : (
           <ScrollView
