@@ -399,7 +399,7 @@ export default function HomeV5() {
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-white/5 px-6 md:px-10 py-6 mt-6 flex flex-col md:flex-row items-center justify-between gap-4" style={{ fontFamily: "'Inter', sans-serif" }} data-testid="footer">
-        <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-700">© 2024 Mexico Charts</span>
+        <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-700">© 2026 Mexico Charts</span>
         <div className="flex items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-600">
           <Link href="/v1" className="hover:text-white transition-colors">V1</Link>
           <span className="text-white/10">·</span>

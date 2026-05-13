@@ -591,7 +591,7 @@ export default function TouringHub() {
       </section>
 
       <footer style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2024 Mexico Charts</div>
+        <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2026 Mexico Charts</div>
         <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em" }}>El Movimiento No Para</div>
       </footer>
     </div>

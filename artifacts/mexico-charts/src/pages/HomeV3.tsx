@@ -1202,7 +1202,7 @@ export default function HomeV3() {
               </span>
             </div>
             <p className="text-[10px] text-zinc-700 uppercase tracking-widest font-bold">
-              © 2024 Mexico Charts. Todos los derechos reservados.
+              © 2026 Mexico Charts. Todos los derechos reservados.
             </p>
           </div>
         </div>

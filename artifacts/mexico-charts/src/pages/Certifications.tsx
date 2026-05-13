@@ -215,11 +215,11 @@ export default function Certifications() {
 
       {/* BREADCRUMB */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
-        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
-        <Link href="/industria"><span className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}>Industria</span></Link>
-        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.6)" }}>Certificaciones</span>
+        <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }}><Home className="w-3 h-3" /></span></Link>
+        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.4)" }} />
+        <Link href="/industria"><span className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }}>Industria</span></Link>
+        <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.4)" }} />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.85)" }}>Certificaciones</span>
       </div>
 
       {/* HERO */}
@@ -238,7 +238,7 @@ export default function Certifications() {
             Un archivo filtrado de certificaciones otorgadas en México a artistas mexicanos y colaboraciones con participación mexicana.
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.3)" }}>Fuente:</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>Fuente:</span>
             <a href="https://amprofon.com.mx/es/pages/certificaciones.php" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.2em] hover:opacity-75 transition-opacity" style={{ color: G }}>
               AMPROFON <ExternalLink className="w-2.5 h-2.5" />
@@ -266,7 +266,7 @@ export default function Certifications() {
                   <div className="font-black leading-none mb-1.5 relative z-10"
                     style={{ fontSize: "clamp(1.4rem, 2.2vw, 2rem)", letterSpacing: "-0.04em", color: hi ? G : "#fff", textShadow: hi ? `0 0 24px ${G}55` : "none" }}>{v}</div>
                   <div className="text-[9px] font-black uppercase tracking-[0.12em] leading-relaxed relative z-10"
-                    style={{ color: "rgba(255,255,255,0.4)", whiteSpace: "pre-line" }}>{l}</div>
+                    style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "pre-line" }}>{l}</div>
                 </div>
               </FadeUp>
             ))}
@@ -365,7 +365,7 @@ export default function Certifications() {
             <div className="hidden lg:block rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
               {/* Header */}
               <div className="grid text-[9px] font-black uppercase tracking-[0.18em] px-5 py-3"
-                style={{ gridTemplateColumns: "2fr 2.5fr 1.2fr 1.6fr 0.7fr 1.1fr 1.5fr", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>
+                style={{ gridTemplateColumns: "2fr 2.5fr 1.2fr 1.6fr 0.7fr 1.1fr 1.5fr", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)" }}>
                 {[
                   { label: "Artista", col: "artista" as const },
                   { label: "Título", col: "titulo" as const },
@@ -398,13 +398,13 @@ export default function Certifications() {
                     }}>
                     <div className="font-black text-xs truncate pr-2" style={{ color: "#fff" }}>{row.artista}</div>
                     <div className="text-xs truncate pr-2" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "system-ui" }}>{row.titulo}</div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    <div className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.7)" }}>
                       {row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}
                     </div>
                     <CertBadge cert={row.certificacion} />
-                    <div className="text-xs font-black" style={{ color: "rgba(255,255,255,0.6)" }}>{row.nivel || "—"}</div>
-                    <div className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.4)" }}>{formatDate(row.fechaISO)}</div>
-                    <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.35)", fontFamily: "system-ui" }}>{row.disquera || "—"}</div>
+                    <div className="text-xs font-black" style={{ color: "rgba(255,255,255,0.85)" }}>{row.nivel || "—"}</div>
+                    <div className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.7)" }}>{formatDate(row.fechaISO)}</div>
+                    <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{row.disquera || "—"}</div>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -422,13 +422,13 @@ export default function Certifications() {
                       </div>
                       <div className="shrink-0"><CertBadge cert={row.certificacion} /></div>
                     </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.65)" }}>
                       <span>{row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}</span>
                       <span>Nivel: {row.nivel || "—"}</span>
                       <span>{formatDate(row.fechaISO)}</span>
                     </div>
                     {row.disquera && (
-                      <div className="mt-1.5 text-[9px]" style={{ color: "rgba(255,255,255,0.52)", fontFamily: "system-ui" }}>{row.disquera}</div>
+                      <div className="mt-1.5 text-[9px]" style={{ color: "rgba(255,255,255,0.7)", fontFamily: "system-ui" }}>{row.disquera}</div>
                     )}
                   </div>
                 </FadeUp>
@@ -460,13 +460,13 @@ export default function Certifications() {
       {/* DISCLAIMER */}
       <div className="px-6 lg:px-10 py-8 mt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", background: "#060606" }}>
         <div className="max-w-3xl space-y-3">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] mb-2" style={{ color: "rgba(255,255,255,0.55)" }}>
             Fuente y Metodología
           </p>
-          <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)", fontFamily: "system-ui" }}>
+          <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>
             Las certificaciones mostradas corresponden a información pública atribuida a AMPROFON. Mexico Charts presenta una vista editorial y organizada enfocada en artistas mexicanos y colaboraciones con participación mexicana. Mexico Charts no reproduce el sitio oficial de AMPROFON, no utiliza sus elementos visuales protegidos y no emite certificaciones oficiales.
           </p>
-          <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.3)", fontFamily: "system-ui" }}>
+          <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)", fontFamily: "system-ui" }}>
             Mexico Charts organiza y presenta información pública sobre certificaciones otorgadas en México. Mexico Charts no está afiliado a AMPROFON y no emite certificaciones oficiales.
           </p>
           <a href="https://amprofon.com.mx/es/pages/certificaciones.php" target="_blank" rel="noopener noreferrer"

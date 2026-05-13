@@ -354,7 +354,7 @@ export default function HomeV4() {
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-white/5 px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[10px] uppercase tracking-[0.25em] text-zinc-700" data-testid="footer">
-        <span>© 2024 Mexico Charts</span>
+        <span>© 2026 Mexico Charts</span>
         <div className="flex items-center gap-5">
           <Link href="/v1" className="hover:text-white transition-colors duration-300">V1</Link>
           <span className="text-white/10">·</span>

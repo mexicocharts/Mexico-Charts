@@ -536,7 +536,7 @@ export default function Home() {
               <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiYoutube className="w-5 h-5" /></a>
             </div>
             <div className="text-zinc-600 text-xs uppercase tracking-wider font-bold text-center">
-              © 2024 Mexico Charts. Todos los derechos reservados.
+              © 2026 Mexico Charts. Todos los derechos reservados.
             </div>
             <Diamond className="w-5 h-5 text-zinc-800" />
           </div>
