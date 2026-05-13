@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 type ArtistImageMap = Record<string, string | null>;
 
 const CHUNK_SIZE = 20;
-const FALLBACK_IMAGE = `${import.meta.env.BASE_URL}images/artist-placeholder.png`;
 
 async function fetchChunk(names: string[]): Promise<ArtistImageMap> {
   const resp = await fetch(
@@ -31,9 +30,6 @@ export function useArtistImages(names: readonly string[]): ArtistImageMap {
       if (cancelled) return;
       const merged: ArtistImageMap = {};
       for (const r of results) Object.assign(merged, r);
-      for (const name of names) {
-        if (!merged[name]) merged[name] = FALLBACK_IMAGE;
-      }
       setImages(merged);
     }).catch(() => {});
 
