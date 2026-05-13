@@ -349,11 +349,21 @@ function Lightbox({
   const handleDownload = useCallback(async () => {
     if (!captureRef.current || downloading) return;
     setDownloading(true);
+    const el = captureRef.current;
+    // Temporarily escape the overflow:hidden fixed lightbox by switching to
+    // position:fixed at top-left corner — invisible but in the layout for html2canvas.
+    const saved = el.style.cssText;
+    el.style.cssText =
+      "position:fixed;top:0;left:0;width:1080px;height:1350px;" +
+      "visibility:hidden;pointer-events:none;z-index:-9999;overflow:hidden;";
+    // Wait two animation frames so the browser paints the repositioned element
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
-      await captureAndDownload(captureRef.current, `${config.id}-mexicocharts.png`);
+      await captureAndDownload(el, `${config.id}-mexicocharts.png`);
     } catch (e) {
       console.error("Download failed:", e);
     }
+    el.style.cssText = saved;
     setDownloading(false);
   }, [config.id, downloading]);
 
@@ -371,7 +381,7 @@ function Lightbox({
       }}
       onClick={onClose}
     >
-      {/* Hidden full-size render for download */}
+      {/* Hidden full-size render for download — clipped off-screen */}
       <div style={{
         position: "absolute", left: -9999, top: -9999,
         width: 1080, height: 1350,
