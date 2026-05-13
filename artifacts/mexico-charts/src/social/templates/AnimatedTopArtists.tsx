@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap } from "../useChartData";
+import { useChartsHub, useArtistImageMap, parseMovement } from "../useChartData";
 import { useAnimLoop } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -49,7 +49,7 @@ export default function AnimatedTopArtists() {
         subtitle: r["Streak"] ? `${r["Streak"]} días en chart` : "",
         stat: r["Peak"] ? `#${r["Peak"]}` : undefined,
         statLabel: r["Peak"] ? "Pico" : undefined,
-        movement: 0,
+        ...parseMovement(r["Movement"] ?? "="),
         imageUrl: images?.[r["Artist"] ?? ""] ?? null,
         roundImage: true,
       }))

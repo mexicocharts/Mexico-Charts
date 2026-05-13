@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from "react";
 
 export type AnimPhase = "intro" | "stagger" | "hold" | "outro";
 
-const INTRO_MS   =  600;
-const STAGGER_MS = 2400;
-const HOLD_MS    = 4500;
-const OUTRO_MS   = 1000;
-const TOTAL_MS   = INTRO_MS + STAGGER_MS + HOLD_MS + OUTRO_MS; // 8500ms
+const INTRO_MS   = 1000;
+const STAGGER_MS = 2500;
+const HOLD_MS    = 2800;
+const OUTRO_MS   = 1200;
+const TOTAL_MS   = INTRO_MS + STAGGER_MS + HOLD_MS + OUTRO_MS; // 7500ms
 
 export function useAnimLoop(): { phase: AnimPhase; cycle: number } {
   const [phase, setPhase] = useState<AnimPhase>("intro");
