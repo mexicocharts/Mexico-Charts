@@ -13,6 +13,7 @@ import { slugify } from "@/lib/utils";
 export { slugify };
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+const fallbackArtistImage = `${import.meta.env.BASE_URL}images/artist-placeholder.png`;
 
 /* ─── RELATIVE TIME IN SPANISH ───────────────────────────────── */
 function fmtRelativeEs(ts: number | null): string {
@@ -339,7 +340,7 @@ export default function ArtistDetail() {
 
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
-  const photo = artistImages[artist.name] ?? null;
+  const photo = artistImages[artist.name] ?? fallbackArtistImage;
 
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);

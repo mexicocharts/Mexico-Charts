@@ -24,6 +24,12 @@ uri = "file://artifacts/mexico-charts/public/globe-v3.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "qwJpEZiuyM1_Z8maEKoi6"
+uri = "file://artifacts/mexico-charts/public/images/artist-placeholder.png"
+type = "image"
+title = "Artist portrait placeholder"
+
 [[outputs]]
 id = "5v7Dxm78Hlzgw9iPiGo6S"
 uri = "file://screenshots/pollstar-profile.jpg"
