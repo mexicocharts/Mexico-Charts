@@ -326,40 +326,26 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 /* ── Inline all <img> srcs as base64 data URLs before toPng ──── */
 async function inlineImages(el: HTMLElement): Promise<void> {
   const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img[src]"));
-  console.log("[export] inlineImages: found", imgs.length, "img elements");
-  imgs.forEach((img, i) => console.log(`  [${i}] src=${img.getAttribute("src")?.substring(0, 80)}`));
   await Promise.allSettled(
     imgs.map(async (img) => {
       const src = img.getAttribute("src");
       if (!src || src.startsWith("data:") || src.startsWith("blob:")) return;
       try {
-        const fetchInit: RequestInit = src.startsWith("http")
-          ? { mode: "cors", cache: "no-cache" }
-          : { cache: "no-cache" };
-        const res = await fetch(src, fetchInit);
-        console.log(`[export] fetch ${src.substring(0, 60)} → ${res.status} ok=${res.ok}`);
+        // Route external CDN images through the server-side proxy.
+        // Same-origin request — no browser CORS policy applies.
+        const fetchUrl = src.startsWith("http")
+          ? `/api/image-proxy?url=${encodeURIComponent(src)}`
+          : src;
+        const res = await fetch(fetchUrl);
         if (!res.ok) return;
         const blob = await res.blob();
-        const dataUrl = await blobToDataUrl(blob);
-        img.setAttribute("src", dataUrl);
-        console.log(`[export] inlined ${src.substring(0, 60)} (${dataUrl.length} chars)`);
-      } catch (err) {
-        console.warn(`[export] direct fetch failed for ${src.substring(0, 60)}:`, err);
-        if (src.startsWith("http")) {
-          try {
-            const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(src)}`, { cache: "no-cache" });
-            if (!res.ok) return;
-            const blob = await res.blob();
-            img.setAttribute("src", await blobToDataUrl(blob));
-            console.log(`[export] proxy fallback succeeded for ${src.substring(0, 60)}`);
-          } catch (err2) {
-            console.warn(`[export] proxy fallback also failed:`, err2);
-          }
-        }
-      }
+        img.setAttribute("src", await blobToDataUrl(blob));
+      } catch { /* leave src as-is */ }
     })
   );
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  // NOTE: no rAF yield here — callers must yield BEFORE calling inlineImages
+  // so React settles first, then we set data URLs and call toPng without
+  // any event-loop gap that would let React reset img.src attributes.
 }
 
 /* ── Download helper ─────────────────────────────────────────── */
