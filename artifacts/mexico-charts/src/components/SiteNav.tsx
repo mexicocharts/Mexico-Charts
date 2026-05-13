@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
@@ -28,7 +28,11 @@ type Props = {
 export default function SiteNav({ homeActive = false }: Props) {
   const [location] = useLocation();
   const [dropOpen, setDropOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close mobile menu on route change
+  useEffect(() => { setMobileOpen(false); }, [location]);
 
   function openDrop() {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -104,10 +108,61 @@ export default function SiteNav({ homeActive = false }: Props) {
           <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: G }} />En vivo
           </div>
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black"
+          <div className="hidden lg:flex w-8 h-8 rounded-full items-center justify-center text-[10px] font-black"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.55)" }}>MX</div>
+
+          {/* Hamburger — visible below lg */}
+          <button
+            className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+            onClick={() => setMobileOpen(o => !o)}
+            aria-label="Menú"
+          >
+            {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile drawer */}
+      {mobileOpen && (
+        <div className="lg:hidden border-t" style={{ background: "rgba(8,8,8,0.99)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <nav className="px-6 py-4 flex flex-col gap-1">
+            {NAV.map(item => {
+              if (item.dropdown) {
+                return (
+                  <div key={item.label}>
+                    <div className="text-[10px] font-black uppercase tracking-[0.22em] px-3 py-2" style={{ color: "rgba(255,255,255,0.28)" }}>
+                      {item.label}
+                    </div>
+                    {item.dropdown.map(sub => {
+                      const subActive = location === sub.href || location.startsWith(sub.href + "/");
+                      return (
+                        <Link key={sub.href} href={sub.href}>
+                          <span className="block px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] rounded-lg"
+                            style={{ color: subActive ? G : "rgba(255,255,255,0.55)", background: subActive ? "rgba(57,255,20,0.06)" : "transparent" }}>
+                            {sub.label}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              const active = homeActive
+                ? item.label === "INICIO"
+                : location === item.href && item.href !== "#";
+              return (
+                <Link key={item.label} href={item.href}>
+                  <span className="block px-3 py-3 text-[11px] font-black uppercase tracking-[0.22em] rounded-lg"
+                    style={{ color: active ? G : "rgba(255,255,255,0.55)", background: active ? "rgba(57,255,20,0.06)" : "transparent" }}>
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

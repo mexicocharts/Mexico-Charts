@@ -403,14 +403,14 @@ export default function ArtistDetail() {
             <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
           </Link>
           <div className="w-px h-5 bg-white/10 mx-1" />
-          <Link
-            href="/"
+          <button
+            onClick={() => window.history.back()}
             className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-[11px] font-bold uppercase tracking-widest"
             data-testid="link-back"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Charts
-          </Link>
+            Volver
+          </button>
           <span className="text-zinc-700 text-[11px] uppercase tracking-widest">/ {artist.name}</span>
         </div>
       </nav>
@@ -778,14 +778,14 @@ export default function ArtistDetail() {
 
         {/* ── BACK LINK ── */}
         <div className="pb-4">
-          <Link
-            href="/"
+          <button
+            onClick={() => window.history.back()}
             className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#39FF14] transition-colors duration-200 text-xs font-black uppercase tracking-widest"
             data-testid="link-back-bottom"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Volver a Charts
-          </Link>
+            Volver
+          </button>
         </div>
 
       </div>
