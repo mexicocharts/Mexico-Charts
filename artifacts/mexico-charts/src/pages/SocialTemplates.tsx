@@ -663,7 +663,7 @@ function Lightbox({
       {/* Fullscreen overlay for screenshotting */}
       {fullscreen && ReactDOM.createPortal(
         <div
-          onClick={() => setFullscreen(false)}
+          onClick={e => { e.stopPropagation(); setFullscreen(false); }}
           style={{
             position: "fixed", inset: 0, zIndex: 200,
             background: "#000",
@@ -674,7 +674,7 @@ function Lightbox({
         >
           {/* Close button */}
           <button
-            onClick={() => setFullscreen(false)}
+            onClick={e => { e.stopPropagation(); setFullscreen(false); }}
             style={{
               position: "absolute", top: 20, right: 20,
               background: "rgba(255,255,255,0.08)",
