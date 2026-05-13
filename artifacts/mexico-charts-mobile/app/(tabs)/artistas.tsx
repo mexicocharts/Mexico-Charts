@@ -208,8 +208,12 @@ export default function ArtistasScreen() {
     <View style={[styles.container, { paddingTop: topInset }]}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>ARTISTAS</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerEyebrow}>MEXICO CHARTS</Text>
+          <Text style={styles.headerTitle}>
+            {"ARTISTAS "}
+            <Text style={{ color: NEON }}>MX</Text>
+          </Text>
           <Text style={styles.headerSub}>
             {isLoading
               ? "CARGANDO…"
@@ -219,7 +223,7 @@ export default function ArtistasScreen() {
         <View style={styles.headerBadge}>
           <Feather name="users" size={12} color={NEON} />
           <Text style={styles.headerBadgeText}>
-            {hasError ? "OFFLINE" : isLoading ? "…" : "BASE DE DATOS"}
+            {hasError ? "OFFLINE" : isLoading ? "…" : "EN VIVO"}
           </Text>
         </View>
       </View>
@@ -316,18 +320,28 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   header: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingTop: 18,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255,255,255,0.06)",
+  },
+  headerEyebrow: {
+    color: NEON,
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    letterSpacing: 3,
+    textTransform: "uppercase",
+    marginBottom: 4,
   },
   headerTitle: {
     color: "#FFFFFF",
     fontFamily: "Anton_400Regular",
-    fontSize: 36,
-    lineHeight: 46,
+    fontSize: 44,
+    lineHeight: 50,
+    letterSpacing: -0.5,
   },
   headerSub: {
     color: "#52525B",

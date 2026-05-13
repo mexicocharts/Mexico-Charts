@@ -505,7 +505,7 @@ export default function HomeScreen() {
               );
               setHeroIndex(index);
             }}
-            style={{ height: 460 }}
+            style={{ height: 500 }}
             getItemLayout={(_, index) => ({
               length: SCREEN_WIDTH,
               offset: SCREEN_WIDTH * index,
@@ -617,7 +617,7 @@ const styles = StyleSheet.create({
     lineHeight: 30,
   },
   heroCard: {
-    height: 460,
+    height: 500,
     position: "relative",
     backgroundColor: "#050505",
     overflow: "hidden",
@@ -671,9 +671,10 @@ const styles = StyleSheet.create({
   heroName: {
     color: "#FFFFFF",
     fontFamily: "Anton_400Regular",
-    fontSize: 56,
-    lineHeight: 64,
+    fontSize: 68,
+    lineHeight: 74,
     marginBottom: 10,
+    letterSpacing: -0.5,
   },
   heroStats: {
     color: "rgba(255,255,255,0.52)",

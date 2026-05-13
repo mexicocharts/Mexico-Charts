@@ -106,7 +106,7 @@ export default function IndustriaScreen() {
           </View>
         </View>
 
-        {/* ── STAT STRIP ── */}
+        {/* ── STAT GRID ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Feather name="bar-chart-2" size={13} color={NEON} />
@@ -114,16 +114,12 @@ export default function IndustriaScreen() {
             <View style={styles.sectionLine} />
           </View>
 
-          {/* Stats horizontal scroll strip */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.statsStrip}
-          >
+          {/* Stats 2-column grid */}
+          <View style={styles.statsGrid}>
             {STATS.map((s) => (
               <StatCard key={s.value} icon={s.icon} value={s.value} label={s.label} hi={s.hi} />
             ))}
-          </ScrollView>
+          </View>
         </View>
 
         {/* ── TIMELINE ── */}
@@ -225,7 +221,7 @@ const styles = StyleSheet.create({
     fontSize: 8, letterSpacing: 2.5, marginBottom: 4,
   },
   heroBadgeValue: {
-    fontFamily: "Inter_700Bold", fontSize: 32, letterSpacing: -2, lineHeight: 34,
+    fontFamily: "Anton_400Regular", fontSize: 40, letterSpacing: -1, lineHeight: 44,
   },
   heroBadgeYear: {
     color: "rgba(255,255,255,0.55)", fontFamily: "Inter_700Bold",
@@ -244,8 +240,13 @@ const styles = StyleSheet.create({
   sectionLine: { flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.05)" },
 
   /* Stats */
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
   statCard: {
-    width: SCREEN_WIDTH * 0.52,
+    width: (SCREEN_WIDTH - 32 - 10) / 2,
     backgroundColor: "#111111",
     borderRadius: 12, padding: 16,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.06)",
@@ -260,12 +261,9 @@ const styles = StyleSheet.create({
     width: 100, height: 100, borderRadius: 50,
     backgroundColor: "rgba(57,255,20,0.08)",
   },
-  statsStrip: {
-    paddingBottom: 10, gap: 10, flexDirection: "row",
-  },
   statValue: {
-    color: "#FFFFFF", fontFamily: "Inter_700Bold",
-    fontSize: 26, letterSpacing: -0.5, marginBottom: 6, lineHeight: 30,
+    color: "#FFFFFF", fontFamily: "Anton_400Regular",
+    fontSize: 30, letterSpacing: -0.5, marginBottom: 6, lineHeight: 34,
   },
   statLabel: {
     color: "#52525B", fontFamily: "Inter_400Regular",

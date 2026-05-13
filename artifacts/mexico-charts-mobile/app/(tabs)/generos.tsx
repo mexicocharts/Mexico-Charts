@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   Image,
   Platform,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -154,9 +154,12 @@ function GenreCard({
   );
 }
 
-// ── Artist mini-row ───────────────────────────────────────────────────────────
+// ── Artist grid card ─────────────────────────────────────────────────────────
 
-function ArtistRow({
+const { width: SCREEN_W } = Dimensions.get("window");
+const CARD_W = (SCREEN_W - 32 - 10) / 2;
+
+function ArtistGridCard({
   meta,
   index,
   color,
@@ -168,32 +171,30 @@ function ArtistRow({
   photo: string | null;
 }) {
   return (
-    <View style={styles.artistRow}>
-      <Text style={[styles.artistRank, { color: index < 3 ? color : "#3F3F46" }]}>
-        {String(index + 1).padStart(2, "0")}
-      </Text>
+    <View style={[styles.artistCard, { borderColor: index < 3 ? `${color}40` : "rgba(255,255,255,0.06)" }]}>
+      {/* Rank badge */}
+      <View style={[styles.artistCardRank, { backgroundColor: index < 3 ? `${color}22` : "rgba(255,255,255,0.05)" }]}>
+        <Text style={[styles.artistCardRankText, { color: index < 3 ? color : "#52525B" }]}>
+          {String(index + 1).padStart(2, "0")}
+        </Text>
+      </View>
+      {/* Photo */}
       {photo ? (
-        <Image source={{ uri: photo }} style={styles.artistPhoto} />
+        <Image source={{ uri: photo }} style={styles.artistCardPhoto} />
       ) : (
-        <View style={[styles.artistPhoto, { backgroundColor: `${color}14`, alignItems: "center", justifyContent: "center" }]}>
-          <Text style={{ color, fontFamily: "Inter_700Bold", fontSize: 12 }}>
-            {meta.displayName.charAt(0)}
+        <View style={[styles.artistCardPhoto, { backgroundColor: `${color}14`, alignItems: "center", justifyContent: "center" }]}>
+          <Text style={{ color, fontFamily: "Anton_400Regular", fontSize: 26 }}>
+            {meta.displayName.charAt(0).toUpperCase()}
           </Text>
         </View>
       )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.artistName} numberOfLines={1}>
-          {meta.displayName}
-        </Text>
-        <Text style={styles.artistCountry}>{meta.country || "MX"}</Text>
-      </View>
+      <Text style={styles.artistCardName} numberOfLines={2}>
+        {meta.displayName}
+      </Text>
       {meta.spotifyListenersFmt !== "—" && (
-        <View style={styles.artistListeners}>
-          <Text style={[styles.artistListenersNum, index < 3 ? { color } : null]}>
-            {meta.spotifyListenersFmt}
-          </Text>
-          <Text style={styles.artistListenersLabel}>oyentes</Text>
-        </View>
+        <Text style={[styles.artistCardListeners, index < 3 ? { color } : null]}>
+          {meta.spotifyListenersFmt}
+        </Text>
       )}
     </View>
   );
@@ -290,7 +291,7 @@ export default function GenerosScreen() {
                     }
                   />
 
-                  {/* Expanded artist list */}
+                  {/* Expanded artist grid */}
                   {isActive && (
                     <View style={styles.expandedPanel}>
                       <View style={styles.expandedHeader}>
@@ -301,15 +302,17 @@ export default function GenerosScreen() {
                           {ga.length} artistas · {fmtNum(ts)} streams
                         </Text>
                       </View>
-                      {ga.slice(0, 20).map((meta, idx) => (
-                        <ArtistRow
-                          key={meta.artistKey}
-                          meta={meta}
-                          index={idx}
-                          color={genre.color}
-                          photo={imageMap[meta.displayName] ?? null}
-                        />
-                      ))}
+                      <View style={styles.artistGrid}>
+                        {ga.slice(0, 20).map((meta, idx) => (
+                          <ArtistGridCard
+                            key={meta.artistKey}
+                            meta={meta}
+                            index={idx}
+                            color={genre.color}
+                            photo={imageMap[meta.displayName] ?? null}
+                          />
+                        ))}
+                      </View>
                       {ga.length > 20 && (
                         <Text style={styles.moreText}>
                           +{ga.length - 20} más en {genre.displayLabel}
@@ -414,23 +417,54 @@ const styles = StyleSheet.create({
     color: "#52525B", fontFamily: "Inter_500Medium", fontSize: 10, letterSpacing: 0.3,
   },
 
-  artistRow: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    paddingHorizontal: 20, paddingVertical: 9,
-    borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.03)",
+  artistGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    gap: 10,
   },
-  artistRank: { fontFamily: "Inter_700Bold", fontSize: 11, width: 22, textAlign: "right" },
-  artistPhoto: { width: 34, height: 34, borderRadius: 17 },
-  artistName: { color: "#D4D4D8", fontFamily: "Inter_600SemiBold", fontSize: 12, marginBottom: 1 },
-  artistCountry: {
-    color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 9,
-    textTransform: "uppercase", letterSpacing: 1,
+  artistCard: {
+    width: CARD_W,
+    backgroundColor: "#0f0f0f",
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 10,
+    alignItems: "center",
   },
-  artistListeners: { alignItems: "flex-end" },
-  artistListenersNum: { color: "#A1A1AA", fontFamily: "Inter_700Bold", fontSize: 12 },
-  artistListenersLabel: {
-    color: "#3F3F46", fontFamily: "Inter_400Regular", fontSize: 8,
-    textTransform: "uppercase", letterSpacing: 0.8,
+  artistCardRank: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  artistCardRankText: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 9,
+    letterSpacing: 1,
+  },
+  artistCardPhoto: {
+    width: CARD_W - 24,
+    height: CARD_W - 24,
+    borderRadius: 8,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  artistCardName: {
+    color: "#E4E4E7",
+    fontFamily: "Inter_600SemiBold",
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 3,
+  },
+  artistCardListeners: {
+    color: "#71717A",
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    textAlign: "center",
   },
 
   moreText: {
