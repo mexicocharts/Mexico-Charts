@@ -27,28 +27,40 @@ export default function QuoteHeadline({
 }: QuoteProps = {}) {
   return (
     <TemplateCanvas>
-      {/* Minimal left accent rule */}
+      {/* Left editorial accent rule */}
       <div style={{
-        position: "absolute", left: 64, top: "15%", bottom: "15%",
-        width: 3, background: `linear-gradient(to bottom, transparent, ${ACCENT}, transparent)`,
+        position: "absolute", left: 64, top: "12%", bottom: "12%",
+        width: 3,
+        background: `linear-gradient(to bottom, transparent, ${ACCENT}90, ${ACCENT}50, transparent)`,
         borderRadius: 2,
+        boxShadow: `4px 0 24px ${ACCENT}30`,
         pointerEvents: "none",
       }} />
 
-      {/* Subtle glow */}
+      {/* Primary left glow */}
       <div style={{
-        position: "absolute", top: "20%", left: "-10%",
-        width: 600, height: 600,
-        background: `radial-gradient(circle, ${ACCENT}0c 0%, transparent 65%)`,
+        position: "absolute", top: "15%", left: -80,
+        width: 700, height: 700,
+        background: `radial-gradient(circle, ${ACCENT}10 0%, transparent 65%)`,
+        filter: "blur(80px)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Secondary glow — upper right, fainter */}
+      <div style={{
+        position: "absolute", top: "5%", right: -60,
+        width: 450, height: 450,
+        background: `radial-gradient(circle, ${ACCENT}07 0%, transparent 65%)`,
         filter: "blur(100px)",
         pointerEvents: "none",
       }} />
 
-      {/* Ghost watermark typography */}
+      {/* Ghost watermark — vertical, right side */}
       <div style={{
-        position: "absolute", right: -30, top: "25%",
-        fontSize: 300, fontWeight: 900,
-        color: "rgba(255,255,255,0.025)",
+        position: "absolute", right: -40, top: "10%",
+        fontSize: 320,
+        fontWeight: 900,
+        color: "rgba(57,255,20,0.03)",
         lineHeight: 0.8,
         letterSpacing: "-0.06em",
         pointerEvents: "none",
@@ -59,42 +71,50 @@ export default function QuoteHeadline({
         MX
       </div>
 
-      {/* Main content — left aligned, vertically centered */}
+      {/* Main content */}
       <div style={{
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column",
         justifyContent: "center",
-        padding: "0 90px 0 90px",
+        padding: "0 90px 0 96px",
+        zIndex: 2,
       }}>
         {/* Eyebrow */}
         <div style={{
-          fontSize: 18, fontWeight: 900,
+          fontSize: 17, fontWeight: 900,
           color: ACCENT,
-          letterSpacing: "0.35em",
+          letterSpacing: "0.36em",
           textTransform: "uppercase",
-          marginBottom: 28,
+          marginBottom: 24,
+          textShadow: `0 0 30px ${ACCENT}60`,
         }}>
           Mexico Charts
         </div>
 
-        {/* Giant headline */}
+        {/* Giant headline — three lines, staggered colors */}
         <div style={{
           fontSize: 148,
           fontWeight: 900,
           letterSpacing: "-0.055em",
-          lineHeight: 0.85,
+          lineHeight: 0.84,
           textTransform: "uppercase",
         }}>
           <div style={{ color: "#fff" }}>{line1}</div>
-          <div style={{ color: ACCENT, textShadow: `0 0 60px ${ACCENT}40` }}>{line2}</div>
-          <div style={{ color: "rgba(255,255,255,0.55)" }}>{line3}</div>
+          <div style={{
+            color: ACCENT,
+            textShadow: `0 0 70px ${ACCENT}55, 0 0 140px ${ACCENT}25`,
+          }}>{line2}</div>
+          <div style={{ color: "rgba(255,255,255,0.48)" }}>{line3}</div>
         </div>
 
-        {/* Divider */}
+        {/* Accent rule with chart-line accent */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 16, marginTop: 48, marginBottom: 36,
+          display: "flex", alignItems: "center", gap: 0, marginTop: 44, marginBottom: 32,
         }}>
-          <div style={{ width: 48, height: 2, background: ACCENT, borderRadius: 1 }} />
+          <div style={{
+            width: 56, height: 3, background: ACCENT, borderRadius: 1,
+            boxShadow: `0 0 20px ${ACCENT}80`,
+          }} />
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
         </div>
 
@@ -102,23 +122,22 @@ export default function QuoteHeadline({
         {subtext && (
           <div style={{
             fontSize: 30,
-            color: "rgba(255,255,255,0.42)",
-            lineHeight: 1.5,
-            maxWidth: 720,
+            color: "rgba(255,255,255,0.4)",
+            lineHeight: 1.52,
+            maxWidth: 740,
             letterSpacing: "-0.005em",
           }}>
             {subtext}
           </div>
         )}
 
-        {/* Context date */}
+        {/* Context */}
         {context && (
           <div style={{
             marginTop: 28,
-            fontSize: 17,
-            fontWeight: 800,
-            color: "rgba(255,255,255,0.2)",
-            letterSpacing: "0.18em",
+            fontSize: 16, fontWeight: 800,
+            color: "rgba(255,255,255,0.18)",
+            letterSpacing: "0.2em",
             textTransform: "uppercase",
           }}>
             {context}
@@ -126,9 +145,8 @@ export default function QuoteHeadline({
         )}
       </div>
 
-      {/* Bottom bar */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
-        <AccentLine opacity={0.12} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 2 }}>
+        <AccentLine opacity={0.14} />
         <CTAFooter />
       </div>
     </TemplateCanvas>

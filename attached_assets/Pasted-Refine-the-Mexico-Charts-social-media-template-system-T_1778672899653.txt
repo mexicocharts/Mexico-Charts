@@ -1,0 +1,84 @@
+Refine the Mexico Charts social media template system.
+
+The current direction is strong and should NOT be redesigned from scratch. Keep the same premium black/emerald identity, layout system, logo usage, and Spanish template structure.
+
+Improve it with these refinements:
+
+1. Make headline typography more cinematic and dominant
+Increase the visual impact of titles like:
+- DIARIAS
+- SEMANALES
+- VIRAL MÉXICO
+- MÉXICO DOMINA LOS CHARTS
+- DATOS CULTURA IMPACTO
+
+They should feel bigger, bolder, and more editorial, but not cluttered.
+
+2. Add more atmospheric depth
+Use subtle:
+- grain
+- smoke/fog
+- dark gradients
+- soft emerald lighting
+- background haze
+- glow around key typography/stats
+
+Keep it luxury and controlled, not esports/neon overload.
+
+3. Add more asymmetry
+Some layouts still feel a little too grid/card-based. Make selected templates feel more editorial with:
+- off-center title placement
+- layered background elements
+- oversized cropped typography
+- floating stat elements
+- dramatic negative space
+
+4. Improve stat presentation
+Make large numbers and achievement stats feel more premium and alive:
+- stronger glow
+- subtle background scale numbers
+- small chart-line accents
+- refined stat pills
+- movement indicators that feel clean and branded
+
+5. Create artist-photo variants
+Do not use artist photos by default for daily charts.
+
+But add optional variants for:
+- Artist milestone posts
+- Touring posts
+- Editorial carousel covers
+- Big achievement posts
+
+Photo treatment should be cinematic:
+- darkened image
+- soft emerald overlay
+- blurred background version
+- sharp subject cutout if available
+- large typography layered over/around the image
+
+6. Make carousel covers stronger
+Create more dramatic cover options designed to stop scrolling.
+
+Example headline styles:
+- LOS DATOS QUE NADIE ESTÁ VIENDO
+- MÉXICO YA DOMINA EL STREAMING LATINO
+- EL GÉNERO MÁS GRANDE DEL PAÍS
+- LA INDUSTRIA CAMBIÓ
+- EL IMPACTO MEXICANO EN NÚMEROS
+
+These should feel like premium editorial/music-business covers, not simple cards.
+
+7. Keep all brand rules
+- Black/dark background
+- Emerald green as the only strong accent
+- White/gray text only
+- No gold
+- No random colors
+- No esports style
+- No generic dashboard look
+- No clutter
+- Spanish text only
+- No periods at the end of short stylistic headlines
+
+Goal: make these templates feel like a real premium music media brand: cinematic, editorial, modern, and recognizable as Mexico Charts.
