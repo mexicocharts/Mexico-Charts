@@ -1,0 +1,73 @@
+Please add a Kworb coverage sync/discovery step for the updated Mexico Charts artist database
+I recently updated the artist database to 541 artists, and I need the app to check which of the newer artists have Kworb pages so they can be added to the Kworb fetch system
+Goal
+Sync the current artist metadata database / Google Sheet against kworb_coverage, detect any artists missing from coverage, check whether they exist on Kworb, and add them to the fetch queue if they do
+Requirements
+Compare the current Mexico Charts artist database against kworb_coverage
+Find artists in the metadata database that are not yet in kworb_coverage
+Do not duplicate artists already in coverage
+Do not delete existing coverage or snapshots
+Preserve existing kworb_snapshots data
+For missing artists, run Kworb discovery
+For each new/missing artist:
+normalize the artist name / slug
+check the Kworb Spotify artist index mapping
+detect whether they have a Kworb Spotify page
+detect whether they have a Kworb YouTube page if applicable
+detect whether they have a Kworb iTunes page if applicable
+store the result in kworb_coverage
+Store discovery results clearly
+Update / insert coverage fields like:
+artist_id
+artist_name
+artist_key
+normalized_slug
+kworb_spotify_id
+has_kworb_spotify
+has_kworb_youtube
+has_kworb_itunes
+status
+tier
+last_discovered_at
+last_successful_fetch_at
+last_failed_fetch_at
+consecutive_failures
+Assign refresh tiers
+Use existing tier logic where possible
+Known priority artists stay Tier A
+Active/current artists can be Tier B
+Legacy or lower-change artists can be Tier C
+Not found / uncertain artists should be Tier D
+Also make sure Luis Miguel is included in Tier A and in the sentinel list
+Enqueue jobs for newly discovered Kworb artists
+If an artist is found on Kworb, enqueue a metric_type = "all" job so the normal background worker can fetch Spotify + YouTube + iTunes data according to the existing safe pacing system
+Do not fetch all new artists immediately in a burst
+Discovery should respect:
+token-bucket pacing
+daily/hourly request caps
+no public-route scraping
+background-worker-only fetching
+kill switch
+Add an admin endpoint or command
+Please add or update an admin endpoint like:
+POST /api/kworb/admin/sync-coverage
+It should:
+read the latest artist database
+compare against existing coverage
+add missing artists
+check Kworb availability
+enqueue jobs for newly found artists
+return a summary
+Summary should include:
+total artists in metadata database
+total already in kworb_coverage
+new artists added to coverage
+artists found on Kworb
+artists not found on Kworb
+jobs enqueued
+errors / ambiguous matches
+Make the process idempotent
+Running the sync multiple times should be safe
+It should not create duplicate coverage rows, duplicate jobs, or overwrite good existing snapshots
+Final goal
+After this sync, all 541 Mexico Charts artists should be represented in kworb_coverage, and every artist that has usable Kworb pages should be eligible for the normal background refresh system. The public site should continue reading only from cached snapshots, not live-scraping Kworb.

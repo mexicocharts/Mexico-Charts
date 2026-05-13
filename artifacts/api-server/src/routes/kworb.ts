@@ -879,6 +879,136 @@ async function seedCoverage(
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   SYNC COVERAGE
+   Idempotent diff: reads the 541-artist metadata sheet, compares against
+   kworb_coverage, and only processes artists not yet tracked.
+   Does NOT modify existing coverage or snapshots.
+   Does NOT do live kworb HTTP fetches — enqueues jobs for the worker.
+   Respects kill switch, token-bucket pacing, and daily/hourly caps.
+══════════════════════════════════════════════════════════════════════════ */
+
+interface SyncResult {
+  metadataTotal:    number;   // artists parsed from the metadata sheet
+  alreadyInCoverage: number;  // already had a kworb_coverage row (skipped)
+  newAdded:         number;   // newly inserted into kworb_coverage
+  foundOnKworb:     number;   // had a Spotify ID in the in-memory index map
+  notFoundOnKworb:  number;   // no Spotify ID found; worker will attempt discovery
+  jobsEnqueued:     number;   // pending jobs created for the worker
+  errors:           string[]; // non-fatal issues
+}
+
+async function syncCoverage(): Promise<SyncResult> {
+  // 1 — Fetch metadata sheet
+  const resp = await fetch(METADATA_SHEET_URL, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsBot/1.0)" },
+    signal:  AbortSignal.timeout(20_000),
+  });
+  if (!resp.ok) throw new Error(`Metadata sheet HTTP ${resp.status}`);
+
+  const csv   = await resp.text();
+  const lines = csv.split("\n").filter(Boolean);
+  const hdrs  = lines[0].split(",").map(h => h.replace(/^"|"$/g, "").toLowerCase().trim());
+  const nameIdx = hdrs.indexOf("artist_name");
+  if (nameIdx < 0) throw new Error("artist_name column not found in metadata sheet");
+
+  const metadataArtists: { name: string; slug: string }[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].match(/"([^"]*)"/g);
+    const name  = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
+    if (name) {
+      const slug = toSlug(name);
+      if (slug) metadataArtists.push({ name, slug });
+    }
+  }
+
+  // 2 — Load existing coverage keys (single query)
+  const existingRows = await db
+    .select({ artistKey: kworbCoverage.artistKey })
+    .from(kworbCoverage);
+  const existingKeys = new Set(existingRows.map(r => r.artistKey));
+
+  const result: SyncResult = {
+    metadataTotal:     metadataArtists.length,
+    alreadyInCoverage: 0,
+    newAdded:          0,
+    foundOnKworb:      0,
+    notFoundOnKworb:   0,
+    jobsEnqueued:      0,
+    errors:            [],
+  };
+
+  const newSlugs: string[] = [];
+
+  // 3 — Insert missing artists into coverage (one by one to avoid bulk conflicts)
+  for (const { name, slug } of metadataArtists) {
+    if (existingKeys.has(slug)) {
+      result.alreadyInCoverage++;
+      continue;
+    }
+
+    try {
+      const tier      = TIER_A_SLUGS.has(slug) ? "A" : "B";
+      const spotifyId = spotifyIdMap.get(slug) ?? null;
+
+      // onConflictDoNothing = idempotent; second run skips cleanly
+      await db
+        .insert(kworbCoverage)
+        .values({
+          artistKey:        slug,
+          artistName:       name,
+          spotifyId:        spotifyId ?? undefined,
+          tier,
+          status:           "pending",
+          lastDiscoveredAt: new Date(),
+        })
+        .onConflictDoNothing();
+
+      result.newAdded++;
+      newSlugs.push(slug);
+      if (spotifyId) result.foundOnKworb++;
+      else           result.notFoundOnKworb++;
+
+    } catch (err) {
+      result.errors.push(`${slug}: ${String(err)}`);
+    }
+  }
+
+  // 4 — Enqueue jobs for newly added artists (staggered — no burst)
+  //     Tier A: due now (sentinel will reprioritise after kworb update)
+  //     Tier B: spread over 0–72 h
+  //     Others: spread over 0–7 days
+  for (const slug of newSlugs) {
+    try {
+      const tier = TIER_A_SLUGS.has(slug) ? "A" : "B";
+      const spreadMs = tier === "A"
+        ? 0
+        : Math.random() * 72 * 3_600_000; // 0–72 h for new Tier B artists
+      await enqueueJob(
+        slug,
+        "all",
+        TIER_PRIORITY[tier] ?? 30,
+        new Date(Date.now() + spreadMs),
+      );
+      result.jobsEnqueued++;
+    } catch (err) {
+      result.errors.push(`enqueue ${slug}: ${String(err)}`);
+    }
+  }
+
+  // 5 — Refresh in-memory slug list so /known-slugs reflects new artists
+  await loadSlugListFromCoverage();
+
+  console.log(
+    `[kworb:sync] metadata=${result.metadataTotal} ` +
+    `existing=${result.alreadyInCoverage} new=${result.newAdded} ` +
+    `foundOnKworb=${result.foundOnKworb} queued=${result.jobsEnqueued} ` +
+    `errors=${result.errors.length}`,
+  );
+
+  return result;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    STARTUP
    1. Ingest Spotify ID map from kworb's artists index (1 HTTP request)
    2. Load slug list from coverage table
@@ -1106,6 +1236,19 @@ router.get("/kworb/admin/stats", async (_req, res) => {
 router.post("/kworb/admin/seed-coverage", async (_req, res) => {
   try {
     const result = await seedCoverage(true);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+/* POST /api/kworb/admin/sync-coverage
+   Diffs the 541-artist metadata sheet against kworb_coverage and adds any
+   missing artists. Idempotent — safe to run multiple times.
+   Does NOT touch existing coverage rows or snapshots.                     */
+router.post("/kworb/admin/sync-coverage", async (_req, res) => {
+  try {
+    const result = await syncCoverage();
     res.json({ ok: true, ...result });
   } catch (err) {
     res.status(500).json({ error: String(err) });
