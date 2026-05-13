@@ -266,7 +266,7 @@ router.get("/spotify/artist-images", async (req, res) => {
     }
   }
 
-  res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+  res.setHeader("Cache-Control", "no-store");
   res.json(results);
 });
 

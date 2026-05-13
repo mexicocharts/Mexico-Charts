@@ -386,9 +386,9 @@ function ChartRow({
 
 export default function ChartsScreen() {
   const insets = useSafeAreaInsets();
-  const [activePlatformId, setActivePlatformId] = useState("YouTube");
-  const [activeSheetId, setActiveSheetId] = useState<SheetName>("YT_Songs_Weekly");
-  const [filterMex, setFilterMex] = useState(false);
+  const [activePlatformId, setActivePlatformId] = useState("Spotify");
+  const [activeSheetId, setActiveSheetId] = useState<SheetName>("Spotify_Artists_Daily");
+  const [filterMex, setFilterMex] = useState(true);
 
   const { data, isLoading, hasError } = useChartsHub();
 

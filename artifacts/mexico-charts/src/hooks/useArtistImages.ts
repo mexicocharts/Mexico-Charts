@@ -4,12 +4,18 @@ type ArtistImageMap = Record<string, string | null>;
 
 const CHUNK_SIZE = 20;
 
+const CACHE_BUST = "v2";
+
 async function fetchChunk(names: string[]): Promise<ArtistImageMap> {
-  const resp = await fetch(
-    `/api/spotify/artist-images?names=${encodeURIComponent(names.join(","))}`
-  );
-  if (!resp.ok) return {};
-  return resp.json() as Promise<ArtistImageMap>;
+  try {
+    const resp = await fetch(
+      `/api/spotify/artist-images?_=${CACHE_BUST}&names=${encodeURIComponent(names.join(","))}`
+    );
+    if (!resp.ok) return {};
+    return resp.json() as Promise<ArtistImageMap>;
+  } catch {
+    return {};
+  }
 }
 
 export function useArtistImages(names: readonly string[]): ArtistImageMap {
