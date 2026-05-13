@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, ChevronRight, Download, Loader2 } from "lucide-react";
-import html2canvas from "html2canvas";
+import { toPng } from "html-to-image";
 import DailyTopSongs from "@/social/templates/DailyTopSongs";
 import DailyTopArtists from "@/social/templates/DailyTopArtists";
 import WeeklyTopSongs from "@/social/templates/WeeklyTopSongs";
@@ -314,18 +314,19 @@ const inputStyle: React.CSSProperties = {
 
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string) {
-  const canvas = await html2canvas(el, {
+  // html-to-image uses SVG foreignObject rendering — the browser's own
+  // engine — so text-overflow, flexbox, and font metrics are all correct.
+  const dataUrl = await toPng(el, {
     width: 1080,
     height: 1350,
-    scale: 1,
-    useCORS: true,
-    allowTaint: true,
+    pixelRatio: 1,
     backgroundColor: "#050505",
-    logging: false,
+    fetchRequestInit: { mode: "cors", cache: "force-cache" },
+    skipFonts: false,
   });
   const link = document.createElement("a");
   link.download = filename;
-  link.href = canvas.toDataURL("image/png");
+  link.href = dataUrl;
   link.click();
 }
 
