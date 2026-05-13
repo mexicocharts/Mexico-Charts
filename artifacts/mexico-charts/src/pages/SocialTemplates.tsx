@@ -350,22 +350,30 @@ function Lightbox({
     if (!captureRef.current || downloading) return;
     setDownloading(true);
     const el = captureRef.current;
-    const saved = el.style.cssText;
-    // Escape the overflow:hidden lightbox by going position:fixed.
-    // z-index:1 keeps it behind the lightbox (z-index:50) so the user
-    // never sees it, but html2canvas can capture it (visibility:hidden
-    // causes a blank render so we must NOT use it here).
+
+    // Move element into document.body so it escapes the lightbox's
+    // overflow:hidden. position:absolute at a large negative top keeps it
+    // off-screen (user never sees it) without hitting any clipping ancestor.
+    // position:fixed would clip at the viewport edge if window < 1080px.
+    const originalParent = el.parentElement!;
+    const originalSibling = el.nextSibling;
+    const savedStyle = el.style.cssText;
+
     el.style.cssText =
-      "position:fixed;top:0;left:0;width:1080px;height:1350px;" +
-      "pointer-events:none;z-index:1;overflow:hidden;";
-    // Wait two animation frames so the browser paints the repositioned element
+      "position:absolute;top:-9999px;left:0;width:1080px;height:1350px;" +
+      "pointer-events:none;z-index:-1;overflow:hidden;";
+    document.body.appendChild(el);
+
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     try {
       await captureAndDownload(el, `${config.id}-mexicocharts.png`);
     } catch (e) {
       console.error("Download failed:", e);
     }
-    el.style.cssText = saved;
+
+    // Restore to original location in the React tree before re-render
+    originalParent.insertBefore(el, originalSibling);
+    el.style.cssText = savedStyle;
     setDownloading(false);
   }, [config.id, downloading]);
 
