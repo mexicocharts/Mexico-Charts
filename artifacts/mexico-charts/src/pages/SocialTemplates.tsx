@@ -362,29 +362,44 @@ async function inlineImages(el: HTMLElement): Promise<void> {
 
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
-  // Wait for fonts to be fully loaded
   await document.fonts.ready;
-  // Fetch every <img> via our proxy and replace src with base64 data URLs.
-  // This guarantees html-to-image sees only same-origin data: URLs and never
-  // needs to make any external CDN fetch (which would be blocked by CORS).
-  await inlineImages(el);
+  // Let React finish any pending renders (setDownloading re-render, etc.)
+  // before we snapshot the DOM so the portal has settled with real data.
+  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
-  const dataUrl = await toPng(el, {
-    width: 1080,
-    height: 1350,
-    pixelRatio: 1,
-    backgroundColor: "#050505",
-    skipFonts: false,
-  });
+  // Clone the portal element into a plain DOM node outside the React tree.
+  // This is critical: React can't overwrite img.src on a clone, so inlineImages
+  // can safely replace CDN URLs with base64 data URLs without a React re-render
+  // resetting them before toPng serialises the DOM.
+  const clone = el.cloneNode(true) as HTMLElement;
+  clone.style.cssText =
+    "position:fixed;top:-9999px;left:0;" +
+    `width:${el.offsetWidth}px;height:${el.offsetHeight}px;` +
+    "overflow:visible;pointer-events:none;";
+  document.body.appendChild(clone);
 
-  if (!dataUrl || dataUrl === "data:,") {
-    throw new Error("toPng returned empty data URL");
+  try {
+    await inlineImages(clone);
+
+    const dataUrl = await toPng(clone, {
+      width: 1080,
+      height: 1350,
+      pixelRatio: 1,
+      backgroundColor: "#050505",
+      skipFonts: false,
+    });
+
+    if (!dataUrl || dataUrl === "data:,") {
+      throw new Error("toPng returned empty data URL");
+    }
+
+    const link = document.createElement("a");
+    link.download = filename;
+    link.href = dataUrl;
+    link.click();
+  } finally {
+    document.body.removeChild(clone);
   }
-
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = dataUrl;
-  link.click();
 }
 
 /* ── Lightbox ─────────────────────────────────────────────────── */
