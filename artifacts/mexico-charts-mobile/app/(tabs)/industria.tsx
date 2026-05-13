@@ -4,6 +4,8 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  TouchableOpacity,
+  Linking,
   Platform,
   Dimensions,
 } from "react-native";
@@ -50,6 +52,21 @@ function StatCard({ icon, value, label, hi }: {
   );
 }
 
+function SourceCard({ title, url, subtitle }: { title: string; url: string; subtitle: string }) {
+  return (
+    <TouchableOpacity
+      style={styles.sourceCard}
+      activeOpacity={0.75}
+      onPress={() => Linking.openURL(url)}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={styles.sourceTitle}>{title}</Text>
+        <Text style={styles.sourceSub}>{subtitle}</Text>
+      </View>
+      <Feather name="external-link" size={14} color={NEON} />
+    </TouchableOpacity>
+  );
+}
 
 export default function IndustriaScreen() {
   const insets = useSafeAreaInsets();
@@ -133,6 +150,27 @@ export default function IndustriaScreen() {
                 </View>
               </View>
             ))}
+          </View>
+        </View>
+
+        {/* ── SOURCES ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Feather name="link" size={13} color={NEON} />
+            <Text style={styles.sectionLabel}>FUENTES OFICIALES</Text>
+            <View style={styles.sectionLine} />
+          </View>
+          <View style={{ gap: 10 }}>
+            <SourceCard
+              title="IFPI Global Music Report 2026"
+              subtitle="International Federation of the Phonographic Industry"
+              url="https://www.ifpi.org/wp-content/uploads/2026/03/GMR2026_SOTI.pdf"
+            />
+            <SourceCard
+              title="AMPROFON Reporte Música México"
+              subtitle="Asociación Mexicana de Productores de Fonogramas"
+              url="https://amprofon.com.mx/es/media/pdfs/Reporte_Musica_Mexico_(1).pdf"
+            />
           </View>
         </View>
 
@@ -253,4 +291,18 @@ const styles = StyleSheet.create({
     color: "#A1A1AA", fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 19,
   },
 
+  /* Sources */
+  sourceCard: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#111111",
+    borderRadius: 12, padding: 16,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+    gap: 12,
+  },
+  sourceTitle: {
+    color: "#E4E4E7", fontFamily: "Inter_600SemiBold", fontSize: 13, marginBottom: 3,
+  },
+  sourceSub: {
+    color: "#52525B", fontFamily: "Inter_400Regular", fontSize: 11, lineHeight: 16,
+  },
 });

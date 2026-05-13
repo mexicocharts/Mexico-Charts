@@ -392,7 +392,7 @@ export default function TouringHub() {
           {!isLoading && !isError && totalShows > 0 && (
             <span style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
-              {totalShows} shows próximos
+              {totalShows} shows · Ticketmaster
             </span>
           )}
         </div>

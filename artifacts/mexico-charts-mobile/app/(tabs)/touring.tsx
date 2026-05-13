@@ -90,7 +90,7 @@ function TouringHero({
         <View style={styles.heroLiveBadge}>
           <View style={styles.heroDot} />
           <Text style={styles.heroLiveBadgeText}>
-            {isLoading ? "CARGANDO…" : `${totalShows} shows próximos`}
+            {isLoading ? "CARGANDO…" : `${totalShows} shows · Ticketmaster`}
           </Text>
         </View>
       </View>
