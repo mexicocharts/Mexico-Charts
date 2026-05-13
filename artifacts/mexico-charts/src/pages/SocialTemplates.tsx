@@ -15,6 +15,9 @@ import QuoteHeadline from "@/social/templates/QuoteHeadline";
 import CarouselCover from "@/social/templates/CarouselCover";
 import CarouselDataSlide from "@/social/templates/CarouselDataSlide";
 import FinalCTA from "@/social/templates/FinalCTA";
+import AnimatedTopArtists from "@/social/templates/AnimatedTopArtists";
+import AnimatedTopSongs from "@/social/templates/AnimatedTopSongs";
+import AnimatedTopAlbums from "@/social/templates/AnimatedTopAlbums";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const ACCENT = "#39FF14";
@@ -271,6 +274,36 @@ const TEMPLATES: TemplateConfig[] = [
       { key: "website",  label: "Sitio web",           type: "text" },
       { key: "date",     label: "Línea de fecha",      type: "text" },
     ],
+  },
+  {
+    id: "anim-top-artists",
+    name: "Top Artistas — Animado",
+    category: "Animaciones",
+    description: "Artistas entran uno por uno con animación · ideal para Reels y Stories",
+    Component: AnimatedTopArtists,
+    defaultProps: {},
+    fields: [],
+    staticData: true,
+  },
+  {
+    id: "anim-top-songs",
+    name: "Top Canciones — Animado",
+    category: "Animaciones",
+    description: "Canciones con streams revelan en secuencia · ideal para TikTok y Reels",
+    Component: AnimatedTopSongs,
+    defaultProps: {},
+    fields: [],
+    staticData: true,
+  },
+  {
+    id: "anim-top-albums",
+    name: "Top Álbumes — Animado",
+    category: "Animaciones",
+    description: "Álbumes escalan al ritmo del chart · ideal para Stories y carrusel animado",
+    Component: AnimatedTopAlbums,
+    defaultProps: {},
+    fields: [],
+    staticData: true,
   },
 ];
 
