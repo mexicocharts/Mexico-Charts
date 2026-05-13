@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
 
 const FALLBACK_TOP3: ChartRowData[] = [
   { rank: 1, title: "Ella Baila Sola", subtitle: "Peso Pluma · Eslabon Armado", stat: "21.4M", movement: 0,  peak: 1, weeks: 12 },
@@ -29,7 +29,7 @@ export default function WeeklyTopSongs() {
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: e.coverUrl,
+    imageUrl: proxyImageUrl(e.coverUrl),
   })) ?? [];
 
   const top3 = allRows.length > 0 ? allRows.slice(0, 3) : FALLBACK_TOP3;

@@ -7,6 +7,7 @@ import chartsHubRouter from "./charts-hub";
 import touringRouter from "./touring";
 import artistsRouter from "./artists";
 import certificationsRouter from "./certifications";
+import imageProxyRouter from "./image-proxy";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(chartsHubRouter);
 router.use(touringRouter);
 router.use(artistsRouter);
 router.use(certificationsRouter);
+router.use(imageProxyRouter);
 
 export default router;

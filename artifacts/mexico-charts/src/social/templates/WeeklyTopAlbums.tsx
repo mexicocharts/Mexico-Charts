@@ -2,7 +2,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl } from "../useChartData";
 
 interface AlbumEntry {
   rank: number;
@@ -35,7 +35,7 @@ export default function WeeklyTopAlbums() {
         rank: i + 1,
         title: r["Title"] ?? "",
         artist: r["Artist Names"] ?? "",
-        imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
+        imageUrl: proxyImageUrl(images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null),
       }))
     : FALLBACK;
 

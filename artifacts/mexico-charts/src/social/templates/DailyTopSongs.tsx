@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Ella Baila Sola",      subtitle: "Peso Pluma · Eslabon Armado",  stat: "3.2M",  movement: 0  },
@@ -27,7 +27,7 @@ export default function DailyTopSongs() {
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: e.coverUrl,
+    imageUrl: proxyImageUrl(e.coverUrl),
   })) ?? FALLBACK;
 
   return (

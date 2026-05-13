@@ -83,3 +83,15 @@ export function fmtStreams(s: string): string {
 export function primaryArtist(credit: string): string {
   return credit.split(/[,&/]|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+/i)[0].trim();
 }
+
+/**
+ * Convert an external CDN image URL into a same-origin proxied URL.
+ * This makes it fetchable by html-to-image inside SVG foreignObject
+ * without hitting cross-origin restrictions.
+ * Local URLs (starting with /) are returned unchanged.
+ */
+export function proxyImageUrl(url: string | null | undefined): string | null | undefined {
+  if (!url) return url;
+  if (url.startsWith("/") || !url.includes("://")) return url;
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
