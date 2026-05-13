@@ -59,10 +59,9 @@ export default function AnimatedTopArtists() {
     ? new Date(hub.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
     : "13 Mayo 2026";
 
-  const headerVisible  = phase !== "intro";
-  const outroActive    = phase === "outro";
-  const staggerActive  = phase === "stagger";
-  const rowVisible     = phase !== "intro";
+  const outroActive   = phase === "outro";
+  const staggerActive = phase === "stagger";
+  const rowVisible    = phase !== "intro";
 
   return (
     <TemplateCanvas>
@@ -88,16 +87,15 @@ export default function AnimatedTopArtists() {
         pointerEvents: "none", userSelect: "none",
       }}>10</div>
 
-      {/* Everything fades out together in outro */}
+      {/* Outer wrapper — fades out during outro */}
       <div style={{
         opacity: outroActive ? 0 : 1,
-        transition: outroActive ? "opacity 0.85s ease" : "none",
+        transition: outroActive ? "opacity 0.9s ease" : "none",
         display: "flex", flexDirection: "column", flex: 1,
       }}>
-        {/* Header — fades in at stagger start */}
+        {/* Header — fades IN during intro, stays visible through stagger/hold */}
         <div style={{
-          opacity: headerVisible ? 1 : 0,
-          transition: "opacity 0.45s ease",
+          animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none",
         }}>
           <LogoBar date={date} />
           <AccentLine />
@@ -132,7 +130,6 @@ export default function AnimatedTopArtists() {
         <div>
           {rows.map((row, i) => {
             const isTop3 = row.rank <= 3;
-            const rowH = 74;
             return (
               <div
                 key={`${row.rank}-${cycle}`}
@@ -143,7 +140,7 @@ export default function AnimatedTopArtists() {
                     : "none",
                   display: "flex",
                   alignItems: "center",
-                  height: rowH,
+                  height: 74,
                   borderBottom: "1px solid rgba(255,255,255,0.04)",
                   gap: 18,
                   background: isTop3
@@ -161,7 +158,6 @@ export default function AnimatedTopArtists() {
                     boxShadow: `2px 0 16px ${ACCENT}50`,
                   }} />
                 )}
-                {/* Rank */}
                 <div style={{
                   width: 56, fontSize: isTop3 ? 34 : 24, fontWeight: 900,
                   color: isTop3 ? ACCENT : "rgba(255,255,255,0.18)",
@@ -170,9 +166,7 @@ export default function AnimatedTopArtists() {
                 }}>
                   {String(row.rank).padStart(2, "0")}
                 </div>
-                {/* Movement */}
                 <MovementBadge movement={row.movement} isNew={row.isNew} size="sm" />
-                {/* Photo */}
                 <div style={{
                   width: 44, height: 44, flexShrink: 0, borderRadius: "50%",
                   overflow: "hidden",
@@ -183,7 +177,7 @@ export default function AnimatedTopArtists() {
                     : "none",
                 }}>
                   {row.imageUrl ? (
-                    <img src={row.imageUrl} alt="" crossOrigin="anonymous"
+                    <img src={row.imageUrl as string} alt="" crossOrigin="anonymous"
                       style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }} />
                   ) : (
                     <div style={{
@@ -194,7 +188,6 @@ export default function AnimatedTopArtists() {
                     </div>
                   )}
                 </div>
-                {/* Text */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{
                     fontSize: 22, fontWeight: isTop3 ? 800 : 700,
@@ -207,7 +200,6 @@ export default function AnimatedTopArtists() {
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>{row.subtitle}</div>
                 </div>
-                {/* Stat */}
                 {row.stat && (
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{

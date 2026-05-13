@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
 import { useChartsHub, useArtistImageMap, primaryArtist } from "../useChartData";
-import { useAnimLoop } from "../useAnimLoop";
+import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
 @keyframes mcSlideIn {
@@ -20,11 +21,17 @@ const ANIM_CSS = `
 }
 `;
 
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
 interface AlbumEntry {
   rank: number;
   title: string;
   artist: string;
-  stat?: string;
+  rawStat?: number;
   movement?: number;
   isNew?: boolean;
   weeks?: number;
@@ -33,11 +40,11 @@ interface AlbumEntry {
 }
 
 const FALLBACK: AlbumEntry[] = [
-  { rank: 1, title: "Génesis",           artist: "Peso Pluma",     stat: "68.4M", movement: 0,  weeks: 8,  peak: 1 },
-  { rank: 2, title: "Pa'Las Baby's",     artist: "Fuerza Regida",  stat: "52.1M", movement: 1,  weeks: 5,  peak: 2 },
-  { rank: 3, title: "Corridos Tumbados", artist: "Natanael Cano",  stat: "44.7M", movement: -1, weeks: 12, peak: 1 },
-  { rank: 4, title: "Primera Cita",      artist: "Carin León",     stat: "38.2M", movement: 2,  weeks: 6,  peak: 3 },
-  { rank: 5, title: "Del Rancho",        artist: "Grupo Frontera", stat: "29.8M", isNew: true,  weeks: 1,  peak: 5 },
+  { rank: 1, title: "Génesis",           artist: "Peso Pluma",     rawStat: 68_400_000, movement: 0,  weeks: 8,  peak: 1 },
+  { rank: 2, title: "Pa'Las Baby's",     artist: "Fuerza Regida",  rawStat: 52_100_000, movement: 1,  weeks: 5,  peak: 2 },
+  { rank: 3, title: "Corridos Tumbados", artist: "Natanael Cano",  rawStat: 44_700_000, movement: -1, weeks: 12, peak: 1 },
+  { rank: 4, title: "Primera Cita",      artist: "Carin León",     rawStat: 38_200_000, movement: 2,  weeks: 6,  peak: 3 },
+  { rank: 5, title: "Del Rancho",        artist: "Grupo Frontera", rawStat: 29_800_000, isNew: true,  weeks: 1,  peak: 5 },
 ];
 
 export default function AnimatedTopAlbums() {
@@ -48,20 +55,30 @@ export default function AnimatedTopAlbums() {
   const { phase, cycle } = useAnimLoop();
 
   const isLive = hubRows.length > 0;
-  const albums: AlbumEntry[] = isLive
+
+  const albums: AlbumEntry[] = useMemo(() => isLive
     ? hubRows.map((r, i) => ({
         rank: i + 1,
         title: r["Title"] ?? "",
         artist: r["Artist Names"] ?? "",
         imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
       }))
-    : FALLBACK;
+    : FALLBACK,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [hub, images]);
+
+  const rawStats = useMemo(
+    () => albums.map(a => a.rawStat ?? 0),
+    [albums],
+  );
+
+  const counterActive = !isLive && (phase === "stagger" || phase === "hold");
+  const animCounts = useStreamCounters(rawStats, counterActive, cycle);
 
   const date = hub
     ? new Date(hub.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
     : "Semana del 13 Mayo";
 
-  const headerVisible = phase !== "intro";
   const outroActive   = phase === "outro";
   const staggerActive = phase === "stagger";
   const rowVisible    = phase !== "intro";
@@ -84,11 +101,11 @@ export default function AnimatedTopAlbums() {
 
       <div style={{
         opacity: outroActive ? 0 : 1,
-        transition: outroActive ? "opacity 0.85s ease" : "none",
+        transition: outroActive ? "opacity 0.9s ease" : "none",
         display: "flex", flexDirection: "column", flex: 1,
       }}>
-        {/* Header */}
-        <div style={{ opacity: headerVisible ? 1 : 0, transition: "opacity 0.45s ease" }}>
+        {/* Header — fades IN during intro */}
+        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
           <div style={{ padding: "24px 64px 20px", position: "relative", zIndex: 2 }}>
@@ -134,7 +151,6 @@ export default function AnimatedTopAlbums() {
                 }} />
               )}
 
-              {/* Album art — scales in slightly after the row */}
               <div style={{
                 animation: staggerActive
                   ? `mcScaleIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.16 + 0.1}s both`
@@ -171,14 +187,17 @@ export default function AnimatedTopAlbums() {
                 )}
               </div>
 
-              {!isLive && a.stat && (
+              {/* Animated stream counter (fallback mode only) */}
+              {!isLive && a.rawStat !== undefined && (
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div style={{
                     fontSize: 28, fontWeight: 900,
                     color: a.rank <= 2 ? ACCENT : "rgba(255,255,255,0.45)",
                     letterSpacing: "-0.02em",
                     textShadow: a.rank <= 2 ? `0 0 30px ${ACCENT}50` : "none",
-                  }}>{a.stat}</div>
+                  }}>
+                    {fmtNum(animCounts[i] ?? 0)}
+                  </div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, marginBottom: 8 }}>
                     streams
                   </div>

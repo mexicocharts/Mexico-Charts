@@ -1,10 +1,10 @@
+import { useMemo } from "react";
 import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams } from "../useChartData";
-import { useAnimLoop } from "../useAnimLoop";
+import { useSpotifyChart, parseMovement } from "../useChartData";
+import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
 @keyframes mcSlideIn {
@@ -20,47 +20,64 @@ const ANIM_CSS = `
   65%  { transform: scale(1.12); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
-@keyframes mcCountUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 `;
 
-const FALLBACK: ChartRowData[] = [
-  { rank: 1,  title: "Ella Baila Sola",    subtitle: "Peso Pluma · Eslabon Armado", stat: "3.2M", movement: 0  },
-  { rank: 2,  title: "LALA",               subtitle: "Myke Towers",                 stat: "2.9M", movement: 2  },
-  { rank: 3,  title: "Cupido",             subtitle: "TINI · Myke Towers",          stat: "2.6M", movement: -1 },
-  { rank: 4,  title: "La Bebe (Remix)",    subtitle: "Peso Pluma · Yng Lvcas",      stat: "2.3M", movement: 1  },
-  { rank: 5,  title: "Chanel",             subtitle: "Bizarrap · Peso Pluma",        stat: "2.1M", movement: 0  },
-  { rank: 6,  title: "Cayó La Noche",      subtitle: "Junior H · Peso Pluma",        stat: "1.9M", movement: -2 },
-  { rank: 7,  title: "Un Fin de Semana",   subtitle: "Carin León",                  stat: "1.7M", movement: 3  },
-  { rank: 8,  title: "Según Quién",        subtitle: "Carin León",                  stat: "1.6M", movement: 0  },
-  { rank: 9,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma",  stat: "1.5M", isNew: true  },
-  { rank: 10, title: "La Noche de Anoche", subtitle: "Bad Bunny · Rosalía",         stat: "1.4M", movement: -3 },
-];
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+const FALLBACK_RAW = [3_200_000, 2_900_000, 2_600_000, 2_300_000, 2_100_000, 1_900_000, 1_700_000, 1_600_000, 1_500_000, 1_400_000];
+
+const FALLBACK_ROWS = [
+  { rank: 1,  title: "Ella Baila Sola",    subtitle: "Peso Pluma · Eslabon Armado", movement: 0,  imageUrl: null },
+  { rank: 2,  title: "LALA",               subtitle: "Myke Towers",                 movement: 2,  imageUrl: null },
+  { rank: 3,  title: "Cupido",             subtitle: "TINI · Myke Towers",          movement: -1, imageUrl: null },
+  { rank: 4,  title: "La Bebe (Remix)",    subtitle: "Peso Pluma · Yng Lvcas",      movement: 1,  imageUrl: null },
+  { rank: 5,  title: "Chanel",             subtitle: "Bizarrap · Peso Pluma",        movement: 0,  imageUrl: null },
+  { rank: 6,  title: "Cayó La Noche",      subtitle: "Junior H · Peso Pluma",        movement: -2, imageUrl: null },
+  { rank: 7,  title: "Un Fin de Semana",   subtitle: "Carin León",                  movement: 3,  imageUrl: null },
+  { rank: 8,  title: "Según Quién",        subtitle: "Carin León",                  movement: 0,  imageUrl: null },
+  { rank: 9,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma",  isNew: true,  imageUrl: null },
+  { rank: 10, title: "La Noche de Anoche", subtitle: "Bad Bunny · Rosalía",         movement: -3, imageUrl: null },
+] as const;
 
 export default function AnimatedTopSongs() {
   const { data } = useSpotifyChart("daily");
   const { phase, cycle } = useAnimLoop();
 
-  const rows: ChartRowData[] = data?.entries?.slice(0, 10).map(e => ({
-    rank: e.pos,
-    title: e.title,
-    subtitle: [e.artist, ...e.features].join(" · "),
-    stat: fmtStreams(e.streams),
-    ...parseMovement(e.posChange),
-    imageUrl: e.coverUrl,
-  })) ?? FALLBACK;
+  const entries = data?.entries?.slice(0, 10) ?? [];
+
+  const rows = useMemo(() => entries.length > 0
+    ? entries.map(e => ({
+        rank: e.pos,
+        title: e.title,
+        subtitle: [e.artist, ...e.features].join(" · "),
+        imageUrl: e.coverUrl,
+        ...parseMovement(e.posChange),
+      }))
+    : FALLBACK_ROWS,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [data]);
+
+  const rawStreams = useMemo(() => entries.length > 0
+    ? entries.map(e => parseInt(e.streams.replace(/[^0-9]/g, ""), 10) || 0)
+    : FALLBACK_RAW,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [data]);
+
+  const counterActive = phase === "stagger" || phase === "hold";
+  const animCounts = useStreamCounters(rawStreams, counterActive, cycle);
 
   const date = data
     ? new Date(data.fetchedAt).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
     : "13 Mayo 2026";
 
-  const hasCovers    = !!data;
-  const headerVisible = phase !== "intro";
-  const outroActive   = phase === "outro";
+  const hasCovers    = entries.length > 0;
+  const outroActive  = phase === "outro";
   const staggerActive = phase === "stagger";
-  const rowVisible    = phase !== "intro";
+  const rowVisible   = phase !== "intro";
 
   return (
     <TemplateCanvas>
@@ -87,10 +104,11 @@ export default function AnimatedTopSongs() {
 
       <div style={{
         opacity: outroActive ? 0 : 1,
-        transition: outroActive ? "opacity 0.85s ease" : "none",
+        transition: outroActive ? "opacity 0.9s ease" : "none",
         display: "flex", flexDirection: "column", flex: 1,
       }}>
-        <div style={{ opacity: headerVisible ? 1 : 0, transition: "opacity 0.45s ease" }}>
+        {/* Header — fades IN during intro */}
+        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
           <div style={{ padding: "28px 64px 22px", position: "relative", zIndex: 2 }}>
@@ -121,9 +139,12 @@ export default function AnimatedTopSongs() {
           <AccentLine opacity={0.1} />
         </div>
 
+        {/* Animated rows */}
         <div>
           {rows.map((row, i) => {
             const isTop3 = row.rank <= 3;
+            const movement = "movement" in row ? (row as any).movement : undefined;
+            const isNew    = "isNew" in row ? (row as any).isNew : undefined;
             return (
               <div
                 key={`${row.rank}-${cycle}`}
@@ -158,7 +179,7 @@ export default function AnimatedTopSongs() {
                 }}>
                   {String(row.rank).padStart(2, "0")}
                 </div>
-                <MovementBadge movement={row.movement} isNew={row.isNew} size="sm" />
+                <MovementBadge movement={movement} isNew={isNew} size="sm" />
                 {/* Album cover */}
                 <div style={{
                   width: 44, height: 44, flexShrink: 0, borderRadius: 8,
@@ -193,19 +214,17 @@ export default function AnimatedTopSongs() {
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>{row.subtitle}</div>
                 </div>
-                {row.stat && (
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{
-                      fontSize: 20, fontWeight: 900,
-                      color: isTop3 ? ACCENT : "rgba(255,255,255,0.38)",
-                      letterSpacing: "-0.02em",
-                      textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
-                      animation: staggerActive
-                        ? `mcCountUp 0.35s ease ${i * 0.13 + 0.25}s both`
-                        : "none",
-                    }}>{row.stat}</div>
+                {/* Animated stream counter */}
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{
+                    fontSize: 20, fontWeight: 900,
+                    color: isTop3 ? ACCENT : "rgba(255,255,255,0.38)",
+                    letterSpacing: "-0.02em",
+                    textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
+                  }}>
+                    {fmtNum(animCounts[i] ?? 0)}
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
