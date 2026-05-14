@@ -69,6 +69,8 @@ const ARTISTS = [
   { id: "lila-downs",                 name: "Lila Downs",                   attractionId: "K8vZ9171sw0" },
   { id: "rogelio-martinez",           name: "Rogelio Martinez",             attractionId: "K8vZ917uwv7" },
   { id: "yuridia",                    name: "Yuridia",                      attractionId: "K8vZ917Gdu7" },
+  { id: "amanda-miguel",              name: "Amanda Miguel",                attractionId: "K8vZ9175gZ0" },
+  { id: "la-sonora-dinamita",         name: "La Sonora Dinamita",           attractionId: "K8vZ917uPbf" },
   { id: "aida-cuevas",                name: "Aida Cuevas",                  attractionId: "K8vZ9173cmV" },
   { id: "aleks-syntek",               name: "Aleks Syntek",                 attractionId: "K8vZ9175dH7" },
   { id: "banda-cuisillos",            name: "Banda Cuisillos",              attractionId: "K8vZ9175AA7" },
