@@ -1416,4 +1416,26 @@ router.post("/kworb/admin/run-now", async (_req, res) => {
   res.json({ ok: true, pending_reset: pending.rowCount, zombies_released: zombies.rowCount });
 });
 
+/* POST /api/kworb/admin/set-spotify-id — seed spotify_id and reset job for one artist */
+router.post("/kworb/admin/set-spotify-id", async (req, res) => {
+  const { artist_key, spotify_id } = req.body as { artist_key?: string; spotify_id?: string };
+  if (!artist_key || !spotify_id) { res.status(400).json({ error: "artist_key and spotify_id required" }); return; }
+
+  // Update coverage with the spotify_id and reset failures so worker will retry
+  await pool.query(`
+    UPDATE kworb_coverage
+    SET spotify_id = $2, consecutive_failures = 0, last_failed_at = NULL, updated_at = NOW()
+    WHERE artist_key = $1
+  `, [artist_key, spotify_id]);
+
+  // Reset the pending job to due now with attempts reset
+  await pool.query(`
+    UPDATE kworb_jobs
+    SET due_at = NOW(), attempts = 0, updated_at = NOW()
+    WHERE artist_key = $1 AND status = 'pending'
+  `, [artist_key]);
+
+  res.json({ ok: true, artist_key, spotify_id });
+});
+
 export default router;
