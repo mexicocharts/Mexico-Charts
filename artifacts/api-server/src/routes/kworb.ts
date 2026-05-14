@@ -1399,14 +1399,21 @@ router.post("/kworb/admin/enqueue", async (req, res) => {
   res.json({ ok: true, slug, priority: isNaN(priority) ? 5 : priority });
 });
 
-/* POST /api/kworb/admin/run-now — reset all pending jobs to due now */
+/* POST /api/kworb/admin/run-now — reset pending + zombie running jobs to due now */
 router.post("/kworb/admin/run-now", async (_req, res) => {
-  const result = await pool.query(`
+  // Reset future-dated pending jobs
+  const pending = await pool.query(`
     UPDATE kworb_jobs
     SET due_at = NOW(), updated_at = NOW()
     WHERE status = 'pending' AND due_at > NOW()
   `);
-  res.json({ ok: true, updated: result.rowCount });
+  // Release zombie running jobs whose lock has expired
+  const zombies = await pool.query(`
+    UPDATE kworb_jobs
+    SET status = 'pending', due_at = NOW(), locked_until = NULL, updated_at = NOW()
+    WHERE status = 'running' AND locked_until < NOW()
+  `);
+  res.json({ ok: true, pending_reset: pending.rowCount, zombies_released: zombies.rowCount });
 });
 
 export default router;
