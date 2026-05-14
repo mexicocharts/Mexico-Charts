@@ -14,20 +14,12 @@ const PROFILE_SLUGS: Record<string, string> = {
 };
 
 const profileCards = [
-  { artist: "Peso Pluma",   subtitle: "Éxodo Tour 2024",       gross: "$87.4M",  tickets: "758K",  shows: 288, slug: "peso-pluma"  },
-  { artist: "Luis Miguel",  subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel" },
-  { artist: "Junior H",     subtitle: "Sad Boyz",              gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h"   },
-  { artist: "Grupo Firme",  subtitle: "Tour 2022–2023",        gross: "$81.6M",  tickets: "687K",  shows: 72,  slug: "grupo-firme"},
+  { artist: "Junior H",    subtitle: "Sad Boyz",              gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h"   },
+  { artist: "Luis Miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel" },
 ];
 
 const PROFILE_CARD_NAMES = profileCards.map((p) => p.artist);
 
-const insights = [
-  { tag: "Análisis",   title: "El Crecimiento Global de la Música Mexicana", date: "10 Mayo, 2024"  },
-  { tag: "Data Story", title: "Tumbado en USA: Números que Impactan",         date: "28 Abril, 2024" },
-  { tag: "Artículo",  title: "De la Calle a los Escenarios Más Grandes",     date: "15 Abril, 2024" },
-  { tag: "Mercados",  title: "México en los Escenarios del Mundo",            date: "03 Abril, 2024" },
-];
 
 function formatDate(iso: string): string {
   if (!iso) return "";
@@ -500,7 +492,7 @@ export default function TouringHub() {
             <SectionHeading white="Featured" green="Touring Profiles" />
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {profileCards.map((p, i) => {
             const img = deezerImages[p.artist] ?? null;
             return (
@@ -546,39 +538,6 @@ export default function TouringHub() {
               </motion.div>
             );
           })}
-        </div>
-      </section>
-
-      {/* ── TOURING INSIGHTS ── */}
-      <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
-          <div>
-            <SectionEyebrow>Editorial</SectionEyebrow>
-            <SectionHeading white="Touring" green="Insights" />
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-          {insights.map((ins, i) => (
-            <motion.div key={ins.title}
-              className="th-insight-card"
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-32px" }}
-              transition={{ delay: i * 0.06, duration: 0.55, ease: [0.16,1,0.3,1] }}>
-              <div style={{ position: "relative", height: 148, overflow: "hidden", background: "#0a0a0a" }}>
-                <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, #0a0a0a ${i * 15}%, #111 100%)` }} />
-                <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 60% at 50% 110%, rgba(57,255,20,0.05) 0%, transparent 100%)" }} />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 35%, rgba(9,9,9,0.92) 100%)" }} />
-                <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.22)", color: "rgba(57,255,20,0.8)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em", padding: "3px 8px" }}>
-                  {ins.tag}
-                </div>
-              </div>
-              <div style={{ padding: "14px 14px 18px" }}>
-                <div style={{ color: "#d8d8d8", fontWeight: 600, fontSize: 12, lineHeight: 1.4, marginBottom: 10 }}>{ins.title}</div>
-                <div style={{ color: "#666", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em" }}>{ins.date}</div>
-              </div>
-            </motion.div>
-          ))}
         </div>
       </section>
 
