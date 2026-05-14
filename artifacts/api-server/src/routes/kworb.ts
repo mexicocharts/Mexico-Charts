@@ -1158,7 +1158,11 @@ router.get("/kworb/artist-stats", async (req, res) => {
     await enqueueJob(slug, "all", 20, new Date());
   }
 
-  res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  if (hasCachedData) {
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+  } else {
+    res.setHeader("Cache-Control", "no-store");
+  }
   res.setHeader("X-Cache", hasCachedData ? "HIT" : "MISS");
   res.setHeader("X-Data-Status", hasCachedData ? "cached" : "pending");
   res.json({ ...stats, _status: hasCachedData ? "cached" : "pending" });

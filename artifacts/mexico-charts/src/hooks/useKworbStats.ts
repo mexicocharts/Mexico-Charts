@@ -67,7 +67,7 @@ export function useKworbStats(artistName: string) {
       if (!data.spotify && !data.youtube && !data.chartPositions) return null;
       return data;
     },
-    staleTime: 24 * 60 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     retry: 1,
     enabled: !!artistName,
   });
