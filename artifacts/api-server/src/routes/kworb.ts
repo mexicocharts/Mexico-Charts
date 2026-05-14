@@ -1399,4 +1399,14 @@ router.post("/kworb/admin/enqueue", async (req, res) => {
   res.json({ ok: true, slug, priority: isNaN(priority) ? 5 : priority });
 });
 
+/* POST /api/kworb/admin/run-now — reset all pending jobs to due now */
+router.post("/kworb/admin/run-now", async (_req, res) => {
+  const result = await pool.query(`
+    UPDATE kworb_jobs
+    SET due_at = NOW(), updated_at = NOW()
+    WHERE status = 'pending' AND due_at > NOW()
+  `);
+  res.json({ ok: true, updated: result.rowCount });
+});
+
 export default router;
