@@ -591,10 +591,28 @@ async function fetchAndStore(
   }
 
   // iTunes / chart positions
+  let itunesHtml: string | null = null;
   if (doAll || metricType === "itunes") {
     if (!await pacedSlot("itunes")) return "rate_limited";
-    const html = await fetchPage(`https://kworb.net/itunes/artist/${slug}.html`);
-    if (html) itunes = parseItunesPage(html);
+    itunesHtml = await fetchPage(`https://kworb.net/itunes/artist/${slug}.html`);
+    if (itunesHtml) itunes = parseItunesPage(itunesHtml);
+  }
+
+  // If we still don't have a Spotify ID, try to extract it from the iTunes page HTML
+  // (kworb links to the Spotify page from the iTunes page for artists that have both)
+  if (!spotifyId && itunesHtml) {
+    const spMatch = itunesHtml.match(/\/spotify\/artist\/([A-Za-z0-9]+)_songs\.html/);
+    if (spMatch) {
+      spotifyId = spMatch[1];
+      console.log(`[kworb:itunes] Discovered Spotify ID for ${slug} from iTunes page: ${spotifyId}`);
+    }
+  }
+
+  // Fetch Spotify if we now have an ID (either pre-existing or just discovered from iTunes page)
+  if (!spotify && spotifyId) {
+    if (!await pacedSlot("spotify")) return "rate_limited";
+    const html = await fetchPage(`https://kworb.net/spotify/artist/${spotifyId}_songs.html`);
+    if (html) spotify = parseSpotifyPage(html);
   }
 
   if (!spotify && !youtube && !itunes) return "not_found";
@@ -1428,18 +1446,49 @@ router.post("/kworb/admin/set-spotify-id", async (req, res) => {
   // Update coverage with the spotify_id and reset failures so worker will retry
   await pool.query(`
     UPDATE kworb_coverage
-    SET spotify_id = $2, consecutive_failures = 0, last_failed_at = NULL, updated_at = NOW()
+    SET spotify_id = $2, consecutive_failures = 0, last_failed_at = NULL
     WHERE artist_key = $1
   `, [artist_key, spotify_id]);
 
   // Reset the pending job to due now with attempts reset
   await pool.query(`
     UPDATE kworb_jobs
-    SET due_at = NOW(), attempts = 0, updated_at = NOW()
+    SET due_at = NOW(), attempts = 0
     WHERE artist_key = $1 AND status = 'pending'
   `, [artist_key]);
 
   res.json({ ok: true, artist_key, spotify_id });
+});
+
+/* POST /api/kworb/admin/requeue-itunes-only
+   Re-enqueues all artists that have iTunes chart positions but no Spotify data,
+   so the worker re-fetches them with the Spotify-ID-extraction logic.         */
+router.post("/kworb/admin/requeue-itunes-only", async (_req, res) => {
+  try {
+    const { rows } = await pool.query<{ artist_key: string }>(`
+      SELECT artist_key FROM kworb_coverage
+      WHERE has_itunes = true AND has_spotify = false AND status = 'active'
+    `);
+    const artists = rows.map(r => r.artist_key);
+
+    for (const artistKey of artists) {
+      // Delete any existing pending job so we can re-insert with higher priority
+      await pool.query(`
+        DELETE FROM kworb_jobs
+        WHERE artist_key = $1 AND status = 'pending'
+      `, [artistKey]);
+      // Enqueue fresh job due now, priority 8 (below admin-set but above normal)
+      await pool.query(`
+        INSERT INTO kworb_jobs (artist_key, metric_type, priority, due_at, status)
+        VALUES ($1, 'all', 8, NOW(), 'pending')
+        ON CONFLICT DO NOTHING
+      `, [artistKey]);
+    }
+
+    res.json({ ok: true, queued: artists.length, artists });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 export default router;
