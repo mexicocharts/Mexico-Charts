@@ -1,10 +1,10 @@
+import { useMemo } from "react";
 import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import type { ChartRowData } from "../components";
 import { useChartsHub, useArtistImageMap, parseMovement } from "../useChartData";
-import { useAnimLoop } from "../useAnimLoop";
+import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
 @keyframes mcSlideIn {
@@ -22,17 +22,34 @@ const ANIM_CSS = `
 }
 `;
 
-const FALLBACK: ChartRowData[] = [
-  { rank: 1,  title: "Peso Pluma",     subtitle: "14 días en chart", movement: 0,  roundImage: true },
-  { rank: 2,  title: "Grupo Frontera", subtitle: "9 días en chart",  movement: 1,  roundImage: true },
-  { rank: 3,  title: "Fuerza Regida",  subtitle: "7 días en chart",  movement: -1, roundImage: true },
-  { rank: 4,  title: "Natanael Cano",  subtitle: "11 días en chart", movement: 0,  roundImage: true },
-  { rank: 5,  title: "Junior H",       subtitle: "6 días en chart",  movement: 2,  roundImage: true },
-  { rank: 6,  title: "Carin León",     subtitle: "5 días en chart",  movement: -1, roundImage: true },
-  { rank: 7,  title: "Banda MS",       subtitle: "8 días en chart",  movement: 1,  roundImage: true },
-  { rank: 8,  title: "Eslabon Armado", subtitle: "3 días en chart",  isNew: true,  roundImage: true },
-  { rank: 9,  title: "Grupo Firme",    subtitle: "4 días en chart",  movement: -2, roundImage: true },
-  { rank: 10, title: "Luis Miguel",    subtitle: "2 días en chart",  movement: 0,  roundImage: true },
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+interface ArtistRow {
+  rank: number;
+  title: string;
+  subtitle: string;
+  rawStreams: number;
+  movement?: number;
+  isNew?: boolean;
+  imageUrl?: string | null;
+  roundImage?: boolean;
+}
+
+const FALLBACK: ArtistRow[] = [
+  { rank: 1,  title: "Peso Pluma",     subtitle: "14 días en chart", rawStreams: 47_100_000, movement: 0,  roundImage: true },
+  { rank: 2,  title: "Grupo Frontera", subtitle: "9 días en chart",  rawStreams: 18_400_000, movement: 1,  roundImage: true },
+  { rank: 3,  title: "Fuerza Regida",  subtitle: "7 días en chart",  rawStreams: 15_200_000, movement: -1, roundImage: true },
+  { rank: 4,  title: "Natanael Cano",  subtitle: "11 días en chart", rawStreams: 12_800_000, movement: 0,  roundImage: true },
+  { rank: 5,  title: "Junior H",       subtitle: "6 días en chart",  rawStreams: 11_300_000, movement: 2,  roundImage: true },
+  { rank: 6,  title: "Carin León",     subtitle: "5 días en chart",  rawStreams: 10_100_000, movement: -1, roundImage: true },
+  { rank: 7,  title: "Banda MS",       subtitle: "8 días en chart",  rawStreams:  8_700_000, movement: 1,  roundImage: true },
+  { rank: 8,  title: "Eslabon Armado", subtitle: "3 días en chart",  rawStreams:  7_900_000, isNew: true,  roundImage: true },
+  { rank: 9,  title: "Grupo Firme",    subtitle: "4 días en chart",  rawStreams:  7_200_000, movement: -2, roundImage: true },
+  { rank: 10, title: "Luis Miguel",    subtitle: "2 días en chart",  rawStreams:  6_800_000, movement: 0,  roundImage: true },
 ];
 
 export default function AnimatedTopArtists() {
@@ -42,18 +59,23 @@ export default function AnimatedTopArtists() {
   const { data: images } = useArtistImageMap(artistNames);
   const { phase, cycle } = useAnimLoop();
 
-  const rows: ChartRowData[] = hubRows.length > 0
+  const rows: ArtistRow[] = useMemo(() => hubRows.length > 0
     ? hubRows.map((r, i) => ({
         rank: i + 1,
         title: r["Artist"] ?? "",
         subtitle: r["Streak"] ? `${r["Streak"]} días en chart` : "",
-        stat: r["Peak"] ? `#${r["Peak"]}` : undefined,
-        statLabel: r["Peak"] ? "Pico" : undefined,
+        rawStreams: parseInt((r["Streams"] ?? r["Daily Streams"] ?? "0").replace(/[^0-9]/g, ""), 10) || 0,
         ...parseMovement(r["Movement"] ?? "="),
         imageUrl: images?.[r["Artist"] ?? ""] ?? null,
         roundImage: true,
       }))
-    : FALLBACK;
+    : FALLBACK,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [hub, images]);
+
+  const rawStreams = useMemo(() => rows.map(r => r.rawStreams), [rows]);
+  const counterActive = phase === "stagger" || phase === "hold";
+  const animCounts = useStreamCounters(rawStreams, counterActive, cycle);
 
   const date = hub
     ? new Date(hub.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })
@@ -67,7 +89,6 @@ export default function AnimatedTopArtists() {
     <TemplateCanvas>
       <style>{ANIM_CSS}</style>
 
-      {/* Background glows */}
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 650,
         background: `radial-gradient(ellipse 80% 85% at 50% -8%, ${ACCENT}0f 0%, ${ACCENT}06 40%, transparent 70%)`,
@@ -87,16 +108,12 @@ export default function AnimatedTopArtists() {
         pointerEvents: "none", userSelect: "none",
       }}>10</div>
 
-      {/* Outer wrapper — fades out during outro */}
       <div style={{
         opacity: outroActive ? 0 : 1,
         transition: outroActive ? "opacity 0.9s ease" : "none",
         display: "flex", flexDirection: "column", flex: 1,
       }}>
-        {/* Header — fades IN during intro, stays visible through stagger/hold */}
-        <div style={{
-          animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none",
-        }}>
+        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
           <div style={{ padding: "28px 64px 22px", position: "relative", zIndex: 2 }}>
@@ -121,15 +138,15 @@ export default function AnimatedTopArtists() {
             <div style={{ width: 44 }} />
             <div style={{ width: 44 }} />
             <div style={{ flex: 1, fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Artista · Racha</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Pico</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Streams</div>
           </div>
           <AccentLine opacity={0.1} />
         </div>
 
-        {/* Animated rows */}
         <div>
           {rows.map((row, i) => {
             const isTop3 = row.rank <= 3;
+            const { movement, isNew } = row;
             return (
               <div
                 key={`${row.rank}-${cycle}`}
@@ -138,8 +155,7 @@ export default function AnimatedTopArtists() {
                   animation: staggerActive
                     ? `mcSlideIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.12}s both`
                     : "none",
-                  display: "flex",
-                  alignItems: "center",
+                  display: "flex", alignItems: "center",
                   height: 74,
                   borderBottom: "1px solid rgba(255,255,255,0.04)",
                   gap: 18,
@@ -147,8 +163,7 @@ export default function AnimatedTopArtists() {
                     ? `linear-gradient(90deg, ${ACCENT}0d 0%, transparent 80%)`
                     : "transparent",
                   padding: "0 64px",
-                  position: "relative",
-                  zIndex: 2,
+                  position: "relative", zIndex: 2,
                 }}
               >
                 {row.rank === 1 && (
@@ -166,7 +181,7 @@ export default function AnimatedTopArtists() {
                 }}>
                   {String(row.rank).padStart(2, "0")}
                 </div>
-                <MovementBadge movement={row.movement} isNew={row.isNew} size="sm" />
+                <MovementBadge movement={movement} isNew={isNew} size="sm" />
                 <div style={{
                   width: 44, height: 44, flexShrink: 0, borderRadius: "50%",
                   overflow: "hidden",
@@ -200,21 +215,19 @@ export default function AnimatedTopArtists() {
                     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                   }}>{row.subtitle}</div>
                 </div>
-                {row.stat && (
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{
-                      fontSize: 20, fontWeight: 900,
-                      color: isTop3 ? ACCENT : "rgba(255,255,255,0.38)",
-                      letterSpacing: "-0.02em",
-                      textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
-                    }}>{row.stat}</div>
-                    {row.statLabel && (
-                      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>
-                        {row.statLabel}
-                      </div>
-                    )}
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{
+                    fontSize: 20, fontWeight: 900,
+                    color: isTop3 ? ACCENT : "rgba(255,255,255,0.38)",
+                    letterSpacing: "-0.02em",
+                    textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
+                  }}>
+                    {fmtNum(animCounts[i] ?? 0)}
                   </div>
-                )}
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>
+                    streams
+                  </div>
+                </div>
               </div>
             );
           })}

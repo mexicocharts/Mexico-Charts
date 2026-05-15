@@ -2,13 +2,25 @@ import { useState, useEffect, useRef } from "react";
 
 export type AnimPhase = "intro" | "stagger" | "hold" | "outro";
 
-const INTRO_MS   = 300;
-const STAGGER_MS = 2200;
-const HOLD_MS    = 2800;
-const OUTRO_MS   = 1200;
-const TOTAL_MS   = INTRO_MS + STAGGER_MS + HOLD_MS + OUTRO_MS; // 6500ms
+// Default phase durations (ms) — total 8500ms, within required 8-10s range
+const DEFAULT_INTRO_MS   = 300;
+const DEFAULT_STAGGER_MS = 2200;
+const DEFAULT_HOLD_MS    = 4800;
+const DEFAULT_OUTRO_MS   = 1200;
+const DEFAULT_TOTAL_MS   = DEFAULT_INTRO_MS + DEFAULT_STAGGER_MS + DEFAULT_HOLD_MS + DEFAULT_OUTRO_MS;
 
-export function useAnimLoop(): { phase: AnimPhase; cycle: number } {
+/**
+ * Drives a looping animation cycle through intro → stagger → hold → outro phases.
+ * @param durationMs  Optional total cycle length in ms. Defaults to 8500ms.
+ *                    Phase proportions are preserved when overriding duration.
+ */
+export function useAnimLoop(durationMs?: number): { phase: AnimPhase; cycle: number } {
+  const total   = durationMs ?? DEFAULT_TOTAL_MS;
+  const ratio   = total / DEFAULT_TOTAL_MS;
+  const introMs   = Math.round(DEFAULT_INTRO_MS   * ratio);
+  const staggerMs = Math.round(DEFAULT_STAGGER_MS * ratio);
+  const holdMs    = Math.round(DEFAULT_HOLD_MS    * ratio);
+
   const [phase, setPhase] = useState<AnimPhase>("intro");
   const [cycle, setCycle] = useState(0);
 
@@ -20,23 +32,24 @@ export function useAnimLoop(): { phase: AnimPhase; cycle: number } {
 
     function run() {
       setPhase("intro");
-      t1 = setTimeout(() => setPhase("stagger"), INTRO_MS);
-      t2 = setTimeout(() => setPhase("hold"),    INTRO_MS + STAGGER_MS);
-      t3 = setTimeout(() => setPhase("outro"),   INTRO_MS + STAGGER_MS + HOLD_MS);
-      t4 = setTimeout(() => { setCycle(c => c + 1); run(); }, TOTAL_MS);
+      t1 = setTimeout(() => setPhase("stagger"), introMs);
+      t2 = setTimeout(() => setPhase("hold"),    introMs + staggerMs);
+      t3 = setTimeout(() => setPhase("outro"),   introMs + staggerMs + holdMs);
+      t4 = setTimeout(() => { setCycle(c => c + 1); run(); }, total);
     }
 
     run();
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   return { phase, cycle };
 }
 
 /**
  * Animates an array of numeric targets from 0 → target over ~900ms using rAF.
- * - Starts/resets when `active` changes or `resetKey` changes (e.g. a new loop cycle).
- * - Returns 0 for all values when inactive.
+ * Starts/resets when `active` changes or `resetKey` changes (new loop cycle).
+ * Returns 0 for all values when inactive.
  */
 export function useStreamCounters(
   targets: number[],

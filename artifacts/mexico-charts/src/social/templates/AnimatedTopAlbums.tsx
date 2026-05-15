@@ -24,7 +24,7 @@ const ANIM_CSS = `
 
 function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  if (n >= 1_000)     return `${Math.round(n / 1_000)}K`;
   return String(n);
 }
 
@@ -32,7 +32,8 @@ interface AlbumEntry {
   rank: number;
   title: string;
   artist: string;
-  rawStat?: number;
+  rawStat: number;
+  statLabel: string;
   movement?: number;
   isNew?: boolean;
   weeks?: number;
@@ -41,11 +42,11 @@ interface AlbumEntry {
 }
 
 const FALLBACK: AlbumEntry[] = [
-  { rank: 1, title: "Génesis",           artist: "Peso Pluma",     rawStat: 68_400_000, movement: 0,  weeks: 8,  peak: 1 },
-  { rank: 2, title: "Pa'Las Baby's",     artist: "Fuerza Regida",  rawStat: 52_100_000, movement: 1,  weeks: 5,  peak: 2 },
-  { rank: 3, title: "Corridos Tumbados", artist: "Natanael Cano",  rawStat: 44_700_000, movement: -1, weeks: 12, peak: 1 },
-  { rank: 4, title: "Primera Cita",      artist: "Carin León",     rawStat: 38_200_000, movement: 2,  weeks: 6,  peak: 3 },
-  { rank: 5, title: "Del Rancho",        artist: "Grupo Frontera", rawStat: 29_800_000, isNew: true,  weeks: 1,  peak: 5 },
+  { rank: 1, title: "Génesis",           artist: "Peso Pluma",     rawStat: 68_400_000, statLabel: "streams", movement: 0,  weeks: 8,  peak: 1 },
+  { rank: 2, title: "Pa'Las Baby's",     artist: "Fuerza Regida",  rawStat: 52_100_000, statLabel: "streams", movement: 1,  weeks: 5,  peak: 2 },
+  { rank: 3, title: "Corridos Tumbados", artist: "Natanael Cano",  rawStat: 44_700_000, statLabel: "streams", movement: -1, weeks: 12, peak: 1 },
+  { rank: 4, title: "Primera Cita",      artist: "Carin León",     rawStat: 38_200_000, statLabel: "streams", movement: 2,  weeks: 6,  peak: 3 },
+  { rank: 5, title: "Del Rancho",        artist: "Grupo Frontera", rawStat: 29_800_000, statLabel: "streams", isNew: true,  weeks: 1,  peak: 5 },
 ];
 
 export default function AnimatedTopAlbums() {
@@ -58,21 +59,22 @@ export default function AnimatedTopAlbums() {
   const isLive = hubRows.length > 0;
 
   const albums: AlbumEntry[] = useMemo(() => isLive
-    ? hubRows.map((r, i) => ({
-        rank: i + 1,
-        title: r["Title"] ?? "",
-        artist: r["Artist Names"] ?? "",
-        imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
-      }))
+    ? hubRows.map((r, i) => {
+        const weeks = parseInt((r["Weeks"] ?? "0").replace(/[^0-9]/g, ""), 10) || 0;
+        return {
+          rank: i + 1,
+          title: r["Title"] ?? "",
+          artist: r["Artist Names"] ?? "",
+          rawStat: weeks,
+          statLabel: weeks === 1 ? "semana" : "semanas",
+          imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
+        };
+      })
     : FALLBACK,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [hub, images]);
 
-  const rawStats = useMemo(
-    () => albums.map(a => a.rawStat ?? 0),
-    [albums],
-  );
-
+  const rawStats = useMemo(() => albums.map(a => a.rawStat), [albums]);
   const counterActive = phase === "stagger" || phase === "hold";
   const animCounts = useStreamCounters(rawStats, counterActive, cycle);
 
@@ -105,7 +107,6 @@ export default function AnimatedTopAlbums() {
         transition: outroActive ? "opacity 0.9s ease" : "none",
         display: "flex", flexDirection: "column", flex: 1,
       }}>
-        {/* Header — fades IN during intro */}
         <div style={{ animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
@@ -124,7 +125,6 @@ export default function AnimatedTopAlbums() {
           <AccentLine opacity={0.3} />
         </div>
 
-        {/* Animated album rows */}
         <div style={{ padding: "6px 0", position: "relative", zIndex: 2, flex: 1 }}>
           {albums.map((a, i) => (
             <div
@@ -176,7 +176,7 @@ export default function AnimatedTopAlbums() {
                 <div style={{ fontSize: 19, color: "rgba(255,255,255,0.34)", marginTop: 4 }}>
                   {a.artist}
                 </div>
-                {!isLive && (
+                {!isLive && a.weeks !== undefined && (
                   <div style={{ display: "flex", gap: 18, marginTop: 12, alignItems: "center" }}>
                     <div style={{ fontSize: 13, color: "rgba(255,255,255,0.16)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                       Pico #{a.peak}
@@ -188,25 +188,25 @@ export default function AnimatedTopAlbums() {
                 )}
               </div>
 
-              {/* Animated stream counter (fallback mode only) */}
-              {!isLive && a.rawStat !== undefined && (
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{
-                    fontSize: 28, fontWeight: 900,
-                    color: a.rank <= 2 ? ACCENT : "rgba(255,255,255,0.45)",
-                    letterSpacing: "-0.02em",
-                    textShadow: a.rank <= 2 ? `0 0 30px ${ACCENT}50` : "none",
-                  }}>
-                    {fmtNum(animCounts[i] ?? 0)}
-                  </div>
-                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, marginBottom: 8 }}>
-                    streams
-                  </div>
+              {/* Animated stat counter — streams (fallback) or weeks on chart (live) */}
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{
+                  fontSize: 28, fontWeight: 900,
+                  color: a.rank <= 2 ? ACCENT : "rgba(255,255,255,0.45)",
+                  letterSpacing: "-0.02em",
+                  textShadow: a.rank <= 2 ? `0 0 30px ${ACCENT}50` : "none",
+                }}>
+                  {isLive ? String(animCounts[i] ?? 0) : fmtNum(animCounts[i] ?? 0)}
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, marginBottom: 8 }}>
+                  {a.statLabel}
+                </div>
+                {!isLive && (
                   <div style={{ display: "flex", justifyContent: "flex-end" }}>
                     <MovementBadge movement={a.movement} isNew={a.isNew} />
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>
