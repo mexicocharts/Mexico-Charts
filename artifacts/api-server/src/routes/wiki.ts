@@ -1,11 +1,12 @@
 import { Router } from "express";
+import OpenAI from "openai";
 import { logger } from "../lib/logger";
 
 const router = Router();
 
-// Wikipedia (Spanish) artist bio — free public API, no key required
-// Summary endpoint: https://es.wikipedia.org/api/rest_v1/page/summary/{title}
-// Search endpoint:  https://es.wikipedia.org/w/api.php
+// Wikipedia (Spanish) artist bio enriched with AI rewriting
+// Wikipedia: free public API, no key required
+// Bio enhancement: OpenAI via Replit AI Integrations
 
 const WIKI_SUMMARY_BASE = "https://es.wikipedia.org/api/rest_v1/page/summary";
 const WIKI_SEARCH_BASE  = "https://es.wikipedia.org/w/api.php";
@@ -16,6 +17,11 @@ const WIKI_HEADERS = {
   "User-Agent": "MexicoCharts/1.0 (https://mexicochart.com; contact@mexicochart.com)",
   "Accept": "application/json",
 };
+
+const openai = new OpenAI({
+  baseURL: process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"],
+  apiKey:  process.env["AI_INTEGRATIONS_OPENAI_API_KEY"],
+});
 
 interface BioCacheEntry {
   bio: string | null;
@@ -44,18 +50,10 @@ function cleanExtract(text: string): string {
   return text
     .replace(/\s*\(escuchar\)/gi, "")
     .replace(/\[\d+\]/g, "")
+    .replace(/\(en inglés: [^)]+\)/g, "")
     .trim();
 }
 
-function truncateBio(extract: string): string {
-  const sentences = extract.split(/(?<=[.!?])\s+/);
-  const joined    = sentences.slice(0, 3).join(" ");
-  const cleaned   = cleanExtract(joined);
-  if (cleaned.length > 650) return cleaned.slice(0, 650).replace(/\s+\S*$/, "…");
-  return cleaned;
-}
-
-// Fetch summary for a given page title — returns null if not a music article
 async function fetchSummary(title: string): Promise<WikiSummaryResponse | null> {
   try {
     const encoded = encodeURIComponent(title.replace(/ /g, "_"));
@@ -65,7 +63,6 @@ async function fetchSummary(title: string): Promise<WikiSummaryResponse | null> 
     });
     if (!resp.ok) return null;
     const data = await resp.json() as WikiSummaryResponse;
-    // Reject disambiguation pages
     if (data.type === "disambiguation") return null;
     return data;
   } catch {
@@ -73,15 +70,13 @@ async function fetchSummary(title: string): Promise<WikiSummaryResponse | null> 
   }
 }
 
-// Check if a summary is about a music artist (not a boxing category, city, etc.)
 function isMusicArtist(data: WikiSummaryResponse): boolean {
-  const text  = ((data.extract ?? "") + " " + (data.description ?? "")).toLowerCase();
-  const music = ["cantante", "cantan", "música", "músico", "artista", "banda", "grupo musical",
-                 "rapero", "reguetonero", "corrido", "compositor", "discográfica", "álbum", "sencillo"];
-  return music.some(kw => text.includes(kw));
+  const text = ((data.extract ?? "") + " " + (data.description ?? "")).toLowerCase();
+  return ["cantante", "cantan", "música", "músico", "artista", "banda", "grupo musical",
+          "rapero", "reguetonero", "corrido", "compositor", "discográfica", "álbum", "sencillo"]
+    .some(kw => text.includes(kw));
 }
 
-// Candidate page titles to try in order for a given artist name
 function candidateTitles(name: string): string[] {
   return [
     `${name} (cantante)`,
@@ -110,42 +105,102 @@ async function searchWiki(query: string): Promise<string | null> {
   }
 }
 
+// Truncate a Wikipedia extract to a manageable length for the AI prompt
+function trimExtract(text: string, maxChars = 1200): string {
+  if (text.length <= maxChars) return text;
+  const cut = text.slice(0, maxChars);
+  const lastPeriod = cut.lastIndexOf(".");
+  return lastPeriod > 600 ? cut.slice(0, lastPeriod + 1) : cut + "…";
+}
+
+// Use AI to write an engaging music industry bio from Wikipedia facts
+async function enhanceBioWithAI(rawExtract: string, artistName: string): Promise<string | null> {
+  const sourceText = trimExtract(rawExtract);
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      max_completion_tokens: 8192,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres editor senior de Mexico Charts, la publicación de referencia de la industria musical mexicana. " +
+            "Tu tarea: escribir una bio de artista de 2-3 oraciones en español, al estilo de Billboard Latinoamérica o Pitchfork en español. " +
+            "El estilo es directo, impactante y con autoridad editorial. Habla de hechos concretos: origen, género, logros, impacto. " +
+            "No uses frases vacías. No empieces con el nombre completo del artista. Evita 'es conocido por', 'ha logrado', 'ha ganado'. " +
+            "Sin emojis. Sin comillas. Sin mencionar Wikipedia. Solo devuelve el texto final.\n\n" +
+            "Ejemplos del estilo correcto:\n" +
+            "- 'Originario de Guadalajara, Peso Pluma redefinió la música mexicana global con su fusión de corridos tumbados y trap, " +
+            "convirtiéndose en el primer artista mexicano en encabezar el Billboard Global 200.'\n" +
+            "- 'Desde San Bernardino, Fuerza Regida llevó los corridos tumbados al mainstream internacional con un sonido crudo y directo " +
+            "que llenó foros y arenas a ambos lados de la frontera.'\n" +
+            "- 'Junior H construyó su propio universo dentro del regional mexicano: productor, multiinstrumentista y pionero de un sonido " +
+            "que mezcla corridos tumbados con introspección y estética trap.'",
+        },
+        {
+          role: "user",
+          content: `Artista: ${artistName}\n\nDatos de Wikipedia:\n${sourceText}`,
+        },
+      ],
+    });
+    const content = response.choices[0]?.message?.content?.trim();
+    logger.info({ artistName, finish: response.choices[0]?.finish_reason, chars: content?.length }, "[wiki] AI bio generated");
+    return content || null;
+  } catch (err) {
+    logger.warn({ err: (err as Error).message, artistName }, "[wiki] AI call failed");
+    return null;
+  }
+}
+
+// Plain 3-sentence truncation as last-resort fallback
+function plainFallback(rawExtract: string): string {
+  const sentences = rawExtract.split(/(?<=[.!?])\s+/);
+  const joined    = sentences.slice(0, 3).join(" ");
+  return cleanExtract(joined.length > 600 ? joined.slice(0, 600).replace(/\s+\S*$/, "…") : joined);
+}
+
 async function fetchWikiBio(artistName: string): Promise<BioCacheEntry> {
   const empty: BioCacheEntry = {
     bio: null, pageTitle: null, pageUrl: null, thumbnailUrl: null, cachedAt: Date.now(),
   };
 
+  let wikiData: WikiSummaryResponse | null = null;
+
   // Strategy 1: try disambiguation-aware candidate titles directly
   for (const title of candidateTitles(artistName)) {
     const data = await fetchSummary(title);
     if (data?.extract && isMusicArtist(data)) {
-      return {
-        bio:          truncateBio(data.extract),
-        pageTitle:    data.title ?? title,
-        pageUrl:      data.content_urls?.desktop?.page ?? null,
-        thumbnailUrl: data.thumbnail?.source ?? null,
-        cachedAt:     Date.now(),
-      };
+      wikiData = data;
+      break;
     }
   }
 
-  // Strategy 2: search Wikipedia with music context, then fetch that page
-  const searchTitle = await searchWiki(`${artistName} cantante músico`);
-  if (searchTitle) {
-    const data = await fetchSummary(searchTitle);
-    if (data?.extract && isMusicArtist(data)) {
-      return {
-        bio:          truncateBio(data.extract),
-        pageTitle:    data.title ?? searchTitle,
-        pageUrl:      data.content_urls?.desktop?.page ?? null,
-        thumbnailUrl: data.thumbnail?.source ?? null,
-        cachedAt:     Date.now(),
-      };
+  // Strategy 2: search with music context
+  if (!wikiData) {
+    const searchTitle = await searchWiki(`${artistName} cantante músico`);
+    if (searchTitle) {
+      const data = await fetchSummary(searchTitle);
+      if (data?.extract && isMusicArtist(data)) wikiData = data;
     }
   }
 
-  logger.info({ artistName }, "[wiki] no music article found");
-  return empty;
+  if (!wikiData?.extract) {
+    logger.info({ artistName }, "[wiki] no music article found");
+    return empty;
+  }
+
+  // Enhance the bio with AI; fall back to plain truncation if AI fails
+  const rawExtract = cleanExtract(wikiData.extract);
+  const aiBio      = await enhanceBioWithAI(rawExtract, artistName);
+  const bio        = aiBio ?? plainFallback(rawExtract);
+
+  return {
+    bio,
+    pageTitle:    wikiData.title ?? null,
+    pageUrl:      wikiData.content_urls?.desktop?.page ?? null,
+    thumbnailUrl: wikiData.thumbnail?.source ?? null,
+    cachedAt:     Date.now(),
+  };
 }
 
 // GET /api/providers/wiki/artist?name={name}
