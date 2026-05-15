@@ -9,6 +9,7 @@ import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
+import { useWikiBio } from "@/hooks/useWikiBio";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -341,6 +342,7 @@ export default function ArtistDetail() {
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
   const itunesData = useItunesArtist(artist.name);
+  const wikiBio    = useWikiBio(artist.name);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
 
   /* ── Kworb lifetime streaming stats ── */
@@ -482,7 +484,19 @@ export default function ArtistDetail() {
               <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: artist.accent }} /><span style={{ color: artist.accent }}>{artist.growth} esta semana</span></span>
               <span>{artist.countries} PAÍSES</span>
             </p>
-            <p className="text-sm text-zinc-500 leading-relaxed max-w-xl">{artist.bio}</p>
+            <p className="text-sm text-zinc-500 leading-relaxed max-w-xl">
+              {wikiBio?.bio ?? artist.bio}
+            </p>
+            {wikiBio?.pageUrl && (
+              <a
+                href={wikiBio.pageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-700 hover:text-zinc-500 transition-colors duration-150"
+              >
+                Fuente: Wikipedia
+              </a>
+            )}
 
             {itunesData?.appleUrl && (
               <div className="mt-5">
