@@ -8,6 +8,7 @@ import ArtistCertifications from "@/components/ArtistCertifications";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
+import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -339,7 +340,8 @@ export default function ArtistDetail() {
 
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
-  const photo = artistImages[artist.name] ?? null;
+  const itunesData = useItunesArtist(artist.name);
+  const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
 
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
@@ -481,6 +483,36 @@ export default function ArtistDetail() {
               <span>{artist.countries} PAÍSES</span>
             </p>
             <p className="text-sm text-zinc-500 leading-relaxed max-w-xl">{artist.bio}</p>
+
+            {itunesData?.appleUrl && (
+              <div className="mt-5">
+                <a
+                  href={itunesData.appleUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                  style={{
+                    background: "rgba(252,60,68,0.10)",
+                    border: "1px solid rgba(252,60,68,0.28)",
+                    color: "rgba(252,60,68,0.9)",
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(252,60,68,0.18)";
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(252,60,68,0.55)";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(252,60,68,0.10)";
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(252,60,68,0.28)";
+                  }}
+                  data-testid="link-apple-music"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+                    <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026C4.948.043 4.647.073 4.35.158 2.95.517 1.99 1.39 1.36 2.65c-.332.67-.46 1.39-.513 2.12-.013.183-.02.367-.026.55v13.36c.006.182.013.366.026.55.053.73.181 1.45.513 2.12.63 1.26 1.59 2.13 2.99 2.49.297.085.598.115.98.143.152.01.303.017.455.026H18.01c.04-.003.083-.01.124-.013.52-.04 1.04-.095 1.535-.207C21.2 23.47 22.5 21.86 22.87 20.2c.12-.48.16-1.01.17-1.5.013-.54.013-1.08 0-1.62V7.614a10.496 10.496 0 00-.047-1.49zM8 17.5c0 .553-.447 1-1 1s-1-.447-1-1v-7c0-.553.447-1 1-1s1 .447 1 1v7zm9 0c0 .553-.447 1-1 1s-1-.447-1-1v-4c0-.553.447-1 1-1s1 .447 1 1v4zm-4 0c0 .553-.447 1-1 1s-1-.447-1-1v-2c0-.553.447-1 1-1s1 .447 1 1v2z" />
+                  </svg>
+                  Escuchar en Apple Music
+                </a>
+              </div>
+            )}
           </motion.div>
         </div>
       </section>
