@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, parseMovement } from "../useChartData";
+import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -21,12 +21,6 @@ const ANIM_CSS = `
   100% { transform: scale(1); opacity: 1; }
 }
 `;
-
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${Math.round(n / 1_000)}K`;
-  return String(n);
-}
 
 interface ArtistRow {
   rank: number;
@@ -222,7 +216,7 @@ export default function AnimatedTopArtists() {
                     letterSpacing: "-0.02em",
                     textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
                   }}>
-                    {fmtNum(animCounts[i] ?? 0)}
+                    {fmtStreams(String(animCounts[i] ?? 0))}
                   </div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>
                     streams

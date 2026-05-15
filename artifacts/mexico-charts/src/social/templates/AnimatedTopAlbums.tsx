@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -21,12 +21,6 @@ const ANIM_CSS = `
   100% { transform: scale(1); opacity: 1; }
 }
 `;
-
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `${Math.round(n / 1_000)}K`;
-  return String(n);
-}
 
 interface AlbumEntry {
   rank: number;
@@ -196,7 +190,7 @@ export default function AnimatedTopAlbums() {
                   letterSpacing: "-0.02em",
                   textShadow: a.rank <= 2 ? `0 0 30px ${ACCENT}50` : "none",
                 }}>
-                  {isLive ? String(animCounts[i] ?? 0) : fmtNum(animCounts[i] ?? 0)}
+                  {isLive ? String(animCounts[i] ?? 0) : fmtStreams(String(animCounts[i] ?? 0))}
                 </div>
                 <div style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 4, marginBottom: 8 }}>
                   {a.statLabel}
