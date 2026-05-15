@@ -492,17 +492,17 @@ export default function ArtistDetail() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
                   style={{
-                    background: "rgba(252,60,68,0.10)",
-                    border: "1px solid rgba(252,60,68,0.28)",
-                    color: "rgba(252,60,68,0.9)",
+                    background: "rgba(57,255,20,0.08)",
+                    border: "1px solid rgba(57,255,20,0.28)",
+                    color: "#39FF14",
                   }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(252,60,68,0.18)";
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(252,60,68,0.55)";
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.16)";
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.55)";
                   }}
                   onMouseLeave={e => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(252,60,68,0.10)";
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(252,60,68,0.28)";
+                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.08)";
+                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.28)";
                   }}
                   data-testid="link-apple-music"
                 >
