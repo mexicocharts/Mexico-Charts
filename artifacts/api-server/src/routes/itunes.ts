@@ -66,6 +66,7 @@ interface RawItunesItem {
   artistName?: string;
   collectionName?: string;
   trackName?: string;
+  artistLinkUrl?: string;
   artistViewUrl?: string;
   collectionViewUrl?: string;
   trackViewUrl?: string;
@@ -118,7 +119,7 @@ function normalize(item: RawItunesItem, fetchedAt: string): NormalizedItem {
   if (type === "artist") {
     appleId  = item.artistId    != null ? String(item.artistId)    : null;
     title    = item.artistName  ?? null;
-    appleUrl = item.artistViewUrl ?? null;
+    appleUrl = item.artistLinkUrl ?? item.artistViewUrl ?? null;
   } else if (type === "album") {
     appleId   = item.collectionId != null ? String(item.collectionId) : null;
     title     = item.collectionName ?? null;

@@ -11,18 +11,22 @@ function normalize(s: string): string {
   return s.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-function pickBestMatch(
-  name: string,
-  results: { artistId: number; artistName: string; artistLinkUrl: string; artworkUrl: string | null; artworkUrlHd: string | null; primaryGenreName: string | null }[]
-): ItunesArtistResult | null {
+interface NormalizedResult {
+  appleId: string | null;
+  appleUrl: string | null;
+  artistName: string | null;
+  artworkUrlHd: string | null;
+  primaryGenreName: string | null;
+}
+
+function pickBestMatch(name: string, results: NormalizedResult[]): ItunesArtistResult | null {
   const target = normalize(name);
-  const exact = results.find(r => normalize(r.artistName) === target);
-  const match = exact ?? null;
-  if (!match) return null;
+  const match = results.find(r => r.artistName != null && normalize(r.artistName) === target);
+  if (!match || !match.appleId || !match.appleUrl) return null;
   return {
-    appleId: String(match.artistId),
-    appleUrl: match.artistLinkUrl,
-    artworkUrlHd: match.artworkUrlHd ?? match.artworkUrl ?? null,
+    appleId: match.appleId,
+    appleUrl: match.appleUrl,
+    artworkUrlHd: match.artworkUrlHd ?? null,
     primaryGenre: match.primaryGenreName ?? null,
   };
 }
@@ -43,10 +47,9 @@ export function useItunesArtist(name: string): ItunesArtistResult | null {
 
     fetch(`/api/providers/itunes/search?${params.toString()}`)
       .then(r => (r.ok ? r.json() : null))
-      .then((data: { results?: unknown[] } | null) => {
+      .then((data: { results?: NormalizedResult[] } | null) => {
         if (cancelled || !data?.results) return;
-        const match = pickBestMatch(name, data.results as Parameters<typeof pickBestMatch>[1]);
-        setResult(match);
+        setResult(pickBestMatch(name, data.results));
       })
       .catch(() => {});
 
