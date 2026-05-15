@@ -28,9 +28,18 @@ function fmtNum(n: number): string {
   return String(n);
 }
 
+interface SongRow {
+  rank: number;
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+  movement?: number;
+  isNew?: boolean;
+}
+
 const FALLBACK_RAW = [3_200_000, 2_900_000, 2_600_000, 2_300_000, 2_100_000, 1_900_000, 1_700_000, 1_600_000, 1_500_000, 1_400_000];
 
-const FALLBACK_ROWS = [
+const FALLBACK_ROWS: SongRow[] = [
   { rank: 1,  title: "Ella Baila Sola",    subtitle: "Peso Pluma · Eslabon Armado", movement: 0,  imageUrl: null },
   { rank: 2,  title: "LALA",               subtitle: "Myke Towers",                 movement: 2,  imageUrl: null },
   { rank: 3,  title: "Cupido",             subtitle: "TINI · Myke Towers",          movement: -1, imageUrl: null },
@@ -41,7 +50,7 @@ const FALLBACK_ROWS = [
   { rank: 8,  title: "Según Quién",        subtitle: "Carin León",                  movement: 0,  imageUrl: null },
   { rank: 9,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma",  isNew: true,  imageUrl: null },
   { rank: 10, title: "La Noche de Anoche", subtitle: "Bad Bunny · Rosalía",         movement: -3, imageUrl: null },
-] as const;
+];
 
 export default function AnimatedTopSongs() {
   const { data } = useSpotifyChart("daily");
@@ -49,7 +58,7 @@ export default function AnimatedTopSongs() {
 
   const entries = data?.entries?.slice(0, 10) ?? [];
 
-  const rows = useMemo(() => entries.length > 0
+  const rows = useMemo((): SongRow[] => entries.length > 0
     ? entries.map(e => ({
         rank: e.pos,
         title: e.title,
@@ -143,8 +152,7 @@ export default function AnimatedTopSongs() {
         <div>
           {rows.map((row, i) => {
             const isTop3 = row.rank <= 3;
-            const movement = "movement" in row ? (row as any).movement : undefined;
-            const isNew    = "isNew" in row ? (row as any).isNew : undefined;
+            const { movement, isNew } = row;
             return (
               <div
                 key={`${row.rank}-${cycle}`}

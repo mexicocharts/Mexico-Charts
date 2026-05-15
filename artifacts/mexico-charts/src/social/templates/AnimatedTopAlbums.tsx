@@ -72,7 +72,7 @@ export default function AnimatedTopAlbums() {
     [albums],
   );
 
-  const counterActive = !isLive && (phase === "stagger" || phase === "hold");
+  const counterActive = phase === "stagger" || phase === "hold";
   const animCounts = useStreamCounters(rawStats, counterActive, cycle);
 
   const date = hub
