@@ -1,0 +1,176 @@
+Add iTunes Search/Lookup API support to Mexico Charts as a lightweight Apple metadata provider.
+
+Purpose:
+This integration is not for Apple Music chart rankings.
+This integration is not for Apple Music Top 100.
+This integration is not for Apple Music stream counts.
+
+The iTunes API should only be used to enrich Mexico Charts with Apple/iTunes metadata.
+
+Use cases:
+- Search Apple/iTunes catalog metadata
+- Find Apple/iTunes IDs
+- Find Apple Music/iTunes URLs
+- Get artwork URLs
+- Get release dates
+- Get genre names
+- Search artists, songs, albums, and music videos
+- Lookup albums by UPC when available
+- Match internal Mexico Charts artists/tracks/albums/music videos to Apple/iTunes catalog records
+- Use Apple artwork, release dates, genres, and links as fallback metadata when our own data is missing
+
+Important:
+- Do not use iTunes API as a chart source.
+- Do not display iTunes results as Apple Music rankings.
+- Do not show stream counts from the iTunes API.
+- Do not call the iTunes API directly from the frontend.
+- All calls must go through backend routes so we can cache results and control usage.
+- Do not cap the search limit below Apple’s maximum.
+- The default search limit must be 200.
+- The maximum search limit must be 200.
+
+Create backend routes:
+
+1. GET /api/providers/itunes/search
+
+Query params:
+- term required
+- country optional, default mx
+- media optional, default music
+- entity optional: musicArtist | song | album | musicVideo
+- limit optional, default 200, max 200
+- explicit optional, default Yes
+- lang optional, default en_us
+
+Limit behavior:
+- Default limit must be 200.
+- Maximum limit must be 200.
+- Do not cap limit at 10.
+- Do not cap limit at 25.
+- Do not cap limit at 50.
+- Do not cap limit at 100.
+- If no limit is provided, use 200.
+- If a request sends more than 200, clamp it to 200.
+- If a request sends less than 1, clamp it to 1.
+- Prefer one request with limit 200 over many smaller repeated requests.
+
+External request examples:
+https://itunes.apple.com/search?term=natanael%20cano&country=mx&media=music&entity=musicArtist&limit=200
+
+https://itunes.apple.com/search?term=fuerza%20regida&country=mx&media=music&entity=song&limit=200
+
+https://itunes.apple.com/search?term=peso%20pluma&country=mx&media=music&entity=album&limit=200
+
+https://itunes.apple.com/search?term=junior%20h&country=mx&media=music&entity=musicVideo&limit=200
+
+2. GET /api/providers/itunes/lookup
+
+Query params:
+- id optional
+- upc optional
+- entity optional
+
+External request examples:
+https://itunes.apple.com/lookup?id=909253
+
+https://itunes.apple.com/lookup?upc=720642462928
+
+Normalize all returned data into our provider format:
+
+{
+  provider: "itunes",
+  type: "artist" | "track" | "album" | "music_video",
+  appleId: string | null,
+  title: string | null,
+  artistName: string | null,
+  albumName: string | null,
+  artworkUrl: string | null,
+  appleUrl: string | null,
+  previewUrl: string | null,
+  releaseDate: string | null,
+  primaryGenreName: string | null,
+  country: "MX",
+  fetchedAt: string
+}
+
+Mapping rules:
+- artistId should be stored as appleId for artist results.
+- collectionId should be stored as appleId for album results.
+- trackId should be stored as appleId for song and music video results.
+- artistViewUrl, collectionViewUrl, or trackViewUrl should be stored as appleUrl.
+- artworkUrl100 should be stored as artworkUrl.
+- Keep the original artwork URL.
+- Also create a higher-resolution artwork version when possible by replacing the artwork size in the URL.
+- Use our existing image proxy if needed for frontend display or social image exports.
+- Do not over-fetch images.
+
+Caching:
+- Cache search results for 7 days.
+- Cache lookup results for 30 days.
+- Add rate-limit protection.
+- Avoid unnecessary repeated requests.
+- Prefer one larger request with limit 200 over many smaller calls.
+- If the iTunes API fails or rate-limits us, return cached data if available.
+- If no cached data exists, return null gracefully.
+- Do not break the page if the provider fails.
+
+Matching rules:
+- For artists, match by normalized artist name.
+- For songs, match by normalized title + normalized artist name.
+- For albums, match by UPC first when available.
+- If UPC is not available, match albums by normalized album title + normalized artist name.
+- For music videos, match by normalized video title + normalized artist name.
+- Do not overwrite existing trusted metadata unless confidence is high.
+- Log uncertain matches for manual review.
+- Add match confidence fields when saving provider matches.
+
+Database fields to add if missing:
+
+Artist:
+- appleItunesId
+- appleItunesUrl
+
+Track:
+- appleItunesId
+- appleItunesUrl
+- appleArtworkUrl
+
+Album:
+- appleItunesId
+- appleItunesUrl
+- upc
+- appleArtworkUrl
+
+MusicVideo:
+- appleItunesId
+- appleItunesUrl
+- appleArtworkUrl
+
+Frontend usage:
+Use iTunes metadata quietly in artist, track, album, and music video pages.
+
+Allowed frontend uses:
+- Apple/iTunes link button
+- Artwork fallback
+- Release date
+- Genre
+- External Apple/iTunes ID
+- Preview URL only if used in a compliant way
+
+Do not display:
+- Apple Music chart rank from iTunes API
+- Apple Music stream counts
+- Apple Music Top 100 data from iTunes API
+
+Admin/debug:
+Add a provider debug panel showing:
+- Last iTunes search request
+- Last iTunes lookup request
+- Cache age
+- Result count
+- Match confidence
+- Failed requests
+- Rate-limit warnings
+
+Compliance:
+When using iTunes artwork, previews, or links, make sure the page includes a clear Apple/iTunes or Apple Music link to the related content.

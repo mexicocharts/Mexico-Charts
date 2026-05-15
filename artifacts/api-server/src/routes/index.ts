@@ -8,6 +8,7 @@ import touringRouter from "./touring";
 import artistsRouter from "./artists";
 import certificationsRouter from "./certifications";
 import imageProxyRouter from "./image-proxy";
+import itunesRouter from "./itunes";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(touringRouter);
 router.use(artistsRouter);
 router.use(certificationsRouter);
 router.use(imageProxyRouter);
+router.use(itunesRouter);
 
 export default router;
