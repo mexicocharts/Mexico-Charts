@@ -4,9 +4,9 @@ export type AnimPhase = "intro" | "stagger" | "hold" | "outro";
 
 const INTRO_MS   = 300;
 const STAGGER_MS = 2200;
-const HOLD_MS    = 4800;
+const HOLD_MS    = 2800;
 const OUTRO_MS   = 1200;
-const TOTAL_MS   = INTRO_MS + STAGGER_MS + HOLD_MS + OUTRO_MS; // 8500ms
+const TOTAL_MS   = INTRO_MS + STAGGER_MS + HOLD_MS + OUTRO_MS; // 6500ms
 
 export function useAnimLoop(): { phase: AnimPhase; cycle: number } {
   const [phase, setPhase] = useState<AnimPhase>("intro");

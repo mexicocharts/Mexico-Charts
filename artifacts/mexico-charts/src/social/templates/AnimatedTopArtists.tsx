@@ -95,7 +95,7 @@ export default function AnimatedTopArtists() {
       }}>
         {/* Header — fades IN during intro, stays visible through stagger/hold */}
         <div style={{
-          animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none",
+          animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none",
         }}>
           <LogoBar date={date} />
           <AccentLine />
@@ -136,7 +136,7 @@ export default function AnimatedTopArtists() {
                 style={{
                   opacity: rowVisible ? 1 : 0,
                   animation: staggerActive
-                    ? `mcSlideIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.13}s both`
+                    ? `mcSlideIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.12}s both`
                     : "none",
                   display: "flex",
                   alignItems: "center",
@@ -173,7 +173,7 @@ export default function AnimatedTopArtists() {
                   background: `linear-gradient(135deg, #1e1e1e, #0c0c0c)`,
                   border: "1px solid rgba(255,255,255,0.07)",
                   animation: staggerActive
-                    ? `mcPopIn 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 0.13 + 0.1}s both`
+                    ? `mcPopIn 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 0.12 + 0.1}s both`
                     : "none",
                 }}>
                   {row.imageUrl ? (

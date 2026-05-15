@@ -117,7 +117,7 @@ export default function AnimatedTopSongs() {
         display: "flex", flexDirection: "column", flex: 1,
       }}>
         {/* Header — fades IN during intro */}
-        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none" }}>
+        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
           <div style={{ padding: "28px 64px 22px", position: "relative", zIndex: 2 }}>
@@ -159,7 +159,7 @@ export default function AnimatedTopSongs() {
                 style={{
                   opacity: rowVisible ? 1 : 0,
                   animation: staggerActive
-                    ? `mcSlideIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.13}s both`
+                    ? `mcSlideIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.12}s both`
                     : "none",
                   display: "flex", alignItems: "center",
                   height: 74,
@@ -195,7 +195,7 @@ export default function AnimatedTopSongs() {
                   background: `linear-gradient(135deg, #1e1e1e, #0c0c0c)`,
                   border: "1px solid rgba(255,255,255,0.07)",
                   animation: staggerActive
-                    ? `mcPopIn 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 0.13 + 0.08}s both`
+                    ? `mcPopIn 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 0.12 + 0.08}s both`
                     : "none",
                 }}>
                   {row.imageUrl ? (

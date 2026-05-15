@@ -15,9 +15,10 @@ const ANIM_CSS = `
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-@keyframes mcScaleIn {
-  from { opacity: 0; transform: scale(0.75); }
-  to   { opacity: 1; transform: scale(1); }
+@keyframes mcPopIn {
+  0%   { transform: scale(0.5); opacity: 0; }
+  65%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 `;
 
@@ -105,7 +106,7 @@ export default function AnimatedTopAlbums() {
         display: "flex", flexDirection: "column", flex: 1,
       }}>
         {/* Header — fades IN during intro */}
-        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.55s ease forwards" : "none" }}>
+        <div style={{ animation: phase === "intro" ? "mcFadeIn 0.35s ease forwards" : "none" }}>
           <LogoBar date={date} />
           <AccentLine />
           <div style={{ padding: "24px 64px 20px", position: "relative", zIndex: 2 }}>
@@ -131,7 +132,7 @@ export default function AnimatedTopAlbums() {
               style={{
                 opacity: rowVisible ? 1 : 0,
                 animation: staggerActive
-                  ? `mcSlideIn 0.5s cubic-bezier(0.22,1,0.36,1) ${i * 0.16}s both`
+                  ? `mcSlideIn 0.5s cubic-bezier(0.22,1,0.36,1) ${i * 0.12}s both`
                   : "none",
                 display: "flex", alignItems: "center",
                 padding: "18px 64px",
@@ -153,7 +154,7 @@ export default function AnimatedTopAlbums() {
 
               <div style={{
                 animation: staggerActive
-                  ? `mcScaleIn 0.45s cubic-bezier(0.22,1,0.36,1) ${i * 0.16 + 0.1}s both`
+                  ? `mcPopIn 0.4s cubic-bezier(0.22,1,0.36,1) ${i * 0.12 + 0.1}s both`
                   : "none",
               }}>
                 <AlbumFrame
