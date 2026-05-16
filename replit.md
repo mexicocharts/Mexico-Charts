@@ -1,45 +1,61 @@
-# [Project name]
+# Mexico Charts
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering Mexican music charts, artists, certifications, touring, industry reports, and social export templates.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/api-server run dev` — run the API server.
+- `pnpm --filter @workspace/mexico-charts run dev` — run the main web app.
+- `pnpm run typecheck` — full typecheck across workspace packages.
+- `pnpm run build` — typecheck + build all packages in the Replit/Linux environment.
+- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec.
+- `pnpm --filter @workspace/db run push` — push DB schema changes in development.
+
+## Required Environment
+
+- `DATABASE_URL` — PostgreSQL connection string.
+- `YOUTUBE_API_KEY` — YouTube Data API access for provider/admin routes.
+- `YOUTUBE_ADMIN_KEY` — admin key for protected YouTube linking/backfill operations.
+- Spotify credentials used by the Replit Spotify integration/API routes.
+- `VITE_SITE_URL` — public site origin used for canonical/Open Graph URLs.
+- `VITE_SOCIAL_TEMPLATES_ACCESS_CODE` — private access code for `/social-templates`.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- pnpm workspaces, Node.js 24, TypeScript 5.9.
+- Main web app: Vite, React 19, Wouter, TanStack Query, Framer Motion, Tailwind CSS.
+- API: Express 5.
+- DB: PostgreSQL + Drizzle ORM.
+- Validation/codegen: Zod, drizzle-zod, Orval.
+- Social export: `html-to-image` and template components under `artifacts/mexico-charts/src/social`.
 
-## Where things live
+## Where Things Live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/mexico-charts` — main public web app.
+- `artifacts/api-server` — Express API server and provider/admin routes.
+- `artifacts/mexico-charts-mobile` — mobile app.
+- `artifacts/mockup-sandbox` — mockup/prototype sandbox.
+- `lib/db` — database schema and Drizzle setup.
+- `lib/api-spec` — OpenAPI spec/codegen package.
+- `lib/api-client-react` — generated React API client.
+- `scripts` — maintenance/import/sync scripts.
+- `attached_assets` — uploaded screenshots, source images, reports, and static supporting files.
 
-## Architecture decisions
+## Product Notes
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Public surfaces: home, charts, artist roster/detail pages, genres, industry, certifications, touring, static info pages.
+- Internal surface: `/social-templates`; keep it noindexed and gated by `VITE_SOCIAL_TEMPLATES_ACCESS_CODE`.
+- The social template gate is a frontend privacy gate, not strong server-side authentication.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Replit is the source-of-truth runtime because it has Postgres and provider secrets preconfigured.
+- Local macOS dev/build can fail because `pnpm-workspace.yaml` excludes macOS native Rollup/esbuild optional packages for the Replit/Linux environment.
+- Local Codex can still edit, typecheck, commit, and push. Full runtime QA should happen in Replit unless local platform overrides are adjusted.
+- Use pnpm only. The root `preinstall` rejects npm/yarn lockfiles.
+- Social templates should not be linked from public navigation or indexed in search.
 
-## Pointers
+## Recent Baseline
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- `pnpm run typecheck` passes.
+- GitHub push works from the local Codex workspace after token auth was configured.
