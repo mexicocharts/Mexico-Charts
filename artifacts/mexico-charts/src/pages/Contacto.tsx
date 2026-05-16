@@ -7,6 +7,8 @@ const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const EMAIL = "mexicochartsoficial@gmail.com";
+const INSTAGRAM_URL = "https://www.instagram.com/mexicocharts/";
+const WEBSITE_URL = "https://mexicochart.com";
 
 export default function Contacto() {
   return (
@@ -57,7 +59,10 @@ export default function Contacto() {
                 <div className="text-sm font-bold group-hover:underline" style={{ color: G }}>{EMAIL}</div>
               </div>
             </a>
-            <div className="flex items-center gap-4 rounded-xl p-5"
+            <a href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-4 rounded-xl p-5 group transition-all duration-200"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.05)" }}>
@@ -65,10 +70,13 @@ export default function Contacto() {
               </div>
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Instagram</div>
-                <div className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.7)" }}>@mexicocharts</div>
+                <div className="text-sm font-bold group-hover:underline" style={{ color: "rgba(255,255,255,0.7)" }}>@mexicocharts</div>
               </div>
-            </div>
-            <div className="flex items-center gap-4 rounded-xl p-5"
+            </a>
+            <a href={WEBSITE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-4 rounded-xl p-5 group transition-all duration-200"
               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.05)" }}>
@@ -76,9 +84,9 @@ export default function Contacto() {
               </div>
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.2em] mb-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Website</div>
-                <div className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.7)" }}>mexicochart.com</div>
+                <div className="text-sm font-bold group-hover:underline" style={{ color: "rgba(255,255,255,0.7)" }}>mexicochart.com</div>
               </div>
-            </div>
+            </a>
           </div>
 
           <div className="space-y-6 pt-4">
