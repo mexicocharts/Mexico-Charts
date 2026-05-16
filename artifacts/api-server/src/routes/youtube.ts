@@ -118,6 +118,7 @@ function channelToRow(artistKey: string, ch: YtChannel) {
 
 function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
   return {
+    artistKey:       row.artistKey,
     channelId:       row.channelId,
     title:           row.title,
     thumbnailUrl:    row.thumbnailUrl,
@@ -457,6 +458,174 @@ router.get("/admin/youtube/videos", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const rows = await db.select().from(youtubeVideos).orderBy(youtubeVideos.linkedAt);
   res.json({ videos: rows.map(videoDbToResponse) });
+});
+
+// POST /api/admin/youtube/backfill?limit=90&dryRun=false
+// Reads the artist metadata sheet, finds artists without a linked YouTube channel,
+// and links them one by one.  Tries a cheap forHandle lookup (1 quota unit) first;
+// falls back to a search (100 units) only when that fails.
+// Stops gracefully if the daily quota is exhausted and reports how many remain.
+// Safe to call daily — idempotent, skips already-linked artists.
+router.post("/admin/youtube/backfill", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const limit  = Math.min(parseInt((req.query["limit"]  as string) ?? "90",   10), 200);
+  const dryRun = (req.query["dryRun"] as string) === "true";
+
+  // Convert a display name to YouTube handle candidates (cheap 1-unit lookup)
+  function toHandles(name: string): string[] {
+    const clean  = name.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ0-9 ]/g, "").trim();
+    const nfkd   = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const camel  = clean.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("");
+    const lower  = clean.split(/\s+/).join("").toLowerCase();
+    return [...new Set([camel, nfkd(camel), lower, nfkd(lower)])];
+  }
+
+  async function handleLookup(name: string): Promise<string | null> {
+    for (const h of toHandles(name)) {
+      const data = await ytFetch("/channels", {
+        part: "id,statistics",
+        forHandle: `@${h}`,
+      }) as { items?: Array<{ id: string; statistics: { subscriberCount?: string } }> };
+      const item = data.items?.[0];
+      if (item && parseInt(item.statistics.subscriberCount ?? "0", 10) > 500) {
+        return item.id as string;
+      }
+    }
+    return null;
+  }
+
+  try {
+    // Fetch artist list from the metadata API (already cached by the route)
+    const PORT = process.env["PORT"] ?? "8080";
+    const metaRes = await fetch(`http://localhost:${PORT}/api/artists/metadata`);
+    if (!metaRes.ok) throw new Error(`metadata fetch failed: ${metaRes.status}`);
+    const metaJson = await metaRes.json() as { artists?: Array<{ artist_key: string; artist_name: string }> };
+    const allArtists = metaJson.artists ?? [];
+
+    // Get already-linked keys
+    const linked = await db.select({ artistKey: youtubeChannels.artistKey }).from(youtubeChannels);
+    const linkedKeys = new Set(linked.map(r => r.artistKey));
+
+    const unlinked  = allArtists.filter(a => a.artist_key && !linkedKeys.has(a.artist_key));
+    const toProcess = unlinked.slice(0, limit);
+
+    if (dryRun) {
+      res.json({
+        total: allArtists.length,
+        linked: linkedKeys.size,
+        remaining: unlinked.length,
+        preview: toProcess.map(a => a.artist_name),
+      });
+      return;
+    }
+
+    const results: Array<{ name: string; status: string; channel?: string; subs?: string | null }> = [];
+    let quotaExhausted = false;
+
+    for (const artist of toProcess) {
+      if (quotaExhausted) {
+        results.push({ name: artist.artist_name, status: "skipped_quota" });
+        continue;
+      }
+
+      let channelId: string | null = null;
+
+      // 1 — cheap handle lookup
+      try {
+        channelId = await handleLookup(artist.artist_name);
+      } catch (err) {
+        const msg = (err as Error).message;
+        if (msg.includes("403") || msg.toLowerCase().includes("quota")) {
+          quotaExhausted = true;
+          results.push({ name: artist.artist_name, status: "skipped_quota" });
+          continue;
+        }
+      }
+
+      // 2 — search fallback (100 units)
+      if (!channelId && !quotaExhausted) {
+        try {
+          const q        = `${artist.artist_name} oficial`;
+          const cacheKey = `ch:${q.toLowerCase()}`;
+          const cached   = searchCache.get(cacheKey);
+
+          let hits: Array<{ channelId: string; title: string }> = [];
+          if (cached && Date.now() - cached.cachedAt < SEARCH_TTL_MS) {
+            hits = cached.results as typeof hits;
+          } else {
+            const data = await ytFetch("/search", {
+              part:       "snippet",
+              type:       "channel",
+              q,
+              maxResults: "5",
+              regionCode: "MX",
+            }) as { items?: Array<{ id: { channelId: string }; snippet: { title: string } }> };
+            hits = (data.items ?? []).map(i => ({ channelId: i.id.channelId, title: i.snippet.title }));
+            searchCache.set(cacheKey, { results: hits, cachedAt: Date.now() });
+          }
+
+          const nameLow = artist.artist_name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          let best = hits[0];
+          for (const r of hits) {
+            const t = r.title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            if (t === nameLow || t.startsWith((nameLow.split(" ")[0]) ?? "")) { best = r; break; }
+          }
+          channelId = best?.channelId ?? null;
+        } catch (err) {
+          const msg = (err as Error).message;
+          if (msg.includes("403") || msg.toLowerCase().includes("quota")) {
+            quotaExhausted = true;
+            results.push({ name: artist.artist_name, status: "skipped_quota" });
+            continue;
+          }
+        }
+      }
+
+      if (!channelId) {
+        results.push({ name: artist.artist_name, status: "not_found" });
+        continue;
+      }
+
+      // Link
+      try {
+        const ch = await fetchChannelFromYt(channelId);
+        if (!ch) { results.push({ name: artist.artist_name, status: "channel_404" }); continue; }
+        const row = { ...channelToRow(artist.artist_key, ch), linkedAt: new Date() };
+        await db.insert(youtubeChannels).values(row).onConflictDoUpdate({
+          target: youtubeChannels.artistKey,
+          set:    row,
+        });
+        results.push({
+          name:    artist.artist_name,
+          status:  "linked",
+          channel: ch.snippet.title,
+          subs:    fmtCount(parseInt(ch.statistics.subscriberCount ?? "0", 10)),
+        });
+        logger.info({ artistKey: artist.artist_key, channelId }, "[youtube:backfill] linked");
+      } catch (err) {
+        results.push({ name: artist.artist_name, status: "error", channel: (err as Error).message });
+      }
+
+      await new Promise(r => setTimeout(r, 150));
+    }
+
+    const nLinked  = results.filter(r => r.status === "linked").length;
+    const nMissing = results.filter(r => r.status === "not_found").length;
+    const nSkipped = results.filter(r => r.status === "skipped_quota").length;
+
+    res.json({
+      processed:       toProcess.length,
+      linked:          nLinked,
+      not_found:       nMissing,
+      quota_exhausted: quotaExhausted,
+      skipped_quota:   nSkipped,
+      remaining_after: Math.max(0, unlinked.length - nLinked),
+      results,
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "[youtube:backfill] failed");
+    res.status(500).json({ error: (err as Error).message });
+  }
 });
 
 // DELETE /api/admin/youtube/link/channel/:artistKey
