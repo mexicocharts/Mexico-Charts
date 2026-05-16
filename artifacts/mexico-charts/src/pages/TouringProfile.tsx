@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { motion, useScroll, useTransform, animate, useMotionValue } from "framer-motion";
 import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
+import PageSEO from "@/components/PageSEO";
 
 import _imgArena    from "@assets/Junior-THS-09-1024x683_1778591170250.jpg";
 import _imgCrowd    from "@assets/concertcrowd_1778591170250.jpeg";
@@ -55,6 +56,11 @@ export default function TouringProfile() {
 
   return (
     <div style={{ background: "#060606", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af", overflowX: "hidden" }}>
+      <PageSEO
+        title="Junior H · Touring Profile — Mexico Charts"
+        description="Perfil de touring de Junior H con historial de conciertos, cifras de boletaje, gross y mercados clave."
+        path="/touring/junior-h"
+      />
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap');
         .tp-fa { font-family: 'Anton', sans-serif !important; }
@@ -400,9 +406,9 @@ export default function TouringProfile() {
         <Link href="/touring">
           <span style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>← Volver a Touring</span>
         </Link>
-        <button style={{ background: "none", border: "none", color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
-          Ver en Pollstar →
-        </button>
+        <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>
+          Fuente: Pollstar Research
+        </div>
       </footer>
     </div>
   );
