@@ -10,6 +10,7 @@ import certificationsRouter from "./certifications";
 import imageProxyRouter from "./image-proxy";
 import itunesRouter from "./itunes";
 import wikiRouter from "./wiki";
+import youtubeRouter from "./youtube";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(certificationsRouter);
 router.use(imageProxyRouter);
 router.use(itunesRouter);
 router.use(wikiRouter);
+router.use(youtubeRouter);
 
 export default router;

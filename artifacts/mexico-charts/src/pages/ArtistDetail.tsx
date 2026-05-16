@@ -10,6 +10,7 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useWikiBio } from "@/hooks/useWikiBio";
+import { useYoutubeChannel } from "@/hooks/useYoutubeChannel";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -342,7 +343,8 @@ export default function ArtistDetail() {
   const names = useMemo(() => [artist.name], [artist.name]);
   const artistImages = useArtistImages(names);
   const itunesData = useItunesArtist(artist.name);
-  const wikiBio    = useWikiBio(artist.name);
+  const wikiBio      = useWikiBio(artist.name);
+  const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
 
   /* ── Kworb lifetime streaming stats ── */
@@ -498,33 +500,62 @@ export default function ArtistDetail() {
               </a>
             )}
 
-            {itunesData?.appleUrl && (
-              <div className="mt-5">
-                <a
-                  href={itunesData.appleUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
-                  style={{
-                    background: "rgba(57,255,20,0.08)",
-                    border: "1px solid rgba(57,255,20,0.28)",
-                    color: "#39FF14",
-                  }}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.16)";
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.55)";
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.08)";
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.28)";
-                  }}
-                  data-testid="link-apple-music"
-                >
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
-                    <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026C4.948.043 4.647.073 4.35.158 2.95.517 1.99 1.39 1.36 2.65c-.332.67-.46 1.39-.513 2.12-.013.183-.02.367-.026.55v13.36c.006.182.013.366.026.55.053.73.181 1.45.513 2.12.63 1.26 1.59 2.13 2.99 2.49.297.085.598.115.98.143.152.01.303.017.455.026H18.01c.04-.003.083-.01.124-.013.52-.04 1.04-.095 1.535-.207C21.2 23.47 22.5 21.86 22.87 20.2c.12-.48.16-1.01.17-1.5.013-.54.013-1.08 0-1.62V7.614a10.496 10.496 0 00-.047-1.49zM8 17.5c0 .553-.447 1-1 1s-1-.447-1-1v-7c0-.553.447-1 1-1s1 .447 1 1v7zm9 0c0 .553-.447 1-1 1s-1-.447-1-1v-4c0-.553.447-1 1-1s1 .447 1 1v4zm-4 0c0 .553-.447 1-1 1s-1-.447-1-1v-2c0-.553.447-1 1-1s1 .447 1 1v2z" />
-                  </svg>
-                  Escuchar en Apple Music
-                </a>
+            {(itunesData?.appleUrl || ytChannel) && (
+              <div className="mt-5 flex flex-wrap gap-2">
+                {itunesData?.appleUrl && (
+                  <a
+                    href={itunesData.appleUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                    style={{
+                      background: "rgba(57,255,20,0.08)",
+                      border: "1px solid rgba(57,255,20,0.28)",
+                      color: "#39FF14",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.16)";
+                      (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.55)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "rgba(57,255,20,0.08)";
+                      (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(57,255,20,0.28)";
+                    }}
+                    data-testid="link-apple-music"
+                  >
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
+                      <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026C4.948.043 4.647.073 4.35.158 2.95.517 1.99 1.39 1.36 2.65c-.332.67-.46 1.39-.513 2.12-.013.183-.02.367-.026.55v13.36c.006.182.013.366.026.55.053.73.181 1.45.513 2.12.63 1.26 1.59 2.13 2.99 2.49.297.085.598.115.98.143.152.01.303.017.455.026H18.01c.04-.003.083-.01.124-.013.52-.04 1.04-.095 1.535-.207C21.2 23.47 22.5 21.86 22.87 20.2c.12-.48.16-1.01.17-1.5.013-.54.013-1.08 0-1.62V7.614a10.496 10.496 0 00-.047-1.49zM8 17.5c0 .553-.447 1-1 1s-1-.447-1-1v-7c0-.553.447-1 1-1s1 .447 1 1v7zm9 0c0 .553-.447 1-1 1s-1-.447-1-1v-4c0-.553.447-1 1-1s1 .447 1 1v4zm-4 0c0 .553-.447 1-1 1s-1-.447-1-1v-2c0-.553.447-1 1-1s1 .447 1 1v2z" />
+                    </svg>
+                    Escuchar en Apple Music
+                  </a>
+                )}
+                {ytChannel && (
+                  <a
+                    href={ytChannel.channelUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                    style={{
+                      background: "rgba(255,0,0,0.08)",
+                      border: "1px solid rgba(255,0,0,0.22)",
+                      color: "#ff4444",
+                    }}
+                    onMouseEnter={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,0,0,0.14)";
+                      (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,0,0,0.40)";
+                    }}
+                    onMouseLeave={e => {
+                      (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,0,0,0.08)";
+                      (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(255,0,0,0.22)";
+                    }}
+                    data-testid="link-youtube-channel"
+                  >
+                    <SiYoutube className="w-3.5 h-3.5" />
+                    {ytChannel.subscribersFmt
+                      ? `${ytChannel.subscribersFmt} suscriptores`
+                      : "Canal oficial"}
+                  </a>
+                )}
               </div>
             )}
           </motion.div>
@@ -582,11 +613,31 @@ export default function ArtistDetail() {
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
-                  {metaArtist.youtubeSubscribers > 0 && (
+                  {metaArtist.youtubeSubscribers > 0 ? (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
                       <div className="text-xl font-black text-white leading-none">{metaArtist.youtubeSubscribersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                    </div>
+                  ) : ytChannel?.subscribersFmt ? (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-500" />
+                      <div className="text-xl font-black text-white leading-none">{ytChannel.subscribersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                    </div>
+                  ) : null}
+                  {ytChannel?.viewsFmt && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-400" />
+                      <div className="text-xl font-black text-white leading-none">{ytChannel.viewsFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
+                    </div>
+                  )}
+                  {ytChannel?.videoCount != null && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.03)", border: "1px solid rgba(255,0,0,0.08)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-400" />
+                      <div className="text-xl font-black text-white leading-none">{ytChannel.videoCount.toLocaleString("es-MX")}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Videos en canal</div>
                     </div>
                   )}
                   {metaArtist.deezerFans > 0 && (
