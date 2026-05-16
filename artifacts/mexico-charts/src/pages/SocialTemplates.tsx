@@ -384,7 +384,7 @@ async function inlineImages(el: HTMLElement): Promise<void> {
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   await document.fonts.ready;
-  await new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   await inlineImages(el);
 
   const dataUrl = await toPng(el, {
