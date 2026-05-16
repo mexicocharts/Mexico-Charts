@@ -60,6 +60,13 @@ const ASCENSO_ACCENTS = [
   "rgba(57,255,20,0.24)",
 ];
 
+const SOCIAL_LINKS = [
+  { label: "Instagram", href: "https://www.instagram.com/mexicocharts/", icon: SiInstagram },
+  { label: "X", href: "https://x.com/MexicoCharts", icon: SiX },
+  { label: "TikTok", href: "https://www.tiktok.com/@mexicocharts", icon: SiTiktok },
+  { label: "YouTube", href: "https://www.youtube.com/@mexicocharts", icon: SiYoutube },
+] as const;
+
 /* ── Charts-hub types (minimal, same shape as ChartsHub.tsx) ── */
 type HubRow = Record<string, string>;
 interface HubSheetData { headers: string[]; rows: HubRow[] }
@@ -242,6 +249,7 @@ export default function HomeV6() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [tickerPaused, setTickerPaused] = useState(false);
   const [homeSearch, setHomeSearch] = useState("");
+  const [newsletterEmail, setNewsletterEmail] = useState("");
   const [, navigate] = useLocation();
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
@@ -250,6 +258,18 @@ export default function HomeV6() {
     event.preventDefault();
     const query = homeSearch.trim();
     navigate(query ? `/artists?q=${encodeURIComponent(query)}` : "/artists");
+  }
+
+  function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = newsletterEmail.trim();
+    const subject = encodeURIComponent("Suscripcion boletin Mexico Charts");
+    const body = encodeURIComponent(
+      email
+        ? `Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal con este correo: ${email}`
+        : "Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal.",
+    );
+    window.location.href = `mailto:mexicochartsoficial@gmail.com?subject=${subject}&body=${body}`;
   }
 
   /* ── Sheet data ── */
@@ -559,10 +579,19 @@ export default function HomeV6() {
                 <Search className="w-3.5 h-3.5" />
               </button>
             </form>
-            <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-ig"><SiInstagram className="w-3.5 h-3.5" /></a>
-            <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-x"><SiX className="w-3.5 h-3.5" /></a>
-            <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-tk"><SiTiktok className="w-3.5 h-3.5" /></a>
-            <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-yt"><SiYoutube className="w-3.5 h-3.5" /></a>
+            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={label}
+                className="text-zinc-600 hover:text-white transition-colors duration-200"
+                data-testid={`link-social-${label.toLowerCase()}`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+              </a>
+            ))}
           </div>
 
           <button className="lg:hidden text-zinc-500 hover:text-white transition-colors" onClick={() => setMenuOpen(o => !o)} data-testid="btn-mobile-menu">
@@ -585,10 +614,11 @@ export default function HomeV6() {
                   );
                 })}
                 <div className="flex gap-4 pt-2 border-t border-white/5">
-                  <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiInstagram className="w-4 h-4" /></a>
-                  <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiX className="w-4 h-4" /></a>
-                  <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiTiktok className="w-4 h-4" /></a>
-                  <a href="#" className="text-zinc-600 hover:text-white transition-colors"><SiYoutube className="w-4 h-4" /></a>
+                  {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+                    <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-600 hover:text-white transition-colors">
+                      <Icon className="w-4 h-4" />
+                    </a>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -1249,9 +1279,12 @@ export default function HomeV6() {
               <h3 className="text-xl font-black uppercase text-white mb-1">Reportes exclusivos directo a tu correo</h3>
               <p className="text-xs text-zinc-500 leading-relaxed">Charts, análisis y estadísticas de la música mexicana cada semana.</p>
             </div>
-            <div className="relative z-10 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+            <form onSubmit={submitNewsletter} className="relative z-10 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <input
-                type="email" placeholder="correo@ejemplo.com"
+                type="email"
+                value={newsletterEmail}
+                onChange={(event) => setNewsletterEmail(event.target.value)}
+                placeholder="correo@ejemplo.com"
                 className="bg-black/50 border border-white/10 rounded-full text-white text-xs px-4 py-3 focus:outline-none focus:border-[rgba(57,255,20,0.4)] transition-all duration-300 placeholder-zinc-700 md:w-56"
                 data-testid="input-newsletter"
               />
@@ -1262,7 +1295,7 @@ export default function HomeV6() {
                 style={{ background:"#39FF14", boxShadow:"0 0 16px rgba(57,255,20,0.22)" }}
                 data-testid="btn-newsletter"
               >SUSCRIBIRME</motion.button>
-            </div>
+            </form>
           </div>
         </section>
       </FadeUp>
@@ -1279,8 +1312,8 @@ export default function HomeV6() {
               <img src={logoUrl} alt="Mexico Charts" className="h-9 object-contain mb-4 opacity-90" />
               <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">La fuente líder de estadísticas de la música mexicana en el mundo.</p>
               <div className="flex gap-4 mt-4">
-                {([SiInstagram,SiX,SiTiktok,SiYoutube] as React.ElementType[]).map((Icon,i) => (
-                  <a key={i} href="#" className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
+                {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
+                  <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
                 ))}
               </div>
             </div>
