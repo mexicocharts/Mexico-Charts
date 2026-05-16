@@ -9,9 +9,10 @@ interface PageSEOProps {
   path?: string;
   ogImage?: string;
   type?: "website" | "article";
+  noindex?: boolean;
 }
 
-export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website" }: PageSEOProps) {
+export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false }: PageSEOProps) {
   const canonical = `${SITE_URL}${path}`;
   const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
 
@@ -19,6 +20,7 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
+      {noindex && <meta name="robots" content="noindex,nofollow,noarchive" />}
       <link rel="canonical" href={canonical} />
 
       <meta property="og:type" content={type} />

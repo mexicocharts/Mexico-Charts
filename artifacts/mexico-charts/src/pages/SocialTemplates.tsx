@@ -767,9 +767,10 @@ export default function SocialTemplates() {
   return (
     <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
       <PageSEO
-        title="Templates Sociales — Mexico Charts"
-        description="Herramienta editorial de Mexico Charts para generar templates sociales de charts, artistas, touring e industria."
+        title="Herramienta interna — Mexico Charts"
+        description="Herramienta interna de Mexico Charts."
         path="/social-templates"
+        noindex
       />
       {/* Spinner keyframe */}
       <style>{`

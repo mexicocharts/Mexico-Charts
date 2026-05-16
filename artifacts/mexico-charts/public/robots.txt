@@ -1,3 +1,4 @@
 User-agent: *
+Disallow: /social-templates
 Allow: /
 Sitemap: https://mexicocharts.replit.app/sitemap.xml
