@@ -2,11 +2,10 @@ import { Link } from "wouter";
 import { Home, ChevronRight } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { CONTACT_EMAIL } from "@/config/brand";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
-
-const EMAIL = "mexicochartsoficial@gmail.com";
 
 export default function Metodologia() {
   return (
@@ -102,7 +101,7 @@ export default function Metodologia() {
             <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Correcciones</h3>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
               Si detectas un error, puedes contactarnos en{" "}
-              <a href={`mailto:${EMAIL}`} className="hover:underline" style={{ color: G }}>{EMAIL}</a>{" "}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:underline" style={{ color: G }}>{CONTACT_EMAIL}</a>{" "}
               con la fuente o información correspondiente.
             </p>
           </div>

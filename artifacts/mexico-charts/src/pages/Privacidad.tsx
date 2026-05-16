@@ -2,11 +2,10 @@ import { Link } from "wouter";
 import { Home, ChevronRight } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { CONTACT_EMAIL, SITE_DOMAIN } from "@/config/brand";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
-
-const EMAIL = "mexicochartsoficial@gmail.com";
 
 export default function Privacidad() {
   return (
@@ -41,7 +40,7 @@ export default function Privacidad() {
 
         <div style={{ borderTop: `1px solid rgba(57,255,20,0.12)` }} className="pt-12 space-y-5">
           <p className="text-base leading-relaxed mb-8" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Mexico Charts respeta la privacidad de sus usuarios. Esta página explica de forma general cómo puede manejarse la información al visitar mexicochart.com.
+            Mexico Charts respeta la privacidad de sus usuarios. Esta página explica de forma general cómo puede manejarse la información al visitar {SITE_DOMAIN}.
           </p>
 
           {[
@@ -80,7 +79,7 @@ export default function Privacidad() {
             <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Contacto</h3>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
               Para dudas relacionadas con privacidad:{" "}
-              <a href={`mailto:${EMAIL}`} className="hover:underline" style={{ color: G }}>{EMAIL}</a>
+              <a href={`mailto:${CONTACT_EMAIL}`} className="hover:underline" style={{ color: G }}>{CONTACT_EMAIL}</a>
             </p>
           </div>
         </div>

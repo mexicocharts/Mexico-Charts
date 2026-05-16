@@ -13,6 +13,7 @@ import {
 import { Search, Menu, TrendingUp, Music, Mail } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
+import { CONTACT_EMAIL, SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
@@ -61,10 +62,10 @@ const ASCENSO_ACCENTS = [
 ];
 
 const SOCIAL_LINKS = [
-  { label: "Instagram", href: "https://www.instagram.com/mexicocharts/", icon: SiInstagram },
-  { label: "X", href: "https://x.com/MexicoCharts", icon: SiX },
-  { label: "TikTok", href: "https://www.tiktok.com/@mexicocharts", icon: SiTiktok },
-  { label: "YouTube", href: "https://www.youtube.com/@mexicocharts", icon: SiYoutube },
+  { label: "Instagram", href: SOCIAL_URLS.instagram, icon: SiInstagram },
+  { label: "X", href: SOCIAL_URLS.x, icon: SiX },
+  { label: "TikTok", href: SOCIAL_URLS.tiktok, icon: SiTiktok },
+  { label: "YouTube", href: SOCIAL_URLS.youtube, icon: SiYoutube },
 ] as const;
 
 /* ── Charts-hub types (minimal, same shape as ChartsHub.tsx) ── */
@@ -269,7 +270,7 @@ export default function HomeV6() {
         ? `Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal con este correo: ${email}`
         : "Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal.",
     );
-    window.location.href = `mailto:mexicochartsoficial@gmail.com?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
   }
 
   /* ── Sheet data ── */
