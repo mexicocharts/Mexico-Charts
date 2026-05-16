@@ -241,8 +241,16 @@ export default function HomeV6() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [tickerPaused, setTickerPaused] = useState(false);
+  const [homeSearch, setHomeSearch] = useState("");
+  const [, navigate] = useLocation();
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
+
+  function submitHomeSearch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const query = homeSearch.trim();
+    navigate(query ? `/artists?q=${encodeURIComponent(query)}` : "/artists");
+  }
 
   /* ── Sheet data ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
@@ -533,10 +541,24 @@ export default function HomeV6() {
           </div>
 
           <div className="hidden lg:flex items-center gap-3">
-            <div className="flex items-center border border-white/[0.08] bg-white/[0.03] rounded-full px-3 focus-within:border-[#39FF14]/40 transition-all duration-300">
-              <input type="text" placeholder="Buscar artista..." className="bg-transparent text-xs text-zinc-400 placeholder-zinc-700 py-1.5 w-36 focus:outline-none" data-testid="input-search" />
-              <Search className="w-3.5 h-3.5 text-zinc-600" />
-            </div>
+            <form
+              onSubmit={submitHomeSearch}
+              className="flex items-center border border-white/[0.08] bg-white/[0.03] rounded-full px-3 focus-within:border-[#39FF14]/40 transition-all duration-300"
+              role="search"
+            >
+              <input
+                type="search"
+                value={homeSearch}
+                onChange={(event) => setHomeSearch(event.target.value)}
+                placeholder="Buscar artista..."
+                className="bg-transparent text-xs text-zinc-400 placeholder-zinc-700 py-1.5 w-36 focus:outline-none"
+                data-testid="input-search"
+                aria-label="Buscar artista"
+              />
+              <button type="submit" aria-label="Buscar" className="text-zinc-600 hover:text-[#39FF14] transition-colors">
+                <Search className="w-3.5 h-3.5" />
+              </button>
+            </form>
             <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-ig"><SiInstagram className="w-3.5 h-3.5" /></a>
             <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-x"><SiX className="w-3.5 h-3.5" /></a>
             <a href="#" className="text-zinc-600 hover:text-white transition-colors duration-200" data-testid="link-social-tk"><SiTiktok className="w-3.5 h-3.5" /></a>

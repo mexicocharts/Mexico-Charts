@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import PageSEO from "@/components/PageSEO";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
@@ -251,9 +251,15 @@ function FilterDropdown({ label, value, options, onChange }: DropdownProps) {
 /* ── Main page ───────────────────────────────────────────────────── */
 export default function ArtistRoster() {
   const { byKey, isLoading, isError, isEmpty } = useArtistMetadata();
-  const [search, setSearch] = useState("");
+  const routeSearch = useSearch();
+  const initialQuery = useMemo(() => new URLSearchParams(routeSearch).get("q") ?? "", [routeSearch]);
+  const [search, setSearch] = useState(initialQuery);
   const [genreFilter, setGenreFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+
+  useEffect(() => {
+    setSearch(initialQuery);
+  }, [initialQuery]);
 
   /* Collect all artist display names for image + kworb batch fetches */
   const allNames = useMemo(() => Array.from(byKey.values()).map(a => a.displayName), [byKey]);
@@ -318,7 +324,7 @@ export default function ArtistRoster() {
           </Link>
           <div className="flex items-center gap-1">
             {(["INICIO", "ARTISTAS", "CHARTS", "GÉNEROS", "TOURING"] as const).map((item) => {
-              const href = item === "INICIO" ? "/" : item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "GÉNEROS" ? "/generos" : "#";
+              const href = item === "INICIO" ? "/" : item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "/";
               const active = item === "ARTISTAS";
               return (
                 <Link
