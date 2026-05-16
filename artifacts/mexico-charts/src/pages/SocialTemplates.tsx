@@ -22,6 +22,8 @@ import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const ACCENT = "#39FF14";
+const ACCESS_CODE = (import.meta.env.VITE_SOCIAL_TEMPLATES_ACCESS_CODE as string | undefined)?.trim() ?? "";
+const ACCESS_STORAGE_KEY = "mexicocharts:social-templates-access";
 
 const PREVIEW_SCALE = 0.30;
 const PW = Math.round(1080 * PREVIEW_SCALE);
@@ -757,12 +759,32 @@ function Lightbox({
 
 /* ── Main gallery page ────────────────────────────────────────── */
 export default function SocialTemplates() {
+  const [accessInput, setAccessInput] = useState("");
+  const [accessError, setAccessError] = useState("");
+  const [hasAccess, setHasAccess] = useState(() =>
+    !!ACCESS_CODE && window.sessionStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_CODE,
+  );
   const [category, setCategory] = useState("Todos");
   const [lightbox, setLightbox] = useState<TemplateConfig | null>(null);
 
   const filtered = category === "Todos"
     ? TEMPLATES
     : TEMPLATES.filter(t => t.category === category);
+
+  function submitAccess(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ACCESS_CODE) {
+      setAccessError("Configura VITE_SOCIAL_TEMPLATES_ACCESS_CODE para habilitar esta herramienta.");
+      return;
+    }
+    if (accessInput.trim() !== ACCESS_CODE) {
+      setAccessError("Codigo incorrecto.");
+      return;
+    }
+    window.sessionStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_CODE);
+    setHasAccess(true);
+    setAccessError("");
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
@@ -772,6 +794,73 @@ export default function SocialTemplates() {
         path="/social-templates"
         noindex
       />
+      {!hasAccess && (
+        <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <section style={{ width: "100%", maxWidth: 420, textAlign: "center" }}>
+            <Link href="/">
+              <img src={logoUrl} alt="Mexico Charts" style={{ height: 34, objectFit: "contain", opacity: 0.9, margin: "0 auto 36px" }} />
+            </Link>
+            <div style={{ color: ACCENT, fontSize: 10, fontWeight: 900, letterSpacing: "0.28em", textTransform: "uppercase", marginBottom: 12 }}>
+              Herramienta interna
+            </div>
+            <h1 style={{ margin: 0, color: "#fff", fontSize: 34, lineHeight: 0.95, textTransform: "uppercase", fontWeight: 900, letterSpacing: "-0.03em" }}>
+              Acceso privado
+            </h1>
+            <p style={{ color: "rgba(255,255,255,0.42)", fontSize: 13, lineHeight: 1.6, margin: "18px auto 28px", maxWidth: 340 }}>
+              Esta seccion es solo para administrar templates internos de Mexico Charts.
+            </p>
+            <form onSubmit={submitAccess} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <input
+                type="password"
+                value={accessInput}
+                onChange={(event) => { setAccessInput(event.target.value); setAccessError(""); }}
+                placeholder="Codigo de acceso"
+                aria-label="Codigo de acceso"
+                autoComplete="off"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  borderRadius: 999,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#fff",
+                  padding: "13px 16px",
+                  outline: "none",
+                  textAlign: "center",
+                  fontSize: 13,
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  border: "none",
+                  borderRadius: 999,
+                  background: ACCENT,
+                  color: "#000",
+                  padding: "13px 16px",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                }}
+              >
+                Entrar
+              </button>
+            </form>
+            {accessError && (
+              <div style={{ color: "rgba(255,100,100,0.86)", fontSize: 12, fontWeight: 700, marginTop: 14 }}>
+                {accessError}
+              </div>
+            )}
+            <Link href="/" style={{ display: "inline-block", marginTop: 24, color: "rgba(255,255,255,0.36)", fontSize: 10, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", textDecoration: "none" }}>
+              Volver al sitio
+            </Link>
+          </section>
+        </main>
+      )}
+      {hasAccess && (
+      <>
       {/* Spinner keyframe */}
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
@@ -937,6 +1026,8 @@ export default function SocialTemplates() {
 
       {/* Lightbox */}
       {lightbox && <Lightbox config={lightbox} onClose={() => setLightbox(null)} />}
+      </>
+      )}
     </div>
   );
 }
