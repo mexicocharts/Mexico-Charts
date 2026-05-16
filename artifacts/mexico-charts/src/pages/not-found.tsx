@@ -1,11 +1,17 @@
 import { Link } from "wouter";
 import { ArrowLeft, BarChart3 } from "lucide-react";
+import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
 export default function NotFound() {
   return (
     <main className="min-h-screen w-full flex items-center justify-center bg-[#050505] px-6 text-white">
+      <PageSEO
+        title="Pagina no encontrada — Mexico Charts"
+        description="La pagina solicitada no existe o cambio de lugar. Vuelve al inicio de Mexico Charts o revisa los charts actuales."
+        path="/404"
+      />
       <section className="w-full max-w-xl text-center">
         <Link href="/">
           <img

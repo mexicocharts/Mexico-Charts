@@ -18,6 +18,7 @@ import FinalCTA from "@/social/templates/FinalCTA";
 import AnimatedTopArtists from "@/social/templates/AnimatedTopArtists";
 import AnimatedTopSongs from "@/social/templates/AnimatedTopSongs";
 import AnimatedTopAlbums from "@/social/templates/AnimatedTopAlbums";
+import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const ACCENT = "#39FF14";
@@ -765,6 +766,11 @@ export default function SocialTemplates() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#050505", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
+      <PageSEO
+        title="Templates Sociales — Mexico Charts"
+        description="Herramienta editorial de Mexico Charts para generar templates sociales de charts, artistas, touring e industria."
+        path="/social-templates"
+      />
       {/* Spinner keyframe */}
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }

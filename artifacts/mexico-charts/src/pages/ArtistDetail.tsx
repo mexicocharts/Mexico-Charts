@@ -5,6 +5,7 @@ import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMeta
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
+import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
@@ -369,6 +370,11 @@ export default function ArtistDetail() {
       style={{ background: "radial-gradient(ellipse 100% 50% at 50% 0%, rgba(57,255,20,0.022) 0%, transparent 55%), #050505" }}
       data-testid="page-artist-detail"
     >
+      <PageSEO
+        title={`${artist.name} — Perfil de artista | Mexico Charts`}
+        description={`${artist.name}: perfil de artista con genero, estadisticas de streaming, audiencia, redes sociales, certificaciones y datos de charts en Mexico Charts.`}
+        path={`/artist/${slug}`}
+      />
       {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
       {showErrorState && (
         <div
