@@ -361,34 +361,63 @@ export default function TouringHub() {
           .th-filter-group {
             width: 100%;
             overflow-x: auto;
-            padding-bottom: 2px;
+            padding-bottom: 4px;
             scrollbar-width: none;
+            gap: 6px !important;
+            scroll-snap-type: x proximity;
           }
-          .th-filter-btn { flex-shrink: 0; }
+          .th-filter-btn {
+            flex-shrink: 0;
+            min-height: 38px;
+            padding: 8px 12px !important;
+            scroll-snap-align: start;
+          }
           .th-show-row {
             align-items: stretch;
-            min-height: 96px;
+            min-height: 106px;
+            background: linear-gradient(110deg, #080808 0%, #0c0c0c 70%, rgba(57,255,20,0.025) 100%) !important;
+            border-color: rgba(255,255,255,0.07) !important;
           }
           .th-show-thumb {
-            width: 74px !important;
+            width: 68px !important;
             height: auto !important;
           }
           .th-show-row-main {
             flex-direction: column;
             align-items: flex-start !important;
             justify-content: center;
-            gap: 4px !important;
+            gap: 5px !important;
             padding: 12px 14px !important;
           }
-          .th-show-date,
+          .th-show-date {
+            min-width: 0 !important;
+            font-size: 10px !important;
+            line-height: 1.1;
+          }
           .th-show-artist {
             min-width: 0 !important;
+            font-size: 16px !important;
+            line-height: 1.02;
+            max-width: 100%;
+            overflow-wrap: anywhere;
           }
           .th-show-venue,
           .th-show-city {
             width: 100%;
             white-space: normal !important;
             margin-left: 0 !important;
+          }
+          .th-show-venue {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            line-height: 1.35;
+          }
+          .th-show-city {
+            color: rgba(255,255,255,0.42) !important;
+            font-size: 9px !important;
+            text-transform: uppercase;
+            letter-spacing: 0.12em !important;
           }
           .th-ticket-cta { display: none !important; }
           .th-profile-grid { grid-template-columns: 1fr !important; }
@@ -496,7 +525,7 @@ export default function TouringHub() {
       </section>
 
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
-      {!isLoading && !isError && totalShows > 0 && (
+      {!isLoading && !isError && (
         <section className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
           <div className="th-section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
             <div>
@@ -532,8 +561,17 @@ export default function TouringHub() {
           </div>
 
           {filteredShows.length === 0 ? (
-            <div style={{ padding: "40px 0", color: "rgba(255,255,255,0.48)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.18em", textAlign: "center" }}>
-              Sin shows en esta región por el momento
+            <div style={{
+              padding: "44px 18px",
+              color: "rgba(255,255,255,0.55)",
+              fontSize: 11,
+              textTransform: "uppercase",
+              letterSpacing: "0.18em",
+              textAlign: "center",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "linear-gradient(135deg, rgba(57,255,20,0.055), rgba(255,255,255,0.025) 38%, rgba(0,0,0,0.22))",
+            }}>
+              Ticketmaster no tiene shows disponibles para este filtro por el momento
             </div>
           ) : (
             <>
