@@ -239,6 +239,11 @@ export default function TouringHub() {
           background: #0b0b0b;
         }
         .th-show-row-main { min-width: 0; }
+        .th-show-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+        }
 
         .th-profile-card {
           border: 1px solid #181818;
@@ -317,6 +322,74 @@ export default function TouringHub() {
           background: linear-gradient(to right, transparent, rgba(255,255,255,0.055), transparent);
           border: none;
           margin: 0;
+        }
+
+        @media (min-width: 721px) and (max-width: 1100px) {
+          .th-hero {
+            height: 500px !important;
+          }
+          .th-hero-title {
+            font-size: clamp(4rem, 10vw, 5.9rem) !important;
+          }
+          .th-content-section,
+          .th-shelf-heading,
+          .th-shelf-track,
+          .th-newsletter,
+          .th-footer {
+            padding-left: 28px !important;
+            padding-right: 28px !important;
+          }
+          .th-section-head {
+            align-items: flex-start !important;
+            flex-direction: column;
+            gap: 18px;
+          }
+          .th-filter-group {
+            width: 100%;
+            overflow-x: auto;
+            gap: 6px !important;
+            padding-bottom: 4px;
+            scrollbar-width: none;
+          }
+          .th-filter-btn {
+            flex-shrink: 0;
+            min-height: 38px;
+            padding: 8px 14px !important;
+          }
+          .th-show-row {
+            min-height: 68px;
+          }
+          .th-show-thumb {
+            width: 64px !important;
+            height: 68px !important;
+          }
+          .th-show-row-main {
+            align-items: flex-start !important;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px !important;
+            padding: 10px 16px !important;
+          }
+          .th-show-date,
+          .th-show-artist {
+            min-width: 0 !important;
+          }
+          .th-show-artist {
+            font-size: 15px !important;
+            line-height: 1;
+          }
+          .th-show-venue,
+          .th-show-city {
+            width: 100%;
+            margin-left: 0 !important;
+            white-space: nowrap !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .th-ticket-cta {
+            min-width: 108px;
+            justify-content: center;
+          }
         }
 
         @media (max-width: 720px) {
@@ -575,7 +648,7 @@ export default function TouringHub() {
             </div>
           ) : (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+              <div className="th-show-list">
                 {filteredShows.slice(0, showAll ? filteredShows.length : PAGE_SIZE).map((ev, i) => (
                   <motion.a
                     key={ev.eventId} href={ev.url} target="_blank" rel="noopener noreferrer"
