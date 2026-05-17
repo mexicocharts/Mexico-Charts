@@ -238,6 +238,7 @@ export default function TouringHub() {
           border-color: rgba(57,255,20,0.4);
           background: #0b0b0b;
         }
+        .th-show-row-main { min-width: 0; }
 
         .th-profile-card {
           border: 1px solid #181818;
@@ -317,25 +318,118 @@ export default function TouringHub() {
           border: none;
           margin: 0;
         }
+
+        @media (max-width: 720px) {
+          .th-hero {
+            height: calc(100svh - 56px) !important;
+            min-height: 580px;
+          }
+          .th-hero::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 4;
+            pointer-events: none;
+            background:
+              linear-gradient(to top, #080808 0%, rgba(8,8,8,0.14) 42%, rgba(8,8,8,0) 68%),
+              radial-gradient(ellipse at 16% 72%, rgba(57,255,20,0.12) 0%, transparent 46%);
+          }
+          .th-hero-copy {
+            padding: 44px 24px 34px !important;
+            max-width: none !important;
+          }
+          .th-hero-title {
+            font-size: clamp(3.8rem, 18vw, 5.2rem) !important;
+            letter-spacing: 0 !important;
+          }
+          .th-hero-stats { gap: 20px !important; flex-wrap: wrap; }
+          .th-section-head {
+            align-items: flex-start !important;
+            flex-direction: column;
+            gap: 18px;
+          }
+          .th-shelf-heading,
+          .th-shelf-track,
+          .th-content-section,
+          .th-newsletter,
+          .th-footer {
+            padding-left: 24px !important;
+            padding-right: 24px !important;
+          }
+          .th-shelf-heading { align-items: flex-start !important; flex-wrap: wrap; }
+          .th-shelf-meta { width: 100%; }
+          .th-filter-group {
+            width: 100%;
+            overflow-x: auto;
+            padding-bottom: 2px;
+            scrollbar-width: none;
+          }
+          .th-filter-btn { flex-shrink: 0; }
+          .th-show-row {
+            align-items: stretch;
+            min-height: 96px;
+          }
+          .th-show-thumb {
+            width: 74px !important;
+            height: auto !important;
+          }
+          .th-show-row-main {
+            flex-direction: column;
+            align-items: flex-start !important;
+            justify-content: center;
+            gap: 4px !important;
+            padding: 12px 14px !important;
+          }
+          .th-show-date,
+          .th-show-artist {
+            min-width: 0 !important;
+          }
+          .th-show-venue,
+          .th-show-city {
+            width: 100%;
+            white-space: normal !important;
+            margin-left: 0 !important;
+          }
+          .th-ticket-cta { display: none !important; }
+          .th-profile-grid { grid-template-columns: 1fr !important; }
+          .th-profile-image { height: 220px !important; }
+          .th-newsletter {
+            align-items: stretch !important;
+            flex-direction: column;
+            gap: 20px !important;
+          }
+          .th-newsletter-form {
+            max-width: none !important;
+            flex-direction: column;
+            gap: 8px !important;
+          }
+          .th-newsletter-input { border-right: 1px solid #222; }
+          .th-subscribe-btn { width: 100%; }
+          .th-footer {
+            align-items: flex-start !important;
+            flex-direction: column;
+            gap: 8px;
+          }
+        }
       ` }} />
 
       <SiteNav />
 
       {/* ── HERO ── */}
-      <section style={{ position: "relative", height: 540, overflow: "hidden" }}>
+      <section className="th-hero" style={{ position: "relative", height: 540, overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.05, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 4 }} />
         <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.74) 0%, rgba(4,10,4,0.40) 30%, transparent 56%)", zIndex: 3, pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #080808 0%, transparent 100%)", zIndex: 3, pointerEvents: "none" }} />
 
-        <div style={{ position: "relative", zIndex: 10, padding: "56px 44px 44px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+        <div className="th-hero-copy" style={{ position: "relative", zIndex: 10, padding: "56px 44px 44px", maxWidth: 520, height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
           <div>
             <motion.div
               initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.16,1,0.3,1] }}
               style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.38em", marginBottom: 18 }}>
               Touring
             </motion.div>
-            <motion.h1 className="th-anton"
+            <motion.h1 className="th-anton th-hero-title"
               initial={{ opacity: 0, y: 28 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.75, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
               style={{ color: "#fff", fontSize: 80, lineHeight: 0.88, textTransform: "uppercase", letterSpacing: "-0.01em" }}>
               La Música<br />Mexicana<br />en Vivo
@@ -344,7 +438,7 @@ export default function TouringHub() {
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45, duration: 0.65, ease: [0.16,1,0.3,1] }}
             style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {!isLoading && !isError && totalShows > 0 && (
-              <div style={{ display: "flex", gap: 28 }}>
+              <div className="th-hero-stats" style={{ display: "flex", gap: 28 }}>
                 <div>
                   <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{totalShows}</div>
                   <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Shows próximos</div>
@@ -367,14 +461,14 @@ export default function TouringHub() {
 
       {/* ── UPCOMING TOURS — horizontal shelf ── */}
       <section style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
+        <div className="th-shelf-heading" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
           <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
             Upcoming Tours
           </h2>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
-            <span style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
+            <span className="th-shelf-meta" style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
               {totalShows} shows · Ticketmaster
             </span>
@@ -387,7 +481,7 @@ export default function TouringHub() {
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 14, overflowX: "auto", padding: "4px 32px 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+        <div className="th-shelf-track" style={{ display: "flex", gap: 14, overflowX: "auto", padding: "4px 32px 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => <SkeletonShelfCard key={i} />)
             : sortedArtists.map((artist, idx) => (
@@ -403,13 +497,13 @@ export default function TouringHub() {
 
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
       {!isLoading && !isError && totalShows > 0 && (
-        <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
+        <section className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+          <div className="th-section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
             <div>
               <SectionEyebrow>Agenda</SectionEyebrow>
               <SectionHeading white="Todos los" green="Shows" />
             </div>
-            <div style={{ display: "flex", gap: 3 }}>
+            <div className="th-filter-group" style={{ display: "flex", gap: 3 }}>
               {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
                 const isActive = countryFilter === f;
                 const count = f === "ALL"
@@ -453,17 +547,17 @@ export default function TouringHub() {
                     viewport={{ once: true, margin: "-20px" }}
                     transition={{ delay: i * 0.02, duration: 0.4, ease: [0.16,1,0.3,1] }}>
                     {ev.img && (
-                      <div style={{ width: 54, height: 54, flexShrink: 0, overflow: "hidden" }}>
+                      <div className="th-show-thumb" style={{ width: 54, height: 54, flexShrink: 0, overflow: "hidden" }}>
                         <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.45) saturate(0.3)" }} />
                       </div>
                     )}
-                    <div style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", minWidth: 0, gap: 0 }}>
-                      <span style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 100, flexShrink: 0, letterSpacing: "0.04em" }}>{formatDate(ev.date)}</span>
-                      <span className="th-anton" style={{ color: "#e8e8e8", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0, letterSpacing: "0.02em" }}>{ev.artistName}</span>
-                      <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
-                      <span style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
+                    <div className="th-show-row-main" style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", minWidth: 0, gap: 0 }}>
+                      <span className="th-show-date" style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, minWidth: 100, flexShrink: 0, letterSpacing: "0.04em" }}>{formatDate(ev.date)}</span>
+                      <span className="th-anton th-show-artist" style={{ color: "#e8e8e8", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0, letterSpacing: "0.02em" }}>{ev.artistName}</span>
+                      <span className="th-show-venue" style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
+                      <span className="th-show-city" style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
                     </div>
-                    <div style={{ padding: "0 18px", flexShrink: 0, borderLeft: "1px solid #141414", height: 54, display: "flex", alignItems: "center" }}>
+                    <div className="th-ticket-cta" style={{ padding: "0 18px", flexShrink: 0, borderLeft: "1px solid #141414", height: 54, display: "flex", alignItems: "center" }}>
                       <span style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Boletos →</span>
                     </div>
                   </motion.a>
@@ -485,14 +579,14 @@ export default function TouringHub() {
       <hr className="th-divider" />
 
       {/* ── FEATURED TOURING PROFILES ── */}
-      <section style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+      <section className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
           <div>
             <SectionEyebrow>Artistas Destacados</SectionEyebrow>
             <SectionHeading white="Featured" green="Touring Profiles" />
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {profileCards.map((p, i) => {
             const img = deezerImages[p.artist] ?? null;
             return (
@@ -502,7 +596,7 @@ export default function TouringHub() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-32px" }}
                 transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
-                <div style={{ position: "relative", height: 168, overflow: "hidden", background: "#0a0a0a" }}>
+                <div className="th-profile-image" style={{ position: "relative", height: 168, overflow: "hidden", background: "#0a0a0a" }}>
                   {img ? (
                     <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
                   ) : (
@@ -542,19 +636,19 @@ export default function TouringHub() {
       </section>
 
       {/* ── NEWSLETTER ── */}
-      <section style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
+      <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
         <div>
           <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.34em", marginBottom: 8 }}>Alertas de Touring</div>
           <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sé el Primero en Saber</div>
           <div style={{ color: "#444", fontSize: 11, lineHeight: 1.5 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
         </div>
-        <div style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
+        <div className="th-newsletter-form" style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
           <input placeholder="Tu correo electrónico" className="th-newsletter-input" />
           <button className="th-subscribe-btn">Suscribirme</button>
         </div>
       </section>
 
-      <footer style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <footer className="th-footer" style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ color: "#555", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.12em" }}>© 2026 Mexico Charts</div>
         <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em" }}>El Movimiento No Para</div>
       </footer>

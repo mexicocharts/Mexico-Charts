@@ -167,6 +167,57 @@ export default function LuisMiguelProfile() {
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap');
         .lm-fa { font-family: 'Anton', sans-serif !important; }
         ::selection { background: rgba(57,255,20,0.25); }
+        .lm-market-row,
+        .lm-show-row-inner,
+        .lm-show-title,
+        .lm-show-metrics,
+        .lm-era-metrics { flex-wrap: wrap; }
+        .lm-timeline-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 40px; }
+        @media (max-width: 720px) {
+          .lm-hero { min-height: 650px !important; }
+          .lm-hero-portrait { width: 86% !important; opacity: 0.52; }
+          .lm-hero-copy { padding: 0 24px !important; max-width: none !important; }
+          .lm-hero-kicker { letter-spacing: 0.28em !important; }
+          .lm-corner-note, .lm-market-visual { display: none !important; }
+          .lm-stats-strip { align-items: stretch !important; flex-direction: column !important; padding: 0 24px !important; gap: 36px !important; }
+          .lm-stats-strip > div { padding: 0 !important; text-align: left !important; }
+          .lm-pullquote { align-items: flex-end !important; padding: 56px 24px !important; }
+          .lm-footprint-copy { max-width: none !important; padding: 56px 24px !important; }
+          .lm-market-row { align-items: flex-start !important; gap: 10px !important; }
+          .lm-market-city { flex-basis: calc(100% - 46px); font-size: 32px !important; }
+          .lm-market-region { width: 100%; padding-left: 48px; }
+          .lm-section-heading { padding: 56px 24px 32px !important; }
+          .lm-show-card { height: auto !important; min-height: 240px; }
+          .lm-show-row-inner { align-items: flex-end !important; padding: 24px !important; gap: 18px !important; }
+          .lm-show-title { align-items: flex-start !important; gap: 16px !important; }
+          .lm-show-metrics { width: 100%; gap: 28px !important; justify-content: flex-start; }
+          .lm-show-metrics > div { text-align: left !important; }
+          .lm-record-grid { grid-template-columns: 1fr !important; }
+          .lm-record-card { padding: 52px 24px !important; border-left: none !important; border-top: 1px solid rgba(255,255,255,0.05) !important; }
+          .lm-record-stat { font-size: clamp(4rem, 18vw, 5.75rem) !important; }
+          .lm-timeline-wrap { padding: 0 24px !important; }
+          .lm-timeline-track {
+            overflow: visible;
+            padding-bottom: 8px;
+            scrollbar-width: none;
+          }
+          .lm-timeline-track::-webkit-scrollbar { display: none; }
+          .lm-timeline-line { width: 100% !important; right: 0 !important; }
+          .lm-timeline-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            min-width: 0;
+            gap: 24px 18px;
+          }
+          .lm-era-year { font-size: clamp(2rem, 9vw, 3.25rem) !important; }
+          .lm-era-label { font-size: 10px !important; }
+          .lm-era-period { font-size: 8px !important; }
+          .lm-era-gross { font-size: 22px !important; }
+          .lm-era-metrics { gap: 14px !important; }
+          .lm-era-badge { letter-spacing: 0.08em !important; padding: 3px 7px !important; }
+          .lm-era-metrics { gap: 22px !important; }
+          .lm-closing-title { font-size: clamp(3rem, 14vw, 4.75rem) !important; }
+          .lm-footer { padding: 22px 24px !important; flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+        }
       ` }} />
 
       <SiteNav />
@@ -174,12 +225,12 @@ export default function LuisMiguelProfile() {
       {/* ══════════════════════════════════════════
           1. CINEMATIC HERO — Full career headline
       ══════════════════════════════════════════ */}
-      <section ref={heroRef} style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden", background: "#060606" }}>
+      <section ref={heroRef} className="lm-hero" style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 600, overflow: "hidden", background: "#060606" }}>
         {/* subtle green radial glow on left */}
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 18% 55%, rgba(57,255,20,0.04) 0%, transparent 52%)" }} />
 
         {/* Artist portrait — single image, fades left into black */}
-        <div style={{ position: "absolute", right: 0, top: 0, width: "52%", height: "100%" }}>
+        <div className="lm-hero-portrait" style={{ position: "absolute", right: 0, top: 0, width: "52%", height: "100%" }}>
           <img src={ARTIST_IMG} alt="Luis Miguel"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
             style={{
@@ -194,7 +245,7 @@ export default function LuisMiguelProfile() {
         </div>
 
         {/* Hero text */}
-        <motion.div style={{ position: "relative", zIndex: 10, padding: "0 52px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 680, y: heroTextY }}>
+        <motion.div className="lm-hero-copy" style={{ position: "relative", zIndex: 10, padding: "0 52px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 680, y: heroTextY }}>
           <Link href="/touring">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05, duration: 0.5 }}
               style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18, cursor: "pointer" }}>
@@ -202,13 +253,13 @@ export default function LuisMiguelProfile() {
             </motion.div>
           </Link>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
+          <motion.div className="lm-hero-kicker" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
             style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 22 }}>
             Touring Profile · El Sol de México
           </motion.div>
 
           <motion.h1 className="lm-fa" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }}
-            style={{ color: "#fff", fontSize: 112, lineHeight: 0.84, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 40 }}>
+            style={{ color: "#fff", fontSize: "clamp(4rem, 16vw, 112px)", lineHeight: 0.84, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 40 }}>
             Luis<br />Miguel
           </motion.h1>
 
@@ -216,7 +267,7 @@ export default function LuisMiguelProfile() {
             <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 10 }}>
               Gross Total Reportado · Siglo XXI · 2000–2024
             </div>
-            <div className="lm-fa" style={{ color: "#39FF14", fontSize: 88, lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
+            <div className="lm-fa" style={{ color: "#39FF14", fontSize: "clamp(3.6rem, 15vw, 88px)", lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
               $<AnimCount to={786.4} decimals={1} />M
             </div>
             <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
@@ -240,7 +291,7 @@ export default function LuisMiguelProfile() {
         </motion.div>
 
         {/* Top-right editorial */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}
+        <motion.div className="lm-corner-note" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}
           style={{ position: "absolute", top: 52, right: 52, zIndex: 10, textAlign: "right" }}>
           <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em", lineHeight: 2.1, fontWeight: 500 }}>
             El Mayor Gross<br />de un Artista<br />Mexicano en la Historia.
@@ -261,7 +312,7 @@ export default function LuisMiguelProfile() {
         <img src={BG_LIGHTS} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.16) saturate(0.6)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.08) 14%, rgba(6,6,6,0.08) 86%, rgba(6,6,6,1) 100%)" }} />
 
-        <div style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 40 }}>
+        <div className="lm-stats-strip" style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 40 }}>
           {[
             { value: "$786.4M", label: "Gross Total · 2000–2024",  sub: "USD reportado · Pollstar" },
             { value: "7.32M",   label: "Boletos Vendidos",          sub: "Este siglo · 796 shows" },
@@ -288,11 +339,11 @@ export default function LuisMiguelProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.18) 16%, rgba(6,6,6,0.18) 84%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, transparent)" }} />
 
-        <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 68px" }}>
+        <div className="lm-pullquote" style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 68px" }}>
           <div style={{ maxWidth: 820 }}>
             <motion.div className="lm-fa"
               initial={{ opacity: 0, y: 44 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 1.0 }}
-              style={{ color: "#fff", fontSize: 62, textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
+              style={{ color: "#fff", fontSize: "clamp(2.8rem, 11vw, 62px)", textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
               El Regreso<br />del Sol<br /><span style={{ color: "#39FF14" }}>Historia Viva</span>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.5, duration: 0.8 }}
@@ -308,7 +359,7 @@ export default function LuisMiguelProfile() {
           6. WORLD TOUR FOOTPRINT — 2023-2024 latest tour markets
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "44%", zIndex: 0 }}>
+        <div className="lm-market-visual" style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "44%", zIndex: 0 }}>
           <img src={BG_CROWD} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 60%", filter: "brightness(0.42) saturate(0.72)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,1) 0%, rgba(6,6,6,0.42) 28%, rgba(6,6,6,0.0) 68%)" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.65) 0%, transparent 16%, transparent 84%, rgba(6,6,6,0.65) 100%)" }} />
@@ -336,7 +387,7 @@ export default function LuisMiguelProfile() {
           </motion.div>
         </div>
 
-        <div style={{ position: "relative", zIndex: 10, padding: "76px 0 76px 56px", maxWidth: "60%" }}>
+        <div className="lm-footprint-copy" style={{ position: "relative", zIndex: 10, padding: "76px 0 76px 56px", maxWidth: "60%" }}>
           <motion.div initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}
             style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 44 }}>
             Mercados Principales · Tour 2023–2024
@@ -347,10 +398,10 @@ export default function LuisMiguelProfile() {
               initial={{ opacity: 0, x: -26 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.07, duration: 0.55, ease: "easeOut" }}>
               <div style={{ height: 1, background: i === 0 ? "rgba(57,255,20,0.22)" : "rgba(255,255,255,0.055)" }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 0" }}>
+              <div className="lm-market-row" style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 0" }}>
                 <span style={{ color: row.hi ? "#39FF14" : "rgba(57,255,20,0.28)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", minWidth: 26, flexShrink: 0 }}>{row.n}</span>
-                <span className="lm-fa" style={{ color: row.hi ? "#fff" : "rgba(255,255,255,0.72)", fontSize: row.hi ? 40 : 32, textTransform: "uppercase", lineHeight: 1, flex: 1 }}>{row.city}</span>
-                <span style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 600, flexShrink: 0 }}>{row.sub}</span>
+                <span className="lm-fa lm-market-city" style={{ color: row.hi ? "#fff" : "rgba(255,255,255,0.72)", fontSize: row.hi ? 40 : 32, textTransform: "uppercase", lineHeight: 1, flex: 1 }}>{row.city}</span>
+                <span className="lm-market-region" style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 600, flexShrink: 0 }}>{row.sub}</span>
               </div>
             </motion.div>
           ))}
@@ -376,7 +427,7 @@ export default function LuisMiguelProfile() {
           7. BIGGEST SHOWS — top 5 by gross (2023-2024 tour)
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "0 0 80px" }}>
-        <div style={{ padding: "72px 56px 40px" }}>
+        <div className="lm-section-heading" style={{ padding: "72px 56px 40px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
             Shows con Mayor Recaudación · Tour 2023–2024
           </div>
@@ -390,14 +441,15 @@ export default function LuisMiguelProfile() {
             <motion.div key={`${show.venue}-${show.date}`}
               initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.1, duration: 0.7 }}
+              className="lm-show-card"
               style={{ position: "relative", height: 182, overflow: "hidden" }}>
               <img src={show.img} alt=""
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 50%", filter: "brightness(0.38) saturate(0.75)" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(6,6,6,0.92) 0%, rgba(6,6,6,0.55) 52%, rgba(6,6,6,0.12) 100%)" }} />
               <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.2)" }} />
 
-              <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 52px", gap: 32, justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+              <div className="lm-show-row-inner" style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 52px", gap: 32, justifyContent: "space-between" }}>
+                <div className="lm-show-title" style={{ display: "flex", alignItems: "center", gap: 28 }}>
                   <span className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.44)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
                   <div>
                     <div className="lm-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
@@ -409,7 +461,7 @@ export default function LuisMiguelProfile() {
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 44, flexShrink: 0 }}>
+                <div className="lm-show-metrics" style={{ display: "flex", gap: 44, flexShrink: 0 }}>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Asistencia</div>
                     <div className="lm-fa" style={{ color: "#fff", fontSize: 20 }}>{show.tickets}</div>
@@ -429,7 +481,7 @@ export default function LuisMiguelProfile() {
           6. RECORD HIGHLIGHTS
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.06)", borderBottom: "1px solid rgba(57,255,20,0.06)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+        <div className="lm-record-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {[
             {
               label: "Gross Total Este Siglo",
@@ -449,6 +501,7 @@ export default function LuisMiguelProfile() {
             <motion.div key={r.label}
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
               transition={{ delay: i * 0.14, duration: 0.7 }}
+              className="lm-record-card"
               style={{
                 padding: "64px 56px",
                 borderLeft: i === 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
@@ -457,7 +510,7 @@ export default function LuisMiguelProfile() {
               }}>
               <div style={{ position: "absolute", left: i === 0 ? 0 : undefined, right: i === 1 ? 0 : undefined, top: 0, bottom: 0, width: 3, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.22)" }} />
               <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.36em", marginBottom: 22 }}>{r.label}</div>
-              <div className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 92, lineHeight: 0.9, marginBottom: 16 }}>{r.stat}</div>
+              <div className="lm-fa lm-record-stat" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 92, lineHeight: 0.9, marginBottom: 16 }}>{r.stat}</div>
               <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 10 }}>{r.unit}</div>
               <div style={{ height: 1, width: 32, background: "rgba(57,255,20,0.3)", marginBottom: 18 }} />
               <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 4 }}>{r.venue}</div>
@@ -474,7 +527,7 @@ export default function LuisMiguelProfile() {
         <img src={BG_CLOSE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.14) saturate(0.48)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.12) 14%, rgba(6,6,6,0.12) 86%, rgba(6,6,6,1) 100%)" }} />
 
-        <div style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
+        <div className="lm-timeline-wrap" style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
             Pollstar · Career Timeline · Este Siglo
           </div>
@@ -482,13 +535,13 @@ export default function LuisMiguelProfile() {
             24 Años<br />Un Legado Incomparable
           </div>
 
-          <div style={{ position: "relative", marginBottom: 48 }}>
-            <div style={{ position: "absolute", top: 10, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.06)" }} />
-            <motion.div style={{ position: "absolute", top: 10, left: 0, height: 1, background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.25))" }}
+          <div className="lm-timeline-track" style={{ position: "relative", marginBottom: 48 }}>
+            <div className="lm-timeline-line" style={{ position: "absolute", top: 10, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.06)" }} />
+            <motion.div className="lm-timeline-line" style={{ position: "absolute", top: 10, left: 0, height: 1, background: "linear-gradient(to right, #39FF14, rgba(57,255,20,0.25))" }}
               initial={{ width: 0 }} whileInView={{ width: "100%" }} viewport={{ once: true }}
               transition={{ duration: 2.0, ease: "easeOut", delay: 0.3 }} />
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 40, paddingTop: 0 }}>
+            <div className="lm-timeline-grid" style={{ display: "grid", paddingTop: 0 }}>
               {[
                 {
                   era: "2000–2022",
@@ -529,20 +582,20 @@ export default function LuisMiguelProfile() {
 
                   {leg.peak && (
                     <div style={{ marginBottom: 12 }}>
-                      <span style={{ background: "#39FF14", color: "#000", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", padding: "3px 10px" }}>
+                      <span className="lm-era-badge" style={{ background: "#39FF14", color: "#000", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", padding: "3px 10px" }}>
                         Superó toda la era anterior
                       </span>
                     </div>
                   )}
 
-                  <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.55)", fontSize: 52, lineHeight: 1, marginBottom: 8 }}>{leg.era}</div>
-                  <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{leg.label}</div>
-                  <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>{leg.period}</div>
+                  <div className="lm-fa lm-era-year" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.55)", fontSize: 52, lineHeight: 1, marginBottom: 8 }}>{leg.era}</div>
+                  <div className="lm-era-label" style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 4 }}>{leg.label}</div>
+                  <div className="lm-era-period" style={{ color: "rgba(255,255,255,0.52)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 20 }}>{leg.period}</div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div style={{ display: "flex", gap: 28 }}>
+                    <div className="lm-era-metrics" style={{ display: "flex", gap: 28 }}>
                       <div>
-                        <div className="lm-fa" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.75)", fontSize: 26 }}>{leg.gross}</div>
+                        <div className="lm-fa lm-era-gross" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.75)", fontSize: 26 }}>{leg.gross}</div>
                         <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD</div>
                       </div>
                       <div>
@@ -583,7 +636,7 @@ export default function LuisMiguelProfile() {
           <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
             Touring Profile · El Sol de México
           </div>
-          <div className="lm-fa" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
+          <div className="lm-fa lm-closing-title" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
             Luis Miguel
           </div>
           <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
@@ -595,7 +648,7 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ padding: "22px 56px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap", gap: 12 }}>
+      <footer className="lm-footer" style={{ padding: "22px 56px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.04)", flexWrap: "wrap", gap: 12 }}>
         <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
