@@ -174,22 +174,25 @@ export default function LuisMiguelProfile() {
         .lm-era-metrics { flex-wrap: wrap; }
         .lm-timeline-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 40px; }
         @media (max-width: 720px) {
-          .lm-hero { min-height: 650px !important; }
+          .lm-hero { min-height: 675px !important; }
           .lm-hero-portrait { width: 86% !important; opacity: 0.52; }
-          .lm-hero-copy { padding: 0 24px !important; max-width: none !important; }
+          .lm-hero-copy { padding: 38px 24px 54px !important; max-width: none !important; justify-content: flex-end !important; }
           .lm-hero-kicker { letter-spacing: 0.28em !important; }
+          .lm-hero-name { font-size: clamp(4.25rem, 20vw, 5.8rem) !important; margin-bottom: 30px !important; }
           .lm-corner-note, .lm-market-visual { display: none !important; }
           .lm-stats-strip { align-items: stretch !important; flex-direction: column !important; padding: 0 24px !important; gap: 36px !important; }
-          .lm-stats-strip > div { padding: 0 !important; text-align: left !important; }
+          .lm-stats-strip > div { padding: 0 0 20px !important; text-align: left !important; border-bottom: 1px solid rgba(255,255,255,0.06); }
           .lm-pullquote { align-items: flex-end !important; padding: 56px 24px !important; }
           .lm-footprint-copy { max-width: none !important; padding: 56px 24px !important; }
           .lm-market-row { align-items: flex-start !important; gap: 10px !important; }
           .lm-market-city { flex-basis: calc(100% - 46px); font-size: 32px !important; }
           .lm-market-region { width: 100%; padding-left: 48px; }
           .lm-section-heading { padding: 56px 24px 32px !important; }
-          .lm-show-card { height: auto !important; min-height: 240px; }
-          .lm-show-row-inner { align-items: flex-end !important; padding: 24px !important; gap: 18px !important; }
+          .lm-show-card { height: auto !important; min-height: 268px; }
+          .lm-show-row-inner { align-items: flex-end !important; padding: 24px !important; gap: 20px !important; }
           .lm-show-title { align-items: flex-start !important; gap: 16px !important; }
+          .lm-show-title > span { font-size: 42px !important; }
+          .lm-show-title .lm-fa div:first-child { font-size: 21px !important; }
           .lm-show-metrics { width: 100%; gap: 28px !important; justify-content: flex-start; }
           .lm-show-metrics > div { text-align: left !important; }
           .lm-record-grid { grid-template-columns: 1fr !important; }
@@ -258,7 +261,7 @@ export default function LuisMiguelProfile() {
             Touring Profile · El Sol de México
           </motion.div>
 
-          <motion.h1 className="lm-fa" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }}
+          <motion.h1 className="lm-fa lm-hero-name" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }}
             style={{ color: "#fff", fontSize: "clamp(4rem, 16vw, 112px)", lineHeight: 0.84, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 40 }}>
             Luis<br />Miguel
           </motion.h1>

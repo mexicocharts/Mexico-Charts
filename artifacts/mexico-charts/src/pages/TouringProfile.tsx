@@ -74,23 +74,26 @@ export default function TouringProfile() {
         .tp-market-metrics { flex-wrap: wrap; }
         .tp-timeline-grid { grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 24px 16px; }
         @media (max-width: 720px) {
-          .tp-hero { min-height: 640px !important; }
+          .tp-hero { min-height: 660px !important; }
           .tp-hero-portrait { width: 84% !important; opacity: 0.5; }
-          .tp-hero-copy { padding: 0 24px !important; max-width: none !important; }
+          .tp-hero-copy { padding: 38px 24px 52px !important; max-width: none !important; justify-content: flex-end !important; }
           .tp-hero-kicker { letter-spacing: 0.28em !important; }
+          .tp-hero-name { font-size: clamp(4.7rem, 22vw, 6.2rem) !important; margin-bottom: 28px !important; }
           .tp-corner-note, .tp-market-visual { display: none !important; }
           .tp-padded { padding-left: 24px !important; padding-right: 24px !important; }
           .tp-pullquote { align-items: flex-end !important; padding: 56px 24px !important; }
           .tp-stat-strip { flex-direction: column !important; align-items: stretch !important; padding: 0 24px !important; }
-          .tp-stat-item { padding: 0 !important; text-align: left !important; }
+          .tp-stat-item { padding: 0 0 20px !important; text-align: left !important; border-bottom: 1px solid rgba(255,255,255,0.06); }
           .tp-footprint-copy { max-width: none !important; padding: 56px 24px !important; }
           .tp-market-row { align-items: flex-start !important; gap: 10px !important; }
           .tp-market-city { flex-basis: calc(100% - 44px); font-size: 34px !important; }
           .tp-market-region { width: 100%; padding-left: 44px; }
           .tp-section-heading { padding: 0 24px 32px !important; }
-          .tp-show-card { height: auto !important; min-height: 220px; }
-          .tp-show-row-inner { align-items: flex-end !important; padding: 24px !important; gap: 18px !important; }
+          .tp-show-card { height: auto !important; min-height: 252px; }
+          .tp-show-row-inner { align-items: flex-end !important; padding: 24px !important; gap: 20px !important; }
           .tp-show-title { align-items: flex-start !important; gap: 16px !important; }
+          .tp-show-title > span { font-size: 42px !important; }
+          .tp-show-title .tp-fa div:first-child { font-size: 23px !important; }
           .tp-show-metrics { width: 100%; gap: 28px !important; justify-content: flex-start; }
           .tp-show-metrics > div { text-align: left !important; }
           .tp-market-impact { height: auto !important; min-height: 520px; }
@@ -156,7 +159,7 @@ export default function TouringProfile() {
             style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>
             Touring Profile
           </motion.div>
-          <motion.h1 className="tp-fa" initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}
+          <motion.h1 className="tp-fa tp-hero-name" initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}
             style={{ color: "#fff", fontSize: "clamp(4.25rem, 17vw, 120px)", lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 36 }}>
             Junior<br />H
           </motion.h1>
