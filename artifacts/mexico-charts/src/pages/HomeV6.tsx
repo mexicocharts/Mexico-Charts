@@ -495,8 +495,8 @@ export default function HomeV6() {
       data-testid="page-v6"
     >
       <PageSEO
-        title="Mexico Charts — La Referencia de la Música Mexicana"
-        description="Charts semanales, datos de streaming en tiempo real y estadísticas de la industria musical mexicana. Peso Pluma, Fuerza Regida, Natanael Cano y más."
+        title="Mexico Charts — Datos, charts y contexto de la música mexicana"
+        description="Charts semanales, datos de streaming y contexto de la industria musical mexicana. Peso Pluma, Fuerza Regida, Natanael Cano y más."
         path="/"
       />
 
@@ -1311,7 +1311,7 @@ export default function HomeV6() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
               <img src={logoUrl} alt="Mexico Charts" className="h-9 object-contain mb-4 opacity-90" />
-              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">La fuente líder de estadísticas de la música mexicana en el mundo.</p>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">Datos, charts y contexto de la música mexicana.</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
                   <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>

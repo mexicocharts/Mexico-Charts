@@ -20,6 +20,7 @@ const PLATFORMS = [
     color: "#FF0000",
     source: "YouTube Charts",
     sourceUrl: "https://charts.youtube.com/charts",
+    meta: "YouTube · México · Semanal",
     charts: [
       { id: "YT_Songs_Weekly",   label: "Top Songs",   period: "Semanal" },
       { id: "YT_Videos_Daily",   label: "Top Videos",  period: "Diario"  },
@@ -34,6 +35,7 @@ const PLATFORMS = [
     color: "#1DB954",
     source: "Spotify Charts",
     sourceUrl: "https://charts.spotify.com",
+    meta: "Spotify · México · Diario",
     charts: [
       { id: "Spotify_Artists_Daily",   label: "Top Artistas", period: "Diario"  },
       { id: "Spotify_Regional_Daily",  label: "Regional",     period: "Diario"  },
@@ -48,9 +50,10 @@ const PLATFORMS = [
     color: "#fc3c44",
     source: "Apple Music",
     sourceUrl: "https://music.apple.com/mx/room/1108041827",
+    meta: "Apple Music · México · Diario",
     charts: [
-      { id: "Apple_Songs",  label: "Top Songs",  period: "" },
-      { id: "Apple_Albums", label: "Top Albums", period: "" },
+      { id: "Apple_Songs",  label: "Top Songs",  period: "Diario" },
+      { id: "Apple_Albums", label: "Top Albums", period: "Diario" },
     ],
   },
   {
@@ -60,6 +63,7 @@ const PLATFORMS = [
     color: "#A238FF",
     source: "Deezer",
     sourceUrl: "https://link.deezer.com/s/33eGo3PgAInikdTPxA2xN",
+    meta: "Deezer · México · Diario",
     charts: [
       { id: "Deezer_Top_Mexico", label: "Top México", period: "Diario" },
     ],
@@ -473,6 +477,7 @@ export default function ChartsHub() {
   }, [data]);
 
   const currentChartMeta = platform.charts.find(c => c.id === activeSheet) ?? platform.charts[0];
+  const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
@@ -500,6 +505,19 @@ export default function ChartsHub() {
               style={{ fontSize: "clamp(2rem,4vw,3.8rem)", letterSpacing: "-0.04em" }}>
               Charts <span style={{ color: G }}>México</span>
             </motion.h1>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
+              className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.22em]"
+                style={{ color: "rgba(255,255,255,0.48)" }}>
+                {activeMeta}
+              </span>
+              <Link href="/metodologia">
+                <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity"
+                  style={{ color: "rgba(57,255,20,0.74)" }}>
+                  ⓘ Metodología
+                </span>
+              </Link>
+            </motion.div>
           </div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
             className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-1">
@@ -559,6 +577,11 @@ export default function ChartsHub() {
 
           {/* Spacer */}
           <div className="flex-1" />
+
+          <div className="hidden lg:flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.18em]"
+            style={{ color: "rgba(255,255,255,0.38)" }}>
+            Fuente: {platform.source}
+          </div>
 
           {/* Mexican filter toggle */}
           <div className="flex items-center gap-0 rounded-xl overflow-hidden"
@@ -751,7 +774,7 @@ export default function ChartsHub() {
               <div className="mt-5 space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
-                    Fuente: {platform.source} ·{" "}
+                    Fuente: {platform.source} · {activeMeta} ·{" "}
                     <a href={platform.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70">
                       {platform.sourceUrl}
                     </a>

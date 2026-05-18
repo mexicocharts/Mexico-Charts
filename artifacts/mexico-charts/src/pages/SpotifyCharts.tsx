@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { SiSpotify } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
+import PageSEO from "@/components/PageSEO";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -83,6 +84,15 @@ function SkeletonRow({ i }: { i: number }) {
 export default function SpotifyCharts() {
   const [period, setPeriod] = useState<"daily" | "weekly">("daily");
   const { data, isLoading, isError } = useChart(period);
+  const updatedLabel = data?.fetchedAt
+    ? new Date(data.fetchedAt).toLocaleString("es-MX", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   const spotifyUrl = useMemo(() =>
     period === "daily"
@@ -92,6 +102,11 @@ export default function SpotifyCharts() {
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
+      <PageSEO
+        title="Spotify México — Charts diarios y semanales"
+        description="Charts de Spotify México con rankings diarios y semanales, streams, movimiento y enlaces a Spotify."
+        path="/charts/spotify"
+      />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
 
@@ -113,12 +128,12 @@ export default function SpotifyCharts() {
             <div className="flex items-center gap-2">
               <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
               <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Top 200 · Actualizado diario
+                Spotify · México · {period === "daily" ? "Diario" : "Semanal"}
               </span>
             </div>
-            {data?.fetchedAt && (
+            {updatedLabel && (
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
-                Datos: {new Date(data.fetchedAt).toLocaleString("es-MX", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                Actualizado: {updatedLabel}
               </span>
             )}
           </div>
@@ -142,6 +157,11 @@ export default function SpotifyCharts() {
             className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.16em] transition-opacity hover:opacity-70"
             style={{ background: "rgba(29,185,84,0.1)", border: "1px solid rgba(29,185,84,0.25)", color: "#1DB954" }}>
             <SiSpotify className="w-3.5 h-3.5" /> Ver en Spotify
+          </a>
+          <a href="/metodologia"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.16em] transition-opacity hover:opacity-70"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.52)" }}>
+            ⓘ Metodología
           </a>
         </motion.div>
       </section>
@@ -247,7 +267,7 @@ export default function SpotifyCharts() {
             {data && (
               <div className="flex items-center justify-between mt-4 px-1">
                 <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
-                  Fuente: Spotify · vía kworb.net
+                  Fuente: Spotify Charts · México · {period === "daily" ? "Diario" : "Semanal"} · vía kworb.net
                 </span>
                 <a href={`https://kworb.net/spotify/country/mx_${period}.html`} target="_blank" rel="noopener noreferrer"
                   className="text-[9px] font-black uppercase tracking-widest hover:opacity-70 transition-opacity"
