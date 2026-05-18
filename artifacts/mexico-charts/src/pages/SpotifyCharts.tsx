@@ -104,7 +104,7 @@ export default function SpotifyCharts() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Spotify México — Charts diarios y semanales"
-        description="Charts de Spotify México con rankings diarios y semanales, streams, movimiento y enlaces a Spotify."
+        description="Charts de Spotify México con rankings diarios y semanales, streams, movimiento, enlaces oficiales y contexto de musica mexicana."
         path="/charts/spotify"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"

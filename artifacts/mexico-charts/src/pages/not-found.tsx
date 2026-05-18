@@ -9,7 +9,7 @@ export default function NotFound() {
     <main className="min-h-screen w-full flex items-center justify-center bg-[#050505] px-6 text-white">
       <PageSEO
         title="Pagina no encontrada — Mexico Charts"
-        description="La pagina solicitada no existe o cambio de lugar. Vuelve al inicio de Mexico Charts o revisa los charts actuales."
+        description="La pagina solicitada no existe o cambio de lugar. Vuelve al inicio de Mexico Charts, explora artistas o revisa los charts actuales de musica mexicana."
         path="/404"
       />
       <section className="w-full max-w-xl text-center">

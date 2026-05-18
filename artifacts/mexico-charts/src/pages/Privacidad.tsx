@@ -12,7 +12,7 @@ export default function Privacidad() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Privacidad — Mexico Charts"
-        description="Cómo Mexico Charts maneja información y uso del sitio."
+        description="Política de privacidad de Mexico Charts sobre uso del sitio, cookies, analítica y manejo de información."
         path="/privacidad"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"

@@ -310,7 +310,7 @@ export default function ArtistRoster() {
     >
       <PageSEO
         title="Artistas de Música Mexicana — Base de Datos Completa"
-        description="Base de datos completa de artistas mexicanos con estadísticas de streaming, redes sociales y oyentes globales. Peso Pluma, Fuerza Regida, Natanael Cano y más de 100 artistas."
+        description="Base de datos completa de artistas de música mexicana con estadísticas de streaming, redes sociales, oyentes globales y datos editoriales. Peso Pluma, Fuerza Regida, Natanael Cano y más artistas."
         path="/artists"
       />
       {/* ── NAV ── */}
