@@ -11,6 +11,7 @@ export default function NotFound() {
         title="Pagina no encontrada — Mexico Charts"
         description="La pagina solicitada no existe o cambio de lugar. Vuelve al inicio de Mexico Charts, explora artistas o revisa los charts actuales de musica mexicana."
         path="/404"
+        noindex
       />
       <section className="w-full max-w-xl text-center">
         <Link href="/">

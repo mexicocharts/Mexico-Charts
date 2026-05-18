@@ -12,7 +12,7 @@ export default function Contacto() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Contacto — Mexico Charts"
-        description="Para colaboraciones, correcciones, prensa y oportunidades con Mexico Charts."
+        description="Contacto de Mexico Charts para colaboraciones, correcciones de datos, prensa, propuestas editoriales y oportunidades relacionadas con música mexicana."
         path="/contacto"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"

@@ -14,11 +14,11 @@ const routes = [
     path: "/",
     title: "Mexico Charts — Datos, charts y contexto de la musica mexicana",
     description:
-      "Mexico Charts presenta charts, artistas, industria y touring de la musica mexicana con fuentes claras y contexto editorial.",
+      "Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster.",
     eyebrow: "Mexico Charts",
     heading: "Datos, charts y contexto de la musica mexicana",
     body:
-      "Una plataforma independiente sobre musica mexicana: charts de Spotify, YouTube, Apple Music y Deezer; perfiles de artistas; industria; touring; certificaciones y metodologia.",
+      "Una plataforma independiente sobre música mexicana: charts de Spotify, YouTube, Apple Music y Deezer; perfiles de artistas; industria; touring; certificaciones y metodología.",
     links: [
       ["/charts", "Charts Mexico"],
       ["/artists", "Artistas"],
@@ -31,11 +31,11 @@ const routes = [
     path: "/charts",
     title: "Charts Mexico — YouTube, Spotify, Apple Music y Deezer",
     description:
-      "Charts diarios y semanales de musica en Mexico con fuente, fecha de actualizacion y filtros editoriales de Mexico Charts.",
+      "Charts diarios y semanales de música en México con fuente, fecha de actualización y rankings de Spotify, YouTube, Apple Music y Deezer.",
     eyebrow: "Charts Mexico",
     heading: "Charts de musica en Mexico",
     body:
-      "Rankings de YouTube, Spotify, Apple Music y Deezer para Mexico. Incluye fuente de cada plataforma, fecha de actualizacion y vista filtrada por artistas mexicanos cuando aplica.",
+      "Rankings de YouTube, Spotify, Apple Music y Deezer para México. Incluye fuente de cada plataforma, fecha de actualización y vista filtrada por artistas mexicanos cuando aplica.",
     links: [
       ["/charts", "Charts"],
       ["/metodologia", "Metodologia"],
@@ -45,11 +45,11 @@ const routes = [
     path: "/artists",
     title: "Artistas de musica mexicana — Mexico Charts",
     description:
-      "Base editorial de artistas mexicanos con datos de streaming, redes, charts y contexto de crecimiento.",
+      "Base de datos de artistas mexicanos y música mexicana con estadísticas de streaming, redes sociales, charts, audiencia y contexto de crecimiento.",
     eyebrow: "Artistas",
     heading: "Base de datos de artistas mexicanos",
     body:
-      "Perfiles de artistas de musica mexicana con informacion organizada sobre audiencia, streaming, redes sociales, charts y certificaciones disponibles.",
+      "Perfiles de artistas de música mexicana con información organizada sobre audiencia, streaming, redes sociales, charts y certificaciones disponibles.",
     links: [
       ["/artists", "Artistas"],
       ["/charts", "Charts"],
@@ -60,11 +60,11 @@ const routes = [
     path: "/industria",
     title: "Industria musical mexicana — IFPI, AMPROFON y mercado",
     description:
-      "Contexto y datos de la industria musical mexicana con fuentes como IFPI y AMPROFON.",
+      "Datos de la industria musical mexicana, mercado de música grabada, crecimiento digital, certificaciones y fuentes como IFPI y AMPROFON.",
     eyebrow: "Industria",
     heading: "Industria musical mexicana",
     body:
-      "Analisis del mercado de musica grabada en Mexico, crecimiento digital, certificaciones, reportes de IFPI y datos atribuidos a AMPROFON.",
+      "Análisis del mercado de música grabada en México, crecimiento digital, certificaciones, reportes de IFPI y datos atribuidos a AMPROFON.",
     links: [
       ["/industria", "Industria"],
       ["/industry/certifications", "Certificaciones"],
@@ -75,7 +75,7 @@ const routes = [
     path: "/generos",
     title: "Generos de musica mexicana — Mexico Charts",
     description:
-      "Mapa editorial de generos, subgeneros y escenas dentro de la musica mexicana.",
+      "Mapa editorial de géneros, subgéneros y escenas de la música mexicana con artistas, charts y tendencias de streaming.",
     eyebrow: "Generos",
     heading: "El mapa de generos mexicanos",
     body:
@@ -90,11 +90,11 @@ const routes = [
     path: "/industry/certifications",
     title: "Certificaciones AMPROFON — Mexico Charts",
     description:
-      "Certificaciones de la industria musical mexicana con fuente AMPROFON y datos organizados por artista.",
+      "Certificaciones de la industria musical mexicana con fuente AMPROFON, niveles de oro, platino y diamante, y datos organizados por artista.",
     eyebrow: "Certificaciones",
     heading: "Certificaciones de musica en Mexico",
     body:
-      "Consulta certificaciones de albums y sencillos en Mexico con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
+      "Consulta certificaciones de álbumes y sencillos en México con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
     links: [
       ["/industry/certifications", "Certificaciones"],
       ["/industria", "Industria"],
@@ -105,11 +105,11 @@ const routes = [
     path: "/insights/mexico-top-10-ifpi-2026",
     title: "Mexico Top 10 IFPI 2026 — Mexico Charts",
     description:
-      "Insight editorial sobre el top 10 de Mexico en IFPI 2026 y el contexto de la musica mexicana.",
+      "Insight editorial sobre el Top 10 de México en IFPI 2026, mercado de música grabada, streaming y contexto de la música mexicana.",
     eyebrow: "Insight",
     heading: "Mexico Top 10 IFPI 2026",
     body:
-      "Lectura editorial del reporte IFPI con foco en Mexico, artistas destacados, mercado digital y el crecimiento de la musica mexicana.",
+      "Lectura editorial del reporte IFPI con foco en México, artistas destacados, mercado digital y el crecimiento de la música mexicana.",
     links: [
       ["/insights/mexico-top-10-ifpi-2026", "Insight IFPI"],
       ["/industria", "Industria"],
@@ -120,11 +120,11 @@ const routes = [
     path: "/touring",
     title: "Touring Mexico — artistas mexicanos en gira",
     description:
-      "Conciertos, giras y perfiles de touring de artistas mexicanos con datos de Ticketmaster y Pollstar cuando estan disponibles.",
+      "Conciertos, giras y perfiles de touring de artistas mexicanos con fechas de Ticketmaster y datos de Pollstar cuando están disponibles.",
     eyebrow: "Touring",
     heading: "La musica mexicana en vivo",
     body:
-      "Agenda de shows, artistas en gira y perfiles editoriales de touring. Mexico Charts usa Ticketmaster para fechas publicas y Pollstar para perfiles historicos cuando hay datos disponibles.",
+      "Agenda de shows, artistas en gira y perfiles editoriales de touring. Mexico Charts usa Ticketmaster para fechas públicas y Pollstar para perfiles históricos cuando hay datos disponibles.",
     links: [
       ["/touring", "Touring"],
       ["/touring/junior-h", "Junior H"],
@@ -136,7 +136,7 @@ const routes = [
     path: "/metodologia",
     title: "Metodologia — Mexico Charts",
     description:
-      "Como Mexico Charts recopila, organiza y presenta datos de musica, charts, touring, industria y certificaciones.",
+      "Cómo Mexico Charts recopila, organiza y presenta datos de música mexicana, charts, streaming, touring, industria y certificaciones.",
     eyebrow: "Metodologia",
     heading: "Como trabajamos los datos",
     body:
@@ -152,11 +152,11 @@ const routes = [
     path: "/acerca-de",
     title: "Acerca de Mexico Charts",
     description:
-      "Informacion sobre Mexico Charts, una plataforma independiente de datos sobre musica mexicana.",
+      "Mexico Charts es una plataforma independiente de datos sobre música mexicana, charts, artistas, streaming, industria, certificaciones y touring.",
     eyebrow: "Acerca de",
     heading: "Mexico Charts",
     body:
-      "Mexico Charts organiza charts, artistas, industria, certificaciones y touring de la musica mexicana con una mirada editorial independiente.",
+      "Mexico Charts organiza charts, artistas, industria, certificaciones y touring de la música mexicana con una mirada editorial independiente.",
     links: [
       ["/metodologia", "Metodologia"],
       ["/charts", "Charts"],
@@ -166,7 +166,7 @@ const routes = [
     path: "/contacto",
     title: "Contacto — Mexico Charts",
     description:
-      "Contacto para Mexico Charts, colaboraciones, correcciones y consultas editoriales.",
+      "Contacto de Mexico Charts para colaboraciones, correcciones de datos, prensa, propuestas editoriales y oportunidades relacionadas con música mexicana.",
     eyebrow: "Contacto",
     heading: "Contacto Mexico Charts",
     body:
@@ -180,11 +180,11 @@ const routes = [
     path: "/privacidad",
     title: "Privacidad — Mexico Charts",
     description:
-      "Politica de privacidad de Mexico Charts y notas sobre el uso del sitio.",
+      "Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com.",
     eyebrow: "Privacidad",
     heading: "Privacidad",
     body:
-      "Informacion de privacidad y uso del sitio de Mexico Charts para visitantes, colaboradores y lectores.",
+      "Información de privacidad y uso del sitio de Mexico Charts para visitantes, colaboradores y lectores.",
     links: [
       ["/privacidad", "Privacidad"],
       ["/contacto", "Contacto"],

@@ -20,7 +20,7 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      {noindex && <meta name="robots" content="noindex,nofollow,noarchive" />}
+      <meta name="robots" content={noindex ? "noindex,nofollow,noarchive" : "index,follow"} />
       <link rel="canonical" href={canonical} />
 
       <meta property="og:type" content={type} />

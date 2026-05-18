@@ -496,7 +496,7 @@ export default function HomeV6() {
     >
       <PageSEO
         title="Mexico Charts — Datos, charts y contexto de la música mexicana"
-        description="Charts semanales, datos de streaming y contexto de la industria musical mexicana. Peso Pluma, Fuerza Regida, Natanael Cano y más."
+        description="Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster."
         path="/"
       />
 

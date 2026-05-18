@@ -11,7 +11,7 @@ export default function AcercaDe() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Acerca de Mexico Charts — Datos y cultura de la música mexicana"
-        description="Mexico Charts es una plataforma independiente dedicada a documentar el crecimiento, desempeño e impacto de la música mexicana."
+        description="Mexico Charts es una plataforma independiente de datos sobre música mexicana, charts, artistas, streaming, industria, certificaciones y touring."
         path="/acerca-de"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
