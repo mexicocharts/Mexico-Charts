@@ -617,8 +617,11 @@ export default function TouringHub() {
                     ).length;
                 return (
                   <button key={f}
+                    type="button"
                     className={`th-filter-btn${isActive ? " active" : ""}`}
-                    onClick={() => setCountryFilter(f)}>
+                    onClick={() => setCountryFilter(f)}
+                    aria-pressed={isActive}
+                    aria-label={`Filtrar shows: ${COUNTRY_LABELS[f]}`}>
                     {COUNTRY_LABELS[f]}
                     <span style={{
                       background: isActive ? "rgba(0,0,0,0.18)" : "#141414",
@@ -677,7 +680,13 @@ export default function TouringHub() {
 
               {filteredShows.length > PAGE_SIZE && (
                 <div style={{ marginTop: 20, textAlign: "center" }}>
-                  <button className="th-ver-mas-btn" onClick={() => setShowAll(s => !s)}>
+                  <button
+                    type="button"
+                    className="th-ver-mas-btn"
+                    onClick={() => setShowAll(s => !s)}
+                    aria-expanded={showAll}
+                    aria-label={showAll ? "Mostrar menos shows" : `Mostrar ${filteredShows.length - PAGE_SIZE} shows más`}
+                  >
                     {showAll ? `Ver menos ↑` : `Ver más · ${filteredShows.length - PAGE_SIZE} shows más →`}
                   </button>
                 </div>
@@ -735,9 +744,9 @@ export default function TouringHub() {
                     </div>
                   </div>
                   <Link href={`/touring/${p.slug}`}>
-                    <button style={{ marginTop: 12, background: "none", border: "none", color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, padding: 0, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
+                    <span aria-label={`Ver perfil completo de ${p.artist}`} style={{ marginTop: 12, color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
                       Ver Perfil Completo →
-                    </button>
+                    </span>
                   </Link>
                 </div>
               </motion.div>
@@ -755,7 +764,7 @@ export default function TouringHub() {
         </div>
         <div className="th-newsletter-form" style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
           <input placeholder="Tu correo electrónico" className="th-newsletter-input" />
-          <button className="th-subscribe-btn">Suscribirme</button>
+          <button type="button" className="th-subscribe-btn">Suscribirme</button>
         </div>
       </section>
 

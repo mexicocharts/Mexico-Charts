@@ -540,7 +540,9 @@ export default function ChartsHub() {
           {PLATFORMS.map(p => {
             const active = activePlatform === p.id;
             return (
-              <button key={p.id} onClick={() => switchPlatform(p.id as PlatformId)}
+              <button key={p.id} type="button" onClick={() => switchPlatform(p.id as PlatformId)}
+                aria-pressed={active}
+                aria-label={`Ver charts de ${p.label}`}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.15em] transition-all"
                 style={{
                   background: active ? "rgba(255,255,255,0.07)" : "transparent",
@@ -562,7 +564,9 @@ export default function ChartsHub() {
             {platform.charts.map(c => {
               const active = activeSheet === c.id;
               return (
-                <button key={c.id} onClick={() => switchSheet(c.id)}
+                <button key={c.id} type="button" onClick={() => switchSheet(c.id)}
+                  aria-pressed={active}
+                  aria-label={`Ver ${c.label}${c.period ? ` ${c.period}` : ""}`}
                   className="px-3.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-all"
                   style={{
                     background: active ? G : "rgba(255,255,255,0.05)",
@@ -587,7 +591,8 @@ export default function ChartsHub() {
           <div className="flex items-center gap-0 rounded-xl overflow-hidden"
             style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
             {[false, true].map(isMex => (
-              <button key={String(isMex)} onClick={() => setFilterMex(isMex)}
+              <button key={String(isMex)} type="button" onClick={() => setFilterMex(isMex)}
+                aria-pressed={filterMex === isMex}
                 className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.14em] transition-all"
                 style={{
                   background: filterMex === isMex ? (isMex ? `${G}22` : "rgba(255,255,255,0.07)") : "transparent",

@@ -416,7 +416,9 @@ export default function ArtistDetail() {
           </Link>
           <div className="w-px h-5 bg-white/10 mx-1" />
           <button
+            type="button"
             onClick={() => window.history.back()}
+            aria-label="Volver a la página anterior"
             className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-[11px] font-bold uppercase tracking-widest"
             data-testid="link-back"
           >
@@ -954,7 +956,9 @@ export default function ArtistDetail() {
         {/* ── BACK LINK ── */}
         <div className="pb-4">
           <button
+            type="button"
             onClick={() => window.history.back()}
+            aria-label="Volver a la página anterior"
             className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#39FF14] transition-colors duration-200 text-xs font-black uppercase tracking-widest"
             data-testid="link-back-bottom"
           >

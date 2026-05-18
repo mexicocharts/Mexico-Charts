@@ -595,7 +595,15 @@ export default function HomeV6() {
             ))}
           </div>
 
-          <button className="lg:hidden text-zinc-500 hover:text-white transition-colors" onClick={() => setMenuOpen(o => !o)} data-testid="btn-mobile-menu">
+          <button
+            type="button"
+            className="lg:hidden text-zinc-500 hover:text-white transition-colors"
+            onClick={() => setMenuOpen(o => !o)}
+            data-testid="btn-mobile-menu"
+            aria-label="Abrir menú"
+            aria-expanded={menuOpen}
+            aria-controls="home-mobile-nav"
+          >
             <Menu className="w-5 h-5" />
           </button>
         </div>
@@ -607,7 +615,7 @@ export default function HomeV6() {
               transition={{ duration:0.25, ease:"easeInOut" }}
               className="lg:hidden overflow-hidden border-t border-white/5 bg-[#050505]"
             >
-              <div className="px-6 py-4 flex flex-col gap-4">
+              <div id="home-mobile-nav" className="px-6 py-4 flex flex-col gap-4">
                 {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map(item => {
                   const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "/";
                   return (

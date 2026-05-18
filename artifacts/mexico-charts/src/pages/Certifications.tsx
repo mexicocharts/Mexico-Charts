@@ -289,7 +289,12 @@ export default function Certifications() {
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff", fontFamily: "system-ui" }}
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+              aria-label="Limpiar búsqueda"
+            >
               <X className="w-3 h-3" />
             </button>
           )}
@@ -302,7 +307,9 @@ export default function Certifications() {
             const active = filterCert === c;
             const label = c === "DIAMANTE" ? "Diamante" : c === "PLATINO" ? "Platino" : "Oro";
             return (
-              <button key={c} onClick={() => setFilterCert(active ? "" : c)}
+              <button key={c} type="button" onClick={() => setFilterCert(active ? "" : c)}
+                aria-pressed={active}
+                aria-label={`Filtrar certificaciones por ${label}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.14em] transition-all"
                 style={{
                   background: active ? `${G}12` : "rgba(255,255,255,0.06)",
@@ -317,7 +324,9 @@ export default function Certifications() {
 
           {/* Format filter */}
           {(["Álbum", "Single"] as const).map(f => (
-            <button key={f} onClick={() => setFilterFormat(filterFormat === f ? "" : f)}
+            <button key={f} type="button" onClick={() => setFilterFormat(filterFormat === f ? "" : f)}
+              aria-pressed={filterFormat === f}
+              aria-label={`Filtrar certificaciones por formato ${f}`}
               className="px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-[0.14em] transition-all"
               style={{
                 background: filterFormat === f ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
@@ -338,7 +347,8 @@ export default function Certifications() {
 
           {/* Clear all */}
           {activeFilters > 0 && (
-            <button onClick={() => { setSearch(""); setFilterCert(""); setFilterFormat(""); setFilterYear(""); }}
+            <button type="button" onClick={() => { setSearch(""); setFilterCert(""); setFilterFormat(""); setFilterYear(""); }}
+              aria-label="Limpiar todos los filtros"
               className="px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-[0.14em] flex items-center gap-1.5"
               style={{ background: "rgba(255,100,100,0.08)", border: "1px solid rgba(255,100,100,0.2)", color: "rgba(255,120,120,0.8)" }}>
               <X className="w-3 h-3" /> Limpiar ({activeFilters})

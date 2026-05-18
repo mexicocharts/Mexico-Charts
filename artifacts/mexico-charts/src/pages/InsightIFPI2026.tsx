@@ -51,8 +51,10 @@ export default function InsightIFPI2026() {
           <img src={logoUrl} alt="Mexico Charts" className="h-8 object-contain opacity-90 cursor-pointer" />
         </Link>
         <motion.button
+          type="button"
           whileHover={{ x: -2 }}
           onClick={() => window.history.back()}
+          aria-label="Volver a la página anterior"
           className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] cursor-pointer"
           style={{ color: "rgba(255,255,255,0.4)", background: "none", border: "none" }}
         >

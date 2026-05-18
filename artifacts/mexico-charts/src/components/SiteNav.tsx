@@ -57,7 +57,11 @@ export default function SiteNav({ homeActive = false }: Props) {
                 <div key={item.label} className="relative"
                   onMouseEnter={openDrop} onMouseLeave={closeDrop}>
                   <button
+                    type="button"
                     className="relative flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] cursor-pointer transition-colors"
+                    aria-expanded={dropOpen}
+                    aria-haspopup="true"
+                    aria-label="Abrir menú de industria"
                     style={{ color: industryActive ? G : "rgba(255,255,255,0.42)", background: "none", border: "none" }}>
                     {item.label}
                     <ChevronDown className="w-3 h-3 opacity-60" />
@@ -113,10 +117,13 @@ export default function SiteNav({ homeActive = false }: Props) {
 
           {/* Hamburger — visible below lg */}
           <button
+            type="button"
             className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
             onClick={() => setMobileOpen(o => !o)}
             aria-label="Menú"
+            aria-expanded={mobileOpen}
+            aria-controls="site-mobile-nav"
           >
             {mobileOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
@@ -126,7 +133,7 @@ export default function SiteNav({ homeActive = false }: Props) {
       {/* Mobile drawer */}
       {mobileOpen && (
         <div className="lg:hidden border-t" style={{ background: "rgba(8,8,8,0.99)", borderColor: "rgba(255,255,255,0.07)" }}>
-          <nav className="px-6 py-4 flex flex-col gap-1">
+          <nav id="site-mobile-nav" className="px-6 py-4 flex flex-col gap-1">
             {NAV.map(item => {
               if (item.dropdown) {
                 return (
