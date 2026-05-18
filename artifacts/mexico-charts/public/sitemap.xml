@@ -1,51 +1,75 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://mexicocharts.replit.app/</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/charts</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/charts</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.9</priority>
+    <priority>0.95</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/artists</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/artists</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/generos</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/generos</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/industria</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/industria</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/touring</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/industry/certifications</loc>
+    <lastmod>2026-05-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/touring</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/insights/mexico-top-10-ifpi-2026</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/insights/mexico-top-10-ifpi-2026</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://mexicocharts.replit.app/industry/certifications</loc>
-    <lastmod>2025-05-12</lastmod>
+    <loc>https://mexicochart.com/metodologia</loc>
+    <lastmod>2026-05-18</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/acerca-de</loc>
+    <lastmod>2026-05-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.45</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/contacto</loc>
+    <lastmod>2026-05-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/privacidad</loc>
+    <lastmod>2026-05-18</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

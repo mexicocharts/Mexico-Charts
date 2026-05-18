@@ -72,6 +72,51 @@ const routes = [
     ],
   },
   {
+    path: "/generos",
+    title: "Generos de musica mexicana — Mexico Charts",
+    description:
+      "Mapa editorial de generos, subgeneros y escenas dentro de la musica mexicana.",
+    eyebrow: "Generos",
+    heading: "El mapa de generos mexicanos",
+    body:
+      "Explora corridos, regional mexicano, banda, norteño, sierreño, tumbados y otras escenas con contexto editorial y datos conectados a artistas y charts.",
+    links: [
+      ["/generos", "Generos"],
+      ["/artists", "Artistas"],
+      ["/charts", "Charts"],
+    ],
+  },
+  {
+    path: "/industry/certifications",
+    title: "Certificaciones AMPROFON — Mexico Charts",
+    description:
+      "Certificaciones de la industria musical mexicana con fuente AMPROFON y datos organizados por artista.",
+    eyebrow: "Certificaciones",
+    heading: "Certificaciones de musica en Mexico",
+    body:
+      "Consulta certificaciones de albums y sencillos en Mexico con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
+    links: [
+      ["/industry/certifications", "Certificaciones"],
+      ["/industria", "Industria"],
+      ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
+    path: "/insights/mexico-top-10-ifpi-2026",
+    title: "Mexico Top 10 IFPI 2026 — Mexico Charts",
+    description:
+      "Insight editorial sobre el top 10 de Mexico en IFPI 2026 y el contexto de la musica mexicana.",
+    eyebrow: "Insight",
+    heading: "Mexico Top 10 IFPI 2026",
+    body:
+      "Lectura editorial del reporte IFPI con foco en Mexico, artistas destacados, mercado digital y el crecimiento de la musica mexicana.",
+    links: [
+      ["/insights/mexico-top-10-ifpi-2026", "Insight IFPI"],
+      ["/industria", "Industria"],
+      ["/charts", "Charts"],
+    ],
+  },
+  {
     path: "/touring",
     title: "Touring Mexico — artistas mexicanos en gira",
     description:
@@ -101,6 +146,48 @@ const routes = [
       ["/artists", "Artistas"],
       ["/industria", "Industria"],
       ["/touring", "Touring"],
+    ],
+  },
+  {
+    path: "/acerca-de",
+    title: "Acerca de Mexico Charts",
+    description:
+      "Informacion sobre Mexico Charts, una plataforma independiente de datos sobre musica mexicana.",
+    eyebrow: "Acerca de",
+    heading: "Mexico Charts",
+    body:
+      "Mexico Charts organiza charts, artistas, industria, certificaciones y touring de la musica mexicana con una mirada editorial independiente.",
+    links: [
+      ["/metodologia", "Metodologia"],
+      ["/charts", "Charts"],
+    ],
+  },
+  {
+    path: "/contacto",
+    title: "Contacto — Mexico Charts",
+    description:
+      "Contacto para Mexico Charts, colaboraciones, correcciones y consultas editoriales.",
+    eyebrow: "Contacto",
+    heading: "Contacto Mexico Charts",
+    body:
+      "Canal de contacto para colaboraciones, correcciones de datos, preguntas editoriales y propuestas relacionadas con Mexico Charts.",
+    links: [
+      ["/contacto", "Contacto"],
+      ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
+    path: "/privacidad",
+    title: "Privacidad — Mexico Charts",
+    description:
+      "Politica de privacidad de Mexico Charts y notas sobre el uso del sitio.",
+    eyebrow: "Privacidad",
+    heading: "Privacidad",
+    body:
+      "Informacion de privacidad y uso del sitio de Mexico Charts para visitantes, colaboradores y lectores.",
+    links: [
+      ["/privacidad", "Privacidad"],
+      ["/contacto", "Contacto"],
     ],
   },
 ];
