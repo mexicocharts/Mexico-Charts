@@ -487,6 +487,7 @@ export default function HomeV6() {
   }, [artistImages]);
   const img = (name: string) => imgMap[name.toLowerCase()] ?? null;
   const hero = HERO_ARTISTS[heroIndex] ?? HERO_ARTISTS[0];
+  const heroImage = img(hero.name);
 
   return (
     <div
@@ -677,21 +678,29 @@ export default function HomeV6() {
 
         {/* Artist portrait — parallax */}
         <AnimatePresence mode="wait">
-          {img(hero.name) && (
+          {heroImage && (
             <motion.div
               key={`portrait-${heroIndex}`}
               initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
               transition={{ duration:0.9 }}
-              className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
+              className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none overflow-hidden"
               style={{
                 y: portraitY,
-                backgroundImage:`url(${img(hero.name)})`,
-                backgroundSize:"cover", backgroundPosition:"center top",
                 maskImage:"linear-gradient(to right, transparent 0%, black 38%)",
                 WebkitMaskImage:"linear-gradient(to right, transparent 0%, black 38%)",
-                filter:"saturate(0.58) contrast(1.1) brightness(0.83)",
               }}
-            />
+            >
+              <img
+                src={heroImage}
+                alt=""
+                aria-hidden="true"
+                loading={heroIndex === 0 ? "eager" : "lazy"}
+                fetchPriority={heroIndex === 0 ? "high" : "auto"}
+                decoding="async"
+                className="h-full w-full object-cover object-top"
+                style={{ filter:"saturate(0.58) contrast(1.1) brightness(0.83)" }}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
 
