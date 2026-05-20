@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { youtubeChannels, youtubeVideos } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -21,6 +21,13 @@ const SEARCH_TTL_MS  = 30 * 24 * 60 * 60 * 1000; // 30 days
 // In-memory search cache (admin only, large TTL)
 interface SearchCacheEntry { results: unknown[]; cachedAt: number }
 const searchCache = new Map<string, SearchCacheEntry>();
+
+interface ArtistMetadataRow {
+  artist_key: string;
+  artist_name: string;
+  youtube_subscribers?: string;
+  youtube_views?: string;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -51,6 +58,14 @@ function isAdminAuthed(req: { headers: Record<string, string | string[] | undefi
   const header = req.headers["x-admin-key"];
   const qkey   = req.query["adminKey"];
   return header === key || qkey === key;
+}
+
+async function fetchArtistMetadataRows(): Promise<ArtistMetadataRow[]> {
+  const PORT = process.env["PORT"] ?? "8080";
+  const metaRes = await fetch(`http://localhost:${PORT}/api/artists/metadata`);
+  if (!metaRes.ok) throw new Error(`metadata fetch failed: ${metaRes.status}`);
+  const metaJson = await metaRes.json() as { artists?: ArtistMetadataRow[] };
+  return metaJson.artists ?? [];
 }
 
 async function ytFetch(path: string, params: Record<string, string>): Promise<unknown> {
@@ -460,6 +475,164 @@ router.get("/admin/youtube/videos", async (req, res) => {
   res.json({ videos: rows.map(videoDbToResponse) });
 });
 
+// GET /api/admin/youtube/coverage
+// Compares the artist metadata sheet against linked YouTube channels.
+router.get("/admin/youtube/coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const maxExamples = Math.min(parseInt((req.query["examples"] as string) ?? "25", 10), 100);
+    const staleDays = Math.max(parseInt((req.query["staleDays"] as string) ?? "7", 10), 1);
+    const staleMs = staleDays * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    const [artists, linkedRows] = await Promise.all([
+      fetchArtistMetadataRows(),
+      db.select().from(youtubeChannels).orderBy(asc(youtubeChannels.cachedAt)),
+    ]);
+
+    const linkedByKey = new Map(linkedRows.map(row => [row.artistKey, row]));
+    const linkedArtistKeys = new Set(linkedRows.map(row => row.artistKey));
+    const missing = artists.filter(artist => artist.artist_key && !linkedArtistKeys.has(artist.artist_key));
+    const stale = linkedRows.filter(row => now - row.cachedAt.getTime() > staleMs);
+    const sheetYoutubeSubscribers = artists.filter(artist => Boolean(artist.youtube_subscribers?.trim())).length;
+    const sheetYoutubeViews = artists.filter(artist => Boolean(artist.youtube_views?.trim())).length;
+
+    res.json({
+      source: "artist_metadata",
+      totalArtists: artists.length,
+      linkedChannels: linkedRows.length,
+      missingChannels: missing.length,
+      staleChannels: stale.length,
+      staleDays,
+      coveragePct: artists.length > 0 ? Number(((linkedRows.length / artists.length) * 100).toFixed(1)) : 0,
+      sheetYoutubeSubscribers,
+      sheetYoutubeViews,
+      youtubeApiCanRefresh: linkedRows.length,
+      youtubeApiNeedsLinking: missing.length,
+      oldestCached: linkedRows[0]?.cachedAt.toISOString() ?? null,
+      missingPreview: missing.slice(0, maxExamples).map(artist => ({
+        artistKey: artist.artist_key,
+        artistName: artist.artist_name,
+        hasSheetSubscribers: Boolean(artist.youtube_subscribers?.trim()),
+        hasSheetViews: Boolean(artist.youtube_views?.trim()),
+      })),
+      stalePreview: stale.slice(0, maxExamples).map(row => ({
+        artistKey: row.artistKey,
+        channelId: row.channelId,
+        title: row.title,
+        cachedAt: row.cachedAt.toISOString(),
+      })),
+      linkedPreview: artists
+        .filter(artist => linkedByKey.has(artist.artist_key))
+        .slice(0, maxExamples)
+        .map(artist => {
+          const row = linkedByKey.get(artist.artist_key)!;
+          return {
+            artistKey: artist.artist_key,
+            artistName: artist.artist_name,
+            channelId: row.channelId,
+            title: row.title,
+            subscribers: row.subscriberCount,
+            views: row.viewCount,
+            cachedAt: row.cachedAt.toISOString(),
+          };
+        }),
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "[youtube:coverage] failed");
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// POST /api/admin/youtube/refresh-channels?limit=100&staleDays=7&dryRun=false
+// Refreshes already-linked channels. This is cheap because channels.list costs
+// 1 quota unit per request and does not use search.
+router.post("/admin/youtube/refresh-channels", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const limit = Math.min(parseInt((req.query["limit"] as string) ?? "100", 10), 200);
+  const staleDays = Math.max(parseInt((req.query["staleDays"] as string) ?? "7", 10), 1);
+  const dryRun = (req.query["dryRun"] as string) === "true";
+  const staleMs = staleDays * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - staleMs;
+
+  try {
+    const rows = await db.select().from(youtubeChannels).orderBy(asc(youtubeChannels.cachedAt));
+    const staleRows = rows.filter(row => row.cachedAt.getTime() < cutoff);
+    const toProcess = staleRows.slice(0, limit);
+
+    if (dryRun) {
+      res.json({
+        totalLinked: rows.length,
+        staleChannels: staleRows.length,
+        staleDays,
+        wouldRefresh: toProcess.length,
+        preview: toProcess.map(row => ({
+          artistKey: row.artistKey,
+          channelId: row.channelId,
+          title: row.title,
+          cachedAt: row.cachedAt.toISOString(),
+        })),
+      });
+      return;
+    }
+
+    const results: Array<{ artistKey: string; channelId: string; status: string; title?: string | null; subscribers?: string | null; error?: string }> = [];
+    let quotaExhausted = false;
+
+    for (const row of toProcess) {
+      if (quotaExhausted) {
+        results.push({ artistKey: row.artistKey, channelId: row.channelId, status: "skipped_quota" });
+        continue;
+      }
+
+      try {
+        const ch = await fetchChannelFromYt(row.channelId);
+        if (!ch) {
+          results.push({ artistKey: row.artistKey, channelId: row.channelId, status: "not_found" });
+          continue;
+        }
+
+        const updated = channelToRow(row.artistKey, ch);
+        await db.update(youtubeChannels).set(updated).where(eq(youtubeChannels.artistKey, row.artistKey));
+        results.push({
+          artistKey: row.artistKey,
+          channelId: row.channelId,
+          status: "refreshed",
+          title: ch.snippet.title,
+          subscribers: fmtCount(updated.subscriberCount),
+        });
+      } catch (err) {
+        const message = (err as Error).message;
+        if (message.includes("403") || message.toLowerCase().includes("quota")) {
+          quotaExhausted = true;
+          results.push({ artistKey: row.artistKey, channelId: row.channelId, status: "skipped_quota", error: message });
+          continue;
+        }
+        results.push({ artistKey: row.artistKey, channelId: row.channelId, status: "error", error: message });
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    res.json({
+      totalLinked: rows.length,
+      staleBeforeRun: staleRows.length,
+      processed: toProcess.length,
+      refreshed: results.filter(r => r.status === "refreshed").length,
+      notFound: results.filter(r => r.status === "not_found").length,
+      errors: results.filter(r => r.status === "error").length,
+      quotaExhausted,
+      remainingStaleEstimate: Math.max(0, staleRows.length - results.filter(r => r.status === "refreshed").length),
+      results,
+    });
+  } catch (err) {
+    logger.error({ err: (err as Error).message }, "[youtube:refresh-channels] failed");
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 // POST /api/admin/youtube/backfill?limit=90&dryRun=false
 // Reads the artist metadata sheet, finds artists without a linked YouTube channel,
 // and links them one by one.  Tries a cheap forHandle lookup (1 quota unit) first;
@@ -496,11 +669,7 @@ router.post("/admin/youtube/backfill", async (req, res) => {
 
   try {
     // Fetch artist list from the metadata API (already cached by the route)
-    const PORT = process.env["PORT"] ?? "8080";
-    const metaRes = await fetch(`http://localhost:${PORT}/api/artists/metadata`);
-    if (!metaRes.ok) throw new Error(`metadata fetch failed: ${metaRes.status}`);
-    const metaJson = await metaRes.json() as { artists?: Array<{ artist_key: string; artist_name: string }> };
-    const allArtists = metaJson.artists ?? [];
+    const allArtists = await fetchArtistMetadataRows();
 
     // Get already-linked keys
     const linked = await db.select({ artistKey: youtubeChannels.artistKey }).from(youtubeChannels);

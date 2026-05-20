@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
@@ -132,12 +132,13 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
   ALL:   "Todos",
   US:    "Estados Unidos",
   MX:    "México",
-  OTHER: "Internacional",
+  OTHER: "Latinoamérica + otros",
 };
 
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
+  const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
   const PAGE_SIZE = 8;
 
@@ -151,12 +152,47 @@ export default function TouringHub() {
     .flatMap(a => a.events.slice(0, 8).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  const filteredShows = allShowsFlat.filter(ev => {
+  const countryFilteredShows = allShowsFlat.filter(ev => {
     if (countryFilter === "ALL")   return true;
     if (countryFilter === "US")    return ev.country === "US";
     if (countryFilter === "MX")    return ev.country === "MX";
     if (countryFilter === "OTHER") return ev.country !== "US" && ev.country !== "MX";
     return true;
+  });
+
+  const cityOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    countryFilteredShows.forEach((ev) => {
+      const city = ev.city.trim();
+      if (!city) return;
+      const state = ev.state.trim();
+      const country = ev.country.trim();
+      const key = `${city.toLowerCase()}|${state.toLowerCase()}|${country.toLowerCase()}`;
+      const label = `${city}${state ? `, ${state}` : country ? `, ${country}` : ""}`;
+      const existing = counts.get(key);
+      counts.set(key, { label, count: (existing?.count ?? 0) + 1 });
+    });
+    return [...counts.entries()]
+      .map(([key, value]) => ({ key, ...value }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "es"));
+  }, [countryFilteredShows]);
+
+  useEffect(() => {
+    setCityFilter("ALL");
+    setShowAll(false);
+  }, [countryFilter]);
+
+  useEffect(() => {
+    setShowAll(false);
+  }, [cityFilter]);
+
+  const filteredShows = countryFilteredShows.filter(ev => {
+    if (cityFilter === "ALL") return true;
+    const city = ev.city.trim();
+    const state = ev.state.trim();
+    const country = ev.country.trim();
+    const key = `${city.toLowerCase()}|${state.toLowerCase()}|${country.toLowerCase()}`;
+    return key === cityFilter;
   });
 
   const allImageNames = useMemo(() => {
@@ -223,6 +259,24 @@ export default function TouringHub() {
           background: #39FF14;
           border-color: #39FF14;
           color: #000;
+        }
+        .th-city-select {
+          background: #090909;
+          border: 1px solid #1e1e1e;
+          color: rgba(255,255,255,0.66);
+          min-height: 34px;
+          padding: 0 36px 0 12px;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          outline: none;
+          border-radius: 0;
+          max-width: 260px;
+        }
+        .th-city-select:focus {
+          border-color: rgba(57,255,20,0.55);
+          color: #fff;
         }
 
         .th-show-row {
@@ -356,6 +410,10 @@ export default function TouringHub() {
             min-height: 38px;
             padding: 8px 14px !important;
           }
+          .th-city-select {
+            width: 100%;
+            max-width: none;
+          }
           .th-show-row {
             min-height: 68px;
           }
@@ -444,6 +502,10 @@ export default function TouringHub() {
             min-height: 38px;
             padding: 8px 12px !important;
             scroll-snap-align: start;
+          }
+          .th-city-select {
+            width: 100%;
+            max-width: none;
           }
           .th-show-row {
             align-items: stretch;
@@ -605,34 +667,49 @@ export default function TouringHub() {
               <SectionEyebrow>Agenda</SectionEyebrow>
               <SectionHeading white="Todos los" green="Shows" />
             </div>
-            <div className="th-filter-group" style={{ display: "flex", gap: 3 }}>
-              {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
-                const isActive = countryFilter === f;
-                const count = f === "ALL"
-                  ? allShowsFlat.length
-                  : allShowsFlat.filter(ev =>
-                      f === "US" ? ev.country === "US"
-                    : f === "MX" ? ev.country === "MX"
-                    : ev.country !== "US" && ev.country !== "MX"
-                    ).length;
-                return (
-                  <button key={f}
-                    type="button"
-                    className={`th-filter-btn${isActive ? " active" : ""}`}
-                    onClick={() => setCountryFilter(f)}
-                    aria-pressed={isActive}
-                    aria-label={`Filtrar shows: ${COUNTRY_LABELS[f]}`}>
-                    {COUNTRY_LABELS[f]}
-                    <span style={{
-                      background: isActive ? "rgba(0,0,0,0.18)" : "#141414",
-                      color: isActive ? "#000" : "#3a3a3a",
-                      fontSize: 9,
-                      fontWeight: 700,
-                      padding: "1px 5px",
-                    }}>{count}</span>
-                  </button>
-                );
-              })}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <div className="th-filter-group" style={{ display: "flex", gap: 3 }}>
+                {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
+                  const isActive = countryFilter === f;
+                  const count = f === "ALL"
+                    ? allShowsFlat.length
+                    : allShowsFlat.filter(ev =>
+                        f === "US" ? ev.country === "US"
+                      : f === "MX" ? ev.country === "MX"
+                      : ev.country !== "US" && ev.country !== "MX"
+                      ).length;
+                  return (
+                    <button key={f}
+                      type="button"
+                      className={`th-filter-btn${isActive ? " active" : ""}`}
+                      onClick={() => setCountryFilter(f)}
+                      aria-pressed={isActive}
+                      aria-label={`Filtrar shows: ${COUNTRY_LABELS[f]}`}>
+                      {COUNTRY_LABELS[f]}
+                      <span style={{
+                        background: isActive ? "rgba(0,0,0,0.18)" : "#141414",
+                        color: isActive ? "#000" : "#3a3a3a",
+                        fontSize: 9,
+                        fontWeight: 700,
+                        padding: "1px 5px",
+                      }}>{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <select
+                className="th-city-select"
+                value={cityFilter}
+                onChange={(event) => setCityFilter(event.target.value)}
+                aria-label="Filtrar shows por ciudad"
+              >
+                <option value="ALL">Todas las ciudades ({countryFilteredShows.length})</option>
+                {cityOptions.map((city) => (
+                  <option key={city.key} value={city.key}>
+                    {city.label} ({city.count})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

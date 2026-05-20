@@ -9,6 +9,7 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const HomeV6 = lazy(() => import("@/pages/HomeV6"));
 const ArtistDetail = lazy(() => import("@/pages/ArtistDetail"));
 const ArtistRoster = lazy(() => import("@/pages/ArtistRoster"));
+const ArtistMomentum = lazy(() => import("@/pages/ArtistMomentum"));
 const InsightIFPI2026 = lazy(() => import("@/pages/InsightIFPI2026"));
 const IndustryLanding = lazy(() => import("@/pages/IndustryLanding"));
 const Certifications = lazy(() => import("@/pages/Certifications"));
@@ -41,6 +42,7 @@ function Router() {
         <Switch>
           <Route path="/" component={HomeV6} />
           <Route path="/artists" component={ArtistRoster} />
+          <Route path="/artist-momentum" component={ArtistMomentum} />
           <Route path="/charts" component={ChartsHub} />
           <Route path="/generos" component={GeneroHub} />
           <Route path="/industria" component={IndustryLanding} />

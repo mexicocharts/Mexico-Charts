@@ -58,3 +58,21 @@ export function useTouring() {
     refetchOnWindowFocus: false,
   });
 }
+
+async function fetchArtistConcerts(artistId: string): Promise<ArtistTours | null> {
+  if (!artistId) return null;
+  const res = await fetch(`/api/touring/concerts/${encodeURIComponent(artistId)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("Failed to fetch artist touring data");
+  return res.json();
+}
+
+export function useArtistTouring(artistId: string | null | undefined) {
+  return useQuery<ArtistTours | null>({
+    queryKey: ["touring", "artist", artistId],
+    queryFn: () => fetchArtistConcerts(artistId ?? ""),
+    enabled: Boolean(artistId),
+    staleTime: 8 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+}

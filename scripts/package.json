@@ -4,6 +4,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "daily-briefing": "tsx ./src/daily-briefing.ts",
+    "artist-momentum": "tsx ./src/artist-momentum.ts",
+    "touring-briefing": "tsx ./src/touring-briefing.ts",
+    "youtube-channel-backfill": "tsx ./src/youtube-channel-backfill.ts",
+    "youtube-channel-candidates": "tsx ./src/youtube-channel-candidates.ts",
+    "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
+    "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",
+    "spotify-artist-backfill": "tsx ./src/spotify-artist-backfill.ts",
+    "musicbrainz-create-tables": "tsx ./src/musicbrainz-create-tables.ts",
+    "musicbrainz-artist-backfill": "tsx ./src/musicbrainz-artist-backfill.ts",
+    "musicbrainz-review-export": "tsx ./src/musicbrainz-review-export.ts",
+    "musicbrainz-approve-candidates": "tsx ./src/musicbrainz-approve-candidates.ts",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

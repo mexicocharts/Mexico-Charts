@@ -3,18 +3,18 @@ import PageSEO from "@/components/PageSEO";
 import { useQuery } from "@tanstack/react-query";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { Link } from "wouter";
-import { useLocation } from "wouter";
 import { slugify } from "@/lib/utils";
 import {
   motion, AnimatePresence,
   useScroll, useTransform,
   useReducedMotion,
 } from "framer-motion";
-import { Search, Menu, TrendingUp, Music, Mail } from "lucide-react";
+import { TrendingUp, Music, Mail } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { CONTACT_EMAIL, SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
+import SiteNav from "@/components/SiteNav";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -197,69 +197,14 @@ function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode
   );
 }
 
-/* ─── INDUSTRIA DROPDOWN (desktop nav) ───────────────────────── */
-
-const INDUSTRIA_SUB = [
-  { label: "Industria",       href: "/industria" },
-  { label: "Certificaciones", href: "/industry/certifications" },
-  { label: "Música Grabada",  href: "/insights/mexico-top-10-ifpi-2026" },
-];
-
-function IndustriaDropdown() {
-  const [open, setOpen] = useState(false);
-  const [loc] = useLocation();
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const active = loc.startsWith("/industria") || loc.startsWith("/industry");
-
-  function show() { if (timer.current) clearTimeout(timer.current); setOpen(true); }
-  function hide() { timer.current = setTimeout(() => setOpen(false), 120); }
-
-  return (
-    <div className="relative" onMouseEnter={show} onMouseLeave={hide}>
-      <button className="flex items-center gap-0.5 px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250 cursor-pointer"
-        style={{ background: "transparent", color: active ? "#39FF14" : "rgba(255,255,255,0.35)", border: "none" }}>
-        INDUSTRIA
-        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" className="ml-0.5 opacity-50"><path d="M2 3.5l2.5 2.5L7 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </button>
-      {open && (
-        <div className="absolute top-[calc(100%+6px)] left-1/2 -translate-x-1/2 w-44 rounded-xl overflow-hidden py-1"
-          style={{ background: "#111", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.7)", zIndex: 100 }}>
-          {INDUSTRIA_SUB.map(sub => {
-            const subActive = loc === sub.href || loc.startsWith(sub.href + "/");
-            return (
-              <Link key={sub.href} href={sub.href}>
-                <span className="block px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] transition-all cursor-pointer"
-                  style={{ color: subActive ? "#39FF14" : "rgba(255,255,255,0.55)" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color="#fff"; (e.currentTarget as HTMLElement).style.background="rgba(255,255,255,0.05)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color=subActive?"#39FF14":"rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background="transparent"; }}>
-                  {subActive && <span style={{ color: "#39FF14" }}>› </span>}{sub.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /* ─── PAGE ───────────────────────────────────────────────────── */
 
 export default function HomeV6() {
   const [heroIndex, setHeroIndex] = useState(0);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [tickerPaused, setTickerPaused] = useState(false);
-  const [homeSearch, setHomeSearch] = useState("");
   const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [, navigate] = useLocation();
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
-
-  function submitHomeSearch(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = homeSearch.trim();
-    navigate(query ? `/artists?q=${encodeURIComponent(query)}` : "/artists");
-  }
 
   function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -529,112 +474,7 @@ export default function HomeV6() {
         </div>
       </div>
 
-      {/* ── NAV ── */}
-      <nav
-        className="sticky top-0 z-50 border-b border-white/[0.06]"
-        style={{ background:"rgba(5,5,5,0.92)", backdropFilter:"blur(20px) saturate(180%)" }}
-        data-testid="navigation"
-      >
-        <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
-          <Link href="/" className="flex-shrink-0" data-testid="link-logo">
-            <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} className="h-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
-          </Link>
-
-          <div className="hidden lg:flex items-center gap-0.5">
-            {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map((item, i) => {
-              const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "/";
-              if (item === "INDUSTRIA") {
-                return (
-                  <IndustriaDropdown key={item} />
-                );
-              }
-              return (
-              <Link key={item} href={href}
-                className="px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250"
-                style={{
-                  background: i===0 ? "#39FF14" : "transparent",
-                  color: i===0 ? "#000" : "rgba(255,255,255,0.35)",
-                }}
-                onMouseEnter={e => { if (i!==0) (e.currentTarget as HTMLElement).style.color="rgba(255,255,255,0.75)"; }}
-                onMouseLeave={e => { if (i!==0) (e.currentTarget as HTMLElement).style.color="rgba(255,255,255,0.35)"; }}
-              >{item}</Link>
-              );
-            })}
-          </div>
-
-          <div className="hidden lg:flex items-center gap-3">
-            <form
-              onSubmit={submitHomeSearch}
-              className="flex items-center border border-white/[0.08] bg-white/[0.03] rounded-full px-3 focus-within:border-[#39FF14]/40 transition-all duration-300"
-              role="search"
-            >
-              <input
-                type="search"
-                value={homeSearch}
-                onChange={(event) => setHomeSearch(event.target.value)}
-                placeholder="Buscar artista..."
-                className="bg-transparent text-xs text-zinc-400 placeholder-zinc-700 py-1.5 w-36 focus:outline-none"
-                data-testid="input-search"
-                aria-label="Buscar artista"
-              />
-              <button type="submit" aria-label="Buscar" className="text-zinc-600 hover:text-[#39FF14] transition-colors">
-                <Search className="w-3.5 h-3.5" />
-              </button>
-            </form>
-            {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-              <a
-                key={label}
-                href={href}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={label}
-                className="text-zinc-600 hover:text-white transition-colors duration-200"
-                data-testid={`link-social-${label.toLowerCase()}`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-              </a>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            className="lg:hidden text-zinc-500 hover:text-white transition-colors"
-            onClick={() => setMenuOpen(o => !o)}
-            data-testid="btn-mobile-menu"
-            aria-label="Abrir menú"
-            aria-expanded={menuOpen}
-            aria-controls="home-mobile-nav"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-        </div>
-
-        <AnimatePresence>
-          {menuOpen && (
-            <motion.div
-              initial={{ height:0, opacity:0 }} animate={{ height:"auto", opacity:1 }} exit={{ height:0, opacity:0 }}
-              transition={{ duration:0.25, ease:"easeInOut" }}
-              className="lg:hidden overflow-hidden border-t border-white/5 bg-[#050505]"
-            >
-              <div id="home-mobile-nav" className="px-6 py-4 flex flex-col gap-4">
-                {(["INICIO","ARTISTAS","CHARTS","GÉNEROS","INDUSTRIA","TOURING"] as const).map(item => {
-                  const href = item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "INDUSTRIA" ? "/industria" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "/";
-                  return (
-                    <Link key={item} href={href} className="text-sm font-black uppercase tracking-[0.15em] text-zinc-400 hover:text-[#39FF14] transition-colors">{item}</Link>
-                  );
-                })}
-                <div className="flex gap-4 pt-2 border-t border-white/5">
-                  {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-                    <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-600 hover:text-white transition-colors">
-                      <Icon className="w-4 h-4" />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
+      <SiteNav homeActive />
 
       {/* ══════════════════════════════════════════════════════════
           HERO — V5 gradient + parallax + ambient glow + noise

@@ -23,3 +23,5 @@ export * from "./kworb_snapshots";
 export * from "./kworb_jobs";
 export * from "./youtube_channels";
 export * from "./youtube_videos";
+export * from "./spotify_artists";
+export * from "./musicbrainz_artists";

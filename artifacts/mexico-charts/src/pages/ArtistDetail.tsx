@@ -12,6 +12,7 @@ import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useWikiBio } from "@/hooks/useWikiBio";
 import { useYoutubeChannel } from "@/hooks/useYoutubeChannel";
+import { useArtistTouring } from "@/hooks/useTouring";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -42,6 +43,13 @@ function fmtRelativeEs(ts: number | null): string {
   if (isSameDay(tsDate, todayDate))      return `hoy · hace ${diffHrs} horas`;
   if (isSameDay(tsDate, yesterdayDate))  return "ayer";
   return `hace ${Math.floor(diffMs / 86_400_000)} días`;
+}
+
+function formatTourDate(iso: string): string {
+  if (!iso) return "";
+  const [year, month, day] = iso.split("-");
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  return `${day} ${months[Number(month) - 1]} ${year}`;
 }
 
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -346,7 +354,12 @@ export default function ArtistDetail() {
   const itunesData = useItunesArtist(artist.name);
   const wikiBio      = useWikiBio(artist.name);
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
+  const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
+
+  const nextTourEvent = useMemo(() => {
+    return artistTouring?.events?.[0] ?? null;
+  }, [artistTouring]);
 
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
@@ -508,6 +521,41 @@ export default function ArtistDetail() {
               </a>
             )}
 
+            {nextTourEvent && (
+              <a
+                href={nextTourEvent.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-5 flex w-full max-w-xl items-center gap-3 rounded-xl p-4 transition-all duration-200"
+                style={{
+                  background: "linear-gradient(135deg, rgba(57,255,20,0.08), rgba(255,255,255,0.025))",
+                  border: "1px solid rgba(57,255,20,0.22)",
+                }}
+                data-testid="link-next-tour-event"
+              >
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
+                  style={{ background: "rgba(57,255,20,0.10)", color: artist.accent }}
+                >
+                  <MapPin className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: artist.accent }}>
+                    Próximo show
+                  </div>
+                  <div className="mt-1 truncate text-sm font-black uppercase tracking-[0.06em] text-white">
+                    {formatTourDate(nextTourEvent.date)} · {nextTourEvent.city}{nextTourEvent.state ? `, ${nextTourEvent.state}` : ""}
+                  </div>
+                  <div className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+                    {nextTourEvent.venue || nextTourEvent.name}
+                  </div>
+                </div>
+                <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] sm:block" style={{ color: artist.accent }}>
+                  Boletos →
+                </span>
+              </a>
+            )}
+
             {(itunesData?.appleUrl || ytChannel) && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {itunesData?.appleUrl && (
@@ -621,16 +669,16 @@ export default function ArtistDetail() {
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
-                  {metaArtist.youtubeSubscribers > 0 ? (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
-                      <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.youtubeSubscribersFmt}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
-                    </div>
-                  ) : ytChannel?.subscribersFmt ? (
+                  {ytChannel?.subscribersFmt ? (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
                       <div className="text-xl font-black text-white leading-none">{ytChannel.subscribersFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                    </div>
+                  ) : metaArtist.youtubeSubscribers > 0 ? (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-500" />
+                      <div className="text-xl font-black text-white leading-none">{metaArtist.youtubeSubscribersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   ) : null}
