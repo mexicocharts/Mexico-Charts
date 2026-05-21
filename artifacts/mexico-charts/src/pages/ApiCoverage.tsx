@@ -52,6 +52,18 @@ interface KworbStats {
   estimatedDaysToFull: string;
 }
 
+interface TouringCoverage {
+  provider: "ticketmaster";
+  configured: boolean;
+  totalTracked: number;
+  checked: number;
+  stale: number;
+  withUpcomingShows: number;
+  withoutUpcomingShows: number;
+  newestFetchAt: string | null;
+  oldestFetchAt: string | null;
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "Sin datos";
   return new Intl.DateTimeFormat("es-MX", {
@@ -72,7 +84,7 @@ function providerMeta(provider: ProviderKey) {
   return { label: "MusicBrainz", color: "#f59e0b", icon: <SiMusicbrainz className="h-5 w-5" /> };
 }
 
-function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null) {
+function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null, touring: TouringCoverage | null) {
   const tasks: Array<{
     title: string;
     detail: string;
@@ -122,6 +134,16 @@ function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null) {
     });
   }
 
+  if (touring && (!touring.configured || touring.stale > 0)) {
+    tasks.push({
+      title: touring.configured ? "Actualizar touring" : "Configurar Ticketmaster",
+      detail: touring.configured
+        ? `${touring.stale} artistas de touring necesitan revisión o refresh.`
+        : "Ticketmaster no está configurado en este entorno.",
+      priority: touring.configured ? "Media" : "Alta",
+    });
+  }
+
   if (tasks.length === 0) {
     tasks.push({
       title: "Sin pendientes urgentes",
@@ -138,6 +160,7 @@ export default function ApiCoverage() {
   const [draftKey, setDraftKey] = useState(adminKey);
   const [coverage, setCoverage] = useState<CoverageResponse | null>(null);
   const [kworb, setKworb] = useState<KworbStats | null>(null);
+  const [touring, setTouring] = useState<TouringCoverage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -145,24 +168,27 @@ export default function ApiCoverage() {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
     return Object.entries(coverage.providers) as Array<[ProviderKey, CoverageProvider]>;
   }, [coverage]);
-  const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb) : [], [coverage, kworb]);
+  const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb, touring) : [], [coverage, kworb, touring]);
 
   async function loadDashboard(key = adminKey) {
     if (!key.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const [coverageRes, kworbRes] = await Promise.all([
+      const [coverageRes, kworbRes, touringRes] = await Promise.all([
         fetch("/api/admin/artists/api-coverage", { headers: { "X-Admin-Key": key.trim() } }),
         fetch("/api/kworb/admin/stats"),
+        fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": key.trim() } }),
       ]);
       if (!coverageRes.ok) throw new Error(coverageRes.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cobertura.");
       setCoverage(await coverageRes.json());
       setKworb(kworbRes.ok ? await kworbRes.json() : null);
+      setTouring(touringRes.ok ? await touringRes.json() : null);
     } catch (err) {
       setError((err as Error).message);
       setCoverage(null);
       setKworb(null);
+      setTouring(null);
     } finally {
       setLoading(false);
     }
@@ -365,6 +391,26 @@ export default function ApiCoverage() {
                   <div><div className="text-2xl font-black text-white">{kworb.noSnapshotCount}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin snapshot</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.snapshots.stale_snapshots ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vencidos</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.estimatedDaysToFull}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Días est.</div></div>
+                </div>
+              </section>
+            )}
+
+            {touring && (
+              <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <ExternalLink className="h-5 w-5 text-[#39FF14]" />
+                  <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Ticketmaster</h2>
+                  <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                    {touring.configured ? "Configurado" : "Sin API key"}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-6">
+                  <div><div className="text-2xl font-black text-white">{touring.totalTracked}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Tracking</div></div>
+                  <div><div className="text-2xl font-black text-white">{touring.checked}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Revisados</div></div>
+                  <div><div className="text-2xl font-black text-white">{touring.withUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con shows</div></div>
+                  <div><div className="text-2xl font-black text-white">{touring.withoutUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin shows</div></div>
+                  <div><div className="text-2xl font-black text-white">{touring.stale}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Por revisar</div></div>
+                  <div><div className="text-sm font-black text-white">{fmtDate(touring.newestFetchAt)}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Último fetch</div></div>
                 </div>
               </section>
             )}

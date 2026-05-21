@@ -4,6 +4,7 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const TM_KEY = process.env.TICKETMASTER_API_KEY ?? "";
+const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 
 const ARTISTS = [
@@ -162,6 +163,25 @@ function isFresh(entry: ArtistTours) {
   return Date.now() - entry.fetchedAt < CACHE_TTL;
 }
 
+function isAdminAuthed(req: { headers: Record<string, string | string[] | undefined>; query: Record<string, unknown> }): boolean {
+  const key = ADMIN_KEY();
+  if (!key) return false;
+  const header = req.headers["x-admin-key"];
+  const qkey = req.query["adminKey"];
+  return header === key || qkey === key;
+}
+
+function requireAdmin(
+  req: Parameters<Parameters<typeof router.get>[1]>[0],
+  res: Parameters<Parameters<typeof router.get>[1]>[1],
+): boolean {
+  if (!isAdminAuthed(req as Parameters<typeof isAdminAuthed>[0])) {
+    res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
+    return false;
+  }
+  return true;
+}
+
 function bestImage(images: { ratio?: string; url: string; width?: number }[]): string | null {
   const landscape = images
     .filter(i => i.ratio === "16_9" && (i.width ?? 0) >= 640)
@@ -273,6 +293,47 @@ router.get("/touring/concerts/:artistId", async (req, res) => {
     logger.warn({ err, artistId }, "[touring] fetch failed");
     return res.status(502).json({ error: "Failed to fetch from Ticketmaster" });
   }
+});
+
+router.get("/admin/touring/coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const rows = ARTISTS.map(artist => {
+    const cached = cache.get(artist.id);
+    return {
+      id: artist.id,
+      name: artist.name,
+      attractionId: artist.attractionId,
+      eventCount: cached?.events.length ?? 0,
+      fetchedAt: cached?.fetchedAt ? new Date(cached.fetchedAt).toISOString() : null,
+      stale: !cached || !isFresh(cached),
+      nextEvent: cached?.events[0] ?? null,
+    };
+  });
+  const checked = rows.filter(row => row.fetchedAt);
+  const withShows = rows.filter(row => row.eventCount > 0);
+  const withoutShows = rows.filter(row => row.fetchedAt && row.eventCount === 0);
+  const stale = rows.filter(row => row.stale);
+  const fetchTimes = checked
+    .map(row => row.fetchedAt ? new Date(row.fetchedAt) : null)
+    .filter((date): date is Date => Boolean(date));
+  const newestFetch = fetchTimes.sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+  const oldestFetch = fetchTimes.sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    provider: "ticketmaster",
+    configured: Boolean(TM_KEY),
+    totalTracked: ARTISTS.length,
+    checked: checked.length,
+    stale: stale.length,
+    withUpcomingShows: withShows.length,
+    withoutUpcomingShows: withoutShows.length,
+    newestFetchAt: newestFetch?.toISOString() ?? null,
+    oldestFetchAt: oldestFetch?.toISOString() ?? null,
+    withShowsPreview: withShows.slice(0, 12),
+    stalePreview: stale.slice(0, 12),
+  });
 });
 
 export default router;
