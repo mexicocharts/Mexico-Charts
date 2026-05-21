@@ -162,7 +162,9 @@ export default function ApiCoverage() {
   const [kworb, setKworb] = useState<KworbStats | null>(null);
   const [touring, setTouring] = useState<TouringCoverage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshingTouring, setRefreshingTouring] = useState(false);
 
   const providerEntries = useMemo(() => {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
@@ -199,6 +201,29 @@ export default function ApiCoverage() {
     localStorage.setItem("mexicocharts_admin_key", next);
     setAdminKey(next);
     void loadDashboard(next);
+  }
+
+  async function refreshTouring() {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
+    setRefreshingTouring(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/touring/concerts");
+      if (!res.ok) throw new Error("No se pudo refrescar Ticketmaster.");
+      const data = await res.json() as { artists?: Array<{ events?: unknown[] }> };
+      const withShows = (data.artists ?? []).filter(artist => (artist.events?.length ?? 0) > 0).length;
+      setActionMessage(`Ticketmaster actualizado: ${withShows} artistas con shows próximos.`);
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRefreshingTouring(false);
+    }
   }
 
   useEffect(() => {
@@ -266,6 +291,12 @@ export default function ApiCoverage() {
         {error && (
           <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
             {error}
+          </div>
+        )}
+
+        {actionMessage && (
+          <div className="rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-4 py-3 text-sm font-bold text-[#baffb0]">
+            {actionMessage}
           </div>
         )}
 
@@ -400,7 +431,16 @@ export default function ApiCoverage() {
                 <div className="mb-5 flex items-center gap-3">
                   <ExternalLink className="h-5 w-5 text-[#39FF14]" />
                   <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Ticketmaster</h2>
-                  <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                  <button
+                    type="button"
+                    onClick={() => void refreshTouring()}
+                    disabled={refreshingTouring || !touring.configured}
+                    className="ml-auto inline-flex items-center gap-2 rounded-lg border border-[#39FF14]/30 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${refreshingTouring ? "animate-spin" : ""}`} />
+                    Refrescar
+                  </button>
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
                     {touring.configured ? "Configurado" : "Sin API key"}
                   </span>
                 </div>
