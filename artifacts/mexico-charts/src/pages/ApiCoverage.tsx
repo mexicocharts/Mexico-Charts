@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -72,6 +72,67 @@ function providerMeta(provider: ProviderKey) {
   return { label: "MusicBrainz", color: "#f59e0b", icon: <SiMusicbrainz className="h-5 w-5" /> };
 }
 
+function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null) {
+  const tasks: Array<{
+    title: string;
+    detail: string;
+    priority: "Alta" | "Media" | "Baja";
+    href?: string;
+  }> = [];
+  const { spotify, youtube, musicbrainz } = coverage.providers;
+
+  if (spotify.review + musicbrainz.review > 0) {
+    tasks.push({
+      title: "Revisar coincidencias pendientes",
+      detail: `${spotify.review + musicbrainz.review} artistas necesitan aprobación o rechazo antes de seguir limpiamente.`,
+      priority: "Alta",
+      href: "/admin/enrichment-review",
+    });
+  }
+
+  if (youtube.missing > 0) {
+    tasks.push({
+      title: "Continuar YouTube cuando haya cuota",
+      detail: `${youtube.missing} artistas siguen sin canal vinculado. Prioridad cuando la cuota diaria vuelva.`,
+      priority: "Alta",
+    });
+  }
+
+  if (spotify.missing > 0) {
+    tasks.push({
+      title: "Continuar Spotify cuando resetee el límite",
+      detail: `${spotify.missing} artistas siguen sin perfil Spotify verificado. No requiere búsqueda manual si el límite ya volvió.`,
+      priority: "Media",
+    });
+  }
+
+  if (musicbrainz.missing > 0 && musicbrainz.review === 0) {
+    tasks.push({
+      title: "Buscar más MusicBrainz",
+      detail: `${musicbrainz.missing} artistas no tienen MusicBrainz vinculado ni candidato pendiente.`,
+      priority: "Media",
+    });
+  }
+
+  if (kworb && (kworb.noSnapshotCount > 0 || Number(kworb.snapshots.stale_snapshots ?? 0) > 0)) {
+    tasks.push({
+      title: "Revisar Kworb",
+      detail: `${kworb.noSnapshotCount} artistas sin snapshot y ${kworb.snapshots.stale_snapshots ?? "0"} snapshots vencidos.`,
+      priority: kworb.requestBudget.remainingToday > 0 ? "Media" : "Baja",
+    });
+  }
+
+  if (tasks.length === 0) {
+    tasks.push({
+      title: "Sin pendientes urgentes",
+      detail: "La cobertura principal está limpia por ahora. Buen momento para revisar diseño, touring o nuevas fuentes.",
+      priority: "Baja",
+    });
+  }
+
+  return tasks.slice(0, 5);
+}
+
 export default function ApiCoverage() {
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem("mexicocharts_admin_key") ?? "");
   const [draftKey, setDraftKey] = useState(adminKey);
@@ -84,6 +145,7 @@ export default function ApiCoverage() {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
     return Object.entries(coverage.providers) as Array<[ProviderKey, CoverageProvider]>;
   }, [coverage]);
+  const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb) : [], [coverage, kworb]);
 
   async function loadDashboard(key = adminKey) {
     if (!key.trim()) return;
@@ -183,6 +245,45 @@ export default function ApiCoverage() {
 
         {coverage && (
           <>
+            <section className="rounded-lg border border-[#39FF14]/20 bg-[#071007] p-5">
+              <div className="mb-5 flex flex-wrap items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-[#39FF14]" />
+                <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Trabajo de hoy</h2>
+                <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                  Prioridades sugeridas
+                </span>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                {todayTasks.map((task, index) => {
+                  const body = (
+                    <div className="flex h-full gap-4 rounded-lg border border-white/[0.07] bg-black/20 p-4 transition-colors hover:border-[#39FF14]/25">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#39FF14]/10 text-[#39FF14]">
+                        {task.priority === "Alta" ? <RefreshCw className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">#{index + 1}</span>
+                          <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-[#39FF14]">
+                            {task.priority}
+                          </span>
+                        </div>
+                        <h3 className="mt-2 text-sm font-black uppercase tracking-[0.08em] text-white">{task.title}</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{task.detail}</p>
+                      </div>
+                    </div>
+                  );
+
+                  return task.href ? (
+                    <Link key={task.title} href={task.href}>
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={task.title}>{body}</div>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="grid gap-3 md:grid-cols-4">
               <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
                 <div className="text-3xl font-black text-white">{coverage.totalArtists}</div>
