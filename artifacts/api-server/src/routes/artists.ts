@@ -388,6 +388,39 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
   }
 });
 
+router.get("/artists/verified", async (_req, res) => {
+  try {
+    const [spotifyRows, musicbrainzRows, youtubeRows] = await Promise.all([
+      db.select({ artistKey: spotifyArtists.artistKey }).from(spotifyArtists),
+      db.select({ artistKey: musicbrainzArtists.artistKey }).from(musicbrainzArtists),
+      db.select({ artistKey: youtubeChannels.artistKey }).from(youtubeChannels),
+    ]);
+
+    const verified = new Map<string, Set<"spotify" | "youtube" | "musicbrainz">>();
+    const addSource = (artistKey: string | null | undefined, source: "spotify" | "youtube" | "musicbrainz") => {
+      const key = artistKey?.trim().toLowerCase();
+      if (!key) return;
+      const sources = verified.get(key) ?? new Set<"spotify" | "youtube" | "musicbrainz">();
+      sources.add(source);
+      verified.set(key, sources);
+    };
+
+    spotifyRows.forEach(row => addSource(row.artistKey, "spotify"));
+    musicbrainzRows.forEach(row => addSource(row.artistKey, "musicbrainz"));
+    youtubeRows.forEach(row => addSource(row.artistKey, "youtube"));
+
+    res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=3600");
+    res.json({
+      artists: Array.from(verified.entries())
+        .sort(([a], [b]) => a.localeCompare(b, "es", { sensitivity: "base" }))
+        .map(([artistKey, sources]) => ({ artistKey, sources: Array.from(sources).sort() })),
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] verified list unavailable");
+    res.status(500).json({ error: "Artist verification list unavailable" });
+  }
+});
+
 router.get("/admin/artists/enrichment-candidates", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 

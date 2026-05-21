@@ -2,9 +2,10 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import PageSEO from "@/components/PageSEO";
 import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal } from "lucide-react";
+import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal, BadgeCheck } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
@@ -60,10 +61,11 @@ interface CardProps {
   youtubeSubscribersFmt: string;
   photoUrl?: string | null;
   totalStreamsFmt?: string | null;
+  isVerified?: boolean;
   index: number;
 }
 
-function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, totalStreamsFmt, index }: CardProps) {
+function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, totalStreamsFmt, isVerified = false, index }: CardProps) {
   const slug = slugify(name);
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
@@ -148,17 +150,45 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
               </>
             )}
             {/* Genre accent dot — top right */}
-            <div className="absolute top-3 right-3 z-10 w-2 h-2 rounded-full" style={{ background: color, boxShadow: `0 0 7px ${color}90` }} />
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+              {isVerified && (
+                <span
+                  className="flex h-6 w-6 items-center justify-center rounded-full"
+                  style={{
+                    background: "rgba(5,5,5,0.72)",
+                    border: "1px solid rgba(255,255,255,0.16)",
+                    boxShadow: `0 0 18px ${color}44, inset 0 1px 0 rgba(255,255,255,0.12)`,
+                    backdropFilter: "blur(12px)",
+                    color,
+                  }}
+                  aria-label="Artista verificado"
+                  title="Artista verificado por Mexico Charts"
+                >
+                  <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.8} />
+                </span>
+              )}
+              <span className="h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 7px ${color}90` }} />
+            </div>
           </div>
 
           {/* Info panel */}
           <div className="flex-1 flex flex-col px-4 pb-4 pt-3 relative z-10">
-            <h3
-              className="font-black text-[13px] uppercase tracking-[0.06em] text-white mb-1.5 line-clamp-2 break-words leading-snug"
-              title={name}
-            >
-              {name}
-            </h3>
+            <div className="mb-1.5 flex items-start gap-1.5">
+              <h3
+                className="font-black text-[13px] uppercase tracking-[0.06em] text-white line-clamp-2 break-words leading-snug"
+                title={name}
+              >
+                {name}
+              </h3>
+              {isVerified && (
+                <BadgeCheck
+                  className="mt-0.5 h-3.5 w-3.5 flex-shrink-0"
+                  strokeWidth={2.8}
+                  style={{ color }}
+                  aria-label="Artista verificado"
+                />
+              )}
+            </div>
 
             <div className="flex items-center gap-1.5 mb-1.5">
               <span
@@ -251,6 +281,7 @@ function FilterDropdown({ label, value, options, onChange }: DropdownProps) {
 /* ── Main page ───────────────────────────────────────────────────── */
 export default function ArtistRoster() {
   const { byKey, isLoading, isError, isEmpty } = useArtistMetadata();
+  const verifiedArtistKeys = useVerifiedArtistKeys();
   const routeSearch = useSearch();
   const initialQuery = useMemo(() => new URLSearchParams(routeSearch).get("q") ?? "", [routeSearch]);
   const [search, setSearch] = useState(initialQuery);
@@ -552,6 +583,7 @@ export default function ArtistRoster() {
                     youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
                     photoUrl={artistImages[artist.displayName]}
                     totalStreamsFmt={totalStreamsFmt}
+                    isVerified={verifiedArtistKeys.has(artist.artistKey)}
                     index={i}
                   />
                 );

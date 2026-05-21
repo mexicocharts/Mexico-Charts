@@ -47,6 +47,11 @@ export interface ArtistEnrichment {
   } | null;
 }
 
+export interface VerifiedArtistSummary {
+  artistKey: string;
+  sources: Array<"spotify" | "youtube" | "musicbrainz">;
+}
+
 export function useArtistEnrichment(artistKey: string): ArtistEnrichment | null {
   const [result, setResult] = useState<ArtistEnrichment | null>(null);
 
@@ -67,4 +72,24 @@ export function useArtistEnrichment(artistKey: string): ArtistEnrichment | null 
   }, [artistKey]);
 
   return result;
+}
+
+export function useVerifiedArtistKeys(): Set<string> {
+  const [keys, setKeys] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/artists/verified")
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: { artists?: VerifiedArtistSummary[] } | null) => {
+        if (cancelled || !Array.isArray(data?.artists)) return;
+        setKeys(new Set(data.artists.map(artist => artist.artistKey.trim().toLowerCase()).filter(Boolean)));
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, []);
+
+  return keys;
 }
