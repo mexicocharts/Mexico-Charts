@@ -745,8 +745,8 @@ export default function ArtistDetail() {
                   <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
                   <div className="ml-auto hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700 sm:flex">
-                    <Database className="h-3.5 w-3.5" />
-                    Enlaces verificados
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Identidad confirmada
                   </div>
                 </div>
 
