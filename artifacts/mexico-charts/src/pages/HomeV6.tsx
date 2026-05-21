@@ -9,8 +9,9 @@ import {
   useScroll, useTransform,
   useReducedMotion,
 } from "framer-motion";
-import { TrendingUp, Music, Mail } from "lucide-react";
+import { TrendingUp, Music, Mail, BadgeCheck } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
+import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { CONTACT_EMAIL, SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
@@ -221,6 +222,7 @@ export default function HomeV6() {
   /* ── Sheet data ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
   const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
+  const verifiedArtistKeys = useVerifiedArtistKeys();
 
   /* ── Charts-hub (live YouTube/Spotify/Deezer data — same source as /charts page) ── */
   const { data: hubData, isLoading: hubLoading } = useQuery<HubData>({
@@ -704,6 +706,7 @@ export default function HomeV6() {
           ? Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)
           : SHELF_ARTISTS.map((a, idx) => {
           const photo = img(a.name);
+          const isVerified = verifiedArtistKeys.has(slugify(a.name).replace(/-/g, " "));
           return (
             <Link
               key={a.rank}
@@ -767,12 +770,33 @@ export default function HomeV6() {
                   {String(a.rank).padStart(2,"0")}
                 </div>
 
-                {/* Genre accent dot */}
-                <div className="absolute top-3 right-3 w-2 h-2 rounded-full" style={{ background:a.accent, boxShadow:`0 0 6px ${a.accent}` }} />
+                {/* Verification + genre accent */}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  {isVerified && (
+                    <span
+                      className="flex h-6 w-6 items-center justify-center rounded-full"
+                      style={{
+                        background: "rgba(5,5,5,0.72)",
+                        border: "1px solid rgba(255,255,255,0.16)",
+                        boxShadow: `0 0 18px ${a.accent}44, inset 0 1px 0 rgba(255,255,255,0.12)`,
+                        backdropFilter: "blur(12px)",
+                        color: a.accent,
+                      }}
+                      aria-label="Artista verificado"
+                      title="Artista verificado por Mexico Charts"
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.8} />
+                    </span>
+                  )}
+                  <span className="h-2 w-2 rounded-full" style={{ background:a.accent, boxShadow:`0 0 6px ${a.accent}` }} />
+                </div>
 
                 {/* Bottom info */}
                 <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)" }}>
-                  <div className="font-black text-sm uppercase leading-tight text-white mb-0.5">{a.name}</div>
+                  <div className="mb-0.5 flex items-center gap-1.5">
+                    <div className="truncate font-black text-sm uppercase leading-tight text-white">{a.name}</div>
+                    {isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={2.8} style={{ color:a.accent }} aria-label="Artista verificado" />}
+                  </div>
                   <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.48)" }}>{a.genre}</div>
                   <div className="text-[11px] font-black" style={{ color:a.accent }}>{a.streams}</div>
                 </div>
@@ -1012,6 +1036,7 @@ export default function HomeV6() {
                     ? <div className="text-xs text-zinc-600 uppercase tracking-widest py-4">Sin datos disponibles</div>
                     : TOP_STRIP.slice(0,5).map((a) => {
                     const photo = img(a.name);
+                    const isVerified = verifiedArtistKeys.has(slugify(a.name).replace(/-/g, " "));
                     return (
                       <Link key={a.rank} href={`/artist/${slugify(a.name)}`} style={{ display:"block" }}>
                       <motion.div
@@ -1025,7 +1050,17 @@ export default function HomeV6() {
                           : <div className="w-9 h-9 rounded-full shrink-0" style={{ background:"#1c1c1c", border:`1px solid ${a.accent}30` }} />
                         }
                         <div className="flex-1 min-w-0">
-                          <div className="text-white font-black text-sm truncate group-hover/row:text-[#39FF14] transition-colors duration-200">{a.name}</div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="truncate text-sm font-black text-white transition-colors duration-200 group-hover/row:text-[#39FF14]">{a.name}</div>
+                            {isVerified && (
+                              <BadgeCheck
+                                className="h-3.5 w-3.5 shrink-0"
+                                strokeWidth={2.8}
+                                style={{ color:a.accent }}
+                                aria-label="Artista verificado"
+                              />
+                            )}
+                          </div>
                         </div>
                         <div className="text-xs font-black font-mono shrink-0 px-2 py-1 rounded-full transition-all duration-200 group-hover/row:scale-105" style={{ color:a.accent, background:`${a.accent}0e`, border:`1px solid ${a.accent}20` }}>{a.streams}</div>
                       </motion.div>
