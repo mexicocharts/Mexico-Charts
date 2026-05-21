@@ -35,6 +35,7 @@ export default function AdminHub() {
         title="Admin | Mexico Charts"
         description="Panel interno de herramientas para Mexico Charts."
         path="/admin"
+        noindex
       />
 
       <nav className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#050505]/95 backdrop-blur-xl">

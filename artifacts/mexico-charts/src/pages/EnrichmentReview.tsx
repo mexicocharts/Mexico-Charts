@@ -132,6 +132,7 @@ export default function EnrichmentReview() {
         title="Revisión de enriquecimiento | Mexico Charts"
         description="Cola interna para revisar posibles coincidencias de Spotify y MusicBrainz en Mexico Charts."
         path="/admin/enrichment-review"
+        noindex
       />
 
       <nav className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#050505]/95 backdrop-blur-xl">

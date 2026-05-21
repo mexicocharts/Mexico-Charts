@@ -294,6 +294,7 @@ export default function ApiCoverage() {
         title="Cobertura API | Mexico Charts"
         description="Panel interno de cobertura para APIs y datos enriquecidos de Mexico Charts."
         path="/admin/api-coverage"
+        noindex
       />
 
       <nav className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#050505]/95 backdrop-blur-xl">
