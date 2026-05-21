@@ -356,6 +356,7 @@ export default function ArtistDetail() {
   const wikiBio      = useWikiBio(artist.name);
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
   const enrichment   = useArtistEnrichment(slugAsKey);
+  const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
 
@@ -497,11 +498,28 @@ export default function ArtistDetail() {
               {artist.genre}
             </div>
             <h1
-              className="font-black uppercase leading-[0.88] tracking-tight text-white mb-4"
+              className="font-black uppercase leading-[0.88] tracking-tight text-white mb-3"
               style={{ fontSize: "clamp(2.4rem, 8vw, 6rem)", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
             >
               {artist.name}
             </h1>
+            {isVerifiedArtist && (
+              <div
+                className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]"
+                style={{
+                  background: "rgba(57,255,20,0.10)",
+                  border: "1px solid rgba(57,255,20,0.28)",
+                  color: "#39FF14",
+                  boxShadow: "0 0 24px rgba(57,255,20,0.08)",
+                }}
+                aria-label="Artista verificado por Mexico Charts"
+                data-testid="artist-verified-badge"
+              >
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Artista verificado
+                <span className="hidden text-zinc-600 sm:inline">· Mexico Charts</span>
+              </div>
+            )}
             <p className="text-sm text-white/50 uppercase tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" style={{ color: artist.accent }} />{artist.origin}</span>
               <span>{artist.listeners} OYENTES</span>
@@ -574,7 +592,7 @@ export default function ArtistDetail() {
                     data-testid="link-spotify-artist"
                   >
                     <SiSpotify className="w-3.5 h-3.5" />
-                    Perfil verificado
+                    Spotify oficial
                   </a>
                 )}
                 {itunesData?.appleUrl && (
