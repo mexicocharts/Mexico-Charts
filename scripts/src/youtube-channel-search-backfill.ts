@@ -166,8 +166,11 @@ async function fetchChannels(channelIds: string[]): Promise<ChannelItem[]> {
 function scoreChannel(artist: ArtistRow, channel: ChannelItem): { score: number; reasons: string[] } {
   const artistName = normalizeName(artist.artist_name);
   const title = normalizeName(channel.snippet.title);
+  const titleCompact = compactName(channel.snippet.title);
   const customUrl = compactName(channel.snippet.customUrl ?? "");
   const artistCompact = compactName(artist.artist_name);
+  const titleCompactLoose = titleCompact.replace(/and|y/g, "");
+  const artistCompactLoose = artistCompact.replace(/and|y/g, "");
   const subscribers = channel.statistics?.hiddenSubscriberCount ? null : Number(channel.statistics?.subscriberCount ?? 0);
   const views = channel.statistics?.viewCount != null ? Number(channel.statistics.viewCount) : null;
   const sheetSubscribers = parseCount(artist.youtube_subscribers);
@@ -185,6 +188,21 @@ function scoreChannel(artist: ArtistRow, channel: ChannelItem): { score: number;
   } else if (title === `${artistName} oficial` || title === `${artistName} official`) {
     score += 42;
     reasons.push("official title");
+  } else if (titleCompact === artistCompact) {
+    score += 42;
+    reasons.push("compact title exact");
+  } else if (titleCompact === `oficial${artistCompact}` || titleCompact === `${artistCompact}oficial` || titleCompact === `official${artistCompact}` || titleCompact === `${artistCompact}official`) {
+    score += 40;
+    reasons.push("compact official title");
+  } else if (artistCompactLoose.length >= 6 && (titleCompactLoose === artistCompactLoose || titleCompactLoose === `oficial${artistCompactLoose}` || titleCompactLoose === `${artistCompactLoose}oficial` || titleCompactLoose === `official${artistCompactLoose}` || titleCompactLoose === `${artistCompactLoose}official`)) {
+    score += 38;
+    reasons.push("loose compact title");
+  } else if (artistCompactLoose.length >= 6 && titleCompactLoose.includes(artistCompactLoose)) {
+    score += 32;
+    reasons.push("loose compact title contains artist");
+  } else if (titleCompact.includes(artistCompact) && artistCompact.length >= 6) {
+    score += 34;
+    reasons.push("compact title contains artist");
   } else if (title.includes(artistName)) {
     score += 32;
     reasons.push("title contains artist");
