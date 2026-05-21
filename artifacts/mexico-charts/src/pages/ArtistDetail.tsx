@@ -505,19 +505,33 @@ export default function ArtistDetail() {
             </h1>
             {isVerifiedArtist && (
               <div
-                className="mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em]"
+                className="mb-4 inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
                 style={{
-                  background: "rgba(57,255,20,0.10)",
-                  border: "1px solid rgba(57,255,20,0.28)",
-                  color: "#39FF14",
-                  boxShadow: "0 0 24px rgba(57,255,20,0.08)",
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))",
+                  border: "1px solid rgba(255,255,255,0.14)",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)",
+                  backdropFilter: "blur(18px) saturate(160%)",
                 }}
                 aria-label="Artista verificado por Mexico Charts"
                 data-testid="artist-verified-badge"
               >
-                <BadgeCheck className="h-3.5 w-3.5" />
-                Artista verificado
-                <span className="hidden text-zinc-600 sm:inline">· Mexico Charts</span>
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full"
+                  style={{
+                    background: `linear-gradient(135deg, ${artist.accent}, rgba(57,255,20,0.68))`,
+                    boxShadow: `0 0 18px ${artist.accent}55`,
+                    color: "#050505",
+                  }}
+                >
+                  <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
+                </span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                  Verificado
+                </span>
+                <span className="hidden h-3 w-px bg-white/15 sm:block" />
+                <span className="hidden text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500 sm:inline">
+                  Mexico Charts
+                </span>
               </div>
             )}
             <p className="text-sm text-white/50 uppercase tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
