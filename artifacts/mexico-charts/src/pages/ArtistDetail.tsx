@@ -755,7 +755,7 @@ export default function ArtistDetail() {
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Enlaces verificados</h2>
                   <div className="ml-auto hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700 sm:flex">
                     <Database className="h-3.5 w-3.5" />
-                    Datos de API
+                    Fuentes oficiales
                   </div>
                 </div>
 
@@ -778,7 +778,7 @@ export default function ArtistDetail() {
                         ID verificado
                       </div>
                       <div className="mt-3 text-[10px] leading-relaxed text-zinc-700">
-                        Perfil oficial guardado. Seguidores, popularidad y géneros quedan como opcionales porque esta credencial no los devuelve.
+                        Perfil vinculado para identificar al artista en plataformas digitales.
                       </div>
                     </a>
                   )}
