@@ -65,6 +65,7 @@ export default function EnrichmentReview() {
   const [data, setData] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const rows = useMemo(() => [...(data?.spotify ?? []), ...(data?.musicbrainz ?? [])], [data]);
 
@@ -91,6 +92,33 @@ export default function EnrichmentReview() {
     localStorage.setItem("mexicocharts_admin_key", next);
     setAdminKey(next);
     void loadReviewQueue(next);
+  }
+
+  async function reviewAction(row: ReviewRow, action: "approve" | "reject") {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
+    const key = `${row.provider}-${row.artistKey}`;
+    setPendingKey(key);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/artists/enrichment-candidates/${row.provider}/${encodeURIComponent(row.artistKey)}/${action}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": adminKey.trim(),
+        },
+        body: JSON.stringify({ candidateIndex: 0 }),
+      });
+      if (!res.ok) throw new Error(action === "approve" ? "No se pudo aprobar este candidato." : "No se pudo rechazar este candidato.");
+      await loadReviewQueue(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setPendingKey(null);
+    }
   }
 
   useEffect(() => {
@@ -187,6 +215,7 @@ export default function EnrichmentReview() {
             const best = row.candidates[0];
             const url = best ? candidateUrl(row.provider, best) : null;
             const displayName = row.provider === "spotify" ? best?.spotifyName : best?.name;
+            const isPending = pendingKey === `${row.provider}-${row.artistKey}`;
 
             return (
               <article key={`${row.provider}-${row.artistKey}`} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
@@ -212,6 +241,22 @@ export default function EnrichmentReview() {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => void reviewAction(row, "reject")}
+                      className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 hover:border-red-500/35 hover:text-red-300 disabled:cursor-wait disabled:opacity-50"
+                    >
+                      Rechazar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPending || !best}
+                      onClick={() => void reviewAction(row, "approve")}
+                      className="rounded-lg border border-[#39FF14]/35 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:cursor-wait disabled:opacity-50"
+                    >
+                      Aprobar
+                    </button>
                     <Link
                       href={`/artist/${row.artistKey.replace(/\s+/g, "-")}`}
                       className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:border-white/25 hover:text-white"

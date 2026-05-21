@@ -270,6 +270,28 @@ function fmtCount(n: number | null | undefined): string | null {
   return String(n);
 }
 
+type SpotifyCandidate = {
+  spotifyArtistId?: string;
+  spotifyName?: string;
+  followers?: number | null;
+  popularity?: number | null;
+  spotifyUrl?: string | null;
+  imageUrl?: string | null;
+  uri?: string | null;
+  genres?: string[];
+  capability?: string;
+  notes?: string | null;
+};
+
+type MusicbrainzCandidate = {
+  mbid?: string;
+  name?: string;
+  type?: string | null;
+  country?: string | null;
+  areaName?: string | null;
+  disambiguation?: string | null;
+};
+
 async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
@@ -409,6 +431,121 @@ router.get("/admin/artists/enrichment-candidates", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[artists] enrichment candidates unavailable");
     res.status(500).json({ error: "Artist enrichment candidates unavailable" });
+  }
+});
+
+router.post("/admin/artists/enrichment-candidates/:provider/:artistKey/approve", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const provider = req.params["provider"];
+  const artistKey = req.params["artistKey"]?.trim().toLowerCase();
+  const candidateIndex = Math.max(0, Number((req.body as { candidateIndex?: number })?.candidateIndex ?? 0));
+  if (!artistKey || (provider !== "spotify" && provider !== "musicbrainz")) {
+    res.status(400).json({ error: "provider and artistKey are required" });
+    return;
+  }
+
+  try {
+    if (provider === "spotify") {
+      const [candidateRow] = await db.select().from(spotifyArtistCandidates).where(eq(spotifyArtistCandidates.artistKey, artistKey));
+      if (!candidateRow) {
+        res.status(404).json({ error: "Spotify candidate not found" });
+        return;
+      }
+
+      const candidate = candidateRow.candidates[candidateIndex] as SpotifyCandidate | undefined;
+      if (!candidate?.spotifyArtistId) {
+        res.status(400).json({ error: "Spotify candidate is missing spotifyArtistId" });
+        return;
+      }
+
+      await db.insert(spotifyArtists).values({
+        artistKey,
+        spotifyArtistId: candidate.spotifyArtistId,
+        spotifyName: candidate.spotifyName ?? candidateRow.artistName,
+        spotifyFollowers: candidate.followers ?? null,
+        spotifyPopularity: candidate.popularity ?? null,
+        spotifyUrl: candidate.spotifyUrl ?? null,
+        spotifyImageUrl: candidate.imageUrl ?? null,
+        spotifyUri: candidate.uri ?? null,
+        spotifyGenres: candidate.genres ?? [],
+        spotifyApiCapability: candidate.capability ?? "identity_profile",
+        notes: candidate.notes ?? "Approved from Mexico Charts review queue.",
+        verified: true,
+        verifiedAt: new Date(),
+        spotifyLastUpdated: new Date(),
+        linkedAt: new Date(),
+      }).onConflictDoNothing({ target: spotifyArtists.artistKey });
+
+      await db.delete(spotifyArtistCandidates).where(eq(spotifyArtistCandidates.artistKey, artistKey));
+      res.json({ ok: true, provider, artistKey, approved: candidate });
+      return;
+    }
+
+    const [candidateRow] = await db.select().from(musicbrainzArtistCandidates).where(eq(musicbrainzArtistCandidates.artistKey, artistKey));
+    if (!candidateRow) {
+      res.status(404).json({ error: "MusicBrainz candidate not found" });
+      return;
+    }
+
+    const candidate = candidateRow.candidates[candidateIndex] as MusicbrainzCandidate | undefined;
+    if (!candidate?.mbid) {
+      res.status(400).json({ error: "MusicBrainz candidate is missing mbid" });
+      return;
+    }
+
+    await db.insert(musicbrainzArtists).values({
+      artistKey,
+      mbid: candidate.mbid,
+      name: candidate.name ?? candidateRow.artistName,
+      sortName: null,
+      disambiguation: candidate.disambiguation ?? null,
+      type: candidate.type ?? null,
+      country: candidate.country ?? null,
+      areaName: candidate.areaName ?? null,
+      beginDate: null,
+      endDate: null,
+      aliases: [],
+      tags: [],
+      relations: [],
+      verified: "manual_review_accepted",
+      lastUpdated: new Date(),
+      linkedAt: new Date(),
+    }).onConflictDoNothing({ target: musicbrainzArtists.artistKey });
+
+    await db.delete(musicbrainzArtistCandidates).where(eq(musicbrainzArtistCandidates.artistKey, artistKey));
+    res.json({ ok: true, provider, artistKey, approved: candidate });
+  } catch (err) {
+    logger.error({ err, provider, artistKey }, "[artists] enrichment candidate approve failed");
+    res.status(500).json({ error: "Could not approve enrichment candidate" });
+  }
+});
+
+router.post("/admin/artists/enrichment-candidates/:provider/:artistKey/reject", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const provider = req.params["provider"];
+  const artistKey = req.params["artistKey"]?.trim().toLowerCase();
+  if (!artistKey || (provider !== "spotify" && provider !== "musicbrainz")) {
+    res.status(400).json({ error: "provider and artistKey are required" });
+    return;
+  }
+
+  try {
+    if (provider === "spotify") {
+      await db.update(spotifyArtistCandidates)
+        .set({ status: "rejected", searchedAt: new Date() })
+        .where(eq(spotifyArtistCandidates.artistKey, artistKey));
+    } else {
+      await db.update(musicbrainzArtistCandidates)
+        .set({ status: "rejected", searchedAt: new Date() })
+        .where(eq(musicbrainzArtistCandidates.artistKey, artistKey));
+    }
+
+    res.json({ ok: true, provider, artistKey, status: "rejected" });
+  } catch (err) {
+    logger.error({ err, provider, artistKey }, "[artists] enrichment candidate reject failed");
+    res.status(500).json({ error: "Could not reject enrichment candidate" });
   }
 });
 
