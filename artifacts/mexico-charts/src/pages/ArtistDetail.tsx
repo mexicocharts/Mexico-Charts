@@ -725,10 +725,10 @@ export default function ArtistDetail() {
               <div className="relative z-10">
                 <div className="mb-5 flex flex-wrap items-center gap-3">
                   <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Enlaces verificados</h2>
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
                   <div className="ml-auto hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700 sm:flex">
                     <Database className="h-3.5 w-3.5" />
-                    Fuentes oficiales
+                    Enlaces verificados
                   </div>
                 </div>
 
@@ -748,10 +748,10 @@ export default function ArtistDetail() {
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
                       <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
-                        ID verificado
+                        Perfil oficial
                       </div>
                       <div className="mt-3 text-[10px] leading-relaxed text-zinc-700">
-                        Perfil vinculado para identificar al artista en plataformas digitales.
+                        Escucha y confirma el perfil del artista en Spotify.
                       </div>
                     </a>
                   )}
@@ -771,7 +771,7 @@ export default function ArtistDetail() {
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "Canal oficial"}</div>
                       <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
-                        Canal oficial vinculado
+                        Canal oficial
                       </div>
                     </a>
                   )}
@@ -791,7 +791,7 @@ export default function ArtistDetail() {
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.musicbrainz.name ?? artist.name}</div>
                       <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
-                        {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Identidad musical"}
+                        {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Catálogo musical"}
                       </div>
                       {enrichment.musicbrainz.tags.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
