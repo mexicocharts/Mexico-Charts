@@ -165,6 +165,7 @@ export default function ApiCoverage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshingTouring, setRefreshingTouring] = useState(false);
+  const [refreshingYoutube, setRefreshingYoutube] = useState(false);
 
   const providerEntries = useMemo(() => {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
@@ -223,6 +224,40 @@ export default function ApiCoverage() {
       setError((err as Error).message);
     } finally {
       setRefreshingTouring(false);
+    }
+  }
+
+  async function refreshYoutubeChannels() {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
+    setRefreshingYoutube(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/youtube/refresh-channels?limit=100&staleDays=7&dryRun=false", {
+        method: "POST",
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
+      if (!res.ok) throw new Error("No se pudo refrescar YouTube.");
+      const data = await res.json() as {
+        refreshed?: number;
+        processed?: number;
+        quotaExhausted?: boolean;
+        remainingStaleEstimate?: number;
+      };
+      setActionMessage(
+        data.quotaExhausted
+          ? `YouTube refrescó ${data.refreshed ?? 0} canales antes de llegar al límite.`
+          : `YouTube actualizado: ${data.refreshed ?? 0} de ${data.processed ?? 0} canales refrescados.`,
+      );
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRefreshingYoutube(false);
     }
   }
 
@@ -373,6 +408,17 @@ export default function ApiCoverage() {
                         <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">{meta.label}</h2>
                         <p className="text-xs font-bold text-zinc-600">{provider.coveragePct}% de cobertura</p>
                       </div>
+                      {key === "youtube" && (
+                        <button
+                          type="button"
+                          onClick={() => void refreshYoutubeChannels()}
+                          disabled={refreshingYoutube || provider.linked === 0}
+                          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-red-300 hover:bg-red-500/15 disabled:cursor-wait disabled:opacity-50"
+                        >
+                          <RefreshCw className={`h-3.5 w-3.5 ${refreshingYoutube ? "animate-spin" : ""}`} />
+                          Refrescar
+                        </button>
+                      )}
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
@@ -401,6 +447,11 @@ export default function ApiCoverage() {
                     <div className="mt-5 border-t border-white/[0.06] pt-4 text-xs text-zinc-600">
                       <div>Más reciente: <span className="font-bold text-zinc-400">{fmtDate(provider.newestUpdatedAt)}</span></div>
                       <div className="mt-1">Más antiguo: <span className="font-bold text-zinc-400">{fmtDate(provider.oldestUpdatedAt)}</span></div>
+                      {key === "youtube" && (
+                        <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                          Usa cuota baja: solo canales ya vinculados.
+                        </div>
+                      )}
                     </div>
                   </article>
                 );
