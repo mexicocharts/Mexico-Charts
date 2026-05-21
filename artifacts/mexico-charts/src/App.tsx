@@ -25,6 +25,7 @@ const Metodologia = lazy(() => import("@/pages/Metodologia"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
+const AdminHub = lazy(() => import("@/pages/AdminHub"));
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ function Router() {
           <Route path="/contacto" component={Contacto} />
           <Route path="/metodologia" component={Metodologia} />
           <Route path="/privacidad" component={Privacidad} />
+          <Route path="/admin" component={AdminHub} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route component={NotFound} />
