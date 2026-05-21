@@ -5,6 +5,7 @@ import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+const SPOTIFY_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/spotify-artist-backfill.ts --limit=100 --minAutoScore=45 --write=true";
 
 type ProviderKey = "spotify" | "youtube" | "musicbrainz";
 
@@ -261,6 +262,15 @@ export default function ApiCoverage() {
     }
   }
 
+  async function copySpotifyCommand() {
+    try {
+      await navigator.clipboard.writeText(SPOTIFY_BACKFILL_COMMAND);
+      setActionMessage("Comando de Spotify copiado.");
+    } catch {
+      setActionMessage("Comando de Spotify listo para copiar manualmente.");
+    }
+  }
+
   useEffect(() => {
     if (adminKey) void loadDashboard(adminKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,6 +429,15 @@ export default function ApiCoverage() {
                           Refrescar
                         </button>
                       )}
+                      {key === "spotify" && provider.missing > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void copySpotifyCommand()}
+                          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-[#1DB954]/25 bg-[#1DB954]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#8ff0ad] hover:bg-[#1DB954]/15"
+                        >
+                          Copiar comando
+                        </button>
+                      )}
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
@@ -450,6 +469,17 @@ export default function ApiCoverage() {
                       {key === "youtube" && (
                         <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                           Usa cuota baja: solo canales ya vinculados.
+                        </div>
+                      )}
+                      {key === "spotify" && provider.missing > 0 && (
+                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#8ff0ad]">Comando sugerido</div>
+                          <code className="mt-2 block whitespace-pre-wrap break-words text-[11px] leading-relaxed text-zinc-500">
+                            {SPOTIFY_BACKFILL_COMMAND}
+                          </code>
+                          <div className="mt-2 text-[10px] leading-relaxed text-zinc-700">
+                            Úsalo solo cuando el límite de Spotify ya haya reseteado.
+                          </div>
                         </div>
                       )}
                     </div>
