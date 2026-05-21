@@ -343,12 +343,16 @@ async function main() {
     const artists = rowsToObjects(parseCsv(csv));
     const linked = await pool.query<{ artist_key: string }>("select artist_key from spotify_artists");
     const linkedKeys = new Set(linked.rows.map(row => row.artist_key));
-    const queue = artists.filter(artist => !linkedKeys.has(artist.artist_key)).slice(offset, offset + limit);
+    const reviewed = await pool.query<{ artist_key: string }>("select artist_key from spotify_artist_candidates");
+    const reviewedKeys = new Set(reviewed.rows.map(row => row.artist_key));
+    const queue = artists
+      .filter(artist => !linkedKeys.has(artist.artist_key) && !reviewedKeys.has(artist.artist_key))
+      .slice(offset, offset + limit);
 
     let auto = 0;
     let review = 0;
     let noResult = 0;
-    console.log(`${write ? "Writing" : "Dry run"} Spotify artist backfill for ${queue.length} artists. Existing linked: ${linkedKeys.size}. minAutoScore=${minAutoScore}.`);
+    console.log(`${write ? "Writing" : "Dry run"} Spotify artist backfill for ${queue.length} artists. Existing linked: ${linkedKeys.size}. Existing review/no-result: ${reviewedKeys.size}. minAutoScore=${minAutoScore}.`);
 
     for (const artist of queue) {
       const data = await spotifyFetch<SpotifySearchResponse>("/search", {
