@@ -6,6 +6,8 @@ import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const SPOTIFY_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/spotify-artist-backfill.ts --limit=100 --minAutoScore=45 --write=true";
+const MUSICBRAINZ_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-artist-backfill.ts --limit=100 --minAutoScore=65 --write=true";
+const MUSICBRAINZ_APPROVE_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-approve-candidates.ts --minScore=65 --write=true";
 
 type ProviderKey = "spotify" | "youtube" | "musicbrainz";
 
@@ -271,6 +273,15 @@ export default function ApiCoverage() {
     }
   }
 
+  async function copyCommand(command: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(command);
+      setActionMessage(`${label} copiado.`);
+    } catch {
+      setActionMessage(`${label} listo para copiar manualmente.`);
+    }
+  }
+
   useEffect(() => {
     if (adminKey) void loadDashboard(adminKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -438,6 +449,14 @@ export default function ApiCoverage() {
                           Copiar comando
                         </button>
                       )}
+                      {key === "musicbrainz" && (
+                        <Link
+                          href="/admin/enrichment-review"
+                          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-amber-300 hover:bg-amber-500/15"
+                        >
+                          Revisar
+                        </Link>
+                      )}
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
@@ -480,6 +499,35 @@ export default function ApiCoverage() {
                           <div className="mt-2 text-[10px] leading-relaxed text-zinc-700">
                             Úsalo solo cuando el límite de Spotify ya haya reseteado.
                           </div>
+                        </div>
+                      )}
+                      {key === "musicbrainz" && (provider.missing > 0 || provider.review > 0) && (
+                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">Comandos sugeridos</div>
+                          {provider.missing > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => void copyCommand(MUSICBRAINZ_BACKFILL_COMMAND, "Backfill MusicBrainz")}
+                              className="mt-2 block w-full rounded border border-white/[0.06] bg-white/[0.03] p-2 text-left hover:border-amber-400/25"
+                            >
+                              <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600">Buscar más artistas</span>
+                              <code className="mt-1 block whitespace-pre-wrap break-words text-[11px] leading-relaxed text-zinc-500">
+                                {MUSICBRAINZ_BACKFILL_COMMAND}
+                              </code>
+                            </button>
+                          )}
+                          {provider.review > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => void copyCommand(MUSICBRAINZ_APPROVE_COMMAND, "Aprobación MusicBrainz")}
+                              className="mt-2 block w-full rounded border border-white/[0.06] bg-white/[0.03] p-2 text-left hover:border-amber-400/25"
+                            >
+                              <span className="block text-[10px] font-black uppercase tracking-[0.14em] text-zinc-600">Aprobar candidatos 65+</span>
+                              <code className="mt-1 block whitespace-pre-wrap break-words text-[11px] leading-relaxed text-zinc-500">
+                                {MUSICBRAINZ_APPROVE_COMMAND}
+                              </code>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
