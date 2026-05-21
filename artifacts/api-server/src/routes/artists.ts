@@ -434,6 +434,97 @@ router.get("/admin/artists/enrichment-candidates", async (req, res) => {
   }
 });
 
+router.get("/admin/artists/api-coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const [artists, spotifyRows, spotifyCandidates, musicbrainzRows, musicbrainzCandidates, youtubeRows] = await Promise.all([
+      fetchMetadata(),
+      db.select().from(spotifyArtists),
+      db.select().from(spotifyArtistCandidates),
+      db.select().from(musicbrainzArtists),
+      db.select().from(musicbrainzArtistCandidates),
+      db.select().from(youtubeChannels),
+    ]);
+
+    const artistKeys = new Set(artists.map(row => row.artist_key).filter(Boolean));
+    const linkedSpotify = new Set(spotifyRows.map(row => row.artistKey));
+    const linkedMusicbrainz = new Set(musicbrainzRows.map(row => row.artistKey));
+    const linkedYoutube = new Set(youtubeRows.map(row => row.artistKey));
+
+    const spotifyReview = spotifyCandidates.filter(row => row.status === "review");
+    const musicbrainzReview = musicbrainzCandidates.filter(row => row.status === "review");
+    const spotifyRejected = spotifyCandidates.filter(row => row.status === "rejected");
+    const musicbrainzRejected = musicbrainzCandidates.filter(row => row.status === "rejected");
+
+    const missingPreview = (linkedKeys: Set<string>) => artists
+      .filter(row => row.artist_key && !linkedKeys.has(row.artist_key))
+      .slice(0, 20)
+      .map(row => ({ artistKey: row.artist_key, artistName: row.artist_name }));
+
+    const newestDate = (dates: Date[]) => {
+      const newest = dates.filter(Boolean).sort((a, b) => b.getTime() - a.getTime())[0];
+      return newest?.toISOString() ?? null;
+    };
+    const oldestDate = (dates: Date[]) => {
+      const oldest = dates.filter(Boolean).sort((a, b) => a.getTime() - b.getTime())[0];
+      return oldest?.toISOString() ?? null;
+    };
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      source: "artist_metadata",
+      totalArtists: artistKeys.size,
+      generatedAt: new Date().toISOString(),
+      providers: {
+        spotify: {
+          linked: linkedSpotify.size,
+          missing: Math.max(0, artistKeys.size - linkedSpotify.size),
+          review: spotifyReview.length,
+          rejected: spotifyRejected.length,
+          coveragePct: artistKeys.size ? Number(((linkedSpotify.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          newestUpdatedAt: newestDate(spotifyRows.map(row => row.spotifyLastUpdated)),
+          oldestUpdatedAt: oldestDate(spotifyRows.map(row => row.spotifyLastUpdated)),
+          missingPreview: missingPreview(linkedSpotify),
+          reviewPreview: spotifyReview.slice(0, 12).map(row => ({
+            artistKey: row.artistKey,
+            artistName: row.artistName,
+            bestScore: row.bestScore,
+          })),
+        },
+        youtube: {
+          linked: linkedYoutube.size,
+          missing: Math.max(0, artistKeys.size - linkedYoutube.size),
+          review: 0,
+          rejected: 0,
+          coveragePct: artistKeys.size ? Number(((linkedYoutube.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          newestUpdatedAt: newestDate(youtubeRows.map(row => row.cachedAt)),
+          oldestUpdatedAt: oldestDate(youtubeRows.map(row => row.cachedAt)),
+          missingPreview: missingPreview(linkedYoutube),
+        },
+        musicbrainz: {
+          linked: linkedMusicbrainz.size,
+          missing: Math.max(0, artistKeys.size - linkedMusicbrainz.size),
+          review: musicbrainzReview.length,
+          rejected: musicbrainzRejected.length,
+          coveragePct: artistKeys.size ? Number(((linkedMusicbrainz.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          newestUpdatedAt: newestDate(musicbrainzRows.map(row => row.lastUpdated)),
+          oldestUpdatedAt: oldestDate(musicbrainzRows.map(row => row.lastUpdated)),
+          missingPreview: missingPreview(linkedMusicbrainz),
+          reviewPreview: musicbrainzReview.slice(0, 12).map(row => ({
+            artistKey: row.artistKey,
+            artistName: row.artistName,
+            bestScore: row.bestScore,
+          })),
+        },
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] api coverage unavailable");
+    res.status(500).json({ error: "API coverage unavailable" });
+  }
+});
+
 router.post("/admin/artists/enrichment-candidates/:provider/:artistKey/approve", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 

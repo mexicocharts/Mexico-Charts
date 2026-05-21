@@ -1,0 +1,275 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "wouter";
+import { ArrowLeft, BarChart3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
+import PageSEO from "@/components/PageSEO";
+
+const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+
+type ProviderKey = "spotify" | "youtube" | "musicbrainz";
+
+interface CoverageProvider {
+  linked: number;
+  missing: number;
+  review: number;
+  rejected: number;
+  coveragePct: number;
+  newestUpdatedAt: string | null;
+  oldestUpdatedAt: string | null;
+  missingPreview: Array<{ artistKey: string; artistName: string }>;
+  reviewPreview?: Array<{ artistKey: string; artistName: string; bestScore: number }>;
+}
+
+interface CoverageResponse {
+  source: string;
+  totalArtists: number;
+  generatedAt: string;
+  providers: Record<ProviderKey, CoverageProvider>;
+}
+
+interface KworbStats {
+  fetchingEnabled: boolean;
+  requestBudget: {
+    today: number;
+    caps: { daily: number; hourly: number };
+    remainingToday: number;
+  };
+  coverage: {
+    total: number;
+    bySource: {
+      withSpotify: number;
+      withYoutube: number;
+      withItunes: number;
+      withAny: number;
+      noCoverage: number;
+    };
+  };
+  snapshots: {
+    artists_with_snapshots?: string;
+    stale_snapshots?: string;
+  };
+  noSnapshotCount: number;
+  estimatedDaysToFull: string;
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "Sin datos";
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function providerMeta(provider: ProviderKey) {
+  if (provider === "spotify") {
+    return { label: "Spotify", color: "#1DB954", icon: <SiSpotify className="h-5 w-5" /> };
+  }
+  if (provider === "youtube") {
+    return { label: "YouTube", color: "#ff4444", icon: <SiYoutube className="h-5 w-5" /> };
+  }
+  return { label: "MusicBrainz", color: "#f59e0b", icon: <SiMusicbrainz className="h-5 w-5" /> };
+}
+
+export default function ApiCoverage() {
+  const [adminKey, setAdminKey] = useState(() => localStorage.getItem("mexicocharts_admin_key") ?? "");
+  const [draftKey, setDraftKey] = useState(adminKey);
+  const [coverage, setCoverage] = useState<CoverageResponse | null>(null);
+  const [kworb, setKworb] = useState<KworbStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const providerEntries = useMemo(() => {
+    if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
+    return Object.entries(coverage.providers) as Array<[ProviderKey, CoverageProvider]>;
+  }, [coverage]);
+
+  async function loadDashboard(key = adminKey) {
+    if (!key.trim()) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const [coverageRes, kworbRes] = await Promise.all([
+        fetch("/api/admin/artists/api-coverage", { headers: { "X-Admin-Key": key.trim() } }),
+        fetch("/api/kworb/admin/stats"),
+      ]);
+      if (!coverageRes.ok) throw new Error(coverageRes.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cobertura.");
+      setCoverage(await coverageRes.json());
+      setKworb(kworbRes.ok ? await kworbRes.json() : null);
+    } catch (err) {
+      setError((err as Error).message);
+      setCoverage(null);
+      setKworb(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function saveKey() {
+    const next = draftKey.trim();
+    localStorage.setItem("mexicocharts_admin_key", next);
+    setAdminKey(next);
+    void loadDashboard(next);
+  }
+
+  useEffect(() => {
+    if (adminKey) void loadDashboard(adminKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="min-h-[100dvh] bg-[#050505] text-zinc-200">
+      <PageSEO
+        title="Cobertura API | Mexico Charts"
+        description="Panel interno de cobertura para APIs y datos enriquecidos de Mexico Charts."
+        path="/admin/api-coverage"
+      />
+
+      <nav className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#050505]/95 backdrop-blur-xl">
+        <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-4 px-6">
+          <Link href="/" className="shrink-0">
+            <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90" />
+          </Link>
+          <div className="h-5 w-px bg-white/10" />
+          <Link href="/" className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-200">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Volver
+          </Link>
+          <Link href="/admin/enrichment-review" className="ml-auto inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#39FF14] hover:text-white">
+            Cola de revisión
+            <ExternalLink className="h-3 w-3" />
+          </Link>
+        </div>
+      </nav>
+
+      <main className="mx-auto flex max-w-[1200px] flex-col gap-8 px-6 py-10">
+        <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#39FF14]">Panel interno</p>
+            <h1 className="mt-2 text-3xl font-black uppercase tracking-tight text-white md:text-5xl">Cobertura API</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-500">
+              Vista rápida de artistas vinculados, faltantes y pendientes de revisión.
+            </p>
+          </div>
+
+          <div className="flex w-full max-w-md gap-2">
+            <div className="relative flex-1">
+              <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+              <input
+                value={draftKey}
+                onChange={e => setDraftKey(e.target.value)}
+                type="password"
+                placeholder="Clave admin"
+                className="h-11 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={saveKey}
+              className="inline-flex h-11 items-center gap-2 rounded-lg border border-[#39FF14]/35 bg-[#39FF14]/10 px-4 text-[11px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              Cargar
+            </button>
+          </div>
+        </header>
+
+        {error && (
+          <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
+            {error}
+          </div>
+        )}
+
+        {coverage && (
+          <>
+            <section className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-3xl font-black text-white">{coverage.totalArtists}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">Artistas en base</div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-3xl font-black text-white">{providerEntries.reduce((sum, [, p]) => sum + p.review, 0)}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">En revisión</div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-3xl font-black text-white">{kworb?.requestBudget.remainingToday ?? "—"}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">Kworb restante hoy</div>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <div className="text-3xl font-black text-white">{fmtDate(coverage.generatedAt)}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">Actualizado</div>
+              </div>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-3">
+              {providerEntries.map(([key, provider]) => {
+                const meta = providerMeta(key);
+                return (
+                  <article key={key} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04]" style={{ color: meta.color }}>
+                        {meta.icon}
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">{meta.label}</h2>
+                        <p className="text-xs font-bold text-zinc-600">{provider.coveragePct}% de cobertura</p>
+                      </div>
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full rounded-full" style={{ width: `${provider.coveragePct}%`, background: meta.color }} />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-2xl font-black text-white">{provider.linked}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vinculados</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black text-white">{provider.missing}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Faltantes</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black text-white">{provider.review}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Revisión</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black text-white">{provider.rejected}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Rechazados</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-white/[0.06] pt-4 text-xs text-zinc-600">
+                      <div>Más reciente: <span className="font-bold text-zinc-400">{fmtDate(provider.newestUpdatedAt)}</span></div>
+                      <div className="mt-1">Más antiguo: <span className="font-bold text-zinc-400">{fmtDate(provider.oldestUpdatedAt)}</span></div>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+
+            {kworb && (
+              <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
+                <div className="mb-5 flex items-center gap-3">
+                  <BarChart3 className="h-5 w-5 text-[#39FF14]" />
+                  <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Kworb</h2>
+                  <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                    {kworb.fetchingEnabled ? "Activo" : "Pausado"}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-5">
+                  <div><div className="text-2xl font-black text-white">{kworb.coverage.total}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Tracking</div></div>
+                  <div><div className="text-2xl font-black text-white">{kworb.coverage.bySource.withAny}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con datos</div></div>
+                  <div><div className="text-2xl font-black text-white">{kworb.noSnapshotCount}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin snapshot</div></div>
+                  <div><div className="text-2xl font-black text-white">{kworb.snapshots.stale_snapshots ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vencidos</div></div>
+                  <div><div className="text-2xl font-black text-white">{kworb.estimatedDaysToFull}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Días est.</div></div>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
