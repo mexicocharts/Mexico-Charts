@@ -1,4 +1,13 @@
 import { Router } from "express";
+import { db } from "@workspace/db";
+import {
+  musicbrainzArtistCandidates,
+  musicbrainzArtists,
+  spotifyArtistCandidates,
+  spotifyArtists,
+  youtubeChannels,
+} from "@workspace/db/schema";
+import { asc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -7,6 +16,7 @@ const METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
 
 /* ── Subgenre fallback (mirrors web artistMetadata.ts SUBGENRE_BY_KEY) ────────
    Applied when the sheet's subgenre column is blank.
@@ -233,6 +243,33 @@ function sanitizeRow(row: Record<string, string>): Record<string, string> {
   return out;
 }
 
+function isAdminAuthed(req: { headers: Record<string, string | string[] | undefined>; query: Record<string, unknown> }): boolean {
+  const key = ADMIN_KEY();
+  if (!key) return false;
+  const header = req.headers["x-admin-key"];
+  const qkey = req.query["adminKey"];
+  return header === key || qkey === key;
+}
+
+function requireAdmin(
+  req: Parameters<Parameters<typeof router.get>[1]>[0],
+  res: Parameters<Parameters<typeof router.get>[1]>[1],
+): boolean {
+  if (!isAdminAuthed(req as Parameters<typeof isAdminAuthed>[0])) {
+    res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
+    return false;
+  }
+  return true;
+}
+
+function fmtCount(n: number | null | undefined): string | null {
+  if (n == null) return null;
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1).replace(/\.0$/, "")}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
+}
+
 async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
@@ -261,6 +298,117 @@ router.get("/artists/metadata", async (_req, res) => {
   } catch (err) {
     logger.error({ err }, "[artists] metadata unavailable");
     res.status(502).json({ error: "Artist metadata unavailable", detail: String(err) });
+  }
+});
+
+router.get("/artists/enrichment/:artistKey", async (req, res) => {
+  const artistKey = req.params["artistKey"]?.trim().toLowerCase();
+  if (!artistKey) {
+    res.status(400).json({ error: "artistKey is required" });
+    return;
+  }
+
+  try {
+    const [spotify] = await db.select().from(spotifyArtists).where(eq(spotifyArtists.artistKey, artistKey));
+    const [musicbrainz] = await db.select().from(musicbrainzArtists).where(eq(musicbrainzArtists.artistKey, artistKey));
+    const [youtube] = await db.select().from(youtubeChannels).where(eq(youtubeChannels.artistKey, artistKey));
+
+    res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=3600");
+    res.json({
+      artistKey,
+      spotify: spotify ? {
+        artistId: spotify.spotifyArtistId,
+        name: spotify.spotifyName,
+        url: spotify.spotifyUrl,
+        imageUrl: spotify.spotifyImageUrl,
+        uri: spotify.spotifyUri,
+        followers: spotify.spotifyFollowers,
+        followersFmt: fmtCount(spotify.spotifyFollowers),
+        popularity: spotify.spotifyPopularity,
+        genres: spotify.spotifyGenres,
+        capability: spotify.spotifyApiCapability,
+        notes: spotify.notes,
+        verified: spotify.verified,
+        lastUpdated: spotify.spotifyLastUpdated.toISOString(),
+      } : null,
+      musicbrainz: musicbrainz ? {
+        mbid: musicbrainz.mbid,
+        name: musicbrainz.name,
+        sortName: musicbrainz.sortName,
+        disambiguation: musicbrainz.disambiguation,
+        type: musicbrainz.type,
+        country: musicbrainz.country,
+        areaName: musicbrainz.areaName,
+        beginDate: musicbrainz.beginDate,
+        tags: musicbrainz.tags,
+        relations: musicbrainz.relations,
+        verified: musicbrainz.verified,
+        lastUpdated: musicbrainz.lastUpdated.toISOString(),
+        url: `https://musicbrainz.org/artist/${musicbrainz.mbid}`,
+      } : null,
+      youtube: youtube ? {
+        channelId: youtube.channelId,
+        title: youtube.title,
+        thumbnailUrl: youtube.thumbnailUrl,
+        subscribers: youtube.subscriberCount,
+        subscribersFmt: fmtCount(youtube.subscriberCount),
+        views: youtube.viewCount,
+        viewsFmt: fmtCount(youtube.viewCount),
+        videoCount: youtube.videoCount,
+        customUrl: youtube.customUrl,
+        channelUrl: `https://www.youtube.com/channel/${youtube.channelId}`,
+        cachedAt: youtube.cachedAt.toISOString(),
+      } : null,
+    });
+  } catch (err) {
+    logger.error({ err, artistKey }, "[artists] enrichment unavailable");
+    res.status(500).json({ error: "Artist enrichment unavailable" });
+  }
+});
+
+router.get("/admin/artists/enrichment-candidates", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    const limit = Math.min(parseInt((req.query["limit"] as string | undefined) ?? "100", 10), 300);
+    const [spotifyRows, musicbrainzRows] = await Promise.all([
+      db.select().from(spotifyArtistCandidates).orderBy(asc(spotifyArtistCandidates.searchedAt)),
+      db.select().from(musicbrainzArtistCandidates).orderBy(asc(musicbrainzArtistCandidates.searchedAt)),
+    ]);
+
+    const spotifyReview = spotifyRows.filter(row => row.status === "review").slice(0, limit);
+    const musicbrainzReview = musicbrainzRows.filter(row => row.status === "review").slice(0, limit);
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      totals: {
+        spotify: spotifyRows.length,
+        spotifyReview: spotifyRows.filter(row => row.status === "review").length,
+        musicbrainz: musicbrainzRows.length,
+        musicbrainzReview: musicbrainzRows.filter(row => row.status === "review").length,
+      },
+      spotify: spotifyReview.map(row => ({
+        provider: "spotify",
+        artistKey: row.artistKey,
+        artistName: row.artistName,
+        bestScore: row.bestScore,
+        status: row.status,
+        searchedAt: row.searchedAt.toISOString(),
+        candidates: row.candidates,
+      })),
+      musicbrainz: musicbrainzReview.map(row => ({
+        provider: "musicbrainz",
+        artistKey: row.artistKey,
+        artistName: row.artistName,
+        bestScore: row.bestScore,
+        status: row.status,
+        searchedAt: row.searchedAt.toISOString(),
+        candidates: row.candidates,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] enrichment candidates unavailable");
+    res.status(500).json({ error: "Artist enrichment candidates unavailable" });
   }
 });
 

@@ -1,0 +1,70 @@
+import { useEffect, useState } from "react";
+
+export interface ArtistEnrichment {
+  artistKey: string;
+  spotify: {
+    artistId: string;
+    name: string | null;
+    url: string | null;
+    imageUrl: string | null;
+    uri: string | null;
+    followers: number | null;
+    followersFmt: string | null;
+    popularity: number | null;
+    genres: string[];
+    capability: string;
+    notes: string | null;
+    verified: boolean;
+    lastUpdated: string;
+  } | null;
+  musicbrainz: {
+    mbid: string;
+    name: string | null;
+    sortName: string | null;
+    disambiguation: string | null;
+    type: string | null;
+    country: string | null;
+    areaName: string | null;
+    beginDate: string | null;
+    tags: string[];
+    relations: Array<{ type: string; url: string }>;
+    verified: string;
+    lastUpdated: string;
+    url: string;
+  } | null;
+  youtube: {
+    channelId: string;
+    title: string | null;
+    thumbnailUrl: string | null;
+    subscribers: number | null;
+    subscribersFmt: string | null;
+    views: number | null;
+    viewsFmt: string | null;
+    videoCount: number | null;
+    customUrl: string | null;
+    channelUrl: string;
+    cachedAt: string;
+  } | null;
+}
+
+export function useArtistEnrichment(artistKey: string): ArtistEnrichment | null {
+  const [result, setResult] = useState<ArtistEnrichment | null>(null);
+
+  useEffect(() => {
+    if (!artistKey) return;
+    let cancelled = false;
+    setResult(null);
+
+    fetch(`/api/artists/enrichment/${encodeURIComponent(artistKey)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: ArtistEnrichment | null) => {
+        if (cancelled || !data?.artistKey) return;
+        setResult(data);
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [artistKey]);
+
+  return result;
+}

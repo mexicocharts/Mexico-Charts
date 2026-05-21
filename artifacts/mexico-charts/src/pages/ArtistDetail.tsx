@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
@@ -13,6 +13,7 @@ import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useWikiBio } from "@/hooks/useWikiBio";
 import { useYoutubeChannel } from "@/hooks/useYoutubeChannel";
 import { useArtistTouring } from "@/hooks/useTouring";
+import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -354,6 +355,7 @@ export default function ArtistDetail() {
   const itunesData = useItunesArtist(artist.name);
   const wikiBio      = useWikiBio(artist.name);
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
+  const enrichment   = useArtistEnrichment(slugAsKey);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
 
@@ -556,8 +558,25 @@ export default function ArtistDetail() {
               </a>
             )}
 
-            {(itunesData?.appleUrl || ytChannel) && (
+            {(enrichment?.spotify?.url || itunesData?.appleUrl || ytChannel) && (
               <div className="mt-5 flex flex-wrap gap-2">
+                {enrichment?.spotify?.url && (
+                  <a
+                    href={enrichment.spotify.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                    style={{
+                      background: "rgba(29,185,84,0.08)",
+                      border: "1px solid rgba(29,185,84,0.28)",
+                      color: "#1DB954",
+                    }}
+                    data-testid="link-spotify-artist"
+                  >
+                    <SiSpotify className="w-3.5 h-3.5" />
+                    Perfil verificado
+                  </a>
+                )}
                 {itunesData?.appleUrl && (
                   <a
                     href={itunesData.appleUrl}
@@ -710,6 +729,112 @@ export default function ArtistDetail() {
                     {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
                   </div>
                 )}
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            VERIFIED API LINKS — Spotify / YouTube / MusicBrainz
+        ══════════════════════════════════════════════════════════ */}
+        {enrichment && (enrichment.spotify || enrichment.youtube || enrichment.musicbrainz) && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-verified-links"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-6"
+              style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="relative z-10">
+                <div className="mb-5 flex flex-wrap items-center gap-3">
+                  <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Enlaces verificados</h2>
+                  <div className="ml-auto hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700 sm:flex">
+                    <Database className="h-3.5 w-3.5" />
+                    Datos de API
+                  </div>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  {enrichment.spotify && (
+                    <a
+                      href={enrichment.spotify.url ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group rounded-xl p-4 transition-colors duration-200"
+                      style={{ background: "rgba(29,185,84,0.055)", border: "1px solid rgba(29,185,84,0.16)" }}
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        <SiSpotify className="h-4 w-4" style={{ color: "#1DB954" }} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-[#1DB954]" />
+                      </div>
+                      <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                        ID verificado
+                      </div>
+                      <div className="mt-3 text-[10px] leading-relaxed text-zinc-700">
+                        Perfil oficial guardado. Seguidores, popularidad y géneros quedan como opcionales porque esta credencial no los devuelve.
+                      </div>
+                    </a>
+                  )}
+
+                  {enrichment.youtube && (
+                    <a
+                      href={enrichment.youtube.channelUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group rounded-xl p-4 transition-colors duration-200"
+                      style={{ background: "rgba(255,0,0,0.055)", border: "1px solid rgba(255,0,0,0.15)" }}
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        <SiYoutube className="h-4 w-4 text-red-500" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-red-400" />
+                      </div>
+                      <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "Canal oficial"}</div>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                        {enrichment.youtube.subscribersFmt ? `${enrichment.youtube.subscribersFmt} suscriptores` : "Canal vinculado"}
+                      </div>
+                      {enrichment.youtube.viewsFmt && (
+                        <div className="mt-3 text-sm font-black text-red-300">{enrichment.youtube.viewsFmt} vistas</div>
+                      )}
+                    </a>
+                  )}
+
+                  {enrichment.musicbrainz && (
+                    <a
+                      href={enrichment.musicbrainz.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group rounded-xl p-4 transition-colors duration-200"
+                      style={{ background: "rgba(245,158,11,0.055)", border: "1px solid rgba(245,158,11,0.15)" }}
+                    >
+                      <div className="mb-3 flex items-center gap-2">
+                        <Database className="h-4 w-4 text-amber-400" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">MusicBrainz</span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-amber-300" />
+                      </div>
+                      <div className="truncate text-lg font-black text-white">{enrichment.musicbrainz.name ?? artist.name}</div>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                        {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Identidad musical"}
+                      </div>
+                      {enrichment.musicbrainz.tags.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {enrichment.musicbrainz.tags.slice(0, 3).map(tag => (
+                            <span key={tag} className="rounded border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </motion.section>
