@@ -495,7 +495,7 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
 
     const missingPreview = (linkedKeys: Set<string>) => artists
       .filter(row => row.artist_key && !linkedKeys.has(row.artist_key))
-      .slice(0, 20)
+      .slice(0, 150)
       .map(row => ({ artistKey: row.artist_key, artistName: row.artist_name }));
 
     const newestDate = (dates: Date[]) => {

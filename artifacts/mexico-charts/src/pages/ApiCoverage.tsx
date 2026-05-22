@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, CheckCircle2, Clock3, Disc3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -181,6 +181,7 @@ export default function ApiCoverage() {
   const [loading, setLoading] = useState(false);
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
+  const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
 
   const providerEntries = useMemo(() => {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
@@ -291,6 +292,21 @@ export default function ApiCoverage() {
       setActionMessage(`${label} copiado.`);
     } catch {
       setActionMessage(`${label} listo para copiar manualmente.`);
+    }
+  }
+
+  async function copyMissingArtists(provider: string, rows: CoverageProvider["missingPreview"]) {
+    const names = rows.map(row => row.artistName).filter(Boolean).join("\n");
+    if (!names) {
+      setActionMessage("No hay artistas faltantes para copiar.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(names);
+      setActionMessage(`Lista de faltantes de ${provider} copiada.`);
+    } catch {
+      setActionMessage(`Lista de faltantes de ${provider} lista para copiar manualmente.`);
     }
   }
 
@@ -511,6 +527,49 @@ export default function ApiCoverage() {
                       {key === "deezer" && (
                         <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                           Cuenta artistas con al menos una portada de canción cacheada.
+                        </div>
+                      )}
+                      {provider.missingPreview.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-white/[0.06] bg-black/20">
+                          <div className="flex items-center gap-2 border-b border-white/[0.06] p-3">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedMissing(prev => ({ ...prev, [key]: !prev[key] }))}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            >
+                              <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-600 transition-transform ${expandedMissing[key] ? "rotate-180" : ""}`} />
+                              <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                Ver faltantes
+                              </span>
+                              <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                                {provider.missingPreview.length}{provider.missing > provider.missingPreview.length ? "+" : ""}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void copyMissingArtists(meta.label, provider.missingPreview)}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/10 text-zinc-500 hover:border-[#39FF14]/30 hover:text-[#39FF14]"
+                              aria-label={`Copiar faltantes de ${meta.label}`}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          {expandedMissing[key] && (
+                            <div className="max-h-64 overflow-y-auto p-2">
+                              {provider.missingPreview.map(row => (
+                                <div key={row.artistKey} className="flex items-center gap-2 rounded px-2 py-1.5 text-xs font-bold text-zinc-400 hover:bg-white/[0.03]">
+                                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                                  <span className="min-w-0 flex-1 truncate">{row.artistName}</span>
+                                  <span className="truncate text-[10px] uppercase tracking-[0.12em] text-zinc-700">{row.artistKey}</span>
+                                </div>
+                              ))}
+                              {provider.missing > provider.missingPreview.length && (
+                                <div className="px-2 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                                  Hay más faltantes fuera de esta vista rápida.
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                       {key === "youtube" && provider.missing > 0 && (
