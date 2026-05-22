@@ -198,7 +198,10 @@ export default function EnrichmentReview() {
             <ArrowLeft className="h-3.5 w-3.5" />
             Volver
           </Link>
-          <span className="ml-auto text-[10px] font-black uppercase tracking-[0.24em] text-[#39FF14]">Admin</span>
+          <Link href="/admin/api-coverage" className="ml-auto inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#39FF14] hover:text-white">
+            Cobertura API
+            <ExternalLink className="h-3 w-3" />
+          </Link>
         </div>
       </nav>
 
