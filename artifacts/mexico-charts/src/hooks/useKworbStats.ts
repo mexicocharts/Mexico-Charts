@@ -11,6 +11,9 @@ export interface KworbTrack {
 
 export interface KworbVideo {
   title: string;
+  videoId?: string | null;
+  videoUrl?: string | null;
+  thumbnailUrl?: string | null;
   views: number;
   viewsFmt: string;
   daily: number;

@@ -282,6 +282,9 @@ interface TrackEntry {
 
 interface VideoEntry {
   title: string;
+  videoId?: string | null;
+  videoUrl?: string | null;
+  thumbnailUrl?: string | null;
   views: number;
   viewsFmt: string;
   daily: number;
@@ -361,6 +364,32 @@ function parseTableRows(html: string): string[][] {
   return rows;
 }
 
+function parseTableRowsRaw(html: string): string[][] {
+  const rows: string[][] = [];
+  const rowMatches = html.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs);
+  for (const rm of rowMatches) {
+    const cells: string[] = [];
+    const cellMatches = rm[1].matchAll(/<td[^>]*>(.*?)<\/td>/gs);
+    for (const cm of cellMatches) cells.push(cm[1]);
+    if (cells.length) rows.push(cells);
+  }
+  return rows;
+}
+
+function extractYouTubeVideoId(cellHtml: string): string | null {
+  const direct = cellHtml.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+  if (direct?.[1]) return direct[1];
+
+  const kworb = cellHtml.match(/\/video\/([A-Za-z0-9_-]{11})\.html/);
+  if (kworb?.[1]) return kworb[1];
+
+  return null;
+}
+
+function youtubeThumbnailUrl(videoId: string | null): string | null {
+  return videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
 /* ══ HTTP fetch with timeout ══════════════════════════════════════════════ */
 async function fetchPage(url: string): Promise<string | null> {
   try {
@@ -409,21 +438,34 @@ function parseSpotifyPage(html: string): KworbStats["spotify"] {
 }
 
 function parseYouTubePage(html: string): KworbStats["youtube"] {
-  const rows = parseTableRows(html);
+  const rows = parseTableRowsRaw(html);
   let totalViews = 0, dailyAvg = 0;
   const topVideos: VideoEntry[] = [];
 
   for (const cells of rows) {
     if (!cells.length) continue;
-    if      (cells[0] === "Total views:"       && cells[1]) totalViews = parseCommaNum(cells[1]);
-    else if (cells[0] === "Current daily avg:" && cells[1]) dailyAvg   = parseCommaNum(cells[1]);
+    const first = stripTags(cells[0]);
+    const second = cells[1] ? stripTags(cells[1]) : "";
+    if      (first === "Total views:"       && second) totalViews = parseCommaNum(second);
+    else if (first === "Current daily avg:" && second) dailyAvg   = parseCommaNum(second);
     else if (
       topVideos.length < 10 && cells.length >= 2 &&
-      cells[0] && cells[1] && /^\d[\d,]+$/.test(cells[1])
+      first && second && /^\d[\d,]+$/.test(second)
     ) {
-      const views = parseCommaNum(cells[1]);
-      const daily = cells[2] ? parseCommaNum(cells[2]) : 0;
-      topVideos.push({ title: cells[0], views, viewsFmt: fmtNum(views), daily, dailyFmt: fmtNum(daily), published: cells[3] ?? "" });
+      const videoId = extractYouTubeVideoId(cells[0]);
+      const views = parseCommaNum(second);
+      const daily = cells[2] ? parseCommaNum(stripTags(cells[2])) : 0;
+      topVideos.push({
+        title: first,
+        videoId,
+        videoUrl: videoId ? `https://www.youtube.com/watch?v=${videoId}` : null,
+        thumbnailUrl: youtubeThumbnailUrl(videoId),
+        views,
+        viewsFmt: fmtNum(views),
+        daily,
+        dailyFmt: fmtNum(daily),
+        published: cells[3] ? stripTags(cells[3]) : "",
+      });
     }
   }
 

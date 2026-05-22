@@ -1196,15 +1196,36 @@ export default function ArtistDetail() {
                 </div>
 
                 {kworbStats.youtube.topVideos[0] && (
-                  <div
+                  <a
+                    href={kworbStats.youtube.topVideos[0].videoUrl ?? undefined}
+                    target={kworbStats.youtube.topVideos[0].videoUrl ? "_blank" : undefined}
+                    rel={kworbStats.youtube.topVideos[0].videoUrl ? "noopener noreferrer" : undefined}
                     className="mb-3 grid gap-4 rounded-xl p-4 sm:grid-cols-[auto_1fr_auto]"
                     style={{
                       background: "linear-gradient(135deg, rgba(239,68,68,0.10), rgba(255,255,255,0.025))",
                       border: "1px solid rgba(239,68,68,0.18)",
                     }}
                   >
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-black text-white" style={{ background: "rgba(239,68,68,0.18)", border: "1px solid rgba(239,68,68,0.24)" }}>
-                      #1
+                    <div
+                      className="relative h-20 overflow-hidden rounded-xl sm:h-16 sm:w-28"
+                      style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.18)" }}
+                    >
+                      {kworbStats.youtube.topVideos[0].thumbnailUrl ? (
+                        <img
+                          src={kworbStats.youtube.topVideos[0].thumbnailUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-red-400">
+                          <SiYoutube className="h-6 w-6" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/20" />
+                      <div className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-black text-white">
+                        #1
+                      </div>
                     </div>
                     <div className="min-w-0">
                       <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-red-400">
@@ -1226,13 +1247,16 @@ export default function ArtistDetail() {
                         <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">por día</div>
                       </div>
                     </div>
-                  </div>
+                  </a>
                 )}
 
                 <div className="grid gap-2 md:grid-cols-2">
                   {kworbStats.youtube.topVideos.slice(1, 8).map((v, i) => (
-                    <motion.div
+                    <motion.a
                       key={i}
+                      href={v.videoUrl ?? undefined}
+                      target={v.videoUrl ? "_blank" : undefined}
+                      rel={v.videoUrl ? "noopener noreferrer" : undefined}
                       initial={{ opacity: 0, y: 8 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
@@ -1240,9 +1264,22 @@ export default function ArtistDetail() {
                       className="flex items-center gap-3 rounded-xl px-3 py-3"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-red-300" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.12)" }}>
-                        {i + 2}
-                      </span>
+                      <div
+                        className="relative h-12 w-20 shrink-0 overflow-hidden rounded-lg"
+                        style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.12)" }}
+                      >
+                        {v.thumbnailUrl ? (
+                          <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-red-400">
+                            <SiYoutube className="h-4 w-4" />
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black/20" />
+                        <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1 py-0.5 text-[9px] font-black text-white">
+                          {i + 2}
+                        </span>
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-bold text-zinc-300">{v.title}</div>
                         {v.published && (
@@ -1253,7 +1290,7 @@ export default function ArtistDetail() {
                         <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
                         <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
                       </div>
-                    </motion.div>
+                    </motion.a>
                   ))}
                 </div>
               </div>
