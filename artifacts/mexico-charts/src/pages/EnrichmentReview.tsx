@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
 import { SiMusicbrainz, SiSpotify } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -64,6 +64,7 @@ export default function EnrichmentReview() {
   const [draftKey, setDraftKey] = useState(adminKey);
   const [data, setData] = useState<ReviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [providerFilter, setProviderFilter] = useState<"todos" | ReviewRow["provider"]>("todos");
@@ -102,6 +103,7 @@ export default function EnrichmentReview() {
       });
       if (!res.ok) throw new Error(res.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cola.");
       setData(await res.json());
+      setActionMessage(null);
     } catch (err) {
       setError((err as Error).message);
       setData(null);
@@ -126,6 +128,7 @@ export default function EnrichmentReview() {
     const key = `${row.provider}-${row.artistKey}`;
     setPendingKey(key);
     setError(null);
+    setActionMessage(null);
     try {
       const res = await fetch(`/api/admin/artists/enrichment-candidates/${row.provider}/${encodeURIComponent(row.artistKey)}/${action}`, {
         method: "POST",
@@ -149,6 +152,26 @@ export default function EnrichmentReview() {
     setQuery("");
     setMinScore("");
     setSortMode("score");
+  }
+
+  async function copyVisibleRows() {
+    const lines = visibleRows.map(row => {
+      const best = row.candidates[0];
+      const displayName = row.provider === "spotify" ? best?.spotifyName : best?.name;
+      return `${row.artistName} | ${row.provider} | ${displayName ?? "Sin candidato"} | score ${row.bestScore}`;
+    });
+
+    if (lines.length === 0) {
+      setActionMessage("No hay candidatos visibles para copiar.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setActionMessage("Candidatos visibles copiados.");
+    } catch {
+      setActionMessage("Candidatos visibles listos para copiar manualmente.");
+    }
   }
 
   useEffect(() => {
@@ -214,6 +237,12 @@ export default function EnrichmentReview() {
         {error && (
           <div className="rounded-lg border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
             {error}
+          </div>
+        )}
+
+        {actionMessage && (
+          <div className="rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-4 py-3 text-sm font-bold text-[#baffb0]">
+            {actionMessage}
           </div>
         )}
 
@@ -306,6 +335,14 @@ export default function EnrichmentReview() {
                 className="h-9 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 hover:border-red-500/30 hover:text-red-300"
               >
                 Limpiar filtros
+              </button>
+              <button
+                type="button"
+                onClick={() => void copyVisibleRows()}
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14] hover:bg-[#39FF14]/15"
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copiar visibles
               </button>
             </div>
           </section>
