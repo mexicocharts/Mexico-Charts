@@ -69,12 +69,13 @@ export default function EnrichmentReview() {
   const [providerFilter, setProviderFilter] = useState<"todos" | ReviewRow["provider"]>("todos");
   const [query, setQuery] = useState("");
   const [minScore, setMinScore] = useState("");
+  const [sortMode, setSortMode] = useState<"score" | "reciente" | "antiguo">("score");
 
   const rows = useMemo(() => [...(data?.spotify ?? []), ...(data?.musicbrainz ?? [])], [data]);
-  const filteredRows = useMemo(() => {
+  const visibleRows = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     const scoreFloor = Number(minScore);
-    return rows.filter(row => {
+    const nextRows = rows.filter(row => {
       if (providerFilter !== "todos" && row.provider !== providerFilter) return false;
       if (Number.isFinite(scoreFloor) && minScore.trim() && row.bestScore < scoreFloor) return false;
       if (!normalizedQuery) return true;
@@ -83,7 +84,13 @@ export default function EnrichmentReview() {
       const haystack = `${row.artistName} ${row.artistKey} ${providerName ?? ""}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [minScore, providerFilter, query, rows]);
+
+    return nextRows.sort((a, b) => {
+      if (sortMode === "reciente") return new Date(b.searchedAt).getTime() - new Date(a.searchedAt).getTime();
+      if (sortMode === "antiguo") return new Date(a.searchedAt).getTime() - new Date(b.searchedAt).getTime();
+      return b.bestScore - a.bestScore;
+    });
+  }, [minScore, providerFilter, query, rows, sortMode]);
 
   async function loadReviewQueue(key = adminKey) {
     if (!key.trim()) return;
@@ -230,7 +237,7 @@ export default function EnrichmentReview() {
               <div>
                 <h2 className="text-sm font-black uppercase tracking-[0.12em] text-white">Filtrar revisión</h2>
                 <p className="mt-1 text-xs font-bold text-zinc-600">
-                  {filteredRows.length} de {rows.length} candidatos visibles.
+                  {visibleRows.length} de {rows.length} candidatos visibles.
                 </p>
               </div>
               <div className="relative lg:ml-auto lg:w-80">
@@ -266,11 +273,32 @@ export default function EnrichmentReview() {
                 />
               </div>
             </div>
+            <div className="mt-3 flex flex-wrap gap-2 border-t border-white/[0.06] pt-3">
+              <span className="flex h-9 items-center text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Orden</span>
+              {([
+                ["score", "Score alto"],
+                ["reciente", "Reciente"],
+                ["antiguo", "Antiguo"],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSortMode(value)}
+                  className={`h-9 rounded-lg border px-3 text-[10px] font-black uppercase tracking-[0.14em] ${
+                    sortMode === value
+                      ? "border-[#39FF14]/35 bg-[#39FF14]/10 text-[#39FF14]"
+                      : "border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </section>
         )}
 
         <section className="flex flex-col gap-3">
-          {filteredRows.map(row => {
+          {visibleRows.map(row => {
             const icon = row.provider === "spotify"
               ? <SiSpotify className="h-4 w-4 text-[#1DB954]" />
               : <SiMusicbrainz className="h-4 w-4 text-[#f59e0b]" />;
@@ -347,7 +375,7 @@ export default function EnrichmentReview() {
               No hay candidatos pendientes de revisión.
             </div>
           )}
-          {data && rows.length > 0 && filteredRows.length === 0 && (
+          {data && rows.length > 0 && visibleRows.length === 0 && (
             <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-8 text-center text-sm font-bold text-zinc-500">
               No hay candidatos con esos filtros.
             </div>
