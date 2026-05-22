@@ -382,9 +382,9 @@ export default function ApiCoverage() {
             <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90" />
           </Link>
           <div className="h-5 w-px bg-white/10" />
-          <Link href="/" className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-200">
+          <Link href="/admin" className="inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 hover:text-zinc-200">
             <ArrowLeft className="h-3.5 w-3.5" />
-            Volver
+            Admin
           </Link>
           <Link href="/admin/enrichment-review" className="ml-auto inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-[#39FF14] hover:text-white">
             Cola de revisión
