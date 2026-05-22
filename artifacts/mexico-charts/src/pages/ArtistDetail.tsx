@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
@@ -285,6 +285,7 @@ export default function ArtistDetail() {
   const params = useParams<{ slug: string }>();
   const slug = params.slug ?? "";
   const reduced = useReducedMotion();
+  const [showVerificationInfo, setShowVerificationInfo] = useState(false);
 
   /* ── Sheet data overlay ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
@@ -504,34 +505,63 @@ export default function ArtistDetail() {
               {artist.name}
             </h1>
             {isVerifiedArtist && (
-              <div
-                className="mb-4 inline-flex items-center gap-2 rounded-full px-2.5 py-1.5"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))",
-                  border: "1px solid rgba(255,255,255,0.14)",
-                  boxShadow: "0 10px 30px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)",
-                  backdropFilter: "blur(18px) saturate(160%)",
-                }}
-                aria-label="Artista verificado por Mexico Charts"
-                data-testid="artist-verified-badge"
-              >
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full"
+              <div className="relative mb-4 inline-block">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-full px-2.5 py-1.5 transition-transform duration-200 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-[#39FF14]/35"
                   style={{
-                    background: `linear-gradient(135deg, ${artist.accent}, rgba(57,255,20,0.68))`,
-                    boxShadow: `0 0 18px ${artist.accent}55`,
-                    color: "#050505",
+                    background: "linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.035))",
+                    border: "1px solid rgba(255,255,255,0.14)",
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)",
+                    backdropFilter: "blur(18px) saturate(160%)",
                   }}
+                  aria-label="Ver información de verificación de Mexico Charts"
+                  aria-expanded={showVerificationInfo}
+                  aria-controls="artist-verification-info"
+                  onClick={() => setShowVerificationInfo(v => !v)}
+                  onBlur={() => window.setTimeout(() => setShowVerificationInfo(false), 120)}
+                  data-testid="artist-verified-badge"
                 >
-                  <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
-                </span>
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                  Verificado
-                </span>
-                <span className="hidden h-3 w-px bg-white/15 sm:block" />
-                <span className="hidden text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500 sm:inline">
-                  Mexico Charts
-                </span>
+                  <span
+                    className="flex h-5 w-5 items-center justify-center rounded-full"
+                    style={{
+                      background: `linear-gradient(135deg, ${artist.accent}, rgba(57,255,20,0.68))`,
+                      boxShadow: `0 0 18px ${artist.accent}55`,
+                      color: "#050505",
+                    }}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                    Verificado
+                  </span>
+                  <span className="hidden h-3 w-px bg-white/15 sm:block" />
+                  <span className="hidden text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500 sm:inline">
+                    Mexico Charts
+                  </span>
+                </button>
+                {showVerificationInfo && (
+                  <div
+                    id="artist-verification-info"
+                    role="status"
+                    className="absolute left-0 top-[calc(100%+0.6rem)] z-30 w-[min(18rem,calc(100vw-3rem))] rounded-xl p-4 text-left"
+                    style={{
+                      background: "rgba(8,8,8,0.96)",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      boxShadow: "0 18px 55px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+                      backdropFilter: "blur(18px) saturate(160%)",
+                    }}
+                    data-testid="artist-verification-info"
+                  >
+                    <div className="mb-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: artist.accent }}>
+                      <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
+                      Verificación Mexico Charts
+                    </div>
+                    <p className="text-xs font-medium leading-relaxed text-zinc-400">
+                      Este perfil fue enlazado con fuentes oficiales del artista, como Spotify, YouTube o MusicBrainz.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             <p className="text-sm text-white/50 uppercase tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
