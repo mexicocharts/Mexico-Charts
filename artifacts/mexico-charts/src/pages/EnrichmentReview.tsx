@@ -103,9 +103,9 @@ export default function EnrichmentReview() {
       if (providerFilter !== "todos" && row.provider !== providerFilter) return false;
       if (Number.isFinite(scoreFloor) && minScore.trim() && row.bestScore < scoreFloor) return false;
       if (!normalizedQuery) return true;
-      const best = row.candidates[0];
-      const providerName = candidateName(row.provider, best);
-      const haystack = `${row.artistName} ${row.artistKey} ${providerName ?? ""}`.toLowerCase();
+      const candidateNames = row.candidates.map(candidate => candidateName(row.provider, candidate)).join(" ");
+      const candidateDetails = row.candidates.map(candidate => candidateMeta(row.provider, candidate)).join(" ");
+      const haystack = `${row.artistName} ${row.artistKey} ${candidateNames} ${candidateDetails}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
 
