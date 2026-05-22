@@ -55,6 +55,17 @@ function formatTourDate(iso: string): string {
 
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
+const CHART_POSITION_PLATFORMS = [
+  { key: "spotifyMx", label: "Spotify", short: "SP", color: "#1DB954" },
+  { key: "appleMusicMx", label: "Apple Music", short: "AM", color: "#fc3c44" },
+  { key: "youtubeMx", label: "YouTube", short: "YT", color: "#ef4444" },
+  { key: "itunesMx", label: "iTunes", short: "IT", color: "#39FF14" },
+  { key: "deezerMx", label: "Deezer", short: "DZ", color: "#A238FF" },
+] as const;
+
+type ChartPositionPlatformKey = typeof CHART_POSITION_PLATFORMS[number]["key"];
+type ChartPositionFilter = "all" | ChartPositionPlatformKey;
+
 /* ─── ARTIST DATA ───────────────────────────────────────────── */
 interface ArtistData {
   name: string;
@@ -286,6 +297,7 @@ export default function ArtistDetail() {
   const slug = params.slug ?? "";
   const reduced = useReducedMotion();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
+  const [chartPositionFilter, setChartPositionFilter] = useState<ChartPositionFilter>("all");
 
   /* ── Sheet data overlay ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
@@ -390,6 +402,16 @@ export default function ArtistDetail() {
     }
     return [];
   }, [kworbStats]);
+
+  const chartPositions = useMemo(() => {
+    const positions = kworbStats?.chartPositions ?? [];
+    if (chartPositionFilter === "all") return positions;
+    return positions.filter(position => position[chartPositionFilter] !== undefined);
+  }, [kworbStats, chartPositionFilter]);
+
+  const selectedChartPlatform = chartPositionFilter === "all"
+    ? null
+    : CHART_POSITION_PLATFORMS.find(platform => platform.key === chartPositionFilter) ?? null;
 
 
   return (
@@ -1023,50 +1045,126 @@ export default function ArtistDetail() {
                 <div className="flex items-center gap-3 mb-5">
                   <Music className="w-4 h-4" style={{ color: artist.accent }} />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Posiciones en México · Canciones Actuales</h2>
-                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">iTunes · Apple Music</div>
+                  <div className="ml-auto hidden text-[9px] uppercase tracking-widest text-zinc-700 font-bold sm:block">Charts actuales</div>
                 </div>
-                <div className="overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
-                  <div className="min-w-[520px]">
-                    {/* Header row */}
-                    <div className="grid gap-x-3 mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-700" style={{ gridTemplateColumns: "1fr 40px 40px 40px 40px 40px" }}>
-                      <span>Canción</span>
-                      <span className="text-center">SP</span>
-                      <span className="text-center">AM</span>
-                      <span className="text-center">YT</span>
-                      <span className="text-center">IT</span>
-                      <span className="text-center">DZ</span>
-                    </div>
-                    <div className="flex flex-col gap-0">
-                      {kworbStats.chartPositions.map((cp, i) => (
+
+                <div className="mb-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  <button
+                    type="button"
+                    onClick={() => setChartPositionFilter("all")}
+                    className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition-colors"
+                    style={{
+                      background: chartPositionFilter === "all" ? `${artist.accent}18` : "rgba(255,255,255,0.035)",
+                      border: chartPositionFilter === "all" ? `1px solid ${artist.accent}44` : "1px solid rgba(255,255,255,0.08)",
+                      color: chartPositionFilter === "all" ? artist.accent : "rgba(255,255,255,0.42)",
+                    }}
+                  >
+                    Todas
+                  </button>
+                  {CHART_POSITION_PLATFORMS.map(platform => (
+                    <button
+                      key={platform.key}
+                      type="button"
+                      onClick={() => setChartPositionFilter(platform.key)}
+                      className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition-colors"
+                      style={{
+                        background: chartPositionFilter === platform.key ? `${platform.color}18` : "rgba(255,255,255,0.035)",
+                        border: chartPositionFilter === platform.key ? `1px solid ${platform.color}44` : "1px solid rgba(255,255,255,0.08)",
+                        color: chartPositionFilter === platform.key ? platform.color : "rgba(255,255,255,0.42)",
+                      }}
+                    >
+                      {platform.label}
+                    </button>
+                  ))}
+                </div>
+
+                {chartPositions.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {chartPositions.map((cp, i) => {
+                      const ranks = CHART_POSITION_PLATFORMS
+                        .map(platform => cp[platform.key])
+                        .filter((rank): rank is number => rank !== undefined);
+                      const bestRank = ranks.length > 0 ? Math.min(...ranks) : null;
+                      const isBestTop3 = bestRank !== null && bestRank <= 3;
+                      return (
                         <div
-                          key={i}
-                          className="grid gap-x-3 py-2 items-center"
+                          key={`${cp.song}-${i}`}
+                          className="flex items-center gap-3 rounded-xl px-3 py-3 sm:px-4"
                           style={{
-                            gridTemplateColumns: "1fr 40px 40px 40px 40px 40px",
-                            borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined,
+                            background: "rgba(255,255,255,0.025)",
+                            border: "1px solid rgba(255,255,255,0.055)",
                           }}
                         >
-                          <span className="text-sm text-zinc-300 font-medium truncate pr-2">{cp.song}</span>
-                          {(["spotifyMx", "appleMusicMx", "youtubeMx", "itunesMx", "deezerMx"] as const).map((key) => {
-                            const val = cp[key];
-                            const isTop3 = val !== undefined && val <= 3;
-                            return (
-                              <span
-                                key={key}
-                                className="text-center text-xs font-black"
-                                style={{ color: val === undefined ? "rgba(255,255,255,0.08)" : isTop3 ? artist.accent : "rgba(255,255,255,0.45)" }}
-                              >
-                                {val === undefined ? "—" : `#${val}`}
-                              </span>
-                            );
-                          })}
+                          <div
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
+                            style={{
+                              background: isBestTop3 ? `${artist.accent}16` : "rgba(255,255,255,0.035)",
+                              border: isBestTop3 ? `1px solid ${artist.accent}30` : "1px solid rgba(255,255,255,0.06)",
+                              color: isBestTop3 ? artist.accent : "rgba(255,255,255,0.38)",
+                            }}
+                          >
+                            {bestRank ? `#${bestRank}` : "—"}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-black text-zinc-200">{cp.song}</div>
+                            {selectedChartPlatform ? (
+                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: selectedChartPlatform.color }}>
+                                {selectedChartPlatform.label} México
+                              </div>
+                            ) : (
+                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                {CHART_POSITION_PLATFORMS.map(platform => {
+                                  const rank = cp[platform.key];
+                                  if (rank === undefined) return null;
+                                  const isTop3 = rank <= 3;
+                                  return (
+                                    <span
+                                      key={platform.key}
+                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em]"
+                                      style={{
+                                        background: `${platform.color}${isTop3 ? "1c" : "10"}`,
+                                        border: `1px solid ${platform.color}${isTop3 ? "44" : "24"}`,
+                                        color: isTop3 ? platform.color : "rgba(255,255,255,0.48)",
+                                      }}
+                                    >
+                                      {platform.short}
+                                      <span>#{rank}</span>
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          {selectedChartPlatform && (
+                            <div className="shrink-0 text-right">
+                              <div className="text-lg font-black leading-none" style={{ color: selectedChartPlatform.color }}>
+                                #{cp[selectedChartPlatform.key]}
+                              </div>
+                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                México
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                </div>
-                <div className="mt-3 flex gap-4 text-[9px] text-zinc-700 font-bold uppercase tracking-wider">
-                  <span>SP=Spotify</span><span>AM=Apple Music</span><span>YT=YouTube</span><span>IT=iTunes</span><span>DZ=Deezer</span>
+                ) : (
+                  <div
+                    className="rounded-xl px-4 py-6 text-center text-xs font-bold text-zinc-600"
+                    style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
+                  >
+                    No hay posiciones actuales en {selectedChartPlatform?.label ?? "esta plataforma"}.
+                  </div>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-2 text-[9px] text-zinc-700 font-bold uppercase tracking-wider">
+                  {CHART_POSITION_PLATFORMS.map(platform => (
+                    <span key={platform.key} className="inline-flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: platform.color }} />
+                      {platform.short}={platform.label}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
