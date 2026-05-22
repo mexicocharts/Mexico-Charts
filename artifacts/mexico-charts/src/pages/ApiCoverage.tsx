@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -182,12 +182,14 @@ export default function ApiCoverage() {
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
+  const [missingSearch, setMissingSearch] = useState("");
 
   const providerEntries = useMemo(() => {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
     return Object.entries(coverage.providers) as Array<[ProviderKey, CoverageProvider]>;
   }, [coverage]);
   const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb, touring) : [], [coverage, kworb, touring]);
+  const normalizedMissingSearch = missingSearch.trim().toLowerCase();
 
   async function loadDashboard(key = adminKey) {
     if (!key.trim()) return;
@@ -445,9 +447,33 @@ export default function ApiCoverage() {
               </div>
             </section>
 
+            <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                <div>
+                  <h2 className="text-sm font-black uppercase tracking-[0.12em] text-white">Buscar faltantes</h2>
+                  <p className="mt-1 text-xs font-bold text-zinc-600">Filtra las listas abiertas por nombre o clave de artista.</p>
+                </div>
+                <div className="relative md:ml-auto md:w-80">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+                  <input
+                    value={missingSearch}
+                    onChange={e => setMissingSearch(e.target.value)}
+                    placeholder="Buscar artista faltante"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                  />
+                </div>
+              </div>
+            </section>
+
             <section className="grid gap-4 lg:grid-cols-4">
               {providerEntries.map(([key, provider]) => {
                 const meta = providerMeta(key);
+                const visibleMissing = normalizedMissingSearch
+                  ? provider.missingPreview.filter(row => {
+                      const haystack = `${row.artistName} ${row.artistKey}`.toLowerCase();
+                      return haystack.includes(normalizedMissingSearch);
+                    })
+                  : provider.missingPreview;
                 return (
                   <article key={key} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
                     <div className="mb-4 flex items-center gap-3">
@@ -542,7 +568,7 @@ export default function ApiCoverage() {
                                 Ver faltantes
                               </span>
                               <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">
-                                {provider.missingPreview.length}{provider.missing > provider.missingPreview.length ? "+" : ""}
+                                {normalizedMissingSearch ? visibleMissing.length : provider.missingPreview.length}{provider.missing > provider.missingPreview.length && !normalizedMissingSearch ? "+" : ""}
                               </span>
                             </button>
                             <button
@@ -556,13 +582,18 @@ export default function ApiCoverage() {
                           </div>
                           {expandedMissing[key] && (
                             <div className="max-h-64 overflow-y-auto p-2">
-                              {provider.missingPreview.map(row => (
+                              {visibleMissing.map(row => (
                                 <div key={row.artistKey} className="flex items-center gap-2 rounded px-2 py-1.5 text-xs font-bold text-zinc-400 hover:bg-white/[0.03]">
                                   <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
                                   <span className="min-w-0 flex-1 truncate">{row.artistName}</span>
                                   <span className="truncate text-[10px] uppercase tracking-[0.12em] text-zinc-700">{row.artistKey}</span>
                                 </div>
                               ))}
+                              {visibleMissing.length === 0 && (
+                                <div className="px-2 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                                  No hay coincidencias con ese filtro.
+                                </div>
+                              )}
                               {provider.missing > provider.missingPreview.length && (
                                 <div className="px-2 py-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                                   Hay más faltantes fuera de esta vista rápida.
