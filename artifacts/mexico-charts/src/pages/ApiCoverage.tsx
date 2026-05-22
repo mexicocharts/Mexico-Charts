@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, CheckCircle2, Clock3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckCircle2, Clock3, Disc3, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -10,7 +10,7 @@ const MUSICBRAINZ_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-a
 const MUSICBRAINZ_APPROVE_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-approve-candidates.ts --minScore=65 --write=true";
 const YOUTUBE_SEARCH_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/youtube-channel-search-backfill.ts --limit=25 --minScore=80 --write=true";
 
-type ProviderKey = "spotify" | "youtube" | "musicbrainz";
+type ProviderKey = "spotify" | "youtube" | "musicbrainz" | "deezer";
 
 interface CoverageProvider {
   linked: number;
@@ -85,6 +85,9 @@ function providerMeta(provider: ProviderKey) {
   if (provider === "youtube") {
     return { label: "YouTube", color: "#ff4444", icon: <SiYoutube className="h-5 w-5" /> };
   }
+  if (provider === "deezer") {
+    return { label: "Deezer Covers", color: "#a855f7", icon: <Disc3 className="h-5 w-5" /> };
+  }
   return { label: "MusicBrainz", color: "#f59e0b", icon: <SiMusicbrainz className="h-5 w-5" /> };
 }
 
@@ -95,7 +98,7 @@ function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null, t
     priority: "Alta" | "Media" | "Baja";
     href?: string;
   }> = [];
-  const { spotify, youtube, musicbrainz } = coverage.providers;
+  const { spotify, youtube, musicbrainz, deezer } = coverage.providers;
 
   if (spotify.review + musicbrainz.review > 0) {
     tasks.push({
@@ -127,6 +130,14 @@ function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null, t
       title: "Buscar más MusicBrainz",
       detail: `${musicbrainz.missing} artistas no tienen MusicBrainz vinculado ni candidato pendiente.`,
       priority: "Media",
+    });
+  }
+
+  if (deezer?.missing > 0) {
+    tasks.push({
+      title: "Completar portadas Deezer",
+      detail: `${deezer.missing} artistas aún no tienen portadas cacheadas para canciones en perfil.`,
+      priority: "Baja",
     });
   }
 
@@ -418,7 +429,7 @@ export default function ApiCoverage() {
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-3">
+            <section className="grid gap-4 lg:grid-cols-4">
               {providerEntries.map(([key, provider]) => {
                 const meta = providerMeta(key);
                 return (
@@ -459,6 +470,11 @@ export default function ApiCoverage() {
                           Revisar
                         </Link>
                       )}
+                      {key === "deezer" && (
+                        <span className="ml-auto rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-purple-300">
+                          Portadas
+                        </span>
+                      )}
                     </div>
 
                     <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
@@ -490,6 +506,11 @@ export default function ApiCoverage() {
                       {key === "youtube" && (
                         <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                           Usa cuota baja: solo canales ya vinculados.
+                        </div>
+                      )}
+                      {key === "deezer" && (
+                        <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                          Cuenta artistas con al menos una portada de canción cacheada.
                         </div>
                       )}
                       {key === "youtube" && provider.missing > 0 && (

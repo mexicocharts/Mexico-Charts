@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
+  deezerTrackCovers,
   musicbrainzArtistCandidates,
   musicbrainzArtists,
   spotifyArtistCandidates,
@@ -471,19 +472,21 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
-    const [artists, spotifyRows, spotifyCandidates, musicbrainzRows, musicbrainzCandidates, youtubeRows] = await Promise.all([
+    const [artists, spotifyRows, spotifyCandidates, musicbrainzRows, musicbrainzCandidates, youtubeRows, deezerRows] = await Promise.all([
       fetchMetadata(),
       db.select().from(spotifyArtists),
       db.select().from(spotifyArtistCandidates),
       db.select().from(musicbrainzArtists),
       db.select().from(musicbrainzArtistCandidates),
       db.select().from(youtubeChannels),
+      db.select().from(deezerTrackCovers),
     ]);
 
     const artistKeys = new Set(artists.map(row => row.artist_key).filter(Boolean));
     const linkedSpotify = new Set(spotifyRows.map(row => row.artistKey));
     const linkedMusicbrainz = new Set(musicbrainzRows.map(row => row.artistKey));
     const linkedYoutube = new Set(youtubeRows.map(row => row.artistKey));
+    const linkedDeezerCovers = new Set(deezerRows.map(row => row.artistKey));
 
     const spotifyReview = spotifyCandidates.filter(row => row.status === "review");
     const musicbrainzReview = musicbrainzCandidates.filter(row => row.status === "review");
@@ -549,6 +552,16 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
             artistName: row.artistName,
             bestScore: row.bestScore,
           })),
+        },
+        deezer: {
+          linked: linkedDeezerCovers.size,
+          missing: Math.max(0, artistKeys.size - linkedDeezerCovers.size),
+          review: 0,
+          rejected: 0,
+          coveragePct: artistKeys.size ? Number(((linkedDeezerCovers.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          newestUpdatedAt: newestDate(deezerRows.map(row => row.updatedAt)),
+          oldestUpdatedAt: oldestDate(deezerRows.map(row => row.updatedAt)),
+          missingPreview: missingPreview(linkedDeezerCovers),
         },
       },
     });
