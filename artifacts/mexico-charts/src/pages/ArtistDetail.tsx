@@ -360,6 +360,17 @@ export default function ArtistDetail() {
   const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
+  const hasAudienceStats = Boolean(metaArtist && (
+    metaArtist.spotifyListeners > 0 ||
+    metaArtist.spotifyFollowers > 0 ||
+    metaArtist.instagramFollowers > 0 ||
+    metaArtist.tiktokFollowers > 0 ||
+    metaArtist.youtubeSubscribers > 0 ||
+    metaArtist.deezerFans > 0 ||
+    ytChannel?.subscribersFmt ||
+    ytChannel?.viewsFmt ||
+    ytChannel?.videoCount != null
+  ));
 
   const nextTourEvent = useMemo(() => {
     return artistTouring?.events?.[0] ?? null;
@@ -564,7 +575,7 @@ export default function ArtistDetail() {
                 )}
               </div>
             )}
-            <p className="text-sm text-white/50 uppercase tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
+            <p className="text-xs sm:text-sm text-white/50 uppercase tracking-[0.16em] sm:tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" style={{ color: artist.accent }} />{artist.origin}</span>
               <span>{artist.listeners} OYENTES</span>
               {artist.spotifyFollowers && <span>{artist.spotifyFollowers} SEGUIDORES</span>}
@@ -675,12 +686,12 @@ export default function ArtistDetail() {
       {/* ── DIVIDER ── */}
       <div className="h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}30, transparent)` }} />
 
-      <div className="max-w-[1200px] mx-auto px-6 py-10 flex flex-col gap-10">
+      <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-8 sm:py-10 flex flex-col gap-8 sm:gap-10">
 
         {/* ══════════════════════════════════════════════════════════
             SOCIAL & PLATFORM STATS — from metadata sheet
         ══════════════════════════════════════════════════════════ */}
-        {metaArtist && (
+        {hasAudienceStats && metaArtist && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -688,12 +699,12 @@ export default function ArtistDetail() {
             data-testid="section-social-stats"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6"
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
               style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia & Seguidores</h2>
+                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia y seguidores</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   {metaArtist.spotifyListeners > 0 && (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
@@ -780,7 +791,7 @@ export default function ArtistDetail() {
             data-testid="section-verified-links"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6"
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
               style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
@@ -884,7 +895,7 @@ export default function ArtistDetail() {
             data-testid="section-top-tracks"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6"
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
               style={{ background: "linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
@@ -924,7 +935,7 @@ export default function ArtistDetail() {
             data-testid="section-kworb-streams"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6"
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
               style={{ background: "linear-gradient(160deg,#0a0f0a 0%,#090909 100%)", border: `1px solid ${artist.accent}18`, boxShadow: `0 8px 48px rgba(0,0,0,0.65), 0 0 0 1px ${artist.accent}08, inset 0 1px 0 rgba(255,255,255,0.04)` }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
@@ -932,7 +943,7 @@ export default function ArtistDetail() {
               <div className="relative z-10">
                 <div className="flex items-center gap-3 mb-6">
                   <Play className="w-4 h-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams Totales de por Vida</h2>
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams históricos</h2>
                   <div className="ml-auto flex flex-col items-end gap-0.5">
                     <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Spotify · YouTube</span>
                     {lastUpdatedLabel && (
@@ -1004,7 +1015,7 @@ export default function ArtistDetail() {
             data-testid="section-chart-positions"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-6"
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
               style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
@@ -1014,41 +1025,45 @@ export default function ArtistDetail() {
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Posiciones en México · Canciones Actuales</h2>
                   <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">iTunes · Apple Music</div>
                 </div>
-                {/* Header row */}
-                <div className="grid gap-x-3 mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-700" style={{ gridTemplateColumns: "1fr 40px 40px 40px 40px 40px" }}>
-                  <span>Canción</span>
-                  <span className="text-center">SP</span>
-                  <span className="text-center">AM</span>
-                  <span className="text-center">YT</span>
-                  <span className="text-center">IT</span>
-                  <span className="text-center">DZ</span>
-                </div>
-                <div className="flex flex-col gap-0">
-                  {kworbStats.chartPositions.map((cp, i) => (
-                    <div
-                      key={i}
-                      className="grid gap-x-3 py-2 items-center"
-                      style={{
-                        gridTemplateColumns: "1fr 40px 40px 40px 40px 40px",
-                        borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined,
-                      }}
-                    >
-                      <span className="text-sm text-zinc-300 font-medium truncate pr-2">{cp.song}</span>
-                      {(["spotifyMx", "appleMusicMx", "youtubeMx", "itunesMx", "deezerMx"] as const).map((key) => {
-                        const val = cp[key];
-                        const isTop3 = val !== undefined && val <= 3;
-                        return (
-                          <span
-                            key={key}
-                            className="text-center text-xs font-black"
-                            style={{ color: val === undefined ? "rgba(255,255,255,0.08)" : isTop3 ? artist.accent : "rgba(255,255,255,0.45)" }}
-                          >
-                            {val === undefined ? "—" : `#${val}`}
-                          </span>
-                        );
-                      })}
+                <div className="overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
+                  <div className="min-w-[520px]">
+                    {/* Header row */}
+                    <div className="grid gap-x-3 mb-2 text-[9px] font-black uppercase tracking-widest text-zinc-700" style={{ gridTemplateColumns: "1fr 40px 40px 40px 40px 40px" }}>
+                      <span>Canción</span>
+                      <span className="text-center">SP</span>
+                      <span className="text-center">AM</span>
+                      <span className="text-center">YT</span>
+                      <span className="text-center">IT</span>
+                      <span className="text-center">DZ</span>
                     </div>
-                  ))}
+                    <div className="flex flex-col gap-0">
+                      {kworbStats.chartPositions.map((cp, i) => (
+                        <div
+                          key={i}
+                          className="grid gap-x-3 py-2 items-center"
+                          style={{
+                            gridTemplateColumns: "1fr 40px 40px 40px 40px 40px",
+                            borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined,
+                          }}
+                        >
+                          <span className="text-sm text-zinc-300 font-medium truncate pr-2">{cp.song}</span>
+                          {(["spotifyMx", "appleMusicMx", "youtubeMx", "itunesMx", "deezerMx"] as const).map((key) => {
+                            const val = cp[key];
+                            const isTop3 = val !== undefined && val <= 3;
+                            return (
+                              <span
+                                key={key}
+                                className="text-center text-xs font-black"
+                                style={{ color: val === undefined ? "rgba(255,255,255,0.08)" : isTop3 ? artist.accent : "rgba(255,255,255,0.45)" }}
+                              >
+                                {val === undefined ? "—" : `#${val}`}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="mt-3 flex gap-4 text-[9px] text-zinc-700 font-bold uppercase tracking-wider">
                   <span>SP=Spotify</span><span>AM=Apple Music</span><span>YT=YouTube</span><span>IT=iTunes</span><span>DZ=Deezer</span>
