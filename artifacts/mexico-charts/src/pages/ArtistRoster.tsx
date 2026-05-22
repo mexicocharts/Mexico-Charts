@@ -287,6 +287,7 @@ export default function ArtistRoster() {
   const [search, setSearch] = useState(initialQuery);
   const [genreFilter, setGenreFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   useEffect(() => {
     setSearch(initialQuery);
@@ -321,16 +322,18 @@ export default function ArtistRoster() {
       if (q && !a.displayName.toLowerCase().includes(q) && !a.normalizedName.includes(q)) return false;
       if (genreFilter && a.genre !== genreFilter) return false;
       if (countryFilter && a.country !== countryFilter) return false;
+      if (verifiedOnly && !verifiedArtistKeys.has(a.artistKey)) return false;
       return true;
     });
-  }, [allArtists, search, genreFilter, countryFilter]);
+  }, [allArtists, search, genreFilter, countryFilter, verifiedOnly, verifiedArtistKeys]);
 
-  const hasActiveFilter = search || genreFilter || countryFilter;
+  const hasActiveFilter = search || genreFilter || countryFilter || verifiedOnly;
 
   function clearFilters() {
     setSearch("");
     setGenreFilter("");
     setCountryFilter("");
+    setVerifiedOnly(false);
   }
 
   /* ── Render ── */
@@ -466,6 +469,21 @@ export default function ArtistRoster() {
               options={countries}
               onChange={setCountryFilter}
             />
+            <button
+              type="button"
+              onClick={() => setVerifiedOnly(v => !v)}
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black uppercase tracking-wider transition-all"
+              style={{
+                background: verifiedOnly ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.04)",
+                border: verifiedOnly ? "1px solid rgba(57,255,20,0.30)" : "1px solid rgba(255,255,255,0.09)",
+                color: verifiedOnly ? ACCENT : "rgba(255,255,255,0.42)",
+              }}
+              aria-pressed={verifiedOnly}
+              data-testid="roster-verified-filter"
+            >
+              <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.8} />
+              Verificados
+            </button>
             <AnimatePresence>
               {hasActiveFilter && (
                 <motion.button
