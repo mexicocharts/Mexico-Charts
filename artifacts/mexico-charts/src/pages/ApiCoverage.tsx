@@ -312,6 +312,33 @@ export default function ApiCoverage() {
     }
   }
 
+  async function copyAllMissingArtists() {
+    const blocks = providerEntries
+      .filter(([, provider]) => provider.missingPreview.length > 0)
+      .map(([key, provider]) => {
+        const meta = providerMeta(key);
+        const names = provider.missingPreview.map(row => row.artistName).filter(Boolean).join("\n");
+        return `${meta.label}\n${names}`;
+      })
+      .join("\n\n");
+
+    if (!blocks) {
+      setActionMessage("No hay listas de faltantes para copiar.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(blocks);
+      setActionMessage("Todas las listas de faltantes fueron copiadas.");
+    } catch {
+      setActionMessage("Listas de faltantes listas para copiar manualmente.");
+    }
+  }
+
+  function setAllMissingLists(open: boolean) {
+    setExpandedMissing(Object.fromEntries(providerEntries.map(([key]) => [key, open])));
+  }
+
   useEffect(() => {
     if (adminKey) void loadDashboard(adminKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -448,12 +475,12 @@ export default function ApiCoverage() {
             </section>
 
             <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-[0.12em] text-white">Buscar faltantes</h2>
                   <p className="mt-1 text-xs font-bold text-zinc-600">Filtra las listas abiertas por nombre o clave de artista.</p>
                 </div>
-                <div className="relative md:ml-auto md:w-80">
+                <div className="relative lg:ml-auto lg:w-80">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
                   <input
                     value={missingSearch}
@@ -461,6 +488,30 @@ export default function ApiCoverage() {
                     placeholder="Buscar artista faltante"
                     className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
                   />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAllMissingLists(true)}
+                    className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 hover:border-[#39FF14]/30 hover:text-[#39FF14]"
+                  >
+                    Abrir todas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllMissingLists(false)}
+                    className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 hover:border-[#39FF14]/30 hover:text-[#39FF14]"
+                  >
+                    Cerrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void copyAllMissingArtists()}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14] hover:bg-[#39FF14]/15"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copiar todo
+                  </button>
                 </div>
               </div>
             </section>
