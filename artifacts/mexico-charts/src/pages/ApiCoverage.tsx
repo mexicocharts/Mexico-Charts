@@ -317,9 +317,16 @@ export default function ApiCoverage() {
       .filter(([, provider]) => provider.missingPreview.length > 0)
       .map(([key, provider]) => {
         const meta = providerMeta(key);
-        const names = provider.missingPreview.map(row => row.artistName).filter(Boolean).join("\n");
+        const rows = normalizedMissingSearch
+          ? provider.missingPreview.filter(row => {
+              const haystack = `${row.artistName} ${row.artistKey}`.toLowerCase();
+              return haystack.includes(normalizedMissingSearch);
+            })
+          : provider.missingPreview;
+        const names = rows.map(row => row.artistName).filter(Boolean).join("\n");
         return `${meta.label}\n${names}`;
       })
+      .filter(block => block.split("\n").length > 1)
       .join("\n\n");
 
     if (!blocks) {
@@ -329,7 +336,7 @@ export default function ApiCoverage() {
 
     try {
       await navigator.clipboard.writeText(blocks);
-      setActionMessage("Todas las listas de faltantes fueron copiadas.");
+      setActionMessage(normalizedMissingSearch ? "Faltantes filtrados copiados." : "Todas las listas de faltantes fueron copiadas.");
     } catch {
       setActionMessage("Listas de faltantes listas para copiar manualmente.");
     }
@@ -510,7 +517,7 @@ export default function ApiCoverage() {
                     className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14] hover:bg-[#39FF14]/15"
                   >
                     <Copy className="h-3.5 w-3.5" />
-                    Copiar todo
+                    {normalizedMissingSearch ? "Copiar filtro" : "Copiar todo"}
                   </button>
                 </div>
               </div>
@@ -624,7 +631,7 @@ export default function ApiCoverage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void copyMissingArtists(meta.label, provider.missingPreview)}
+                              onClick={() => void copyMissingArtists(meta.label, visibleMissing)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded border border-white/10 text-zinc-500 hover:border-[#39FF14]/30 hover:text-[#39FF14]"
                               aria-label={`Copiar faltantes de ${meta.label}`}
                             >
