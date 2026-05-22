@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
+import { Activity, Award, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily } from "@/services/dataProvider";
@@ -11,6 +11,13 @@ import type { ArtistMetadata } from "@/services/artistMetadata";
 
 const ACCENT = "#39FF14";
 const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
+const SCORE_COMPONENTS = [
+  { key: "chart", label: "Ranking", max: 35, helper: "posición diaria" },
+  { key: "growth", label: "Crecimiento", max: 30, helper: "cambio de oyentes" },
+  { key: "audience", label: "Audiencia", max: 20, helper: "escala relativa" },
+  { key: "social", label: "Social", max: 10, helper: "alcance medido" },
+  { key: "touring", label: "Touring", max: 5, helper: "fechas activas" },
+] as const;
 
 interface TmEvent {
   date: string;
@@ -78,7 +85,15 @@ function scale(value: number, max: number, points: number): number {
 }
 
 function componentWidth(value: number, max: number) {
+  if (value <= 0) return "0%";
   return `${Math.max(4, Math.round((value / max) * 100))}%`;
+}
+
+function scoreTier(score: number): string {
+  if (score >= 80) return "Dominante";
+  if (score >= 65) return "En ascenso fuerte";
+  if (score >= 50) return "Alta señal";
+  return "Señal activa";
 }
 
 async function fetchLiveTouring(): Promise<ArtistTours[]> {
@@ -185,16 +200,19 @@ function scoreArtists(
     .slice(0, 25);
 }
 
-function ComponentBar({ label, value, max }: { label: string; value: number; max: number }) {
+function ComponentBar({ label, value, max, helper }: { label: string; value: number; max: number; helper: string }) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
         <span>{label}</span>
-        <span className="text-zinc-300">{value}</span>
+        <span className="text-zinc-300">
+          {value}/{max}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
         <div className="h-full rounded-full" style={{ width: componentWidth(value, max), background: ACCENT }} />
       </div>
+      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{helper}</div>
     </div>
   );
 }
@@ -203,17 +221,24 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
   const { chartArtist, meta, components } = item;
   const slug = slugify(item.name);
   const genre = meta?.subgenre || chartArtist?.subgenre || chartArtist?.genre;
+  const isTopThree = index < 3;
 
   return (
     <Link href={`/artist/${slug}`}>
       <article
-        className="group h-full cursor-pointer border border-white/[0.08] bg-[#0a0a0a] p-4 transition"
-        style={{ borderRadius: 8 }}
+        className="group relative h-full cursor-pointer overflow-hidden border bg-[#0a0a0a] p-4 transition hover:border-[#39FF14]/35"
+        style={{
+          borderColor: isTopThree ? "rgba(57,255,20,0.26)" : "rgba(255,255,255,0.08)",
+          borderRadius: 8,
+          boxShadow: isTopThree ? "0 0 34px rgba(57,255,20,0.07)" : undefined,
+        }}
       >
+        {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <div className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">
-              Impulso #{index + 1}
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">
+              {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
+              Índice #{index + 1}
             </div>
             <h2 className="text-xl font-black uppercase leading-none tracking-normal text-white group-hover:text-[#39FF14]">
               {item.name}
@@ -227,6 +252,9 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
               {item.score}
             </div>
             <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
+            <div className="mt-2 rounded-full border border-[#39FF14]/25 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#39FF14]">
+              {scoreTier(item.score)}
+            </div>
           </div>
         </div>
 
@@ -246,11 +274,15 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
         </div>
 
         <div className="mb-4 space-y-2">
-          <ComponentBar label="Chart" value={components.chart} max={35} />
-          <ComponentBar label="Crecimiento" value={components.growth} max={30} />
-          <ComponentBar label="Audiencia" value={components.audience} max={20} />
-          <ComponentBar label="Social" value={components.social} max={10} />
-          <ComponentBar label="Touring" value={components.touring} max={5} />
+          {SCORE_COMPONENTS.map((component) => (
+            <ComponentBar
+              key={component.key}
+              label={component.label}
+              value={components[component.key]}
+              max={component.max}
+              helper={component.helper}
+            />
+          ))}
         </div>
 
         <div className="space-y-1 border-t border-white/[0.06] pt-3">
@@ -345,13 +377,26 @@ export default function ArtistMomentum() {
 
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 border border-white/[0.08] bg-[#0a0a0a] p-4" style={{ borderRadius: 8 }}>
-            <div className="flex gap-3">
-              <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
-              <p className="text-xs leading-5 text-zinc-400">
-                Fórmula actual: posición en charts hasta 35 pts, crecimiento de oyentes hasta 30 pts, audiencia hasta 20 pts,
-                alcance social hasta 10 pts, touring hasta 5 pts. El Top 25 se calcula desde la base completa
-                de artistas y luego se ordena por puntaje.
-              </p>
+            <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="flex gap-3">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
+                <p className="text-xs leading-5 text-zinc-400">
+                  Ranking propietario de Mexico Charts con puntaje máximo de 100. El Top 25 se calcula desde la base
+                  completa de artistas y luego se ordena por señal actual, no solo por artistas ya visibles en el ranking.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SCORE_COMPONENTS.map((component) => (
+                  <div
+                    key={component.key}
+                    className="border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400"
+                    style={{ borderRadius: 6 }}
+                  >
+                    <span className="text-white">{component.label}</span>{" "}
+                    <span style={{ color: ACCENT }}>{component.max}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
