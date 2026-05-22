@@ -185,7 +185,7 @@ export default function EnrichmentReview() {
       const selectedIndex = selectedCandidates[`${row.provider}-${row.artistKey}`] ?? 0;
       const best = row.candidates[selectedIndex] ?? row.candidates[0];
       const displayName = candidateName(row.provider, best);
-      return `${row.artistName} | ${row.provider} | ${displayName ?? "Sin candidato"} | score ${row.bestScore}`;
+      return `${row.artistName} | ${row.provider} | ${displayName} | score ${best?.score ?? row.bestScore}`;
     });
 
     if (lines.length === 0) {
