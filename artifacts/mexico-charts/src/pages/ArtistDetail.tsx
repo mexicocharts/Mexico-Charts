@@ -928,15 +928,50 @@ export default function ArtistDetail() {
                     <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Canciones más escuchadas</h2>
                   </div>
                   {kworbStats?.spotify && (
-                    <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Spotify</div>
+                    <div className="hidden text-[9px] uppercase tracking-widest text-zinc-700 font-bold sm:block">
+                      Spotify · Kworb
+                    </div>
                   )}
                 </div>
-                <div className="flex flex-col gap-3">
-                  {topTracks.map((s, i) => (
-                    <div key={i} className="flex items-center gap-4 py-1 border-b border-white/[0.04] last:border-0">
-                      <span className="text-zinc-700 font-black text-sm w-5 shrink-0">{i + 1}</span>
-                      <span className="flex-1 text-zinc-200 text-sm font-medium truncate">{s.title}</span>
-                      <span className="text-sm font-black shrink-0" style={{ color: artist.accent }}>{s.streams}</span>
+
+                {topTracks[0] && (
+                  <div
+                    className="mb-3 grid gap-3 rounded-xl p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                    style={{ background: `${artist.accent}0f`, border: `1px solid ${artist.accent}26` }}
+                  >
+                    <div
+                      className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-black"
+                      style={{ background: `${artist.accent}16`, border: `1px solid ${artist.accent}35`, color: artist.accent }}
+                    >
+                      #1
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: artist.accent }}>
+                        Canción líder
+                      </div>
+                      <div className="mt-1 truncate text-lg font-black text-white">{topTracks[0].title}</div>
+                    </div>
+                    <div className="sm:text-right">
+                      <div className="text-2xl font-black leading-none" style={{ color: artist.accent }}>
+                        {topTracks[0].streams}
+                      </div>
+                      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">streams</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  {topTracks.slice(1).map((s, i) => (
+                    <div
+                      key={`${s.title}-${i}`}
+                      className="flex items-center gap-3 rounded-xl px-3 py-3"
+                      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
+                        {i + 2}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-300">{s.title}</span>
+                      <span className="shrink-0 text-sm font-black" style={{ color: artist.accent }}>{s.streams}</span>
                     </div>
                   ))}
                 </div>
