@@ -285,6 +285,9 @@ async function ingestKworbArtistsIndex(): Promise<void> {
 /* ══ Types ════════════════════════════════════════════════════════════════ */
 interface TrackEntry {
   title: string;
+  coverUrl?: string | null;
+  coverSource?: "deezer" | null;
+  deezerUrl?: string | null;
   streams: number;
   streamsFmt: string;
   daily: number;
@@ -711,6 +714,67 @@ async function enrichChartPositionsWithDeezerCovers(
   }
 }
 
+async function enrichTracksWithDeezerCovers(
+  artistKey: string,
+  artistName: string,
+  tracks: TrackEntry[],
+  fetchMissing: boolean,
+): Promise<TrackEntry[]> {
+  if (!tracks.length) return tracks;
+
+  try {
+    const rows = await db
+      .select()
+      .from(deezerTrackCovers)
+      .where(eq(deezerTrackCovers.artistKey, artistKey));
+    const coverMap = new Map(rows.map(row => [row.songKey, row]));
+
+    const enriched: TrackEntry[] = [];
+    for (const track of tracks) {
+      const key = songKey(track.title);
+      const cached = coverMap.get(key);
+      let coverUrl = cached?.coverUrl || track.coverUrl || null;
+      let deezerUrl = cached?.deezerUrl ?? track.deezerUrl ?? null;
+
+      if (!cached && !coverUrl && fetchMissing) {
+        const found = await fetchDeezerTrackCover(artistName, track.title);
+        coverUrl = found?.coverUrl ?? null;
+        deezerUrl = found?.deezerUrl ?? null;
+        await db
+          .insert(deezerTrackCovers)
+          .values({
+            artistKey,
+            songKey: key,
+            artistName,
+            songTitle: track.title,
+            coverUrl: coverUrl ?? "",
+            deezerUrl: deezerUrl ?? undefined,
+          })
+          .onConflictDoUpdate({
+            target: [deezerTrackCovers.artistKey, deezerTrackCovers.songKey],
+            set: {
+              artistName,
+              songTitle: track.title,
+              coverUrl: coverUrl ?? "",
+              deezerUrl: deezerUrl ?? undefined,
+              updatedAt: sql`now()`,
+            },
+          });
+      }
+
+      enriched.push({
+        ...track,
+        coverUrl,
+        coverSource: coverUrl ? "deezer" : track.coverSource ?? null,
+        deezerUrl,
+      });
+    }
+    return enriched;
+  } catch {
+    return tracks;
+  }
+}
+
 /* ══ Job queue ════════════════════════════════════════════════════════════ */
 async function claimNextJob(): Promise<KworbJobRow | null> {
   const r = await pool.query<KworbJobRow>(`
@@ -797,6 +861,7 @@ async function fetchAndStore(
 
   if (!spotify && !youtube && !itunes) return "not_found";
 
+  if (spotify) spotify = { ...spotify, topTracks: await enrichTracksWithDeezerCovers(slug, artistName, spotify.topTracks, true) };
   if (itunes) itunes = await enrichChartPositionsWithDeezerCovers(slug, artistName, itunes, true);
 
   if (spotify) await saveSnapshot(slug, "spotify", spotify, tier);
@@ -1346,6 +1411,12 @@ router.get("/kworb/artist-stats", async (req, res) => {
     chartPositions: (snapMap.get("itunes")  as unknown as KworbStats["chartPositions"]) ?? null,
   };
 
+  if (stats.spotify) {
+    stats.spotify = {
+      ...stats.spotify,
+      topTracks: await enrichTracksWithDeezerCovers(slug, cov?.artistName ?? name, stats.spotify.topTracks, true),
+    };
+  }
   stats.chartPositions = await enrichChartPositionsWithDeezerCovers(slug, cov?.artistName ?? name, stats.chartPositions, true);
 
   const hasCachedData = !!(stats.spotify || stats.youtube || stats.chartPositions);

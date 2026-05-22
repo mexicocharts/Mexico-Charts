@@ -408,7 +408,11 @@ export default function ArtistDetail() {
   /* ── Top tracks: only real kworb data — never show hardcoded fake tracks ── */
   const topTracks = useMemo(() => {
     if (kworbStats?.spotify?.topTracks?.length) {
-      return kworbStats.spotify.topTracks.map(t => ({ title: t.title, streams: t.streamsFmt }));
+      return kworbStats.spotify.topTracks.map(t => ({
+        title: t.title,
+        streams: t.streamsFmt,
+        coverUrl: t.coverUrl ?? null,
+      }));
     }
     return [];
   }, [kworbStats]);
@@ -961,10 +965,20 @@ export default function ArtistDetail() {
                     style={{ background: `${artist.accent}0f`, border: `1px solid ${artist.accent}26` }}
                   >
                     <div
-                      className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-black"
-                      style={{ background: `${artist.accent}16`, border: `1px solid ${artist.accent}35`, color: artist.accent }}
+                      className="relative h-16 w-16 overflow-hidden rounded-xl sm:h-20 sm:w-20"
+                      style={{ background: `${artist.accent}16`, border: `1px solid ${artist.accent}35` }}
                     >
-                      #1
+                      {topTracks[0].coverUrl ? (
+                        <img src={topTracks[0].coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-sm font-black" style={{ color: artist.accent }}>
+                          #1
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                      <div className="absolute bottom-1.5 left-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-black" style={{ background: `${artist.accent}dd`, color: "#050505" }}>
+                        #1
+                      </div>
                     </div>
                     <div className="min-w-0">
                       <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: artist.accent }}>
@@ -988,8 +1002,16 @@ export default function ArtistDetail() {
                       className="flex items-center gap-3 rounded-xl px-3 py-3"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
-                        {i + 2}
+                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
+                        {s.coverUrl ? (
+                          <img src={s.coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center">{i + 2}</span>
+                        )}
+                        <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
+                        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-black text-white">
+                          {i + 2}
+                        </span>
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-300">{s.title}</span>
                       <span className="shrink-0 text-sm font-black" style={{ color: artist.accent }}>{s.streams}</span>

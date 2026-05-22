@@ -3,6 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 /* ── Types ─────────────────────────────────────────────────────────────── */
 export interface KworbTrack {
   title: string;
+  coverUrl?: string | null;
+  coverSource?: "deezer" | null;
+  deezerUrl?: string | null;
   streams: number;
   streamsFmt: string;
   daily: number;
