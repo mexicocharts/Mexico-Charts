@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, ExternalLink, KeyRound, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
 import { SiMusicbrainz, SiSpotify } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -66,8 +66,24 @@ export default function EnrichmentReview() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [providerFilter, setProviderFilter] = useState<"todos" | ReviewRow["provider"]>("todos");
+  const [query, setQuery] = useState("");
+  const [minScore, setMinScore] = useState("");
 
   const rows = useMemo(() => [...(data?.spotify ?? []), ...(data?.musicbrainz ?? [])], [data]);
+  const filteredRows = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const scoreFloor = Number(minScore);
+    return rows.filter(row => {
+      if (providerFilter !== "todos" && row.provider !== providerFilter) return false;
+      if (Number.isFinite(scoreFloor) && minScore.trim() && row.bestScore < scoreFloor) return false;
+      if (!normalizedQuery) return true;
+      const best = row.candidates[0];
+      const providerName = row.provider === "spotify" ? best?.spotifyName : best?.name;
+      const haystack = `${row.artistName} ${row.artistKey} ${providerName ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [minScore, providerFilter, query, rows]);
 
   async function loadReviewQueue(key = adminKey) {
     if (!key.trim()) return;
@@ -208,8 +224,53 @@ export default function EnrichmentReview() {
           </section>
         )}
 
+        {data && (
+          <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-[0.12em] text-white">Filtrar revisión</h2>
+                <p className="mt-1 text-xs font-bold text-zinc-600">
+                  {filteredRows.length} de {rows.length} candidatos visibles.
+                </p>
+              </div>
+              <div className="relative lg:ml-auto lg:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
+                <input
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Buscar artista o candidato"
+                  className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-10 pr-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(["todos", "spotify", "musicbrainz"] as const).map(option => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setProviderFilter(option)}
+                    className={`h-10 rounded-lg border px-3 text-[10px] font-black uppercase tracking-[0.14em] ${
+                      providerFilter === option
+                        ? "border-[#39FF14]/35 bg-[#39FF14]/10 text-[#39FF14]"
+                        : "border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
+                    }`}
+                  >
+                    {option === "todos" ? "Todos" : option}
+                  </button>
+                ))}
+                <input
+                  value={minScore}
+                  onChange={e => setMinScore(e.target.value.replace(/[^\d]/g, "").slice(0, 3))}
+                  inputMode="numeric"
+                  placeholder="Score min."
+                  className="h-10 w-28 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                />
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="flex flex-col gap-3">
-          {rows.map(row => {
+          {filteredRows.map(row => {
             const icon = row.provider === "spotify"
               ? <SiSpotify className="h-4 w-4 text-[#1DB954]" />
               : <SiMusicbrainz className="h-4 w-4 text-[#f59e0b]" />;
@@ -284,6 +345,11 @@ export default function EnrichmentReview() {
           {data && rows.length === 0 && (
             <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-8 text-center text-sm font-bold text-zinc-500">
               No hay candidatos pendientes de revisión.
+            </div>
+          )}
+          {data && rows.length > 0 && filteredRows.length === 0 && (
+            <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-8 text-center text-sm font-bold text-zinc-500">
+              No hay candidatos con esos filtros.
             </div>
           )}
         </section>
