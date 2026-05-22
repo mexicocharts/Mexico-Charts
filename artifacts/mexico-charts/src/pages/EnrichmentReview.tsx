@@ -93,6 +93,7 @@ export default function EnrichmentReview() {
   const [minScore, setMinScore] = useState("");
   const [sortMode, setSortMode] = useState<"score" | "reciente" | "antiguo">("score");
   const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number>>({});
+  const [confirmingApproval, setConfirmingApproval] = useState<string | null>(null);
 
   const rows = useMemo(() => [...(data?.spotify ?? []), ...(data?.musicbrainz ?? [])], [data]);
   const visibleRows = useMemo(() => {
@@ -151,6 +152,7 @@ export default function EnrichmentReview() {
     setPendingKey(key);
     setError(null);
     setActionMessage(null);
+    setConfirmingApproval(null);
     try {
       const res = await fetch(`/api/admin/artists/enrichment-candidates/${row.provider}/${encodeURIComponent(row.artistKey)}/${action}`, {
         method: "POST",
@@ -175,6 +177,7 @@ export default function EnrichmentReview() {
     setMinScore("");
     setSortMode("score");
     setSelectedCandidates({});
+    setConfirmingApproval(null);
   }
 
   async function copyVisibleRows() {
@@ -386,6 +389,8 @@ export default function EnrichmentReview() {
             const url = best ? candidateUrl(row.provider, best) : null;
             const displayName = candidateName(row.provider, best);
             const isPending = pendingKey === rowKey;
+            const confirmKey = `${rowKey}-${selectedIndex}`;
+            const isConfirming = confirmingApproval === confirmKey;
 
             return (
               <article key={`${row.provider}-${row.artistKey}`} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
@@ -407,6 +412,11 @@ export default function EnrichmentReview() {
                       {best?.reasons?.length > 0 && (
                         <p className="mt-1 text-xs text-zinc-700">{best.reasons.join(" · ")}</p>
                       )}
+                      {isConfirming && (
+                        <p className="mt-2 rounded border border-[#39FF14]/20 bg-[#39FF14]/10 px-2 py-1.5 text-xs font-bold text-[#baffb0]">
+                          Confirma que quieres guardar este candidato: {displayName}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -422,10 +432,16 @@ export default function EnrichmentReview() {
                     <button
                       type="button"
                       disabled={isPending || !best}
-                      onClick={() => void reviewAction(row, "approve", selectedIndex)}
+                      onClick={() => {
+                        if (!isConfirming) {
+                          setConfirmingApproval(confirmKey);
+                          return;
+                        }
+                        void reviewAction(row, "approve", selectedIndex);
+                      }}
                       className="rounded-lg border border-[#39FF14]/35 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:cursor-wait disabled:opacity-50"
                     >
-                      Aprobar
+                      {isConfirming ? "Confirmar" : "Aprobar"}
                     </button>
                     <Link
                       href={`/artist/${row.artistKey.replace(/\s+/g, "-")}`}
@@ -455,7 +471,10 @@ export default function EnrichmentReview() {
                         <button
                           key={`${rowKey}-${index}`}
                           type="button"
-                          onClick={() => setSelectedCandidates(prev => ({ ...prev, [rowKey]: index }))}
+                          onClick={() => {
+                            setSelectedCandidates(prev => ({ ...prev, [rowKey]: index }));
+                            setConfirmingApproval(null);
+                          }}
                           className={`min-w-0 rounded-lg border p-3 text-left transition-colors ${
                             active
                               ? "border-[#39FF14]/40 bg-[#39FF14]/10"
