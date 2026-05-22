@@ -50,6 +50,7 @@ function parseArgs() {
     limit: Math.max(1, Math.min(Number(args.get("limit") ?? 25), 50)),
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
     minScore: Math.max(0, Math.min(Number(args.get("minScore") ?? 80), 100)),
+    skipReviewed: args.get("skipReviewed") !== "false",
     write: args.get("write") === "true",
   };
 }
@@ -300,12 +301,73 @@ async function saveChannel(pool: InstanceType<typeof Pool>, artist: ArtistRow, c
   );
 }
 
+async function ensureCandidateTable(pool: InstanceType<typeof Pool>) {
+  await pool.query(`
+    create table if not exists youtube_channel_candidates (
+      artist_key text primary key,
+      artist_name text not null,
+      status text not null,
+      best_channel_id text,
+      best_title text,
+      best_score integer,
+      subscriber_count text,
+      reasons jsonb,
+      error text,
+      reviewed_at timestamptz not null default now(),
+      updated_at timestamptz not null default now()
+    )
+  `);
+}
+
+async function saveCandidate(
+  pool: InstanceType<typeof Pool>,
+  artist: ArtistRow,
+  status: "review" | "no_result" | "error",
+  best?: { channel: ChannelItem; score: number; reasons: string[] },
+  error?: string,
+) {
+  const subscribers = best?.channel.statistics?.hiddenSubscriberCount
+    ? null
+    : best?.channel.statistics?.subscriberCount != null
+      ? Number(best.channel.statistics.subscriberCount)
+      : null;
+
+  await pool.query(
+    `insert into youtube_channel_candidates (
+      artist_key, artist_name, status, best_channel_id, best_title, best_score,
+      subscriber_count, reasons, error, reviewed_at, updated_at
+    ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
+    on conflict (artist_key) do update set
+      artist_name = excluded.artist_name,
+      status = excluded.status,
+      best_channel_id = excluded.best_channel_id,
+      best_title = excluded.best_title,
+      best_score = excluded.best_score,
+      subscriber_count = excluded.subscriber_count,
+      reasons = excluded.reasons,
+      error = excluded.error,
+      updated_at = excluded.updated_at`,
+    [
+      artist.artist_key,
+      artist.artist_name,
+      status,
+      best?.channel.id ?? null,
+      best?.channel.snippet.title ?? null,
+      best?.score ?? null,
+      subscribers != null ? fmtCount(subscribers) : null,
+      JSON.stringify(best?.reasons ?? []),
+      error ?? null,
+    ],
+  );
+}
+
 async function main() {
-  const { limit, offset, minScore, write } = parseArgs();
+  const { limit, offset, minScore, skipReviewed, write } = parseArgs();
   if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
 
   const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
   try {
+    await ensureCandidateTable(pool);
     const csv = await fetch(ARTIST_METADATA_URL).then(res => {
       if (!res.ok) throw new Error(`artist metadata HTTP ${res.status}`);
       return res.text();
@@ -313,12 +375,19 @@ async function main() {
     const artists = rowsToObjects(parseCsv(csv));
     const existing = await pool.query<{ artist_key: string }>("select artist_key from youtube_channels");
     const linked = new Set(existing.rows.map(row => row.artist_key));
-    const queue = artists.filter(artist => !linked.has(artist.artist_key)).slice(offset, offset + limit);
+    const reviewedRows = skipReviewed
+      ? await pool.query<{ artist_key: string }>("select artist_key from youtube_channel_candidates where status in ('review','no_result','error')")
+      : { rows: [] };
+    const reviewed = new Set(reviewedRows.rows.map(row => row.artist_key));
+    const queue = artists
+      .filter(artist => !linked.has(artist.artist_key))
+      .filter(artist => !skipReviewed || !reviewed.has(artist.artist_key))
+      .slice(offset, offset + limit);
 
     let autoSaved = 0;
     let suggested = 0;
     let skipped = 0;
-    console.log(`${write ? "Writing" : "Dry run"} search backfill for ${queue.length} artists. Existing linked: ${linked.size}. minScore=${minScore}.`);
+    console.log(`${write ? "Writing" : "Dry run"} search backfill for ${queue.length} artists. Existing linked: ${linked.size}. Existing reviewed: ${reviewed.size}. minScore=${minScore}. skipReviewed=${skipReviewed}.`);
 
     for (const artist of queue) {
       try {
@@ -332,6 +401,7 @@ async function main() {
         if (!best) {
           skipped += 1;
           console.log(`NO_RESULT,${artist.artist_key},${artist.artist_name}`);
+          if (write) await saveCandidate(pool, artist, "no_result");
         } else if (best.score >= minScore) {
           autoSaved += 1;
           const subscribers = best.channel.statistics?.hiddenSubscriberCount ? null : Number(best.channel.statistics?.subscriberCount ?? 0);
@@ -341,10 +411,12 @@ async function main() {
           suggested += 1;
           const subscribers = best.channel.statistics?.hiddenSubscriberCount ? null : Number(best.channel.statistics?.subscriberCount ?? 0);
           console.log(`REVIEW,${artist.artist_key},${artist.artist_name},score=${best.score},${best.channel.id},${best.channel.snippet.title},${fmtCount(subscribers)},${best.reasons.join("+")}`);
+          if (write) await saveCandidate(pool, artist, "review", best);
         }
       } catch (err) {
         skipped += 1;
         console.error(`ERROR,${artist.artist_key},${artist.artist_name},${(err as Error).message}`);
+        if (write) await saveCandidate(pool, artist, "error", undefined, (err as Error).message);
       }
       await new Promise(resolve => setTimeout(resolve, 125));
     }
