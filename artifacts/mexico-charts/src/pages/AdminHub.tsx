@@ -8,14 +8,14 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const tools = [
   {
     title: "Cobertura API",
-    description: "Estado de YouTube, Spotify, MusicBrainz, Ticketmaster y Kworb.",
+    description: "Estado de YouTube, Spotify, MusicBrainz, Deezer, Ticketmaster y Kworb.",
     href: "/admin/api-coverage",
     icon: <BarChart3 className="h-5 w-5" />,
     status: "Activo",
   },
   {
     title: "Cola de revisión",
-    description: "Aprobar o rechazar coincidencias de Spotify y MusicBrainz.",
+    description: "Filtrar, copiar, aprobar o rechazar coincidencias de Spotify y MusicBrainz.",
     href: "/admin/enrichment-review",
     icon: <CheckSquare className="h-5 w-5" />,
     status: "Activo",
