@@ -59,6 +59,27 @@ function candidateUrl(provider: ReviewRow["provider"], candidate: Candidate): st
   return null;
 }
 
+function candidateName(provider: ReviewRow["provider"], candidate: Candidate | undefined): string {
+  if (!candidate) return "Sin candidato";
+  return provider === "spotify" ? candidate.spotifyName ?? "Sin nombre" : candidate.name ?? "Sin nombre";
+}
+
+function candidateMeta(provider: ReviewRow["provider"], candidate: Candidate): string {
+  if (provider === "spotify") {
+    return [
+      candidate.followers != null ? `${candidate.followers.toLocaleString("es-MX")} seguidores` : null,
+      candidate.popularity != null ? `popularidad ${candidate.popularity}` : null,
+    ].filter(Boolean).join(" · ") || "Perfil Spotify";
+  }
+
+  return [
+    candidate.type,
+    candidate.country,
+    candidate.areaName,
+    candidate.disambiguation,
+  ].filter(Boolean).join(" · ") || "Ficha MusicBrainz";
+}
+
 export default function EnrichmentReview() {
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem("mexicocharts_admin_key") ?? "");
   const [draftKey, setDraftKey] = useState(adminKey);
@@ -71,6 +92,7 @@ export default function EnrichmentReview() {
   const [query, setQuery] = useState("");
   const [minScore, setMinScore] = useState("");
   const [sortMode, setSortMode] = useState<"score" | "reciente" | "antiguo">("score");
+  const [selectedCandidates, setSelectedCandidates] = useState<Record<string, number>>({});
 
   const rows = useMemo(() => [...(data?.spotify ?? []), ...(data?.musicbrainz ?? [])], [data]);
   const visibleRows = useMemo(() => {
@@ -81,7 +103,7 @@ export default function EnrichmentReview() {
       if (Number.isFinite(scoreFloor) && minScore.trim() && row.bestScore < scoreFloor) return false;
       if (!normalizedQuery) return true;
       const best = row.candidates[0];
-      const providerName = row.provider === "spotify" ? best?.spotifyName : best?.name;
+      const providerName = candidateName(row.provider, best);
       const haystack = `${row.artistName} ${row.artistKey} ${providerName ?? ""}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
@@ -119,7 +141,7 @@ export default function EnrichmentReview() {
     void loadReviewQueue(next);
   }
 
-  async function reviewAction(row: ReviewRow, action: "approve" | "reject") {
+  async function reviewAction(row: ReviewRow, action: "approve" | "reject", candidateIndex = 0) {
     if (!adminKey.trim()) {
       setError("Guarda la clave admin primero.");
       return;
@@ -136,7 +158,7 @@ export default function EnrichmentReview() {
           "Content-Type": "application/json",
           "X-Admin-Key": adminKey.trim(),
         },
-        body: JSON.stringify({ candidateIndex: 0 }),
+        body: JSON.stringify({ candidateIndex }),
       });
       if (!res.ok) throw new Error(action === "approve" ? "No se pudo aprobar este candidato." : "No se pudo rechazar este candidato.");
       await loadReviewQueue(adminKey);
@@ -152,12 +174,14 @@ export default function EnrichmentReview() {
     setQuery("");
     setMinScore("");
     setSortMode("score");
+    setSelectedCandidates({});
   }
 
   async function copyVisibleRows() {
     const lines = visibleRows.map(row => {
-      const best = row.candidates[0];
-      const displayName = row.provider === "spotify" ? best?.spotifyName : best?.name;
+      const selectedIndex = selectedCandidates[`${row.provider}-${row.artistKey}`] ?? 0;
+      const best = row.candidates[selectedIndex] ?? row.candidates[0];
+      const displayName = candidateName(row.provider, best);
       return `${row.artistName} | ${row.provider} | ${displayName ?? "Sin candidato"} | score ${row.bestScore}`;
     });
 
@@ -356,10 +380,12 @@ export default function EnrichmentReview() {
             const icon = row.provider === "spotify"
               ? <SiSpotify className="h-4 w-4 text-[#1DB954]" />
               : <SiMusicbrainz className="h-4 w-4 text-[#f59e0b]" />;
-            const best = row.candidates[0];
+            const rowKey = `${row.provider}-${row.artistKey}`;
+            const selectedIndex = selectedCandidates[rowKey] ?? 0;
+            const best = row.candidates[selectedIndex] ?? row.candidates[0];
             const url = best ? candidateUrl(row.provider, best) : null;
-            const displayName = row.provider === "spotify" ? best?.spotifyName : best?.name;
-            const isPending = pendingKey === `${row.provider}-${row.artistKey}`;
+            const displayName = candidateName(row.provider, best);
+            const isPending = pendingKey === rowKey;
 
             return (
               <article key={`${row.provider}-${row.artistKey}`} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
@@ -374,7 +400,7 @@ export default function EnrichmentReview() {
                         <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{row.provider}</span>
                       </div>
                       <p className="mt-1 text-xs text-zinc-600">
-                        Mejor candidato: <span className="font-bold text-zinc-400">{displayName ?? "Sin resultado"}</span>
+                        Candidato seleccionado: <span className="font-bold text-zinc-400">{displayName}</span>
                         {best?.score != null && <span> · score {best.score}</span>}
                         <span> · {fmtDate(row.searchedAt)}</span>
                       </p>
@@ -396,7 +422,7 @@ export default function EnrichmentReview() {
                     <button
                       type="button"
                       disabled={isPending || !best}
-                      onClick={() => void reviewAction(row, "approve")}
+                      onClick={() => void reviewAction(row, "approve", selectedIndex)}
                       className="rounded-lg border border-[#39FF14]/35 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:cursor-wait disabled:opacity-50"
                     >
                       Aprobar
@@ -420,6 +446,51 @@ export default function EnrichmentReview() {
                     )}
                   </div>
                 </div>
+                {row.candidates.length > 1 && (
+                  <div className="mt-4 grid gap-2 border-t border-white/[0.06] pt-4 md:grid-cols-2 xl:grid-cols-3">
+                    {row.candidates.slice(0, 6).map((candidate, index) => {
+                      const candidateHref = candidateUrl(row.provider, candidate);
+                      const active = selectedIndex === index;
+                      return (
+                        <button
+                          key={`${rowKey}-${index}`}
+                          type="button"
+                          onClick={() => setSelectedCandidates(prev => ({ ...prev, [rowKey]: index }))}
+                          className={`min-w-0 rounded-lg border p-3 text-left transition-colors ${
+                            active
+                              ? "border-[#39FF14]/40 bg-[#39FF14]/10"
+                              : "border-white/[0.06] bg-black/20 hover:border-white/20"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`rounded border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] ${
+                              active ? "border-[#39FF14]/30 text-[#39FF14]" : "border-white/10 text-zinc-600"
+                            }`}>
+                              #{index + 1}
+                            </span>
+                            <span className="ml-auto text-[10px] font-black text-zinc-500">Score {candidate.score}</span>
+                          </div>
+                          <div className="mt-2 truncate text-sm font-black text-white">{candidateName(row.provider, candidate)}</div>
+                          <div className="mt-1 line-clamp-2 text-xs font-bold leading-relaxed text-zinc-600">
+                            {candidateMeta(row.provider, candidate)}
+                          </div>
+                          {candidateHref && (
+                            <a
+                              href={candidateHref}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={event => event.stopPropagation()}
+                              className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14] hover:text-white"
+                            >
+                              Abrir candidato
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </article>
             );
           })}
