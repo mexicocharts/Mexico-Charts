@@ -182,6 +182,7 @@ export default function ApiCoverage() {
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
+  const [expandedReview, setExpandedReview] = useState<Record<string, boolean>>({});
   const [missingSearch, setMissingSearch] = useState("");
 
   const providerEntries = useMemo(() => {
@@ -309,6 +310,21 @@ export default function ApiCoverage() {
       setActionMessage(`Lista de faltantes de ${provider} copiada.`);
     } catch {
       setActionMessage(`Lista de faltantes de ${provider} lista para copiar manualmente.`);
+    }
+  }
+
+  async function copyReviewArtists(provider: string, rows: NonNullable<CoverageProvider["reviewPreview"]>) {
+    const names = rows.map(row => `${row.artistName} (${row.bestScore})`).join("\n");
+    if (!names) {
+      setActionMessage("No hay candidatos en revisión para copiar.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(names);
+      setActionMessage(`Revisión de ${provider} copiada.`);
+    } catch {
+      setActionMessage(`Revisión de ${provider} lista para copiar manualmente.`);
     }
   }
 
@@ -611,6 +627,46 @@ export default function ApiCoverage() {
                       {key === "deezer" && (
                         <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                           Cuenta artistas con al menos una portada de canción cacheada.
+                        </div>
+                      )}
+                      {(provider.reviewPreview?.length ?? 0) > 0 && (
+                        <div className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/[0.04]">
+                          <div className="flex items-center gap-2 border-b border-amber-500/10 p-3">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedReview(prev => ({ ...prev, [key]: !prev[key] }))}
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                            >
+                              <ChevronDown className={`h-4 w-4 shrink-0 text-amber-400/60 transition-transform ${expandedReview[key] ? "rotate-180" : ""}`} />
+                              <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">
+                                Revisar candidatos
+                              </span>
+                              <span className="rounded border border-amber-400/20 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-amber-300/80">
+                                {provider.reviewPreview?.length ?? 0}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void copyReviewArtists(meta.label, provider.reviewPreview ?? [])}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded border border-amber-400/20 text-amber-300/70 hover:bg-amber-400/10 hover:text-amber-200"
+                              aria-label={`Copiar revisión de ${meta.label}`}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          {expandedReview[key] && (
+                            <div className="max-h-56 overflow-y-auto p-2">
+                              {(provider.reviewPreview ?? []).map(row => (
+                                <div key={row.artistKey} className="flex items-center gap-2 rounded px-2 py-1.5 text-xs font-bold text-zinc-400 hover:bg-white/[0.03]">
+                                  <span className="min-w-0 flex-1 truncate">{row.artistName}</span>
+                                  <span className="rounded border border-amber-400/20 px-2 py-0.5 text-[10px] font-black text-amber-300">{row.bestScore}</span>
+                                </div>
+                              ))}
+                              <Link href="/admin/enrichment-review" className="mt-1 block rounded px-2 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-amber-300 hover:bg-amber-400/10">
+                                Abrir cola completa
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       )}
                       {provider.missingPreview.length > 0 && (
