@@ -53,6 +53,16 @@ function formatTourDate(iso: string): string {
   return `${day} ${months[Number(month) - 1]} ${year}`;
 }
 
+function normalizeSongMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(video oficial|official video|lyric video|lyrics|audio oficial|official audio|visualizer)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const CHART_POSITION_PLATFORMS = [
@@ -408,6 +418,17 @@ export default function ArtistDetail() {
     if (chartPositionFilter === "all") return positions;
     return positions.filter(position => position[chartPositionFilter] !== undefined);
   }, [kworbStats, chartPositionFilter]);
+
+  const chartVideoMatches = useMemo(
+    () =>
+      (kworbStats?.youtube?.topVideos ?? [])
+        .filter(video => video.thumbnailUrl)
+        .map(video => ({
+          key: normalizeSongMatch(video.title),
+          thumbnailUrl: video.thumbnailUrl,
+        })),
+    [kworbStats?.youtube?.topVideos],
+  );
 
   const selectedChartPlatform = chartPositionFilter === "all"
     ? null
@@ -1010,46 +1031,74 @@ export default function ArtistDetail() {
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {kworbStats.spotify && (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
-                      </div>
-                      <div
-                        className="text-4xl font-black leading-none tracking-tight"
-                        style={{ color: artist.accent, textShadow: `0 0 40px ${artist.accent}30` }}
-                      >
-                        {kworbStats.spotify.totalStreamsFmt}
-                      </div>
-                      <div className="text-[11px] text-zinc-600 mt-1">streams de por vida</div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <div>
-                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Diario</div>
-                          <div className="text-xs font-black text-zinc-400">{kworbStats.spotify.dailyStreamsFmt}</div>
+                    <div
+                      className="relative overflow-hidden rounded-xl p-4 sm:p-5"
+                      style={{
+                        background: "linear-gradient(145deg, rgba(29,185,84,0.10), rgba(255,255,255,0.025))",
+                        border: "1px solid rgba(29,185,84,0.18)",
+                      }}
+                    >
+                      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#1DB954]/10 blur-3xl" />
+                      <div className="relative">
+                        <div className="mb-5 flex items-center gap-2">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1DB954]/10 text-[#1DB954]">
+                            <SiSpotify className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">streams acumulados</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
-                          <div className="text-xs font-black text-zinc-400">{kworbStats.spotify.trackCount}</div>
+                        <div
+                          className="text-4xl font-black leading-none tracking-tight sm:text-5xl"
+                          style={{ color: artist.accent, textShadow: `0 0 40px ${artist.accent}30` }}
+                        >
+                          {kworbStats.spotify.totalStreamsFmt}
+                        </div>
+                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">streams de por vida</div>
+                        <div className="mt-5 grid grid-cols-2 gap-2">
+                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Diario</div>
+                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.spotify.dailyStreamsFmt}</div>
+                          </div>
+                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
+                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.spotify.trackCount}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
                   {kworbStats.youtube && (
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <SiYoutube className="w-4 h-4 text-red-500" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
-                      </div>
-                      <div className="text-4xl font-black leading-none tracking-tight text-red-400">
-                        {kworbStats.youtube.totalViewsFmt}
-                      </div>
-                      <div className="text-[11px] text-zinc-600 mt-1">vistas totales</div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <div>
-                          <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Promedio diario</div>
-                          <div className="text-xs font-black text-zinc-400">{kworbStats.youtube.dailyAvgFmt}</div>
+                    <div
+                      className="relative overflow-hidden rounded-xl p-4 sm:p-5"
+                      style={{
+                        background: "linear-gradient(145deg, rgba(239,68,68,0.10), rgba(255,255,255,0.025))",
+                        border: "1px solid rgba(239,68,68,0.18)",
+                      }}
+                    >
+                      <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-red-500/10 blur-3xl" />
+                      <div className="relative">
+                        <div className="mb-5 flex items-center gap-2">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-400">
+                            <SiYoutube className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas acumuladas</div>
+                          </div>
+                        </div>
+                        <div className="text-4xl font-black leading-none tracking-tight text-red-400 sm:text-5xl">
+                          {kworbStats.youtube.totalViewsFmt}
+                        </div>
+                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">vistas totales</div>
+                        <div className="mt-5 grid grid-cols-1 gap-2">
+                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Promedio diario</div>
+                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.youtube.dailyAvgFmt}</div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1121,24 +1170,44 @@ export default function ArtistDetail() {
                         .filter((rank): rank is number => rank !== undefined);
                       const bestRank = ranks.length > 0 ? Math.min(...ranks) : null;
                       const isBestTop3 = bestRank !== null && bestRank <= 3;
+                      const songKey = normalizeSongMatch(cp.song);
+                      const videoMatch = chartVideoMatches.find(match =>
+                        match.key === songKey || match.key.includes(songKey) || songKey.includes(match.key)
+                      );
+                      const thumbnailUrl = videoMatch?.thumbnailUrl ?? photo;
                       return (
                         <div
                           key={`${cp.song}-${i}`}
-                          className="flex items-center gap-3 rounded-xl px-3 py-3 sm:px-4"
+                          className="flex items-center gap-3 rounded-xl p-3 sm:gap-4"
                           style={{
                             background: "rgba(255,255,255,0.025)",
                             border: "1px solid rgba(255,255,255,0.055)",
                           }}
                         >
                           <div
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black"
+                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl sm:h-16 sm:w-16"
                             style={{
-                              background: isBestTop3 ? `${artist.accent}16` : "rgba(255,255,255,0.035)",
                               border: isBestTop3 ? `1px solid ${artist.accent}30` : "1px solid rgba(255,255,255,0.06)",
-                              color: isBestTop3 ? artist.accent : "rgba(255,255,255,0.38)",
+                              background: isBestTop3 ? `${artist.accent}10` : "rgba(255,255,255,0.035)",
                             }}
                           >
-                            {bestRank ? `#${bestRank}` : "—"}
+                            {thumbnailUrl ? (
+                              <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-zinc-700">
+                                <Music className="h-5 w-5" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent" />
+                            <div
+                              className="absolute bottom-1.5 left-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-black"
+                              style={{
+                                background: isBestTop3 ? `${artist.accent}dd` : "rgba(0,0,0,0.72)",
+                                color: isBestTop3 ? "#050505" : "rgba(255,255,255,0.88)",
+                              }}
+                            >
+                              {bestRank ? `#${bestRank}` : "—"}
+                            </div>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-black text-zinc-200">{cp.song}</div>
