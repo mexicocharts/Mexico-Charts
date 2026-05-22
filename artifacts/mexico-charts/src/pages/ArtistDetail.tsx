@@ -1174,7 +1174,7 @@ export default function ArtistDetail() {
                       const videoMatch = chartVideoMatches.find(match =>
                         match.key === songKey || match.key.includes(songKey) || songKey.includes(match.key)
                       );
-                      const thumbnailUrl = videoMatch?.thumbnailUrl ?? photo;
+                      const thumbnailUrl = cp.coverUrl ?? videoMatch?.thumbnailUrl ?? photo;
                       return (
                         <div
                           key={`${cp.song}-${i}`}

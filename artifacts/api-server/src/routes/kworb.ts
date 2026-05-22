@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pool, kworbCoverage, kworbSnapshots } from "@workspace/db";
+import { db, pool, deezerTrackCovers, kworbCoverage, kworbSnapshots } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
@@ -121,6 +121,17 @@ function toSlug(name: string): string {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
+}
+
+function songKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(video oficial|official video|lyric video|lyrics|audio oficial|official audio|visualizer)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, "");
 }
 
 /* ══ SPOTIFY_ID_SEED (109 confirmed slug → SpotifyID pairs) ══════════════ */
@@ -294,6 +305,9 @@ interface VideoEntry {
 
 interface ChartPosition {
   song: string;
+  coverUrl?: string | null;
+  coverSource?: "deezer" | "youtube" | null;
+  deezerUrl?: string | null;
   spotifyMx?: number;
   appleMusicMx?: number;
   youtubeMx?: number;
@@ -388,6 +402,69 @@ function extractYouTubeVideoId(cellHtml: string): string | null {
 
 function youtubeThumbnailUrl(videoId: string | null): string | null {
   return videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : null;
+}
+
+interface DeezerSearchTrack {
+  title?: string;
+  link?: string;
+  artist?: { name?: string };
+  album?: {
+    cover?: string;
+    cover_medium?: string;
+    cover_big?: string;
+    cover_xl?: string;
+  };
+}
+
+interface DeezerSearchResponse {
+  data?: DeezerSearchTrack[];
+  error?: unknown;
+}
+
+let lastDeezerRequestAt = 0;
+
+async function pacedDeezerFetch(url: string): Promise<Response> {
+  const elapsed = Date.now() - lastDeezerRequestAt;
+  if (elapsed < 350) await sleep(350 - elapsed);
+  lastDeezerRequestAt = Date.now();
+  return fetch(url, {
+    headers: {
+      "User-Agent": "MexicoChartsBot/1.0",
+      "Accept": "application/json",
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+}
+
+function deezerMatchScore(track: DeezerSearchTrack, artistName: string, songTitle: string): number {
+  const wantedArtist = songKey(artistName);
+  const wantedSong = songKey(songTitle);
+  const gotArtist = songKey(track.artist?.name ?? "");
+  const gotSong = songKey(track.title ?? "");
+  let score = 0;
+  if (gotSong === wantedSong) score += 60;
+  else if (gotSong.includes(wantedSong) || wantedSong.includes(gotSong)) score += 38;
+  if (gotArtist === wantedArtist) score += 30;
+  else if (gotArtist.includes(wantedArtist) || wantedArtist.includes(gotArtist)) score += 18;
+  return score;
+}
+
+async function fetchDeezerTrackCover(artistName: string, songTitle: string) {
+  const q = encodeURIComponent(`${artistName} ${songTitle}`);
+  const resp = await pacedDeezerFetch(`https://api.deezer.com/search/track?q=${q}&limit=5`);
+  if (resp.status === 429) return null;
+  if (!resp.ok) return null;
+  const body = await resp.json() as DeezerSearchResponse;
+  const candidates = (body.data ?? [])
+    .map(track => ({ track, score: deezerMatchScore(track, artistName, songTitle) }))
+    .filter(({ track, score }) => score >= 38 && !!(track.album?.cover_xl ?? track.album?.cover_big ?? track.album?.cover_medium ?? track.album?.cover))
+    .sort((a, b) => b.score - a.score);
+  const best = candidates[0]?.track;
+  if (!best) return null;
+  return {
+    coverUrl: best.album?.cover_xl ?? best.album?.cover_big ?? best.album?.cover_medium ?? best.album?.cover ?? null,
+    deezerUrl: best.link ?? null,
+  };
 }
 
 /* ══ HTTP fetch with timeout ══════════════════════════════════════════════ */
@@ -573,6 +650,67 @@ async function saveSnapshot(
     });
 }
 
+async function enrichChartPositionsWithDeezerCovers(
+  artistKey: string,
+  artistName: string,
+  positions: ChartPosition[] | null,
+  fetchMissing: boolean,
+): Promise<ChartPosition[] | null> {
+  if (!positions?.length) return positions;
+
+  try {
+    const rows = await db
+      .select()
+      .from(deezerTrackCovers)
+      .where(eq(deezerTrackCovers.artistKey, artistKey));
+    const coverMap = new Map(rows.map(row => [row.songKey, row]));
+
+    const enriched: ChartPosition[] = [];
+    for (const position of positions) {
+      const key = songKey(position.song);
+      const cached = coverMap.get(key);
+      let coverUrl = cached?.coverUrl || position.coverUrl || null;
+      let deezerUrl = cached?.deezerUrl ?? position.deezerUrl ?? null;
+
+      if (!cached && !coverUrl && fetchMissing) {
+        const found = await fetchDeezerTrackCover(artistName, position.song);
+        coverUrl = found?.coverUrl ?? null;
+        deezerUrl = found?.deezerUrl ?? null;
+        await db
+          .insert(deezerTrackCovers)
+          .values({
+            artistKey,
+            songKey: key,
+            artistName,
+            songTitle: position.song,
+            coverUrl: coverUrl ?? "",
+            deezerUrl: deezerUrl ?? undefined,
+          })
+          .onConflictDoUpdate({
+            target: [deezerTrackCovers.artistKey, deezerTrackCovers.songKey],
+            set: {
+              artistName,
+              songTitle: position.song,
+              coverUrl: coverUrl ?? "",
+              deezerUrl: deezerUrl ?? undefined,
+              updatedAt: sql`now()`,
+            },
+          });
+      }
+
+      enriched.push({
+        ...position,
+        coverUrl,
+        coverSource: coverUrl ? "deezer" : position.coverSource ?? null,
+        deezerUrl,
+      });
+    }
+    return enriched;
+  } catch {
+    return positions;
+  }
+}
+
 /* ══ Job queue ════════════════════════════════════════════════════════════ */
 async function claimNextJob(): Promise<KworbJobRow | null> {
   const r = await pool.query<KworbJobRow>(`
@@ -609,7 +747,7 @@ async function enqueueJob(
 
 /* ══ Core fetch & store ═══════════════════════════════════════════════════ */
 async function fetchAndStore(
-  slug: string, metricType: string, tier: string, spotifyId: string | null,
+  slug: string, artistName: string, metricType: string, tier: string, spotifyId: string | null,
 ): Promise<"success" | "not_found" | "rate_limited" | "error"> {
   if (!FETCHING_ENABLED()) return "rate_limited";
 
@@ -658,6 +796,8 @@ async function fetchAndStore(
   }
 
   if (!spotify && !youtube && !itunes) return "not_found";
+
+  if (itunes) itunes = await enrichChartPositionsWithDeezerCovers(slug, artistName, itunes, true);
 
   if (spotify) await saveSnapshot(slug, "spotify", spotify, tier);
   if (youtube) await saveSnapshot(slug, "youtube", youtube, tier);
@@ -721,7 +861,7 @@ async function runWorker(workerId: number): Promise<void> {
       const tier      = cov?.tier      ?? (TIER_A_SLUGS.has(job.artist_key) ? "A" : "B");
       const spotifyId = cov?.spotifyId ?? spotifyIdMap.get(job.artist_key)  ?? null;
 
-      const result = await fetchAndStore(job.artist_key, job.metric_type, tier, spotifyId);
+      const result = await fetchAndStore(job.artist_key, cov?.artistName ?? job.artist_key, job.metric_type, tier, spotifyId);
 
       if (result === "rate_limited") {
         // Release the job without consuming the attempt
@@ -1205,6 +1345,8 @@ router.get("/kworb/artist-stats", async (req, res) => {
     youtube:        (snapMap.get("youtube") as KworbStats["youtube"])        ?? null,
     chartPositions: (snapMap.get("itunes")  as unknown as KworbStats["chartPositions"]) ?? null,
   };
+
+  stats.chartPositions = await enrichChartPositionsWithDeezerCovers(slug, cov?.artistName ?? name, stats.chartPositions, true);
 
   const hasCachedData = !!(stats.spotify || stats.youtube || stats.chartPositions);
 

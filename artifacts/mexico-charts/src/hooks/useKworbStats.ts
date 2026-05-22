@@ -23,6 +23,9 @@ export interface KworbVideo {
 
 export interface KworbChartPosition {
   song: string;
+  coverUrl?: string | null;
+  coverSource?: "deezer" | "youtube" | null;
+  deezerUrl?: string | null;
   spotifyMx?: number;
   appleMusicMx?: number;
   youtubeMx?: number;
