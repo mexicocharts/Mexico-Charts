@@ -144,6 +144,13 @@ export default function EnrichmentReview() {
     }
   }
 
+  function resetFilters() {
+    setProviderFilter("todos");
+    setQuery("");
+    setMinScore("");
+    setSortMode("score");
+  }
+
   useEffect(() => {
     if (adminKey) void loadReviewQueue(adminKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,6 +300,13 @@ export default function EnrichmentReview() {
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="h-9 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 hover:border-red-500/30 hover:text-red-300"
+              >
+                Limpiar filtros
+              </button>
             </div>
           </section>
         )}
