@@ -1182,36 +1182,81 @@ export default function ArtistDetail() {
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             data-testid="section-youtube-videos"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <SiYoutube className="w-4 h-4 text-red-500" />
-              <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top Videos en YouTube</h2>
-              <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.07)" }} />
-              <div className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">YouTube</div>
-            </div>
-            <div className="flex flex-col gap-2">
-              {kworbStats.youtube.topVideos.slice(0, 8).map((v, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: i * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex items-center gap-4 rounded-xl px-4 py-3"
-                  style={{ background: "linear-gradient(160deg,#0d0d0d,#090909)", border: "1px solid rgba(255,255,255,0.05)" }}
-                >
-                  <span className="text-zinc-700 font-black text-sm w-5 flex-shrink-0">{i + 1}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-zinc-300 font-medium truncate">{v.title}</div>
-                    {v.published && (
-                      <div className="text-[10px] text-zinc-700 mt-0.5">{v.published}</div>
-                    )}
+            <div
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              style={{ background: "linear-gradient(160deg,#100909 0%,#090909 100%)", border: "1px solid rgba(239,68,68,0.12)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-red-500/10 blur-3xl" />
+              <div className="relative z-10">
+                <div className="mb-5 flex items-center gap-3">
+                  <SiYoutube className="w-4 h-4 text-red-500" />
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top videos en YouTube</h2>
+                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Vistas históricas</div>
+                </div>
+
+                {kworbStats.youtube.topVideos[0] && (
+                  <div
+                    className="mb-3 grid gap-4 rounded-xl p-4 sm:grid-cols-[auto_1fr_auto]"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(239,68,68,0.10), rgba(255,255,255,0.025))",
+                      border: "1px solid rgba(239,68,68,0.18)",
+                    }}
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl text-sm font-black text-white" style={{ background: "rgba(239,68,68,0.18)", border: "1px solid rgba(239,68,68,0.24)" }}>
+                      #1
+                    </div>
+                    <div className="min-w-0">
+                      <div className="mb-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-red-400">
+                        <SiYoutube className="h-3.5 w-3.5" />
+                        Video principal
+                      </div>
+                      <div className="text-base font-black leading-snug text-white">{kworbStats.youtube.topVideos[0].title}</div>
+                      {kworbStats.youtube.topVideos[0].published && (
+                        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">{kworbStats.youtube.topVideos[0].published}</div>
+                      )}
+                    </div>
+                    <div className="flex items-end justify-between gap-5 sm:flex-col sm:justify-center sm:text-right">
+                      <div>
+                        <div className="text-xl font-black leading-none text-red-400">{kworbStats.youtube.topVideos[0].viewsFmt}</div>
+                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas</div>
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos[0].dailyFmt}</div>
+                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">por día</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
-                    <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
-                  </div>
-                </motion.div>
-              ))}
+                )}
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  {kworbStats.youtube.topVideos.slice(1, 8).map((v, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.35, delay: i * 0.035, ease: [0.16, 1, 0.3, 1] }}
+                      className="flex items-center gap-3 rounded-xl px-3 py-3"
+                      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[11px] font-black text-red-300" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.12)" }}>
+                        {i + 2}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-bold text-zinc-300">{v.title}</div>
+                        {v.published && (
+                          <div className="mt-0.5 text-[10px] text-zinc-700">{v.published}</div>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
+                        <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.section>
         )}
