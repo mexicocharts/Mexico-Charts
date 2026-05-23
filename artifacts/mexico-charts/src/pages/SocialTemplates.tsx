@@ -430,10 +430,33 @@ function downloadDataUrl(dataUrl: string, filename: string) {
   link.remove();
 }
 
+async function waitForImages(el: HTMLElement, timeoutMs = 1800): Promise<void> {
+  const imgs = Array.from(el.querySelectorAll<HTMLImageElement>("img[src]"));
+  if (!imgs.length) return;
+
+  await Promise.race([
+    Promise.allSettled(
+      imgs.map(async (img) => {
+        if (img.complete && img.naturalWidth > 0) return;
+        if (typeof img.decode === "function") {
+          await img.decode().catch(() => undefined);
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+      })
+    ),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   await document.fonts.ready;
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  await waitForImages(el);
   await inlineImages(el);
   await inlineBackgroundImages(el);
 

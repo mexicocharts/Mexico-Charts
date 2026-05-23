@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams, proxyImageUrl, artistImageUrl } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -61,7 +61,7 @@ export default function AnimatedTopAlbums() {
           artist: r["Artist Names"] ?? "",
           rawStat: weeks,
           statLabel: weeks === 1 ? "semana" : "semanas",
-          imageUrl: images?.[primaryArtist(r["Artist Names"] ?? "")] ?? null,
+          imageUrl: proxyImageUrl(artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))),
         };
       })
     : FALLBACK,

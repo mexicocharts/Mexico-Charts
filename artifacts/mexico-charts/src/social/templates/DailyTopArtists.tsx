@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, proxyImageUrl, parseMovement } from "../useChartData";
+import { useChartsHub, useArtistImageMap, proxyImageUrl, parseMovement, artistImageUrl } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Peso Pluma",     subtitle: "Racha en chart",  movement: 0  },
@@ -32,7 +32,7 @@ export default function DailyTopArtists() {
         stat: r["Peak"] ? `#${r["Peak"]}` : undefined,
         statLabel: r["Peak"] ? "Pico" : undefined,
         ...parseMovement(r["Movement"] ?? "="),
-        imageUrl: images?.[r["Artist"] ?? ""] ?? null,
+        imageUrl: proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")),
         roundImage: true,
       }))
     : FALLBACK;

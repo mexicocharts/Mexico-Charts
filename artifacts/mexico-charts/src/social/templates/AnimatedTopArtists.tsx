@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams } from "../useChartData";
+import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams, proxyImageUrl, artistImageUrl } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -60,7 +60,7 @@ export default function AnimatedTopArtists() {
         subtitle: r["Streak"] ? `${r["Streak"]} días en chart` : "",
         rawStreams: parseInt((r["Streams"] ?? r["Daily Streams"] ?? "0").replace(/[^0-9]/g, ""), 10) || 0,
         ...parseMovement(r["Movement"] ?? "="),
-        imageUrl: images?.[r["Artist"] ?? ""] ?? null,
+        imageUrl: proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")),
         roundImage: true,
       }))
     : FALLBACK,

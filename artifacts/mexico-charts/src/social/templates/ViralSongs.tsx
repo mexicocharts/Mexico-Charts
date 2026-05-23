@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma", stat: "↑840%",  isNew: true  },
@@ -31,7 +31,7 @@ export default function ViralSongs() {
         subtitle: r["artist_names"] ?? "",
         stat: r["days_on_chart"] ? `${r["days_on_chart"]}d` : undefined,
         movement: 0,
-        imageUrl: images?.[primaryArtist(r["artist_names"] ?? "")] ?? null,
+        imageUrl: proxyImageUrl(artistImageUrl(images, primaryArtist(r["artist_names"] ?? ""))),
         roundImage: true,
       }))
     : FALLBACK;

@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -57,7 +57,7 @@ export default function AnimatedTopSongs() {
         rank: e.pos,
         title: e.title,
         subtitle: [e.artist, ...e.features].join(" · "),
-        imageUrl: e.coverUrl,
+        imageUrl: proxyImageUrl(e.coverUrl) ?? null,
         ...parseMovement(e.posChange),
       }))
     : FALLBACK_ROWS,

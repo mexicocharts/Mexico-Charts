@@ -52,6 +52,24 @@ async function enrichCovers(
   }
 }
 
+async function enrichCoversForExport(
+  entries: Omit<ChartEntry, "coverUrl">[],
+  limit = 10
+): Promise<void> {
+  const todo = entries.slice(0, limit).filter(e => !coverCache.has(e.trackId));
+  for (let i = 0; i < todo.length; i += 4) {
+    const batch = todo.slice(i, i + 4);
+    await Promise.all(
+      batch.map(async e => {
+        if (coverCache.has(e.trackId)) return;
+        const url = await fetchCoverViaDeezer(e.artist, e.title);
+        coverCache.set(e.trackId, url);
+      })
+    );
+    if (i + 4 < todo.length) await new Promise(r => setTimeout(r, 300));
+  }
+}
+
 /* ── Chart entry type ────────────────────────────────────────────────────── */
 interface ChartEntry {
   pos: number;
@@ -123,9 +141,16 @@ async function fetchRawChart(period: "daily" | "weekly"): Promise<Omit<ChartEntr
 /* ── Route: GET /api/charts/mx-spotify?period=daily|weekly ──────────────── */
 router.get("/charts/mx-spotify", async (req, res) => {
   const period = req.query["period"] === "weekly" ? "weekly" : "daily";
+  const withCovers = req.query["withCovers"] === "1" || req.query["social"] === "1";
   try {
     // 1. Get chart data fast (kworb only — no Deezer wait)
     const raw = await fetchRawChart(period);
+
+    // Social exports need the image URLs in the first response, otherwise the
+    // PNG captures placeholders before the background cover job finishes.
+    if (withCovers) {
+      await enrichCoversForExport(raw, 10);
+    }
 
     // 2. Build response: attach whatever covers we already have cached
     const entries: ChartEntry[] = raw.map(e => ({

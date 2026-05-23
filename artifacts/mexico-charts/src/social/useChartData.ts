@@ -26,7 +26,7 @@ export function useSpotifyChart(period: "daily" | "weekly") {
   return useQuery<ChartResponse>({
     queryKey: ["social-mx-spotify", period],
     queryFn: async () => {
-      const r = await fetch(`/api/charts/mx-spotify?period=${period}`);
+      const r = await fetch(`/api/charts/mx-spotify?period=${period}&withCovers=1`);
       if (!r.ok) throw new Error("fetch failed");
       return r.json();
     },
@@ -82,6 +82,21 @@ export function fmtStreams(s: string): string {
 
 export function primaryArtist(credit: string): string {
   return credit.split(/[,&/]|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+/i)[0].trim();
+}
+
+export function artistImageUrl(
+  images: Record<string, string | null> | undefined,
+  name: string
+): string | null {
+  const clean = name.trim();
+  if (!images || !clean) return null;
+  return (
+    images[clean] ??
+    images[primaryArtist(clean)] ??
+    images[clean.toLowerCase()] ??
+    images[primaryArtist(clean).toLowerCase()] ??
+    null
+  );
 }
 
 /**
