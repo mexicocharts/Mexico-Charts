@@ -104,6 +104,10 @@ function tierOf(row: CertRow) {
   return 1;
 }
 
+function artistSearchHref(artist: string) {
+  return `/artists?q=${encodeURIComponent(artist)}`;
+}
+
 export default function Certifications() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
@@ -406,7 +410,11 @@ export default function Certifications() {
                       borderBottom: "1px solid rgba(255,255,255,0.05)",
                       background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)"
                     }}>
-                    <div className="font-black text-xs truncate pr-2" style={{ color: "#fff" }}>{row.artista}</div>
+                    <Link href={artistSearchHref(row.artista)} className="min-w-0 pr-2">
+                      <span className="block truncate text-xs font-black text-white underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#39FF14] hover:decoration-[#39FF14]/45">
+                        {row.artista}
+                      </span>
+                    </Link>
                     <div className="text-xs truncate pr-2" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "system-ui" }}>{row.titulo}</div>
                     <div className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.7)" }}>
                       {row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}
@@ -427,7 +435,11 @@ export default function Certifications() {
                   <div className="rounded-xl p-4" style={{ background: "#0e0e0e", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <div className="font-black text-sm text-white">{row.artista}</div>
+                        <Link href={artistSearchHref(row.artista)}>
+                          <span className="font-black text-sm text-white underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#39FF14] hover:decoration-[#39FF14]/45">
+                            {row.artista}
+                          </span>
+                        </Link>
                         <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{row.titulo}</div>
                       </div>
                       <div className="shrink-0"><CertBadge cert={row.certificacion} /></div>
