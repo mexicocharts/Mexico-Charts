@@ -69,6 +69,11 @@ function candidateId(provider: ReviewRow["provider"], candidate: Candidate | und
   return provider === "spotify" ? candidate.spotifyArtistId ?? null : candidate.mbid ?? null;
 }
 
+function providerLabel(provider: "todos" | ReviewRow["provider"]): string {
+  if (provider === "todos") return "Todos";
+  return provider === "spotify" ? "Spotify" : "MusicBrainz";
+}
+
 function candidateMeta(provider: ReviewRow["provider"], candidate: Candidate): string {
   if (provider === "spotify") {
     return [
@@ -192,7 +197,7 @@ export default function EnrichmentReview() {
       const best = row.candidates[selectedIndex] ?? row.candidates[0];
       const displayName = candidateName(row.provider, best);
       const id = candidateId(row.provider, best);
-      return `${row.artistName} | ${row.provider} | ${displayName} | ${id ?? "sin ID"} | score ${best?.score ?? row.bestScore}`;
+      return `${row.artistName} | ${providerLabel(row.provider)} | ${displayName} | ${id ?? "sin ID"} | puntaje ${best?.score ?? row.bestScore}`;
     });
 
     if (lines.length === 0) {
@@ -334,7 +339,7 @@ export default function EnrichmentReview() {
                         : "border-white/10 bg-white/[0.03] text-zinc-500 hover:border-white/20 hover:text-zinc-300"
                     }`}
                   >
-                    {option === "todos" ? "Todos" : option}
+                    {providerLabel(option)}
                   </button>
                 ))}
                 <input
@@ -349,7 +354,7 @@ export default function EnrichmentReview() {
             <div className="mt-3 flex flex-wrap gap-2 border-t border-white/[0.06] pt-3">
               <span className="flex h-9 items-center text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Orden</span>
               {([
-                ["score", "Score alto"],
+                ["score", "Puntaje alto"],
                 ["reciente", "Reciente"],
                 ["antiguo", "Antiguo"],
               ] as const).map(([value, label]) => (
@@ -410,12 +415,12 @@ export default function EnrichmentReview() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="truncate text-base font-black uppercase tracking-[0.05em] text-white">{row.artistName}</h2>
-                        <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{row.provider}</span>
+                        <span className="rounded border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-500">{providerLabel(row.provider)}</span>
                       </div>
                       <p className="mt-1 text-xs text-zinc-600">
                         Candidato seleccionado: <span className="font-bold text-zinc-400">{displayName}</span>
                         {selectedId && <span> · ID {selectedId}</span>}
-                        {best?.score != null && <span> · score {best.score}</span>}
+                        {best?.score != null && <span> · puntaje {best.score}</span>}
                         <span> · {fmtDate(row.searchedAt)}</span>
                       </p>
                       {best?.reasons?.length > 0 && (
@@ -505,7 +510,7 @@ export default function EnrichmentReview() {
                             }`}>
                               #{index + 1}
                             </span>
-                            <span className="ml-auto text-[10px] font-black text-zinc-500">Score {candidate.score}</span>
+                            <span className="ml-auto text-[10px] font-black text-zinc-500">Puntaje {candidate.score}</span>
                           </div>
                           <div className="mt-2 truncate text-sm font-black text-white">{candidateName(row.provider, candidate)}</div>
                           <div className="mt-1 line-clamp-2 text-xs font-bold leading-relaxed text-zinc-600">
