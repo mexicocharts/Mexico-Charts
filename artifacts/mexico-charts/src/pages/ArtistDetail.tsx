@@ -55,11 +55,13 @@ function formatTourDate(iso: string): string {
 
 function formatShortDateEs(iso: string | null | undefined): string {
   if (!iso) return "Sin fecha";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(iso));
+  }).format(date);
 }
 
 function normalizeSongMatch(value: string): string {
