@@ -902,7 +902,7 @@ export default function ArtistDetail() {
                           </span>
                         )}
                         <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
-                          Act. {formatShortDateEs(enrichment.spotify.lastUpdated)}
+                          Actualizado {formatShortDateEs(enrichment.spotify.lastUpdated)}
                         </span>
                       </div>
                     </a>
