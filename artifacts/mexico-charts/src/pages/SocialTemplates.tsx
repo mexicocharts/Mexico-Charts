@@ -384,11 +384,58 @@ async function inlineImages(el: HTMLElement): Promise<void> {
   // any event-loop gap that would let React reset img.src attributes.
 }
 
+function extractCssUrl(value: string): string | null {
+  const match = value.match(/url\((['"]?)(.*?)\1\)/);
+  return match?.[2] ?? null;
+}
+
+async function imageUrlToDataUrl(src: string): Promise<string | null> {
+  if (!src || src.startsWith("data:") || src.startsWith("blob:")) return null;
+  try {
+    const fetchUrl = src.startsWith("http")
+      ? `/api/image-proxy?url=${encodeURIComponent(src)}`
+      : src;
+    const res = await fetch(fetchUrl);
+    if (!res.ok) return null;
+    return blobToDataUrl(await res.blob());
+  } catch {
+    return null;
+  }
+}
+
+/* ── Inline CSS background-image urls before toPng ───────────── */
+async function inlineBackgroundImages(el: HTMLElement): Promise<void> {
+  const nodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+  await Promise.allSettled(
+    nodes.map(async (node) => {
+      const bg = node.style.backgroundImage;
+      if (!bg || !bg.includes("url(")) return;
+      const src = extractCssUrl(bg);
+      if (!src) return;
+      const dataUrl = await imageUrlToDataUrl(src);
+      if (!dataUrl) return;
+      node.style.backgroundImage = bg.replace(/url\((['"]?).*?\1\)/, `url("${dataUrl}")`);
+    })
+  );
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement("a");
+  link.download = filename;
+  link.href = dataUrl;
+  link.rel = "noopener";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   await document.fonts.ready;
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   await inlineImages(el);
+  await inlineBackgroundImages(el);
 
   const dataUrl = await toPng(el, {
     width: 1080,
@@ -402,10 +449,7 @@ async function captureAndDownload(el: HTMLElement, filename: string): Promise<vo
     throw new Error("toPng returned empty data URL");
   }
 
-  const link = document.createElement("a");
-  link.download = filename;
-  link.href = dataUrl;
-  link.click();
+  downloadDataUrl(dataUrl, filename);
 }
 
 /* ── Lightbox ─────────────────────────────────────────────────── */
