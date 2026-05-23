@@ -9,7 +9,7 @@ import {
   useScroll, useTransform,
   useReducedMotion,
 } from "framer-motion";
-import { TrendingUp, Music, Mail, BadgeCheck } from "lucide-react";
+import { Award, BadgeCheck, Disc3, Mail, Music, RadioTower, TrendingUp, Users } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { SHEET_SOURCES } from "@/config/sheetSources";
@@ -67,6 +67,37 @@ const SOCIAL_LINKS = [
   { label: "X", href: SOCIAL_URLS.x, icon: SiX },
   { label: "TikTok", href: SOCIAL_URLS.tiktok, icon: SiTiktok },
   { label: "YouTube", href: SOCIAL_URLS.youtube, icon: SiYoutube },
+] as const;
+
+const PUBLIC_FEATURES = [
+  {
+    title: "Índice de Impulso",
+    kicker: "Ranking propietario",
+    description: "Top 25 de artistas con mayor momentum usando charts, audiencia, crecimiento, redes y touring.",
+    href: "/artist-momentum",
+    icon: TrendingUp,
+  },
+  {
+    title: "Directorio de Artistas",
+    kicker: "Perfiles verificados",
+    description: "Explora perfiles con audiencia, fuentes oficiales, canciones, videos, listas y certificaciones.",
+    href: "/artists",
+    icon: Users,
+  },
+  {
+    title: "Certificaciones",
+    kicker: "AMPROFON México",
+    description: "Historial de discos, sencillos, diamante, platino y oro para artistas mexicanos.",
+    href: "/industry/certifications",
+    icon: Award,
+  },
+  {
+    title: "Touring",
+    kicker: "Próximos conciertos",
+    description: "Fechas activas de artistas mexicanos en México, Estados Unidos y Latinoamérica.",
+    href: "/touring",
+    icon: RadioTower,
+  },
 ] as const;
 
 /* ── Charts-hub types (minimal, same shape as ChartsHub.tsx) ── */
@@ -1159,6 +1190,59 @@ export default function HomeV6() {
           </div>
         </section>
       </FadeUp>
+
+      {/* ── PUBLIC FEATURE GATEWAY ── */}
+      <section className="px-6 lg:px-12 py-6" data-testid="section-public-features">
+        <FadeUp>
+          <div className="flex items-center gap-3 mb-5">
+            <span style={{ color:"#39FF14" }}><Disc3 className="w-4 h-4" /></span>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Explorar Mexico Charts</h2>
+            <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
+          </div>
+        </FadeUp>
+        <motion.div
+          className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4"
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once:true, margin:"-60px" }}
+          variants={staggerContainer}
+        >
+          {PUBLIC_FEATURES.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <motion.div key={feature.href} variants={fadeUpVariants}>
+                <Link href={feature.href}>
+                  <motion.article
+                    whileHover={reduced ? {} : { y:-3, transition:{ duration:0.22 } }}
+                    className="group relative min-h-[178px] overflow-hidden rounded-xl p-5 cursor-pointer"
+                    style={{
+                      background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)",
+                      border:"1px solid rgba(255,255,255,0.07)",
+                      boxShadow:"0 8px 48px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.05)",
+                    }}
+                  >
+                    <div className="absolute inset-0 opacity-[0.025] pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
+                    <div className="absolute -right-8 -bottom-8 h-32 w-32 rounded-full opacity-0 transition-opacity duration-300 group-hover:opacity-100" style={{ background:"radial-gradient(circle, rgba(57,255,20,0.08) 0%, transparent 70%)" }} />
+                    <div className="relative z-10 flex h-full flex-col">
+                      <div className="mb-5 flex items-center justify-between gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ background:"rgba(57,255,20,0.08)", border:"1px solid rgba(57,255,20,0.18)", color:"#39FF14" }}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color:"rgba(57,255,20,0.72)" }}>
+                          Abrir →
+                        </span>
+                      </div>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{feature.kicker}</div>
+                      <h3 className="mt-1 text-base font-black uppercase text-white transition-colors duration-200 group-hover:text-[#39FF14]">{feature.title}</h3>
+                      <p className="mt-3 text-xs leading-relaxed text-zinc-500">{feature.description}</p>
+                    </div>
+                  </motion.article>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </section>
 
       {/* ── NEWSLETTER ── */}
       <FadeUp>
