@@ -16,6 +16,16 @@ const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='h
 
 const ACCENT = "#39FF14";
 
+type SortMode = "az" | "listeners" | "streams" | "youtube" | "instagram";
+
+const SORT_OPTIONS: Array<{ value: SortMode; label: string }> = [
+  { value: "az", label: "A-Z" },
+  { value: "listeners", label: "Oyentes Spotify" },
+  { value: "streams", label: "Streams totales" },
+  { value: "youtube", label: "YouTube" },
+  { value: "instagram", label: "Instagram" },
+];
+
 /* ── Genre color map ─────────────────────────────────────────────── */
 const GENRE_COLORS: Record<string, string> = {
   "Corridos Tumbados": "#39FF14",
@@ -288,6 +298,7 @@ export default function ArtistRoster() {
   const [genreFilter, setGenreFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("az");
 
   useEffect(() => {
     setSearch(initialQuery);
@@ -318,14 +329,22 @@ export default function ArtistRoster() {
   /* Filtered list */
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return allArtists.filter(a => {
+    const next = allArtists.filter(a => {
       if (q && !a.displayName.toLowerCase().includes(q) && !a.normalizedName.includes(q)) return false;
       if (genreFilter && a.genre !== genreFilter) return false;
       if (countryFilter && a.country !== countryFilter) return false;
       if (verifiedOnly && !verifiedArtistKeys.has(a.artistKey)) return false;
       return true;
     });
-  }, [allArtists, search, genreFilter, countryFilter, verifiedOnly, verifiedArtistKeys]);
+
+    return next.sort((a, b) => {
+      if (sortMode === "listeners") return b.spotifyListeners - a.spotifyListeners;
+      if (sortMode === "streams") return (kworbStreams?.[b.displayName] ?? 0) - (kworbStreams?.[a.displayName] ?? 0);
+      if (sortMode === "youtube") return b.youtubeSubscribers - a.youtubeSubscribers;
+      if (sortMode === "instagram") return b.instagramFollowers - a.instagramFollowers;
+      return a.displayName.localeCompare(b.displayName, "es", { sensitivity: "base" });
+    });
+  }, [allArtists, search, genreFilter, countryFilter, verifiedOnly, verifiedArtistKeys, sortMode, kworbStreams]);
 
   const hasActiveFilter = search || genreFilter || countryFilter || verifiedOnly;
 
@@ -334,6 +353,7 @@ export default function ArtistRoster() {
     setGenreFilter("");
     setCountryFilter("");
     setVerifiedOnly(false);
+    setSortMode("az");
   }
 
   /* ── Render ── */
@@ -469,6 +489,21 @@ export default function ArtistRoster() {
               options={countries}
               onChange={setCountryFilter}
             />
+            <div className="relative">
+              <select
+                value={sortMode}
+                onChange={e => setSortMode(e.target.value as SortMode)}
+                className="appearance-none bg-white/[0.04] border border-white/[0.09] rounded-full pl-3 pr-7 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 focus:outline-none focus:border-[#39FF14]/40 cursor-pointer transition-colors hover:border-white/20"
+                style={{ colorScheme: "dark" }}
+                aria-label="Ordenar artistas"
+                data-testid="roster-sort"
+              >
+                {SORT_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>Orden · {option.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500 pointer-events-none" />
+            </div>
             <button
               type="button"
               onClick={() => setVerifiedOnly(v => !v)}
