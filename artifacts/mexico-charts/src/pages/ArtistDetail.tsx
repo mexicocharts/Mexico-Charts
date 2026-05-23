@@ -890,7 +890,9 @@ export default function ArtistDetail() {
                           <SiSpotify className="h-4 w-4" style={{ color: "#1DB954" }} />
                         </span>
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
-                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-[#1DB954]" />
+                        {enrichment.spotify.url && (
+                          <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-[#1DB954]" />
+                        )}
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
                       <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
