@@ -477,13 +477,21 @@ export default function EnrichmentReview() {
                       const candidateHref = candidateUrl(row.provider, candidate);
                       const id = candidateId(row.provider, candidate);
                       const active = selectedIndex === index;
+                      const selectCandidate = () => {
+                        setSelectedCandidates(prev => ({ ...prev, [rowKey]: index }));
+                        setConfirmingApproval(null);
+                      };
                       return (
-                        <button
+                        <div
                           key={`${rowKey}-${index}`}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCandidates(prev => ({ ...prev, [rowKey]: index }));
-                            setConfirmingApproval(null);
+                          role="button"
+                          tabIndex={0}
+                          onClick={selectCandidate}
+                          onKeyDown={event => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              selectCandidate();
+                            }
                           }}
                           className={`min-w-0 rounded-lg border p-3 text-left transition-colors ${
                             active
@@ -520,7 +528,7 @@ export default function EnrichmentReview() {
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           )}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
