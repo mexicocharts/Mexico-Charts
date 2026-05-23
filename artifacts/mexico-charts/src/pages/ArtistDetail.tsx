@@ -53,6 +53,15 @@ function formatTourDate(iso: string): string {
   return `${day} ${months[Number(month) - 1]} ${year}`;
 }
 
+function formatShortDateEs(iso: string | null | undefined): string {
+  if (!iso) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));
+}
+
 function normalizeSongMatch(value: string): string {
   return value
     .toLowerCase()
@@ -839,16 +848,27 @@ export default function ArtistDetail() {
           >
             <div
               className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
-              style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
+              style={{ background: "linear-gradient(160deg,#101010 0%,#080808 58%,#050505 100%)", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <div className="mb-5 flex flex-wrap items-center gap-3">
-                  <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
-                  <div className="ml-auto hidden items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700 sm:flex">
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    Identidad confirmada
+                <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
+                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
+                    </div>
+                    <p className="max-w-xl text-xs font-bold leading-relaxed text-zinc-600">
+                      Enlaces verificados para confirmar la identidad del perfil y consultar la fuente original.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-[#39FF14]/20 bg-[#39FF14]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
+                      {[enrichment.spotify, enrichment.youtube, enrichment.musicbrainz].filter(Boolean).length} fuentes
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                      Identidad enlazada
+                    </span>
                   </div>
                 </div>
 
@@ -858,20 +878,30 @@ export default function ArtistDetail() {
                       href={enrichment.spotify.url ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group rounded-xl p-4 transition-colors duration-200"
-                      style={{ background: "rgba(29,185,84,0.055)", border: "1px solid rgba(29,185,84,0.16)" }}
+                      className="group relative overflow-hidden rounded-xl p-4 transition-colors duration-200 hover:border-[#1DB954]/35"
+                      style={{ background: "linear-gradient(180deg,rgba(29,185,84,0.085),rgba(255,255,255,0.025))", border: "1px solid rgba(29,185,84,0.16)" }}
                     >
+                      <div className="absolute inset-y-0 left-0 w-1 bg-[#1DB954]" />
                       <div className="mb-3 flex items-center gap-2">
-                        <SiSpotify className="h-4 w-4" style={{ color: "#1DB954" }} />
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1DB954]/10">
+                          <SiSpotify className="h-4 w-4" style={{ color: "#1DB954" }} />
+                        </span>
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
                         <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-[#1DB954]" />
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
-                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
-                        Perfil oficial
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                        Perfil enlazado
                       </div>
-                      <div className="mt-3 text-[10px] leading-relaxed text-zinc-700">
-                        Escucha y confirma el perfil del artista en Spotify.
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {enrichment.spotify.followersFmt && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                            {enrichment.spotify.followersFmt} seguidores
+                          </span>
+                        )}
+                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          Act. {formatShortDateEs(enrichment.spotify.lastUpdated)}
+                        </span>
                       </div>
                     </a>
                   )}
@@ -881,17 +911,32 @@ export default function ArtistDetail() {
                       href={enrichment.youtube.channelUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group rounded-xl p-4 transition-colors duration-200"
-                      style={{ background: "rgba(255,0,0,0.055)", border: "1px solid rgba(255,0,0,0.15)" }}
+                      className="group relative overflow-hidden rounded-xl p-4 transition-colors duration-200 hover:border-red-500/35"
+                      style={{ background: "linear-gradient(180deg,rgba(255,0,0,0.08),rgba(255,255,255,0.025))", border: "1px solid rgba(255,0,0,0.15)" }}
                     >
+                      <div className="absolute inset-y-0 left-0 w-1 bg-red-500" />
                       <div className="mb-3 flex items-center gap-2">
-                        <SiYoutube className="h-4 w-4 text-red-500" />
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
+                          <SiYoutube className="h-4 w-4 text-red-500" />
+                        </span>
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
                         <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-red-400" />
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "Canal oficial"}</div>
-                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
-                        Canal oficial
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                        Canal enlazado
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {enrichment.youtube.subscribersFmt && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                            {enrichment.youtube.subscribersFmt} suscriptores
+                          </span>
+                        )}
+                        {enrichment.youtube.viewsFmt && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                            {enrichment.youtube.viewsFmt} vistas
+                          </span>
+                        )}
                       </div>
                     </a>
                   )}
@@ -901,16 +946,19 @@ export default function ArtistDetail() {
                       href={enrichment.musicbrainz.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="group rounded-xl p-4 transition-colors duration-200"
-                      style={{ background: "rgba(245,158,11,0.055)", border: "1px solid rgba(245,158,11,0.15)" }}
+                      className="group relative overflow-hidden rounded-xl p-4 transition-colors duration-200 hover:border-amber-400/35"
+                      style={{ background: "linear-gradient(180deg,rgba(245,158,11,0.08),rgba(255,255,255,0.025))", border: "1px solid rgba(245,158,11,0.15)" }}
                     >
+                      <div className="absolute inset-y-0 left-0 w-1 bg-amber-400" />
                       <div className="mb-3 flex items-center gap-2">
-                        <Database className="h-4 w-4 text-amber-400" />
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/10">
+                          <Database className="h-4 w-4 text-amber-400" />
+                        </span>
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">MusicBrainz</span>
                         <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-amber-300" />
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.musicbrainz.name ?? artist.name}</div>
-                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Catálogo musical"}
                       </div>
                       {enrichment.musicbrainz.tags.length > 0 && (
