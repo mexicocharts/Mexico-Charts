@@ -110,7 +110,8 @@ export default function EnrichmentReview() {
       if (!normalizedQuery) return true;
       const candidateNames = row.candidates.map(candidate => candidateName(row.provider, candidate)).join(" ");
       const candidateDetails = row.candidates.map(candidate => candidateMeta(row.provider, candidate)).join(" ");
-      const haystack = `${row.artistName} ${row.artistKey} ${candidateNames} ${candidateDetails}`.toLowerCase();
+      const candidateIds = row.candidates.map(candidate => candidateId(row.provider, candidate) ?? "").join(" ");
+      const haystack = `${row.artistName} ${row.artistKey} ${candidateNames} ${candidateDetails} ${candidateIds}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
 
