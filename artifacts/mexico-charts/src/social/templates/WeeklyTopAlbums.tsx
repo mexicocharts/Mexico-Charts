@@ -28,7 +28,8 @@ export default function WeeklyTopAlbums() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Apple_Albums?.rows?.slice(0, 5) ?? [];
   const artistNames = hubRows.map(r => primaryArtist(r["Artist Names"] ?? ""));
-  const { data: images } = useArtistImageMap(artistNames);
+  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
+  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
 
   const albums: AlbumEntry[] = hubRows.length > 0
     ? hubRows.map((r, i) => ({
@@ -42,7 +43,7 @@ export default function WeeklyTopAlbums() {
   const isLive = hubRows.length > 0;
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 650,
         background: `radial-gradient(ellipse 85% 100% at 50% -5%, ${ACCENT}12 0%, ${ACCENT}05 45%, transparent 70%)`,

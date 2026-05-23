@@ -7,21 +7,39 @@ const coverCache = new Map<string, string | null>();
 let enrichmentRunning = false;
 
 /* ── Album art via Deezer (free, no auth) ────────────────────────────────── */
+function cleanCoverQuery(value: string): string {
+  return value
+    .replace(/\([^)]*(?:remix|version|visualizer|video|audio|official|deluxe)[^)]*\)/gi, "")
+    .replace(/\[[^\]]*(?:remix|version|visualizer|video|audio|official|deluxe)[^\]]*\]/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function fetchCoverViaDeezer(artist: string, title: string): Promise<string | null> {
+  const queries = [
+    `${artist} ${title}`,
+    `${artist} ${cleanCoverQuery(title)}`,
+    `${cleanCoverQuery(title)} ${artist}`,
+  ].filter((q, i, arr) => q.trim() && arr.indexOf(q) === i);
+
   try {
-    const q = encodeURIComponent(`${artist} ${title}`);
-    const resp = await fetch(`https://api.deezer.com/search/track?q=${q}&limit=3`, {
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json() as {
-      data?: Array<{ album: { cover_medium: string; cover_xl: string } }>;
-    };
-    if (!data.data?.length) return null;
-    const hit = data.data[0];
-    const url = hit.album.cover_xl || hit.album.cover_medium;
-    if (!url || url.includes("/noimage/")) return null;
-    return url;
+    for (const query of queries) {
+      const q = encodeURIComponent(query);
+      const resp = await fetch(`https://api.deezer.com/search/track?q=${q}&limit=5`, {
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!resp.ok) continue;
+      const data = await resp.json() as {
+        data?: Array<{ album: { cover?: string; cover_medium?: string; cover_big?: string; cover_xl?: string } }>;
+      };
+      const hit = data.data?.find(item => {
+        const url = item.album.cover_xl || item.album.cover_big || item.album.cover_medium || item.album.cover;
+        return !!url && !url.includes("/noimage/");
+      });
+      const url = hit?.album.cover_xl || hit?.album.cover_big || hit?.album.cover_medium || hit?.album.cover;
+      if (url) return url;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -34,7 +52,7 @@ async function enrichCovers(
   if (enrichmentRunning) return;
   enrichmentRunning = true;
   try {
-    const todo = entries.filter(e => !coverCache.has(e.trackId));
+    const todo = entries.filter(e => !coverCache.has(e.trackId) || coverCache.get(e.trackId) === null);
     for (let i = 0; i < todo.length; i += 4) {
       const batch = todo.slice(i, i + 4);
       await Promise.all(
@@ -56,7 +74,7 @@ async function enrichCoversForExport(
   entries: Omit<ChartEntry, "coverUrl">[],
   limit = 10
 ): Promise<void> {
-  const todo = entries.slice(0, limit).filter(e => !coverCache.has(e.trackId));
+  const todo = entries.slice(0, limit).filter(e => !coverCache.has(e.trackId) || coverCache.get(e.trackId) === null);
   for (let i = 0; i < todo.length; i += 4) {
     const batch = todo.slice(i, i + 4);
     await Promise.all(

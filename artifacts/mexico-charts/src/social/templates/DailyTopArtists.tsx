@@ -22,7 +22,8 @@ export default function DailyTopArtists() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Spotify_Artists_Daily?.rows?.slice(0, 10) ?? [];
   const artistNames = hubRows.map(r => r["Artist"] ?? "");
-  const { data: images } = useArtistImageMap(artistNames);
+  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
+  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
 
   const rows: ChartRowData[] = hubRows.length > 0
     ? hubRows.map((r, i) => ({
@@ -38,7 +39,7 @@ export default function DailyTopArtists() {
     : FALLBACK;
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 650,
         background: `radial-gradient(ellipse 80% 85% at 50% -8%, ${ACCENT}0f 0%, ${ACCENT}06 40%, transparent 70%)`,

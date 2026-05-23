@@ -452,9 +452,18 @@ async function waitForImages(el: HTMLElement, timeoutMs = 1800): Promise<void> {
   ]);
 }
 
+async function waitForExportReady(el: HTMLElement, timeoutMs = 6000): Promise<void> {
+  const started = Date.now();
+  while (el.querySelector("[data-export-loading='true']") && Date.now() - started < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+}
+
 /* ── Download helper ─────────────────────────────────────────── */
 async function captureAndDownload(el: HTMLElement, filename: string): Promise<void> {
   await document.fonts.ready;
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  await waitForExportReady(el);
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   await waitForImages(el);
   await inlineImages(el);

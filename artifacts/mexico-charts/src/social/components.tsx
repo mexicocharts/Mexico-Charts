@@ -19,12 +19,15 @@ export const LOGO_URL = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 export function TemplateCanvas({
   children,
   style,
+  exportLoading = false,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  exportLoading?: boolean;
 }) {
   return (
     <div
+      data-export-loading={exportLoading ? "true" : undefined}
       style={{
         width: W,
         height: H,

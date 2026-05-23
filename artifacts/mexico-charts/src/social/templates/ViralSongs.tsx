@@ -22,7 +22,8 @@ export default function ViralSongs() {
   const { data: hub } = useChartsHub();
   const viralRows = hub?.sheets?.Spotify_Viral_Daily?.rows?.slice(0, 10) ?? [];
   const artistNames = viralRows.map(r => primaryArtist(r["artist_names"] ?? ""));
-  const { data: images } = useArtistImageMap(artistNames);
+  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
+  const exportLoading = viralRows.length > 0 && (imagesFetching || images === undefined);
 
   const rows: ChartRowData[] = viralRows.length > 0
     ? viralRows.map((r, i) => ({
@@ -37,7 +38,7 @@ export default function ViralSongs() {
     : FALLBACK;
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <div style={{
         position: "absolute", top: "-15%", left: "50%",
         transform: "translateX(-50%)",

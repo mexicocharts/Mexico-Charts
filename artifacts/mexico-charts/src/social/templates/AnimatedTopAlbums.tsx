@@ -47,7 +47,8 @@ export default function AnimatedTopAlbums() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Apple_Albums?.rows?.slice(0, 5) ?? [];
   const artistNames = hubRows.map(r => primaryArtist(r["Artist Names"] ?? ""));
-  const { data: images } = useArtistImageMap(artistNames);
+  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
+  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
   const { phase, cycle } = useAnimLoop();
 
   const isLive = hubRows.length > 0;
@@ -81,7 +82,7 @@ export default function AnimatedTopAlbums() {
   const rowVisible    = phase !== "intro";
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <style>{ANIM_CSS}</style>
 
       <div style={{
