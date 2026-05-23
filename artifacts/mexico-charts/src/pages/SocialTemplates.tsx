@@ -806,7 +806,7 @@ export default function SocialTemplates() {
   const [accessInput, setAccessInput] = useState("");
   const [accessError, setAccessError] = useState("");
   const [hasAccess, setHasAccess] = useState(() =>
-    !!ACCESS_CODE && window.sessionStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_CODE,
+    !ACCESS_CODE || window.sessionStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_CODE,
   );
   const [category, setCategory] = useState("Todos");
   const [lightbox, setLightbox] = useState<TemplateConfig | null>(null);
@@ -818,7 +818,8 @@ export default function SocialTemplates() {
   function submitAccess(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ACCESS_CODE) {
-      setAccessError("Configura VITE_SOCIAL_TEMPLATES_ACCESS_CODE para habilitar esta herramienta.");
+      setHasAccess(true);
+      setAccessError("");
       return;
     }
     if (accessInput.trim() !== ACCESS_CODE) {
