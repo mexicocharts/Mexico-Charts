@@ -788,7 +788,7 @@ export default function ApiCoverage() {
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-5">
-                  <div><div className="text-2xl font-black text-white">{kworb.coverage.total}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Tracking</div></div>
+                  <div><div className="text-2xl font-black text-white">{kworb.coverage.total}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Seguimiento</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.coverage.bySource.withAny}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con datos</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.noSnapshotCount}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin snapshot</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.snapshots.stale_snapshots ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vencidos</div></div>
@@ -812,16 +812,16 @@ export default function ApiCoverage() {
                     Refrescar
                   </button>
                   <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
-                    {touring.configured ? "Configurado" : "Sin API key"}
+                    {touring.configured ? "Configurado" : "Sin clave API"}
                   </span>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-6">
-                  <div><div className="text-2xl font-black text-white">{touring.totalTracked}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Tracking</div></div>
+                  <div><div className="text-2xl font-black text-white">{touring.totalTracked}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Seguimiento</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.checked}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Revisados</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.withUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con shows</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.withoutUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin shows</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.stale}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Por revisar</div></div>
-                  <div><div className="text-sm font-black text-white">{fmtDate(touring.newestFetchAt)}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Último fetch</div></div>
+                  <div><div className="text-sm font-black text-white">{fmtDate(touring.newestFetchAt)}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Última consulta</div></div>
                 </div>
               </section>
             )}
