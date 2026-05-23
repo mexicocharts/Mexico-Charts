@@ -939,6 +939,9 @@ export default function ArtistDetail() {
                             {enrichment.youtube.viewsFmt} vistas
                           </span>
                         )}
+                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          Actualizado {formatShortDateEs(enrichment.youtube.cachedAt)}
+                        </span>
                       </div>
                     </a>
                   )}
@@ -962,6 +965,11 @@ export default function ArtistDetail() {
                       <div className="truncate text-lg font-black text-white">{enrichment.musicbrainz.name ?? artist.name}</div>
                       <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Catálogo musical"}
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          Actualizado {formatShortDateEs(enrichment.musicbrainz.lastUpdated)}
+                        </span>
                       </div>
                       {enrichment.musicbrainz.tags.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
