@@ -64,6 +64,11 @@ function candidateName(provider: ReviewRow["provider"], candidate: Candidate | u
   return provider === "spotify" ? candidate.spotifyName ?? "Sin nombre" : candidate.name ?? "Sin nombre";
 }
 
+function candidateId(provider: ReviewRow["provider"], candidate: Candidate | undefined): string | null {
+  if (!candidate) return null;
+  return provider === "spotify" ? candidate.spotifyArtistId ?? null : candidate.mbid ?? null;
+}
+
 function candidateMeta(provider: ReviewRow["provider"], candidate: Candidate): string {
   if (provider === "spotify") {
     return [
@@ -185,7 +190,8 @@ export default function EnrichmentReview() {
       const selectedIndex = selectedCandidates[`${row.provider}-${row.artistKey}`] ?? 0;
       const best = row.candidates[selectedIndex] ?? row.candidates[0];
       const displayName = candidateName(row.provider, best);
-      return `${row.artistName} | ${row.provider} | ${displayName} | score ${best?.score ?? row.bestScore}`;
+      const id = candidateId(row.provider, best);
+      return `${row.artistName} | ${row.provider} | ${displayName} | ${id ?? "sin ID"} | score ${best?.score ?? row.bestScore}`;
     });
 
     if (lines.length === 0) {
@@ -388,6 +394,7 @@ export default function EnrichmentReview() {
             const best = row.candidates[selectedIndex] ?? row.candidates[0];
             const url = best ? candidateUrl(row.provider, best) : null;
             const displayName = candidateName(row.provider, best);
+            const selectedId = candidateId(row.provider, best);
             const isPending = pendingKey === rowKey;
             const confirmKey = `${rowKey}-${selectedIndex}`;
             const isConfirming = confirmingApproval === confirmKey;
@@ -406,6 +413,7 @@ export default function EnrichmentReview() {
                       </div>
                       <p className="mt-1 text-xs text-zinc-600">
                         Candidato seleccionado: <span className="font-bold text-zinc-400">{displayName}</span>
+                        {selectedId && <span> · ID {selectedId}</span>}
                         {best?.score != null && <span> · score {best.score}</span>}
                         <span> · {fmtDate(row.searchedAt)}</span>
                       </p>
@@ -466,6 +474,7 @@ export default function EnrichmentReview() {
                   <div className="mt-4 grid gap-2 border-t border-white/[0.06] pt-4 md:grid-cols-2 xl:grid-cols-3">
                     {row.candidates.slice(0, 6).map((candidate, index) => {
                       const candidateHref = candidateUrl(row.provider, candidate);
+                      const id = candidateId(row.provider, candidate);
                       const active = selectedIndex === index;
                       return (
                         <button
@@ -493,6 +502,11 @@ export default function EnrichmentReview() {
                           <div className="mt-1 line-clamp-2 text-xs font-bold leading-relaxed text-zinc-600">
                             {candidateMeta(row.provider, candidate)}
                           </div>
+                          {id && (
+                            <div className="mt-2 truncate text-[10px] font-bold text-zinc-700">
+                              ID {id}
+                            </div>
+                          )}
                           {candidateHref && (
                             <a
                               href={candidateHref}
