@@ -435,6 +435,14 @@ export default function ArtistDetail() {
     return positions.filter(position => position[chartPositionFilter] !== undefined);
   }, [kworbStats, chartPositionFilter]);
 
+  const chartPositionCounts = useMemo(() => {
+    const positions = kworbStats?.chartPositions ?? [];
+    return CHART_POSITION_PLATFORMS.reduce((counts, platform) => {
+      counts[platform.key] = positions.filter(position => position[platform.key] !== undefined).length;
+      return counts;
+    }, {} as Record<ChartPositionPlatformKey, number>);
+  }, [kworbStats]);
+
   const chartVideoMatches = useMemo(
     () =>
       (kworbStats?.youtube?.topVideos ?? [])
@@ -449,6 +457,8 @@ export default function ArtistDetail() {
   const selectedChartPlatform = chartPositionFilter === "all"
     ? null
     : CHART_POSITION_PLATFORMS.find(platform => platform.key === chartPositionFilter) ?? null;
+
+  const chartPositionTotal = kworbStats?.chartPositions?.length ?? 0;
 
 
   return (
@@ -1209,50 +1219,69 @@ export default function ArtistDetail() {
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-5">
-                  <Music className="w-4 h-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Posiciones en México · Canciones Actuales</h2>
-                  <div className="ml-auto hidden text-[9px] uppercase tracking-widest text-zinc-700 font-bold sm:block">Charts actuales</div>
+                <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Music className="h-4 w-4 shrink-0" style={{ color: artist.accent }} />
+                    <div className="min-w-0">
+                      <h2 className="text-xs font-black uppercase tracking-[0.22em] text-zinc-400">Posiciones en México</h2>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                        {chartPositions.length} de {chartPositionTotal} canciones actuales
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className="sm:ml-auto inline-flex w-fit items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.13em]"
+                    style={{
+                      background: selectedChartPlatform ? `${selectedChartPlatform.color}12` : `${artist.accent}12`,
+                      border: selectedChartPlatform ? `1px solid ${selectedChartPlatform.color}30` : `1px solid ${artist.accent}30`,
+                      color: selectedChartPlatform?.color ?? artist.accent,
+                    }}
+                  >
+                    {selectedChartPlatform ? `${selectedChartPlatform.label} MX` : "Todas las plataformas"}
+                  </div>
                 </div>
 
-                <div className="mb-5 flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                   <button
                     type="button"
                     onClick={() => setChartPositionFilter("all")}
-                    className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition-colors"
+                    className="inline-flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors"
                     style={{
-                      background: chartPositionFilter === "all" ? `${artist.accent}18` : "rgba(255,255,255,0.035)",
-                      border: chartPositionFilter === "all" ? `1px solid ${artist.accent}44` : "1px solid rgba(255,255,255,0.08)",
+                      background: chartPositionFilter === "all" ? `${artist.accent}16` : "rgba(255,255,255,0.028)",
+                      border: chartPositionFilter === "all" ? `1px solid ${artist.accent}44` : "1px solid rgba(255,255,255,0.07)",
                       color: chartPositionFilter === "all" ? artist.accent : "rgba(255,255,255,0.42)",
                     }}
                   >
-                    Todas
+                    <span>Todas</span>
+                    <span className="text-[9px] text-zinc-600">{chartPositionTotal}</span>
                   </button>
                   {CHART_POSITION_PLATFORMS.map(platform => (
                     <button
                       key={platform.key}
                       type="button"
                       onClick={() => setChartPositionFilter(platform.key)}
-                      className="shrink-0 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] transition-colors"
+                      className="inline-flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-[10px] font-black uppercase tracking-[0.12em] transition-colors"
                       style={{
-                        background: chartPositionFilter === platform.key ? `${platform.color}18` : "rgba(255,255,255,0.035)",
-                        border: chartPositionFilter === platform.key ? `1px solid ${platform.color}44` : "1px solid rgba(255,255,255,0.08)",
+                        background: chartPositionFilter === platform.key ? `${platform.color}16` : "rgba(255,255,255,0.028)",
+                        border: chartPositionFilter === platform.key ? `1px solid ${platform.color}44` : "1px solid rgba(255,255,255,0.07)",
                         color: chartPositionFilter === platform.key ? platform.color : "rgba(255,255,255,0.42)",
                       }}
                     >
-                      {platform.label}
+                      <span>{platform.short}</span>
+                      <span className="text-[9px] text-zinc-600">{chartPositionCounts[platform.key] ?? 0}</span>
                     </button>
                   ))}
                 </div>
 
                 {chartPositions.length > 0 ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
                     {chartPositions.map((cp, i) => {
                       const ranks = CHART_POSITION_PLATFORMS
                         .map(platform => cp[platform.key])
                         .filter((rank): rank is number => rank !== undefined);
                       const bestRank = ranks.length > 0 ? Math.min(...ranks) : null;
                       const isBestTop3 = bestRank !== null && bestRank <= 3;
+                      const featuredRank = selectedChartPlatform ? cp[selectedChartPlatform.key] ?? null : bestRank;
                       const songKey = normalizeSongMatch(cp.song);
                       const videoMatch = chartVideoMatches.find(match =>
                         match.key === songKey || match.key.includes(songKey) || songKey.includes(match.key)
@@ -1261,14 +1290,14 @@ export default function ArtistDetail() {
                       return (
                         <div
                           key={`${cp.song}-${i}`}
-                          className="flex items-center gap-3 rounded-xl p-3 sm:gap-4"
+                          className="flex items-center gap-3 rounded-xl p-2.5 sm:gap-3"
                           style={{
                             background: "rgba(255,255,255,0.025)",
                             border: "1px solid rgba(255,255,255,0.055)",
                           }}
                         >
                           <div
-                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl sm:h-16 sm:w-16"
+                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg sm:h-16 sm:w-16"
                             style={{
                               border: isBestTop3 ? `1px solid ${artist.accent}30` : "1px solid rgba(255,255,255,0.06)",
                               background: isBestTop3 ? `${artist.accent}10` : "rgba(255,255,255,0.035)",
@@ -1289,14 +1318,21 @@ export default function ArtistDetail() {
                                 color: isBestTop3 ? "#050505" : "rgba(255,255,255,0.88)",
                               }}
                             >
-                              {bestRank ? `#${bestRank}` : "—"}
+                              {featuredRank ? `#${featuredRank}` : "—"}
                             </div>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-black text-zinc-200">{cp.song}</div>
                             {selectedChartPlatform ? (
-                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: selectedChartPlatform.color }}>
-                                {selectedChartPlatform.label} México
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: selectedChartPlatform.color }}>
+                                  {selectedChartPlatform.label} México
+                                </span>
+                                {ranks.length > 1 && (
+                                  <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                    +{ranks.length - 1} charts
+                                  </span>
+                                )}
                               </div>
                             ) : (
                               <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1329,6 +1365,16 @@ export default function ArtistDetail() {
                               </div>
                               <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
                                 México
+                              </div>
+                            </div>
+                          )}
+                          {!selectedChartPlatform && ranks.length > 1 && (
+                            <div className="hidden shrink-0 text-right sm:block">
+                              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                                {ranks.length}
+                              </div>
+                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                charts
                               </div>
                             </div>
                           )}
