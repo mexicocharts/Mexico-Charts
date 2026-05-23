@@ -391,6 +391,7 @@ export default function ArtistDetail() {
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
   const enrichment   = useArtistEnrichment(slugAsKey);
   const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
+  const officialSourceCount = [enrichment?.spotify, enrichment?.youtube, enrichment?.musicbrainz].filter(Boolean).length;
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
   const hasAudienceStats = Boolean(metaArtist && (
@@ -866,7 +867,7 @@ export default function ArtistDetail() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full border border-[#39FF14]/20 bg-[#39FF14]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
-                      {[enrichment.spotify, enrichment.youtube, enrichment.musicbrainz].filter(Boolean).length} fuentes
+                      {officialSourceCount} {officialSourceCount === 1 ? "fuente" : "fuentes"}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
                       Identidad enlazada
