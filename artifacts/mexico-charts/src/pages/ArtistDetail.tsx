@@ -469,7 +469,7 @@ export default function ArtistDetail() {
     >
       <PageSEO
         title={`${artist.name} — Perfil de artista | Mexico Charts`}
-        description={`${artist.name}: perfil de artista con genero, estadisticas de streaming, audiencia, redes sociales, certificaciones y datos de charts en Mexico Charts.`}
+        description={`${artist.name}: perfil de artista con género, estadísticas de streaming, audiencia, redes sociales, certificaciones y datos de listas en México Charts.`}
         path={`/artist/${slug}`}
       />
       {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
@@ -1330,7 +1330,7 @@ export default function ArtistDetail() {
                                 </span>
                                 {ranks.length > 1 && (
                                   <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
-                                    +{ranks.length - 1} charts
+                                    +{ranks.length - 1} listas
                                   </span>
                                 )}
                               </div>
@@ -1374,7 +1374,7 @@ export default function ArtistDetail() {
                                 {ranks.length}
                               </div>
                               <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
-                                charts
+                                listas
                               </div>
                             </div>
                           )}
