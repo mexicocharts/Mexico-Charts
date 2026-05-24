@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
 import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { CONTACT_EMAIL } from "@/config/brand";
 
 const HERO_BG = "/touring-hero.png";
 
@@ -142,7 +143,20 @@ export default function TouringHub() {
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
   const PAGE_SIZE = 8;
+
+  function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const email = newsletterEmail.trim();
+    const subject = encodeURIComponent("Suscripcion alertas touring Mexico Charts");
+    const body = encodeURIComponent(
+      email
+        ? `Hola Mexico Charts,\n\nQuiero recibir alertas de touring con este correo: ${email}`
+        : "Hola Mexico Charts,\n\nQuiero recibir alertas de touring.",
+    );
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+  }
 
   const sortedArtists = artists
     ? [...artists].sort((a, b) => b.events.length - a.events.length)
@@ -850,10 +864,17 @@ export default function TouringHub() {
           <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sé el Primero en Saber</div>
           <div style={{ color: "#444", fontSize: 11, lineHeight: 1.5 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
         </div>
-        <div className="th-newsletter-form" style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
-          <input placeholder="Tu correo electrónico" className="th-newsletter-input" />
-          <button type="button" className="th-subscribe-btn">Suscribirme</button>
-        </div>
+        <form className="th-newsletter-form" onSubmit={submitNewsletter} style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
+          <input
+            type="email"
+            value={newsletterEmail}
+            onChange={(event) => setNewsletterEmail(event.target.value)}
+            placeholder="Tu correo electrónico"
+            className="th-newsletter-input"
+            aria-label="Correo para alertas de touring"
+          />
+          <button type="submit" className="th-subscribe-btn">Suscribirme</button>
+        </form>
       </section>
 
       <footer className="th-footer" style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
