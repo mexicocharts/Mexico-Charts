@@ -103,30 +103,30 @@ const ERA_CARDS = [
   {
     era: "2023",
     label: "Explosión de taquilla",
-    gross: "48 reportes",
+    gross: "$74.6M",
     note: "La demanda en arenas y anfiteatros de Estados Unidos llega rápido, con México cerrando el año en escala de estadio y festival",
-    stat: "Fechas de mar-dic",
+    stat: "47 reportes titulares · 48 reportes totales",
   },
   {
     era: "2024",
     label: "La escala arena se vuelve normal",
-    gross: "37 reportes",
+    gross: "$59.4M",
     note: "La era Éxodo convierte los llenos en patrón entre Estados Unidos, México y festivales grandes",
-    stat: "Pico de la era Éxodo",
+    stat: "34 reportes titulares · 37 reportes totales",
   },
   {
     era: "2025",
     label: "Señal global",
-    gross: "2 reportes",
+    gross: "Festival",
     note: "El reporte pasa de prueba norteamericana a salas europeas y cartel global de festival",
-    stat: "Ventana europea",
+    stat: "2 reportes de festival · sin taquilla titular",
   },
   {
     era: "2026",
     label: "Ruta de arenas",
-    gross: "31 reportes",
+    gross: "$58.4M",
     note: "La ruta de Live Nation con Tito Double P empuja más de 30 fechas de primavera antes del cierre del reporte",
-    stat: "Fechas de ene-may",
+    stat: "31 reportes titulares · ene-may",
   },
 ];
 
@@ -408,7 +408,7 @@ export default function PesoPlumaProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0.16) 14%, rgba(5,5,5,0.16) 86%, #050505 100%)" }} />
         <div className="pp-section-heading" style={{ position: "relative", zIndex: 10, padding: "0 56px 46px" }}>
           <div style={{ color: "rgba(57,255,20,0.52)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Reportes por año · {TOURING_PERIOD}
+            Taquilla por año · {TOURING_PERIOD}
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88 }}>
             Tres años<br />de despegue en taquilla
@@ -426,7 +426,7 @@ export default function PesoPlumaProfile() {
           ))}
         </div>
         <div style={{ position: "relative", zIndex: 10, color: "rgba(255,255,255,0.44)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", padding: "30px 56px 0", lineHeight: 1.8 }}>
-          Fuente: reporte Pollstar Tour History comprado el {POLLSTAR_DATE} · Las tarjetas cuentan reportes por fecha de inicio: 48 + 37 + 2 + 31 = 118 · Total Pollstar: {CAREER_SHOWS} shows; reportes titulares: {HEADLINE_REPORTS}; reportes de soporte: {SUPPORT_REPORTS}
+          Fuente: reporte Pollstar Tour History comprado el {POLLSTAR_DATE} · La taquilla por año usa reportes donde Peso Pluma aparece como titular: $74.6M + $59.4M + $58.4M = $192.4M · Los reportes 2025 son de festival/soporte · Total Pollstar: {CAREER_SHOWS} shows
         </div>
       </section>
 
