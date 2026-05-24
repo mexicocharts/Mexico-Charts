@@ -8,8 +8,8 @@ export default function NotFound() {
   return (
     <main className="min-h-screen w-full flex items-center justify-center bg-[#050505] px-6 text-white">
       <PageSEO
-        title="Pagina no encontrada — Mexico Charts"
-        description="La pagina solicitada no existe o cambio de lugar. Vuelve al inicio de Mexico Charts, explora artistas o revisa los charts actuales de musica mexicana."
+        title="Página no encontrada — Mexico Charts"
+        description="La página solicitada no existe o cambió de lugar. Vuelve al inicio de Mexico Charts, explora artistas o revisa las listas actuales de música mexicana."
         path="/404"
         noindex
       />
@@ -37,10 +37,10 @@ export default function NotFound() {
           404
         </p>
         <h1 className="mb-4 text-4xl font-black uppercase tracking-tight md:text-6xl">
-          Pagina no encontrada
+          Página no encontrada
         </h1>
         <p className="mx-auto mb-8 max-w-md text-sm leading-6 text-zinc-500">
-          El enlace que abriste no existe o cambio de lugar. Vuelve al inicio o revisa los charts actuales.
+          El enlace que abriste no existe o cambió de lugar. Vuelve al inicio o revisa las listas actuales.
         </p>
 
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -55,7 +55,7 @@ export default function NotFound() {
             href="/charts"
             className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:text-white"
           >
-            Ver charts
+            Ver listas
           </Link>
         </div>
       </section>

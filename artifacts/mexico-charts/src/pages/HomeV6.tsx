@@ -703,10 +703,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","CHARTS SEMANALES"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","LISTAS SEMANALES"].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","CHARTS SEMANALES"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","LISTAS SEMANALES"].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>

@@ -208,7 +208,7 @@ export default function TouringHub() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <PageSEO
-        title="Touring — Artistas mexicanos en gira"
+        title="Touring — Artistas mexicanos en vivo"
         description="Conciertos y giras de artistas mexicanos. Fechas, ciudades y recaudación de Peso Pluma, Junior H, Luis Miguel, Fuerza Regida, Grupo Frontera, Carin León y más."
         path="/touring"
       />
