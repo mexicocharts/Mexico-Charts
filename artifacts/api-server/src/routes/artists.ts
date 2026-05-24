@@ -14,7 +14,7 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";

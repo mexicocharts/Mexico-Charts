@@ -145,7 +145,7 @@ async function seedCacheFromDb(): Promise<void> {
 
 /* ── Warm the cache from the artist metadata sheet on startup ── */
 const METADATA_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
 function parseCSVRow(line: string): string[] {
   const result: string[] = [];
