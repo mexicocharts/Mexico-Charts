@@ -32,7 +32,7 @@ export const SHEET_SOURCES = {
   viralDaily:    gvizCSV("songs_viral_mx"),
 
   // ── Artist metadata / stats database (mexico_charts_artist_metadata_database) ──
-  // Publish the "artist_metadata" tab as CSV and paste the URL below.
+  // Publish the "artist_metadata_active" tab as CSV and paste the URL below.
   // This is NOT a chart — it adds extra stats (social, streams, label, etc.)
   // to chart artists. Ranks always come from the Spotify chart tabs above.
   artistMetadata: "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active",

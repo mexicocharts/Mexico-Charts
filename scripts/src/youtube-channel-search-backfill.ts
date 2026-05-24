@@ -37,8 +37,17 @@ interface ChannelItem {
 }
 
 const ARTIST_METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
+
+function isYouTubeRateLimit(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    message.includes("YouTube API 429") ||
+    normalized.includes("quota exceeded") ||
+    normalized.includes("exceeded your quota")
+  );
+}
 
 function parseArgs() {
   const args = new Map<string, string>();
@@ -414,9 +423,15 @@ async function main() {
           if (write) await saveCandidate(pool, artist, "review", best);
         }
       } catch (err) {
+        const message = (err as Error).message;
+        if (isYouTubeRateLimit(message)) {
+          console.error(`RATE_LIMIT,${artist.artist_key},${artist.artist_name},${message}`);
+          process.exitCode = 2;
+          break;
+        }
         skipped += 1;
-        console.error(`ERROR,${artist.artist_key},${artist.artist_name},${(err as Error).message}`);
-        if (write) await saveCandidate(pool, artist, "error", undefined, (err as Error).message);
+        console.error(`ERROR,${artist.artist_key},${artist.artist_name},${message}`);
+        if (write) await saveCandidate(pool, artist, "error", undefined, message);
       }
       await new Promise(resolve => setTimeout(resolve, 125));
     }

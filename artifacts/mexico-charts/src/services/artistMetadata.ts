@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    ARTIST METADATA SERVICE
-   Fetches and normalizes the artist_metadata tab from the
+   Fetches and normalizes the artist_metadata_active tab from the
    mexico_charts_artist_metadata_database workbook.
 
    This is NOT a chart — it carries no rank/order information.
@@ -30,7 +30,7 @@ const BLOCKED_ARTIST_KEYS = new Set([
   "badguychapo",
 ]);
 
-/* ── Raw row type (column names must match artist_metadata tab headers) ── */
+/* ── Raw row type (column names must match artist_metadata_active tab headers) ── */
 export interface RawArtistMetadata {
   artist_key?: string;              // Canonical matching key (preferred)
   artist_name?: string;             // Display name
@@ -344,7 +344,7 @@ function normalizeRow(raw: RawArtistMetadata): ArtistMetadata | null {
 /* ── Public API ── */
 
 /**
- * Fetches and normalizes the artist_metadata CSV.
+ * Fetches and normalizes the artist_metadata_active CSV.
  * Returns an ArtistMetadataMap (artistKey → ArtistMetadata) and a
  * normalizedName → ArtistMetadata fallback map for name-based lookup.
  */

@@ -301,7 +301,7 @@ type MusicbrainzCandidate = {
 
 async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
-  if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(`artist_metadata_active: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
   return rows
     .map(sanitizeRow)
@@ -518,7 +518,7 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
 
     res.setHeader("Cache-Control", "no-store");
     res.json({
-      source: "artist_metadata",
+      source: "artist_metadata_active",
       totalArtists: artistKeys.size,
       generatedAt: new Date().toISOString(),
       providers: {

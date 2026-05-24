@@ -31,7 +31,7 @@ interface ChannelItem {
 }
 
 const ARTIST_METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 
 function parseArgs() {
@@ -44,6 +44,7 @@ function parseArgs() {
     limit: Math.max(1, Math.min(Number(args.get("limit") ?? 50), 200)),
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
     minSubscribers: Math.max(0, Number(args.get("minSubscribers") ?? 500)),
+    skipReviewed: args.get("skipReviewed") !== "false",
     write: args.get("write") === "true",
   };
 }
@@ -220,7 +221,7 @@ async function saveChannel(pool: InstanceType<typeof Pool>, artist: ArtistRow, c
 }
 
 async function main() {
-  const { limit, offset, minSubscribers, write } = parseArgs();
+  const { limit, offset, minSubscribers, skipReviewed, write } = parseArgs();
   if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
 
   const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
@@ -232,13 +233,23 @@ async function main() {
     const artists = rowsToObjects(parseCsv(csv));
     const existing = await pool.query<{ artist_key: string }>("select artist_key from youtube_channels");
     const linked = new Set(existing.rows.map(row => row.artist_key));
-    const queue = artists.filter(artist => !linked.has(artist.artist_key)).slice(offset, offset + limit);
+    const candidateTable = await pool.query<{ exists: boolean }>(
+      "select to_regclass('public.youtube_channel_candidates') is not null as exists",
+    );
+    const reviewedRows = skipReviewed && candidateTable.rows[0]?.exists
+      ? await pool.query<{ artist_key: string }>("select artist_key from youtube_channel_candidates where status in ('review','no_result','error')")
+      : { rows: [] };
+    const reviewed = new Set(reviewedRows.rows.map(row => row.artist_key));
+    const queue = artists
+      .filter(artist => !linked.has(artist.artist_key))
+      .filter(artist => !skipReviewed || !reviewed.has(artist.artist_key))
+      .slice(offset, offset + limit);
 
     let matched = 0;
     let saved = 0;
     let skipped = 0;
 
-    console.log(`${write ? "Writing" : "Dry run"} handle backfill for ${queue.length} artists. Existing linked: ${linked.size}.`);
+    console.log(`${write ? "Writing" : "Dry run"} handle backfill for ${queue.length} artists. Existing linked: ${linked.size}. Existing reviewed: ${reviewed.size}. skipReviewed=${skipReviewed}.`);
 
     for (const artist of queue) {
       try {

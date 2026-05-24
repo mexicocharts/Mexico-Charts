@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    ARTIST NAME NORMALIZER
-   Used to match Spotify chart artist names against artist_metadata rows.
+   Used to match Spotify chart artist names against artist_metadata_active rows.
    Primary key: artist_key (preferred when present on both sides).
    Fallback:    normalized display name comparison.
 ───────────────────────────────────────────────────────────────────────────── */

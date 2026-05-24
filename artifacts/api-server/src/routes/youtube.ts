@@ -499,7 +499,7 @@ router.get("/admin/youtube/coverage", async (req, res) => {
     const sheetYoutubeViews = artists.filter(artist => Boolean(artist.youtube_views?.trim())).length;
 
     res.json({
-      source: "artist_metadata",
+      source: "artist_metadata_active",
       totalArtists: artists.length,
       linkedChannels: linkedRows.length,
       missingChannels: missing.length,
