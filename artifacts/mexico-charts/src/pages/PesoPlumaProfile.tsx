@@ -431,7 +431,7 @@ export default function PesoPlumaProfile() {
           ))}
         </div>
         <div style={{ position: "relative", zIndex: 10, color: "rgba(255,255,255,0.44)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", padding: "30px 56px 0", lineHeight: 1.8 }}>
-          Fuente: Pollstar Tour History · Periodo analizado: marzo 2023 - mayo 2026 · La taquilla por año usa reportes donde Peso Pluma aparece como titular: $74.6M + $59.4M + $58.4M = $192.4M · Los reportes 2025 son de festival/soporte · Total Pollstar: {CAREER_SHOWS} shows
+          * Datos provistos por Pollstar Research · No incluye shows no reportados o datos no publicados
         </div>
       </section>
 
