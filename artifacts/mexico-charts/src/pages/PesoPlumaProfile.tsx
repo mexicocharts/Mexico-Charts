@@ -26,126 +26,126 @@ const SELL_THROUGH = 99;
 const AVG_TICKETS = 13_835;
 const AVG_GROSS = 1_718_145;
 
-const TOURING_PERIOD = "Mar 2023 - May 2026";
+const TOURING_PERIOD = "mar 2023 - mayo 2026";
 const POLLSTAR_DATE = "5/23/2026";
 
 const TOP_SHOWS = [
   {
     rank: 1,
     venue: "Tecate Pa'l Norte",
-    city: "Monterrey, Mexico",
-    date: "29-31 Mar 2024",
+    city: "Monterrey, México",
+    date: "29-31 mar 2024",
     tickets: "244,940",
     gross: "$26.33M",
-    note: "3-day festival report",
+    note: "reporte de festival de 3 días",
     img: BG_STAGE,
   },
   {
     rank: 2,
     venue: "Festival ARRE HSBC",
-    city: "Mexico City, Mexico",
-    date: "9-10 Sep 2023",
+    city: "Ciudad de México, México",
+    date: "9-10 sep 2023",
     tickets: "123,381",
     gross: "$8.91M",
-    note: "2-day festival report",
+    note: "reporte de festival de 2 días",
     img: BG_CROWD,
   },
   {
     rank: 3,
     venue: "United Center",
     city: "Chicago, IL",
-    date: "7-9 May 2026",
+    date: "7-9 may 2026",
     tickets: "46,895",
     gross: "$6.84M",
-    note: "3-show arena run",
+    note: "tres noches de arena",
     img: BG_HERO,
   },
   {
     rank: 4,
     venue: "Foro Sol",
-    city: "Mexico City, Mexico",
-    date: "11 Nov 2023",
+    city: "Ciudad de México, México",
+    date: "11 nov 2023",
     tickets: "55,925",
     gross: "$5.00M",
-    note: "first stadium-scale Mexico City statement",
+    note: "primer golpe de estadio en Ciudad de México",
     img: BG_LIGHTS,
   },
   {
     rank: 5,
-    venue: "Festival de Vina del Mar",
-    city: "Vina del Mar, Chile",
-    date: "25 Feb-1 Mar 2024",
+    venue: "Festival de Viña del Mar",
+    city: "Viña del Mar, Chile",
+    date: "25 feb-1 mar 2024",
     tickets: "85,741",
     gross: "$4.90M",
-    note: "6-show festival run",
+    note: "reporte de festival de 6 shows",
     img: BG_BOWL,
   },
 ];
 
 const HEADLINE_SHOWS = [
   { n: "01", venue: "United Center", city: "Chicago, IL", gross: "$6.84M", tickets: "46,895", hi: true },
-  { n: "02", venue: "Foro Sol", city: "Mexico City, Mexico", gross: "$5.00M", tickets: "55,925", hi: true },
+  { n: "02", venue: "Foro Sol", city: "Ciudad de México, México", gross: "$5.00M", tickets: "55,925", hi: true },
   { n: "03", venue: "Intuit Dome", city: "Inglewood, CA", gross: "$4.67M", tickets: "25,911", hi: false },
   { n: "04", venue: "Honda Center", city: "Anaheim, CA", gross: "$4.65M", tickets: "24,774", hi: false },
   { n: "05", venue: "Dos Equis Pavilion", city: "Dallas, TX", gross: "$3.15M", tickets: "37,658", hi: false },
 ];
 
 const MARKETS = [
-  { n: "01", city: "Chicago", sub: "United Center + Suenos footprint", hi: true },
-  { n: "02", city: "Mexico City", sub: "Foro Sol + Festival ARRE", hi: true },
-  { n: "03", city: "Los Angeles", sub: "Inglewood / YouTube Theater / Intuit Dome", hi: false },
+  { n: "01", city: "Chicago", sub: "United Center + Sueños", hi: true },
+  { n: "02", city: "Ciudad de México", sub: "Foro Sol + Festival ARRE", hi: true },
+  { n: "03", city: "Los Ángeles", sub: "Inglewood / YouTube Theater / Intuit Dome", hi: false },
   { n: "04", city: "Texas", sub: "Dallas, Houston, San Antonio, Austin, Laredo", hi: false },
-  { n: "05", city: "California", sub: "San Jose, Sacramento, Fresno, Anaheim, Palm Desert", hi: false },
-  { n: "06", city: "Europe", sub: "London, Paris, Berlin, Barcelona, Amsterdam, Rome", hi: false },
+  { n: "05", city: "California", sub: "San José, Sacramento, Fresno, Anaheim, Palm Desert", hi: false },
+  { n: "06", city: "Europa", sub: "Londres, París, Berlín, Barcelona, Ámsterdam, Roma", hi: false },
 ];
 
 const ERA_CARDS = [
   {
     era: "2023",
-    label: "Breakout into box office",
-    gross: "48 reports",
-    note: "U.S. arena and amphitheater demand arrives fast, with Mexico stadium and festival reports closing the year.",
-    stat: "Mar-Dec start dates",
+    label: "Explosión de taquilla",
+    gross: "48 reportes",
+    note: "La demanda en arenas y anfiteatros de Estados Unidos llega rápido, con México cerrando el año en escala de estadio y festival",
+    stat: "Fechas de mar-dic",
   },
   {
     era: "2024",
-    label: "Arena scale becomes normal",
-    gross: "37 reports",
-    note: "Exodo-era touring turns sellouts into a pattern across the U.S., Mexico and major festival stages.",
-    stat: "Exodo peak year",
+    label: "La escala arena se vuelve normal",
+    gross: "37 reportes",
+    note: "La era Éxodo convierte los llenos en patrón entre Estados Unidos, México y festivales grandes",
+    stat: "Pico de la era Éxodo",
   },
   {
     era: "2025",
-    label: "Global signal",
-    gross: "2 reports",
-    note: "The report shifts from North American proof to European rooms and global festival billing.",
-    stat: "European festival window",
+    label: "Señal global",
+    gross: "2 reportes",
+    note: "El reporte pasa de prueba norteamericana a salas europeas y cartel global de festival",
+    stat: "Ventana europea",
   },
   {
     era: "2026",
-    label: "Arena routinization",
-    gross: "31 reports",
-    note: "Live Nation routing with Tito Double P support pushes 30+ spring dates before the report closes.",
-    stat: "Jan-May start dates",
+    label: "Ruta de arenas",
+    gross: "31 reportes",
+    note: "La ruta de Live Nation con Tito Double P empuja más de 30 fechas de primavera antes del cierre del reporte",
+    stat: "Fechas de ene-may",
   },
 ];
 
 const COUNTRIES = [
-  "United States",
-  "Mexico",
-  "Canada",
+  "Estados Unidos",
+  "México",
+  "Canadá",
   "Chile",
   "Colombia",
   "Ecuador",
-  "Spain",
-  "United Kingdom",
-  "Germany",
-  "France",
-  "Italy",
-  "Netherlands",
-  "Belgium",
-  "Finland",
-  "Romania",
+  "España",
+  "Reino Unido",
+  "Alemania",
+  "Francia",
+  "Italia",
+  "Países Bajos",
+  "Bélgica",
+  "Finlandia",
+  "Rumania",
 ];
 
 function fmtCompact(value: number) {
@@ -180,16 +180,16 @@ export default function PesoPlumaProfile() {
   return (
     <div style={{ background: "#050505", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#a1a1aa", overflowX: "hidden" }}>
       <PageSEO
-        title="Peso Pluma · Touring Profile — Mexico Charts"
-        description="Perfil de touring de Peso Pluma con datos Pollstar: $192.4M USD, 1.55M boletos y 124 shows reportados entre 2023 y 2026."
+        title="Peso Pluma · Perfil de Touring — Mexico Charts"
+        description="Perfil de touring de Peso Pluma con datos Pollstar: $192.4M USD, 1.55M boletos y 124 shows reportados entre 2023 y 2026"
         path="/touring/peso-pluma"
       />
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400;1,600&display=swap');
         .pp-fa { font-family: 'Anton', sans-serif !important; }
-        ::selection { background: rgba(220, 255, 46, 0.24); }
-        .pp-neon { color: #dcff2e; }
-        .pp-gold { color: #f2c14e; }
+        ::selection { background: rgba(57, 255, 20, 0.24); }
+        .pp-neon { color: #39FF14; }
+        .pp-gold { color: #39FF14; }
         .pp-stat-grid,
         .pp-show-row,
         .pp-market-row,
@@ -221,7 +221,7 @@ export default function PesoPlumaProfile() {
       <section ref={heroRef} className="pp-hero" style={{ position: "relative", height: "calc(100vh - 56px)", minHeight: 610, overflow: "hidden" }}>
         <motion.img src={BG_HERO} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "114%", objectFit: "cover", objectPosition: "center 54%", y: heroBgY, filter: "brightness(0.34) saturate(0.85)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(5,5,5,0.98) 22%, rgba(5,5,5,0.72) 54%, rgba(5,5,5,0.15) 100%)" }} />
-        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 19% 60%, rgba(220,255,46,0.11) 0%, transparent 54%), radial-gradient(ellipse at 85% 20%, rgba(242,193,78,0.10) 0%, transparent 44%)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 19% 60%, rgba(57,255,20,0.11) 0%, transparent 54%), radial-gradient(ellipse at 85% 20%, rgba(57,255,20,0.10) 0%, transparent 44%)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #050505 0%, rgba(5,5,5,0.22) 34%, transparent 70%)" }} />
 
         <div className="pp-hero-portrait" style={{ position: "absolute", right: 0, top: 0, width: "50%", height: "100%" }}>
@@ -235,21 +235,21 @@ export default function PesoPlumaProfile() {
               ← Touring
             </motion.div>
           </Link>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.6 }} style={{ color: "#dcff2e", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 22 }}>
-            Touring Profile · Doble P
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.6 }} style={{ color: "#39FF14", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 22 }}>
+            Perfil de Touring · Doble P
           </motion.div>
           <motion.h1 className="pp-fa pp-hero-name" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }} style={{ color: "#fff", fontSize: "clamp(4.2rem, 16vw, 116px)", lineHeight: 0.84, textTransform: "uppercase", letterSpacing: "0.02em", marginBottom: 40 }}>
             Peso<br />Pluma
           </motion.h1>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55, duration: 0.9 }}>
             <div style={{ color: "rgba(255,255,255,0.58)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 10 }}>
-              Gross total reportado · {TOURING_PERIOD}
+              Taquilla total reportada · {TOURING_PERIOD}
             </div>
-            <div className="pp-fa" style={{ color: "#dcff2e", fontSize: "clamp(3.6rem, 15vw, 88px)", lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
+            <div className="pp-fa" style={{ color: "#39FF14", fontSize: "clamp(3.6rem, 15vw, 88px)", lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
               $<AnimCount to={192.4} decimals={1} />M
             </div>
             <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
-              {["USD · Pollstar", `${CAREER_SHOWS} shows`, "1.55M tickets", `${SELL_THROUGH}% sold`].map((item) => (
+              {["USD · Pollstar", `${CAREER_SHOWS} shows`, "1.55M boletos", `${SELL_THROUGH}% vendido`].map((item) => (
                 <div key={item} style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
                   {item}
                 </div>
@@ -260,7 +260,7 @@ export default function PesoPlumaProfile() {
 
         <motion.div className="pp-corner-note" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }} style={{ position: "absolute", top: 52, right: 52, zIndex: 10, textAlign: "right" }}>
           <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em", lineHeight: 2.1, fontWeight: 600 }}>
-            Corridos tumbados<br />convertidos en<br />arena business.
+            Corridos tumbados<br />convertidos en<br />negocio de arenas
           </div>
         </motion.div>
       </section>
@@ -270,14 +270,14 @@ export default function PesoPlumaProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0.1) 16%, rgba(5,5,5,0.1) 84%, #050505 100%)" }} />
         <div className="pp-stat-grid" style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 36 }}>
           {[
-            { value: "$192.4M", label: "Gross total", sub: "Pollstar · 2023-2026" },
-            { value: "1.55M", label: "Tickets sold", sub: `${CAREER_SHOWS} total shows` },
-            { value: "99%", label: "Average sold", sub: `${HEADLINE_REPORTS} headline reports` },
-            { value: "$1.72M", label: "Avg gross/show", sub: `${fmtCompact(AVG_TICKETS)} avg tickets` },
+            { value: "$192.4M", label: "Taquilla total", sub: "Pollstar · 2023-2026" },
+            { value: "1.55M", label: "Boletos vendidos", sub: `${CAREER_SHOWS} shows totales` },
+            { value: "99%", label: "Promedio vendido", sub: `${HEADLINE_REPORTS} reportes titulares` },
+            { value: "$1.72M", label: "Promedio por show", sub: `${fmtCompact(AVG_TICKETS)} boletos promedio` },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.12, duration: 0.7 }} style={{ textAlign: "center", padding: "0 20px" }}>
-              <div className="pp-fa" style={{ color: i === 0 ? "#dcff2e" : "#fff", fontSize: 52, lineHeight: 1, marginBottom: 14 }}>{s.value}</div>
-              <div style={{ color: "#f2c14e", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.22em", marginBottom: 5 }}>{s.label}</div>
+              <div className="pp-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 52, lineHeight: 1, marginBottom: 14 }}>{s.value}</div>
+              <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.22em", marginBottom: 5 }}>{s.label}</div>
               <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em" }}>{s.sub}</div>
             </motion.div>
           ))}
@@ -287,14 +287,14 @@ export default function PesoPlumaProfile() {
       <section style={{ position: "relative", height: 470, overflow: "hidden" }}>
         <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 62%", filter: "brightness(0.28) saturate(0.68)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0.18) 18%, rgba(5,5,5,0.18) 82%, #050505 100%)" }} />
-        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #dcff2e, #f2c14e, transparent)" }} />
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: "linear-gradient(to bottom, transparent, #39FF14, #39FF14, transparent)" }} />
         <div className="pp-pullquote" style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 68px" }}>
           <div style={{ maxWidth: 860 }}>
             <motion.div className="pp-fa" initial={{ opacity: 0, y: 44 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.95 }} style={{ color: "#fff", fontSize: "clamp(2.8rem, 11vw, 66px)", textTransform: "uppercase", lineHeight: 0.88, letterSpacing: "0.02em" }}>
-              De viral<br />a arena<br /><span style={{ color: "#dcff2e" }}>en tres años.</span>
+              De viral<br />a arena<br /><span style={{ color: "#39FF14" }}>en tres años</span>
             </motion.div>
             <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.45, duration: 0.8 }} style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", marginTop: 30, maxWidth: 620, lineHeight: 1.88 }}>
-              Pollstar reporta $192.4M y 1.55M boletos vendidos entre marzo de 2023 y mayo de 2026: una conversion rapida de corridos tumbados, festival billing y arenas sold-out.
+              Pollstar reporta $192.4M y 1.55M boletos vendidos entre marzo de 2023 y mayo de 2026: una conversión rápida de corridos tumbados, carteles de festival y arenas llenas
             </motion.div>
           </div>
         </div>
@@ -306,14 +306,14 @@ export default function PesoPlumaProfile() {
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, #050505 0%, rgba(5,5,5,0.48) 30%, rgba(5,5,5,0) 70%)" }} />
         </div>
         <div className="pp-footprint-copy" style={{ position: "relative", zIndex: 10, padding: "76px 0 76px 56px", maxWidth: "61%" }}>
-          <div style={{ color: "rgba(220,255,46,0.56)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 42 }}>
-            Market footprint · headline + festival reports
+          <div style={{ color: "rgba(57,255,20,0.56)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 42 }}>
+            Mapa de mercados · reportes titulares y festival
           </div>
           {MARKETS.map((row, i) => (
             <motion.div key={row.city} initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07, duration: 0.55 }}>
-              <div style={{ height: 1, background: row.hi ? "rgba(220,255,46,0.24)" : "rgba(255,255,255,0.055)" }} />
+              <div style={{ height: 1, background: row.hi ? "rgba(57,255,20,0.24)" : "rgba(255,255,255,0.055)" }} />
               <div className="pp-market-row" style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 0" }}>
-                <span style={{ color: row.hi ? "#dcff2e" : "rgba(220,255,46,0.34)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", minWidth: 26, flexShrink: 0 }}>{row.n}</span>
+                <span style={{ color: row.hi ? "#39FF14" : "rgba(57,255,20,0.34)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.14em", minWidth: 26, flexShrink: 0 }}>{row.n}</span>
                 <span className="pp-fa pp-market-city" style={{ color: row.hi ? "#fff" : "rgba(255,255,255,0.72)", fontSize: row.hi ? 40 : 32, textTransform: "uppercase", lineHeight: 1, flex: 1 }}>{row.city}</span>
                 <span className="pp-market-region" style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", fontWeight: 700, flexShrink: 0 }}>{row.sub}</span>
               </div>
@@ -322,11 +322,11 @@ export default function PesoPlumaProfile() {
           <div style={{ height: 1, background: "rgba(255,255,255,0.055)" }} />
           <div style={{ marginTop: 32 }}>
             <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.24em", marginBottom: 12 }}>
-              Countries / territories surfaced in report ({COUNTRIES.length})
+              Países y territorios en el reporte ({COUNTRIES.length})
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {COUNTRIES.map((country) => (
-                <span key={country} style={{ background: "rgba(220,255,46,0.055)", border: "1px solid rgba(220,255,46,0.13)", color: "rgba(255,255,255,0.58)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", padding: "3px 10px" }}>
+                <span key={country} style={{ background: "rgba(57,255,20,0.055)", border: "1px solid rgba(57,255,20,0.13)", color: "rgba(255,255,255,0.58)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", padding: "3px 10px" }}>
                   {country}
                 </span>
               ))}
@@ -337,11 +337,11 @@ export default function PesoPlumaProfile() {
 
       <section style={{ position: "relative", padding: "0 0 82px" }}>
         <div className="pp-section-heading" style={{ padding: "74px 56px 40px" }}>
-          <div style={{ color: "rgba(220,255,46,0.55)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Biggest reported nights · Pollstar PDF
+          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
+            Noches más grandes reportadas · PDF Pollstar
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88 }}>
-            Festival scale,<br />arena control.
+            Escala festival,<br />control arena
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -349,28 +349,28 @@ export default function PesoPlumaProfile() {
             <motion.div key={`${show.venue}-${show.date}`} initial={{ opacity: 0, y: 22 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.09, duration: 0.68 }} className="pp-show-card" style={{ position: "relative", height: 184, overflow: "hidden" }}>
               <img src={show.img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 52%", filter: "brightness(0.34) saturate(0.68)" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(5,5,5,0.94) 0%, rgba(5,5,5,0.58) 54%, rgba(5,5,5,0.12) 100%)" }} />
-              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#dcff2e" : "rgba(220,255,46,0.22)" }} />
+              <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: i === 0 ? 3 : 1, background: i === 0 ? "#39FF14" : "rgba(57,255,20,0.22)" }} />
               <div className="pp-show-row" style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 52px", gap: 32, justifyContent: "space-between" }}>
                 <div className="pp-show-title" style={{ display: "flex", alignItems: "center", gap: 28 }}>
-                  <span className="pp-fa" style={{ color: i === 0 ? "#dcff2e" : "rgba(255,255,255,0.42)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
+                  <span className="pp-fa" style={{ color: i === 0 ? "#39FF14" : "rgba(255,255,255,0.42)", fontSize: 50, lineHeight: 1, flexShrink: 0 }}>{show.rank}</span>
                   <div>
                     <div className="pp-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1.1 }}>{show.venue}</div>
                     <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 4 }}>
                       {show.city} · {show.date}
                     </div>
-                    <div style={{ color: i === 0 ? "rgba(220,255,46,0.72)" : "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>
+                    <div style={{ color: i === 0 ? "rgba(57,255,20,0.72)" : "rgba(255,255,255,0.46)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 3 }}>
                       {show.note}
                     </div>
                   </div>
                 </div>
                 <div className="pp-show-metrics" style={{ display: "flex", gap: 42, justifyContent: "flex-end", flexShrink: 0 }}>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Tickets</div>
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Boletos</div>
                     <div className="pp-fa" style={{ color: "#fff", fontSize: 20 }}>{show.tickets}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Gross USD</div>
-                    <div className="pp-fa" style={{ color: i === 0 ? "#dcff2e" : "#fff", fontSize: 20 }}>{show.gross}</div>
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Taquilla USD</div>
+                    <div className="pp-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 20 }}>{show.gross}</div>
                   </div>
                 </div>
               </div>
@@ -379,25 +379,25 @@ export default function PesoPlumaProfile() {
         </div>
       </section>
 
-      <section style={{ position: "relative", background: "#070707", borderTop: "1px solid rgba(220,255,46,0.07)", borderBottom: "1px solid rgba(220,255,46,0.07)", padding: "74px 0 86px" }}>
+      <section style={{ position: "relative", background: "#070707", borderTop: "1px solid rgba(57,255,20,0.07)", borderBottom: "1px solid rgba(57,255,20,0.07)", padding: "74px 0 86px" }}>
         <div className="pp-section-heading" style={{ padding: "0 56px 34px" }}>
-          <div style={{ color: "rgba(242,193,78,0.65)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Headline-only lens
+          <div style={{ color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
+            Solo titulares
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.9 }}>
-            The rooms<br />he owns.
+            Las salas<br />que domina
           </div>
         </div>
         <div style={{ padding: "0 56px", display: "grid", gap: 10 }}>
           {HEADLINE_SHOWS.map((show, i) => (
             <motion.div key={show.venue} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.55 }} style={{ display: "grid", gridTemplateColumns: "42px 1fr auto auto", gap: 18, alignItems: "center", padding: "18px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-              <div style={{ color: show.hi ? "#dcff2e" : "rgba(220,255,46,0.35)", fontSize: 9, fontWeight: 800, letterSpacing: "0.16em" }}>{show.n}</div>
+              <div style={{ color: show.hi ? "#39FF14" : "rgba(57,255,20,0.35)", fontSize: 9, fontWeight: 800, letterSpacing: "0.16em" }}>{show.n}</div>
               <div>
                 <div className="pp-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1 }}>{show.venue}</div>
                 <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 4 }}>{show.city}</div>
               </div>
               <div style={{ color: "rgba(255,255,255,0.68)", fontSize: 12, fontWeight: 800 }}>{show.tickets}</div>
-              <div className="pp-fa" style={{ color: show.hi ? "#dcff2e" : "#fff", fontSize: 22 }}>{show.gross}</div>
+              <div className="pp-fa" style={{ color: show.hi ? "#39FF14" : "#fff", fontSize: 22 }}>{show.gross}</div>
             </motion.div>
           ))}
         </div>
@@ -407,26 +407,26 @@ export default function PesoPlumaProfile() {
         <img src={BG_STAGE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.13) saturate(0.55)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0.16) 14%, rgba(5,5,5,0.16) 86%, #050505 100%)" }} />
         <div className="pp-section-heading" style={{ position: "relative", zIndex: 10, padding: "0 56px 46px" }}>
-          <div style={{ color: "rgba(220,255,46,0.52)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Yearly report counts · {TOURING_PERIOD}
+          <div style={{ color: "rgba(57,255,20,0.52)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
+            Reportes por año · {TOURING_PERIOD}
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88 }}>
-            Three-year<br />box office launch.
+            Tres años<br />de despegue en taquilla
           </div>
         </div>
         <div className="pp-era-grid" style={{ position: "relative", zIndex: 10, display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1, padding: "0 56px" }}>
           {ERA_CARDS.map((era, i) => (
             <motion.div key={era.era} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.65 }} style={{ background: "rgba(8,8,8,0.72)", border: "1px solid rgba(255,255,255,0.06)", padding: "28px 24px 30px", minHeight: 260 }}>
-              <div className="pp-fa" style={{ color: i === 3 ? "#dcff2e" : "rgba(255,255,255,0.76)", fontSize: 42, lineHeight: 1, marginBottom: 12 }}>{era.era}</div>
-              <div style={{ color: "#f2c14e", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 16 }}>{era.label}</div>
+              <div className="pp-fa" style={{ color: i === 3 ? "#39FF14" : "rgba(255,255,255,0.76)", fontSize: 42, lineHeight: 1, marginBottom: 12 }}>{era.era}</div>
+              <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 16 }}>{era.label}</div>
               <div className="pp-fa" style={{ color: "#fff", fontSize: 28, lineHeight: 1.05, marginBottom: 16 }}>{era.gross}</div>
               <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 11, lineHeight: 1.65, marginBottom: 20 }}>{era.note}</div>
-              <div style={{ color: "rgba(220,255,46,0.58)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.16em" }}>{era.stat}</div>
+              <div style={{ color: "rgba(57,255,20,0.58)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.16em" }}>{era.stat}</div>
             </motion.div>
           ))}
         </div>
         <div style={{ position: "relative", zIndex: 10, color: "rgba(255,255,255,0.44)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", padding: "30px 56px 0", lineHeight: 1.8 }}>
-          Source: Pollstar Tour History report purchased {POLLSTAR_DATE}. Year cards count summary reports by start date: 48 + 37 + 2 + 31 = 118. Pollstar top-line total shows: {CAREER_SHOWS}; headline reports: {HEADLINE_REPORTS}; support reports: {SUPPORT_REPORTS}.
+          Fuente: reporte Pollstar Tour History comprado el {POLLSTAR_DATE} · Las tarjetas cuentan reportes por fecha de inicio: 48 + 37 + 2 + 31 = 118 · Total Pollstar: {CAREER_SHOWS} shows; reportes titulares: {HEADLINE_REPORTS}; reportes de soporte: {SUPPORT_REPORTS}
         </div>
       </section>
 
@@ -434,14 +434,14 @@ export default function PesoPlumaProfile() {
         <img src={BG_CROWD} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 65%", filter: "brightness(0.20) saturate(0.6)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0) 30%, rgba(5,5,5,0) 62%, #050505 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-          <div style={{ color: "rgba(220,255,46,0.58)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
-            Touring Profile · Doble P
+          <div style={{ color: "rgba(57,255,20,0.58)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
+            Perfil de Touring · Doble P
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
             Peso Pluma
           </div>
-          <div style={{ width: 36, height: 1, background: "#dcff2e", margin: "20px auto" }} />
-          <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" style={{ height: 64, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(220,255,46,0.28))", opacity: 0.86 }} />
+          <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
+          <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" style={{ height: 64, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(57,255,20,0.28))", opacity: 0.86 }} />
         </div>
       </section>
 
@@ -450,10 +450,10 @@ export default function PesoPlumaProfile() {
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
         <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-          {CAREER_SHOWS} shows · ${CAREER_GROSS_USD.toLocaleString()} USD · {CAREER_TICKETS.toLocaleString()} tickets
+          {CAREER_SHOWS} shows · ${CAREER_GROSS_USD.toLocaleString()} USD · {CAREER_TICKETS.toLocaleString()} boletos
         </div>
         <Link href="/touring">
-          <span style={{ color: "rgba(220,255,46,0.62)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
+          <span style={{ color: "rgba(57,255,20,0.62)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
             ← Volver a Touring
           </span>
         </Link>
