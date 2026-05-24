@@ -102,6 +102,7 @@ const MARKETS = [
 const ERA_CARDS = [
   {
     era: "2023",
+    tour: "Doble P Tour",
     label: "Explosión de taquilla",
     gross: "$74.6M",
     note: "La demanda en arenas y anfiteatros de Estados Unidos llega rápido, con México cerrando el año en escala de estadio y festival",
@@ -109,6 +110,7 @@ const ERA_CARDS = [
   },
   {
     era: "2024",
+    tour: "Éxodo Tour",
     label: "La escala arena se vuelve normal",
     gross: "$59.4M",
     note: "La era Éxodo convierte los llenos en patrón entre Estados Unidos, México y festivales grandes",
@@ -116,6 +118,7 @@ const ERA_CARDS = [
   },
   {
     era: "2025",
+    tour: "Ventana de festivales",
     label: "Señal global",
     gross: "Festival",
     note: "El reporte pasa de prueba norteamericana a salas europeas y cartel global de festival",
@@ -123,6 +126,7 @@ const ERA_CARDS = [
   },
   {
     era: "2026",
+    tour: "Dinastía Tour",
     label: "Ruta de arenas",
     gross: "$58.4M",
     note: "La ruta de Live Nation con Tito Double P empuja más de 30 fechas de primavera antes del cierre del reporte",
@@ -418,6 +422,7 @@ export default function PesoPlumaProfile() {
           {ERA_CARDS.map((era, i) => (
             <motion.div key={era.era} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1, duration: 0.65 }} style={{ background: "rgba(8,8,8,0.72)", border: "1px solid rgba(255,255,255,0.06)", padding: "28px 24px 30px", minHeight: 260 }}>
               <div className="pp-fa" style={{ color: i === 3 ? "#39FF14" : "rgba(255,255,255,0.76)", fontSize: 42, lineHeight: 1, marginBottom: 12 }}>{era.era}</div>
+              <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 10 }}>{era.tour}</div>
               <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 16 }}>{era.label}</div>
               <div className="pp-fa" style={{ color: "#fff", fontSize: 28, lineHeight: 1.05, marginBottom: 16 }}>{era.gross}</div>
               <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 11, lineHeight: 1.65, marginBottom: 20 }}>{era.note}</div>
