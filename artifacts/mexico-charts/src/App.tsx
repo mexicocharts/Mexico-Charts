@@ -19,6 +19,7 @@ const TouringHub = lazy(() => import("@/pages/TouringHub"));
 const TouringProfile = lazy(() => import("@/pages/TouringProfile"));
 const LuisMiguelProfile = lazy(() => import("@/pages/LuisMiguelProfile"));
 const PesoPlumaProfile = lazy(() => import("@/pages/PesoPlumaProfile"));
+const TavusPreview = lazy(() => import("@/pages/TavusPreview"));
 const SocialTemplates = lazy(() => import("@/pages/SocialTemplates"));
 const AcercaDe = lazy(() => import("@/pages/AcercaDe"));
 const Contacto = lazy(() => import("@/pages/Contacto"));
@@ -56,6 +57,7 @@ function Router() {
           <Route path="/touring/peso-pluma" component={PesoPlumaProfile} />
           <Route path="/touring/:slug" component={TouringProfile} />
           <Route path="/touring" component={TouringHub} />
+          <Route path="/tavus-preview" component={TavusPreview} />
           <Route path="/artist/:slug" component={ArtistDetail} />
           <Route path="/social-templates" component={SocialTemplates} />
           <Route path="/acerca-de" component={AcercaDe} />
