@@ -57,8 +57,8 @@ export default function TouringProfile() {
   return (
     <div style={{ background: "#060606", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af", overflowX: "hidden" }}>
       <PageSEO
-        title="Junior H · Touring Profile — Mexico Charts"
-        description="Perfil de touring de Junior H con historial de conciertos, cifras de boletaje, gross y mercados clave."
+        title="Junior H · Perfil de touring — Mexico Charts"
+        description="Perfil de touring de Junior H con historial de conciertos, cifras de boletaje, taquilla y mercados clave."
         path="/touring/junior-h"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -152,12 +152,12 @@ export default function TouringProfile() {
           <Link href="/touring">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05, duration: 0.5 }}
               style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 16, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-              ← Touring
+              ← Giras
             </motion.div>
           </Link>
           <motion.div className="tp-hero-kicker" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
             style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>
-            Touring Profile
+            Perfil de touring
           </motion.div>
           <motion.h1 className="tp-fa tp-hero-name" initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.8 }}
             style={{ color: "#fff", fontSize: "clamp(4.25rem, 17vw, 120px)", lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "0.01em", marginBottom: 36 }}>
@@ -165,7 +165,7 @@ export default function TouringProfile() {
           </motion.h1>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }}>
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 8 }}>
-              Gross Reportado · Carrera Total
+              Taquilla reportada · Carrera total
             </div>
             <div className="tp-fa" style={{ color: "#39FF14", fontSize: "clamp(3.8rem, 16vw, 92px)", lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 8 }}>
               $<AnimCount to={90.4} decimals={1} />M
@@ -201,7 +201,7 @@ export default function TouringProfile() {
           <div className="tp-fa" style={{ color: "#fff", fontSize: "clamp(5.5rem, 24vw, 148px)", lineHeight: 0.85, textTransform: "uppercase", letterSpacing: "-0.02em" }}>
             {mounted ? <AnimCount to={69} /> : "69"}
           </div>
-          <div className="tp-fa" style={{ color: "#39FF14", fontSize: 32, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 12 }}>Shows</div>
+          <div className="tp-fa" style={{ color: "#39FF14", fontSize: 32, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 12 }}>Fechas</div>
           <div style={{ color: "rgba(255,255,255,0.58)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.25em", marginTop: 16 }}>EUA & México · 4 Años de Gira</div>
         </div>
       </section>
@@ -236,10 +236,10 @@ export default function TouringProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.1) 14%, rgba(6,6,6,0.1) 86%, rgba(6,6,6,1) 100%)" }} />
         <div className="tp-stat-strip" style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px" }}>
           {[
-            { value: "758K",   label: "Tickets Vendidos",   sub: "Total reportado" },
-            { value: "11,856", label: "Asistencia Promedio", sub: "Por show" },
-            { value: "98%",    label: "Sell-Through",        sub: "Porcentaje vendido" },
-            { value: "$1.41M", label: "Promedio por Show",   sub: "Gross neto" },
+            { value: "758K",   label: "Boletos vendidos",   sub: "Total reportado" },
+            { value: "11,856", label: "Asistencia promedio", sub: "Por fecha" },
+            { value: "98%",    label: "Porcentaje vendido",  sub: "Boletaje reportado" },
+            { value: "$1.41M", label: "Promedio por fecha",  sub: "Taquilla neta" },
           ].map((s, i) => (
             <motion.div key={s.label}
               initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -271,11 +271,11 @@ export default function TouringProfile() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <div className="tp-fa" style={{ color: "#39FF14", fontSize: 64, lineHeight: 1 }}>87%</div>
-                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en Estados Unidos</div>
+                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Fechas en Estados Unidos</div>
               </div>
               <div>
                 <div className="tp-fa" style={{ color: "#fff", fontSize: 40, lineHeight: 1 }}>9%</div>
-                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Shows en México</div>
+                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.2em" }}>Fechas en México</div>
               </div>
               <div style={{ marginTop: 4 }}>
                 <div className="tp-fa" style={{ color: "rgba(255,255,255,0.7)", fontSize: 24, lineHeight: 1 }}>EUA y México</div>
@@ -314,7 +314,7 @@ export default function TouringProfile() {
           <div style={{ height: 1, background: "rgba(255,255,255,0.06)" }} />
           <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.7, duration: 0.6 }}
             style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 24 }}>
-            Por número de shows reportados
+            Por número de fechas reportadas
           </motion.div>
         </div>
       </section>
@@ -324,7 +324,7 @@ export default function TouringProfile() {
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "0 0 80px" }}>
         <div className="tp-section-heading" style={{ padding: "0 56px 40px" }}>
-          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Biggest Reported Shows</div>
+          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Fechas con mayor taquilla</div>
           <div className="tp-fa" style={{ color: "#fff", fontSize: 44, textTransform: "uppercase", lineHeight: 0.9 }}>Las Noches<br />Más Grandes</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -347,11 +347,11 @@ export default function TouringProfile() {
                 </div>
                 <div className="tp-show-metrics" style={{ display: "flex", gap: 56, flexShrink: 0 }}>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Tickets</div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Boletos</div>
                     <div className="tp-fa" style={{ color: "#fff", fontSize: 22 }}>{show.tickets}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Gross</div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Taquilla</div>
                     <div className="tp-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 22 }}>{show.gross}</div>
                   </div>
                 </div>
@@ -370,7 +370,7 @@ export default function TouringProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,0.6) 0%, transparent 25%, transparent 75%, rgba(6,6,6,0.6) 100%)" }} />
         <div className="tp-market-impact-copy" style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", alignItems: "center", padding: "0 64px" }}>
           <div>
-            <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>#Market Impact</div>
+            <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 20 }}>Impacto de mercado</div>
             <div className="tp-fa" style={{ color: "#fff", fontSize: "clamp(2.8rem, 11vw, 60px)", textTransform: "uppercase", lineHeight: 0.88, marginBottom: 24 }}>El Poder de<br />la Diáspora</div>
             <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12, lineHeight: 1.9, maxWidth: 400, marginBottom: 40 }}>
               Junior H construyó su base más sólida en Estados Unidos, donde la demanda por el sad sierreño continúa escalando en arenas y anfiteatros.
@@ -378,11 +378,11 @@ export default function TouringProfile() {
             <div className="tp-market-metrics" style={{ display: "flex", gap: 56 }}>
               <div>
                 <div className="tp-fa" style={{ color: "#39FF14", fontSize: 72, lineHeight: 1 }}>87%</div>
-                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Shows en EUA</div>
+                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Fechas en EUA</div>
               </div>
               <div>
                 <div className="tp-fa" style={{ color: "#fff", fontSize: 72, lineHeight: 1 }}>9%</div>
-                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Shows en México</div>
+                <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.2em", fontWeight: 700, marginTop: 8 }}>Fechas en México</div>
               </div>
             </div>
           </div>
@@ -396,7 +396,7 @@ export default function TouringProfile() {
         <img src={BG_CLOSE} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.16) saturate(0.5)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0.15) 14%, rgba(6,6,6,0.15) 86%, rgba(6,6,6,1) 100%)" }} />
         <div className="tp-timeline-wrap" style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
-          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Tour Timeline</div>
+          <div style={{ color: "rgba(57,255,20,0.5)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.4em", marginBottom: 12 }}>Cronología de gira</div>
           <div className="tp-fa" style={{ color: "#fff", fontSize: 48, textTransform: "uppercase", lineHeight: 0.9, marginBottom: 56 }}>Crecimiento<br />Año Tras Año</div>
           <div className="tp-timeline-track" style={{ position: "relative", marginBottom: 40 }}>
             <div className="tp-timeline-line" style={{ position: "absolute", top: 10, left: 0, right: 0, height: 1, background: "rgba(255,255,255,0.06)" }} />
@@ -423,17 +423,17 @@ export default function TouringProfile() {
                   )}
                   <div className="tp-fa tp-timeline-year" style={{ color: t.peak ? "#39FF14" : "#fff", fontSize: 28, lineHeight: 1, marginBottom: 14 }}>{t.year}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div className="tp-timeline-stat" style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600 }}>{t.shows} Shows</div>
-                    <div className="tp-timeline-stat" style={{ color: "rgba(255,255,255,0.62)", fontSize: 11 }}>{t.tickets} Tickets</div>
+                    <div className="tp-timeline-stat" style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, fontWeight: 600 }}>{t.shows} fechas</div>
+                    <div className="tp-timeline-stat" style={{ color: "rgba(255,255,255,0.62)", fontSize: 11 }}>{t.tickets} boletos</div>
                     <div className="tp-fa tp-timeline-gross" style={{ color: t.peak ? "#39FF14" : "rgba(255,255,255,0.9)", fontSize: 20, marginTop: 4 }}>{t.gross}</div>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross Reportado</div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.1em" }}>Taquilla reportada</div>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
           <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-            * Datos provistos por Pollstar Research · No incluye shows no reportados o datos no publicados
+            * Datos provistos por Pollstar Research · No incluye fechas no reportadas o datos no publicados
           </div>
         </div>
       </section>
@@ -446,14 +446,14 @@ export default function TouringProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(6,6,6,1) 0%, rgba(6,6,6,0) 28%, rgba(6,6,6,0) 62%, rgba(6,6,6,1) 100%)" }} />
         <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 1, background: "linear-gradient(to right, transparent, rgba(57,255,20,0.35), transparent)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 0 }}>
-          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>Touring Profile</div>
+          <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>Perfil de touring</div>
           <div className="tp-fa tp-closing-title" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
             Junior H
           </div>
           <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" style={{ height: 64, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(57,255,20,0.3))", opacity: 0.85 }} />
-            <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 7, textTransform: "uppercase", letterSpacing: "0.36em" }}>Touring</div>
+            <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 7, textTransform: "uppercase", letterSpacing: "0.36em" }}>Giras</div>
           </div>
         </div>
       </section>
@@ -462,7 +462,7 @@ export default function TouringProfile() {
       <footer className="tp-footer" style={{ padding: "20px 56px", display: "flex", alignItems: "center", justifyContent: "space-between", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
         <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em" }}>© 2026 Mexico Charts · Datos provistos por Pollstar Research</div>
         <Link href="/touring">
-          <span style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>← Volver a Touring</span>
+          <span style={{ color: "rgba(57,255,20,0.6)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>← Volver a giras</span>
         </Link>
         <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>
           Fuente: Pollstar Research

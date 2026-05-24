@@ -92,7 +92,7 @@ const PUBLIC_FEATURES = [
     icon: Award,
   },
   {
-    title: "Touring",
+    title: "Giras",
     kicker: "Próximos conciertos",
     description: "Fechas activas de artistas mexicanos en México, Estados Unidos y Latinoamérica.",
     href: "/touring",
@@ -255,7 +255,7 @@ export default function HomeV6() {
   const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
   const verifiedArtistKeys = useVerifiedArtistKeys();
 
-  /* ── Charts-hub (live YouTube/Spotify/Deezer data — same source as /charts page) ── */
+  /* ── Charts-hub data, same source as /charts page ── */
   const { data: hubData, isLoading: hubLoading } = useQuery<HubData>({
     queryKey: ["charts-hub"],
     queryFn: async () => {
@@ -660,7 +660,7 @@ export default function HomeV6() {
                     style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.26)" }}
                     data-testid="btn-hero-cta"
                   >
-                    Ver Charts →
+                    Ver listas →
                   </motion.span>
                 </Link>
                 <Link href={`/artist/${slugify(hero.name)}`}>
@@ -1196,7 +1196,7 @@ export default function HomeV6() {
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><Disc3 className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Explorar Mexico Charts</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Explora Mexico Charts</h2>
             <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
@@ -1258,7 +1258,7 @@ export default function HomeV6() {
                 <span className="text-xs font-black uppercase tracking-[0.25em]" style={{ color:"#39FF14" }}>BOLETÍN SEMANAL</span>
               </div>
               <h3 className="text-xl font-black uppercase text-white mb-1">Reportes exclusivos directo a tu correo</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">Charts, análisis y estadísticas de la música mexicana cada semana.</p>
+              <p className="text-xs text-zinc-500 leading-relaxed">Listas, análisis y estadísticas de la música mexicana cada semana.</p>
             </div>
             <form onSubmit={submitNewsletter} className="relative z-10 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <input
@@ -1300,9 +1300,9 @@ export default function HomeV6() {
             </div>
             {[
               { title:"Explorar", links:[
-                { label:"Charts",           href:"/charts" },
+                { label:"Listas",           href:"/charts" },
                 { label:"Artistas",         href:"/artists" },
-                { label:"Touring",          href:"/touring" },
+                { label:"Giras",            href:"/touring" },
                 { label:"Certificaciones",  href:"/industry/certifications" },
                 { label:"Industria",        href:"/industria" },
               ]},

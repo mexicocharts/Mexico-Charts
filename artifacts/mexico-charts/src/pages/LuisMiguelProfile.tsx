@@ -33,26 +33,26 @@ const ARTIST_IMG   = _lmGetty;
 const _unused = [_lmBand, _lmFlying, _lmOrangeArms]; void _unused;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   POLLSTAR DATA — Luis Miguel Tour History Reports
-   ─ Full career: Report purchased 2/8/2026 · Shows 2/1/2000 – 2/8/2026
-   ─ Latest tour: Report purchased 2/8/2026 · Shows 2/1/2023 – 2/8/2026
-   Source of truth: Pollstar Tour History Reports (PDFs attached)
+   DATOS POLLSTAR — Luis Miguel Tour History Reports
+   ─ Carrera completa: reporte Pollstar 2000–2026
+   ─ Tour reciente: reporte Pollstar 2023–2026
+   Fuente base: Pollstar Tour History Reports
 ────────────────────────────────────────────────────────────────────────────── */
 
 // CAREER CENTURY TOTAL (2000–2026 Pollstar report header — exact values)
 const CAREER_GROSS_USD     = 786434715;   // $786,434,715 USD
-const CAREER_TICKETS       = 7319267;     // 7,319,267 tickets
-const CAREER_SHOWS         = 796;         // 796 total shows
-const CAREER_SELL_THROUGH  = 87;          // 87% average sell-through
-const CAREER_AVG_GROSS     = 1536005;     // $1,536,005 avg gross per show
-const CAREER_AVG_ATT       = 14295;       // 14,295 avg tickets sold per show
+const CAREER_TICKETS       = 7319267;     // 7,319,267 boletos
+const CAREER_SHOWS         = 796;         // 796 fechas totales
+const CAREER_SELL_THROUGH  = 87;          // 87% vendido promedio
+const CAREER_AVG_GROSS     = 1536005;     // $1,536,005 promedio de taquilla por fecha
+const CAREER_AVG_ATT       = 14295;       // 14,295 boletos vendidos promedio por fecha
 
 // LATEST TOUR — 2023–2024 (Pollstar 2023–2026 report header — exact values)
 const TOUR_GROSS_USD       = 415849128;   // $415,849,128 USD
-const TOUR_TICKETS         = 2861491;     // 2,861,491 tickets
-const TOUR_SHOWS           = 186;         // 186 shows
-const TOUR_SELL_THROUGH    = 95;          // 95% sell-through
-const TOUR_AVG_GROSS       = 2260050;     // $2,260,050 avg gross per show
+const TOUR_TICKETS         = 2861491;     // 2,861,491 boletos
+const TOUR_SHOWS           = 186;         // 186 fechas
+const TOUR_SELL_THROUGH    = 95;          // 95% vendido
+const TOUR_AVG_GROSS       = 2260050;     // $2,260,050 promedio de taquilla por fecha
 const TOUR_AVG_ATT         = 15552;       // 15,552 avg attendance
 
 // COMPUTED — Pre-2023 era (difference: career minus 2023–2024 tour)
@@ -114,7 +114,7 @@ const TOP_SHOWS = [
   },
 ];
 
-// TOP MARKETS by shows — 2023–2024 tour (from PDF data)
+// TOP MARKETS por fechas — tour 2023–2024
 const TOP_MARKETS = [
   { n: "01", city: "Ciudad de México",  sub: "México",              hi: true  },
   { n: "02", city: "Buenos Aires",      sub: "Argentina",           hi: false },
@@ -159,8 +159,8 @@ export default function LuisMiguelProfile() {
   return (
     <div style={{ background: "#060606", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af", overflowX: "hidden" }}>
       <PageSEO
-        title="Luis Miguel · Touring Profile — Mexico Charts"
-        description="El artista mexicano con mayor recaudación de la historia. $786.4M USD, 796 shows, 7.3M fans reportados por Pollstar (2000–2024)."
+        title="Luis Miguel · Perfil de touring — Mexico Charts"
+        description="El artista mexicano con mayor recaudación de la historia. $786.4M USD, 796 fechas y 7.3M asistentes reportados por Pollstar (2000–2024)."
         path="/touring/luis-miguel"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -252,13 +252,13 @@ export default function LuisMiguelProfile() {
           <Link href="/touring">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05, duration: 0.5 }}
               style={{ color: "rgba(255,255,255,0.45)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18, cursor: "pointer" }}>
-              ← Touring
+              ← Giras
             </motion.div>
           </Link>
 
           <motion.div className="lm-hero-kicker" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.6 }}
             style={{ color: "#39FF14", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 22 }}>
-            Touring Profile · El Sol de México
+            Perfil de touring · El Sol de México
           </motion.div>
 
           <motion.h1 className="lm-fa lm-hero-name" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }}
@@ -268,7 +268,7 @@ export default function LuisMiguelProfile() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.55, duration: 0.9 }}>
             <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 10 }}>
-              Gross Total Reportado · Siglo XXI · 2000–2024
+              Taquilla total reportada · Siglo XXI · 2000–2024
             </div>
             <div className="lm-fa" style={{ color: "#39FF14", fontSize: "clamp(3.6rem, 15vw, 88px)", lineHeight: 1, letterSpacing: "-0.01em", marginBottom: 10 }}>
               $<AnimCount to={786.4} decimals={1} />M
@@ -279,11 +279,11 @@ export default function LuisMiguelProfile() {
               </div>
               <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
-                {CAREER_SHOWS} Shows
+                {CAREER_SHOWS} fechas
               </div>
               <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
-                7.3M Fans
+                7.3M fans
               </div>
               <div style={{ width: 1, height: 14, background: "rgba(255,255,255,0.18)" }} />
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
@@ -297,7 +297,7 @@ export default function LuisMiguelProfile() {
         <motion.div className="lm-corner-note" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 0.8 }}
           style={{ position: "absolute", top: 52, right: 52, zIndex: 10, textAlign: "right" }}>
           <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em", lineHeight: 2.1, fontWeight: 500 }}>
-            El Mayor Gross<br />de un Artista<br />Mexicano en la Historia.
+            La mayor taquilla<br />de un artista<br />mexicano en la historia
           </div>
         </motion.div>
 
@@ -317,10 +317,10 @@ export default function LuisMiguelProfile() {
 
         <div className="lm-stats-strip" style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 40 }}>
           {[
-            { value: "$786.4M", label: "Gross Total · 2000–2024",  sub: "USD reportado · Pollstar" },
-            { value: "7.32M",   label: "Boletos Vendidos",          sub: "Este siglo · 796 shows" },
-            { value: "87%",     label: "Sell-Through Promedio",     sub: "24 años de historia" },
-            { value: "$1.54M",  label: "Gross Promedio por Show",   sub: "USD · carrera completa" },
+            { value: "$786.4M", label: "Taquilla total · 2000–2024", sub: "USD reportado · Pollstar" },
+            { value: "7.32M",   label: "Boletos vendidos",          sub: "Este siglo · 796 fechas" },
+            { value: "87%",     label: "Porcentaje vendido",        sub: "24 años de historia" },
+            { value: "$1.54M",  label: "Promedio por fecha",        sub: "USD · carrera completa" },
           ].map((s, i) => (
             <motion.div key={s.label}
               initial={{ opacity: 0, y: 26 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -376,8 +376,8 @@ export default function LuisMiguelProfile() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {[
-                { pct: "~37%", label: "Shows en México",    big: true  },
-                { pct: "~23%", label: "Shows en EUA",       big: false },
+                { pct: "~37%", label: "Fechas en México",   big: true  },
+                { pct: "~23%", label: "Fechas en EUA",      big: false },
                 { pct: "~17%", label: "Sudamérica",         big: false },
                 { pct: "~8%",  label: "España / Europa",    big: false },
               ].map((m, i) => (
@@ -427,12 +427,12 @@ export default function LuisMiguelProfile() {
       </section>
 
       {/* ══════════════════════════════════════════
-          7. BIGGEST SHOWS — top 5 by gross (2023-2024 tour)
+          7. Fechas principales por taquilla
       ══════════════════════════════════════════ */}
       <section style={{ position: "relative", padding: "0 0 80px" }}>
         <div className="lm-section-heading" style={{ padding: "72px 56px 40px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Shows con Mayor Recaudación · Tour 2023–2024
+            Fechas con mayor recaudación · Tour 2023–2024
           </div>
           <div className="lm-fa" style={{ color: "#fff", fontSize: 42, textTransform: "uppercase", lineHeight: 0.88 }}>
             Las Noches<br />Históricas
@@ -470,7 +470,7 @@ export default function LuisMiguelProfile() {
                     <div className="lm-fa" style={{ color: "#fff", fontSize: 20 }}>{show.tickets}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Gross USD</div>
+                    <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 4 }}>Taquilla USD</div>
                     <div className="lm-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 20 }}>{show.gross}</div>
                   </div>
                 </div>
@@ -487,17 +487,17 @@ export default function LuisMiguelProfile() {
         <div className="lm-record-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
           {[
             {
-              label: "Gross Total Este Siglo",
+              label: "Taquilla total este siglo",
               stat: "$786M",
               unit: "USD",
-              venue: "796 Shows · 2000–2024",
+              venue: "796 fechas · 2000–2024",
               note: "#1 artista mexicano en historia del touring",
             },
             {
               label: "Tour 2023–2024 vs Era Anterior",
               stat: "+$45M",
               unit: "más que todo lo anterior combinado",
-              venue: "186 shows vs ~610 anteriores",
+              venue: "186 fechas vs ~610 anteriores",
               note: "$415.8M vs ~$370.6M · mismo siglo · Pollstar",
             },
           ].map((r, i) => (
@@ -532,7 +532,7 @@ export default function LuisMiguelProfile() {
 
         <div className="lm-timeline-wrap" style={{ position: "relative", zIndex: 10, padding: "0 56px" }}>
           <div style={{ color: "rgba(57,255,20,0.48)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 14 }}>
-            Pollstar · Career Timeline · Este Siglo
+            Pollstar · Cronología de carrera · Este siglo
           </div>
           <div className="lm-fa" style={{ color: "#fff", fontSize: 46, textTransform: "uppercase", lineHeight: 0.88, marginBottom: 60 }}>
             24 Años<br />Un Legado Incomparable
@@ -549,7 +549,7 @@ export default function LuisMiguelProfile() {
                 {
                   era: "2000–2022",
                   label: "Los Primeros 22 Años",
-                  period: "796 shows · Carrera siglo XXI hasta 2022",
+                  period: "796 fechas · Carrera siglo XXI hasta 2022",
                   shows: "~610",
                   gross: "~$370.6M",
                   tickets: "~4.46M",
@@ -560,12 +560,12 @@ export default function LuisMiguelProfile() {
                 {
                   era: "2023–2024",
                   label: "El Gran Regreso",
-                  period: "186 shows · Ago 2023 – Dic 2024",
+                  period: "186 fechas · Ago 2023 – Dic 2024",
                   shows: "186",
                   gross: "$415.8M",
                   tickets: "2.86M",
                   peak: true,
-                  note: "Fuente directa: Pollstar 2023–2026 report header · Exact values",
+                  note: "Fuente directa: encabezado del reporte Pollstar 2023–2026 · valores exactos",
                   markets: "20+ países · 4 continentes",
                 },
               ].map((leg, i) => (
@@ -599,15 +599,15 @@ export default function LuisMiguelProfile() {
                     <div className="lm-era-metrics" style={{ display: "flex", gap: 28 }}>
                       <div>
                         <div className="lm-fa lm-era-gross" style={{ color: leg.peak ? "#39FF14" : "rgba(255,255,255,0.75)", fontSize: 26 }}>{leg.gross}</div>
-                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Gross USD</div>
+                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Taquilla USD</div>
                       </div>
                       <div>
-                        <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.shows} Shows</div>
+                        <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.shows} fechas</div>
                         <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Reportados</div>
                       </div>
                       <div>
                         <div style={{ color: leg.peak ? "#fff" : "rgba(255,255,255,0.62)", fontSize: 14, fontWeight: 600 }}>{leg.tickets}</div>
-                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Tickets</div>
+                        <div style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em" }}>Boletos</div>
                       </div>
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>{leg.markets}</div>
@@ -621,8 +621,8 @@ export default function LuisMiguelProfile() {
           </div>
 
           <div style={{ color: "rgba(255,255,255,0.50)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-            * Total de carrera (796 shows / $786.4M) según reporte Pollstar 2000–2026. Cifras 2023–2024 del reporte Pollstar 2023–2026. Cifras pre-2023 calculadas como diferencia.
-            Shows no incluye reportes de soporte. Gross en USD según tipo de cambio reportado en Pollstar.
+            * Total de carrera (796 fechas / $786.4M) según reporte Pollstar 2000–2026. Cifras 2023–2024 del reporte Pollstar 2023–2026. Cifras pre-2023 calculadas como diferencia.
+            Fechas no incluye reportes de soporte. Taquilla en USD según tipo de cambio reportado en Pollstar.
           </div>
         </div>
       </section>
@@ -637,7 +637,7 @@ export default function LuisMiguelProfile() {
 
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 0 }}>
           <div style={{ color: "rgba(57,255,20,0.55)", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
-            Touring Profile · El Sol de México
+            Perfil de touring · El Sol de México
           </div>
           <div className="lm-fa lm-closing-title" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
             Luis Miguel
@@ -645,7 +645,7 @@ export default function LuisMiguelProfile() {
           <div style={{ width: 36, height: 1, background: "#39FF14", margin: "20px auto" }} />
           <div style={{ marginTop: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
             <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" style={{ height: 64, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(57,255,20,0.3))", opacity: 0.85 }} />
-            <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 7, textTransform: "uppercase", letterSpacing: "0.36em" }}>Touring</div>
+            <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 7, textTransform: "uppercase", letterSpacing: "0.36em" }}>Giras</div>
           </div>
         </div>
       </section>
@@ -656,11 +656,11 @@ export default function LuisMiguelProfile() {
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
         <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-          Career: {CAREER_SHOWS} shows · $786,434,715 USD · {CAREER_TICKETS.toLocaleString()} tickets (Pollstar 2000–2026)
+          Carrera: {CAREER_SHOWS} fechas · $786,434,715 USD · {CAREER_TICKETS.toLocaleString()} boletos (Pollstar 2000–2026)
         </div>
         <Link href="/touring">
           <span style={{ color: "rgba(57,255,20,0.55)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
-            ← Volver a Touring
+            ← Volver a giras
           </span>
         </Link>
       </footer>
