@@ -10,8 +10,8 @@ const VIDEO_MOV = `${import.meta.env.BASE_URL}media/tavus-mexico-charts.mov`;
 const LOGO = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
 const SIGNALS = [
-  { label: "Spotify Mexico", value: "Fuerza Regida", sub: "lidera la semana" },
-  { label: "YouTube Mexico", value: "Corridos", sub: "dominio sostenido" },
+  { label: "Spotify México", value: "Fuerza Regida", sub: "lidera la semana" },
+  { label: "YouTube México", value: "Corridos", sub: "dominio sostenido" },
   { label: "Artistas clave", value: "Peso Pluma", sub: "presencia multiplataforma" },
 ];
 

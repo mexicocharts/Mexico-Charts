@@ -15,9 +15,9 @@ const PROFILE_SLUGS: Record<string, string> = {
 };
 
 const profileCards = [
-  { artist: "Peso Pluma",   subtitle: "Doble P · 2023–2026", gross: "$192.4M", tickets: "1.55M", shows: 124, slug: "peso-pluma" },
-  { artist: "Junior H",    subtitle: "Sad Boyz",              gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h"   },
-  { artist: "Luis Miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel" },
+  { artist: "Peso Pluma",   subtitle: "Doble P · Éxodo · 2023–2026", gross: "$192.4M", tickets: "1.55M", shows: 124, slug: "peso-pluma", signal: "Arenas, festivales y salto global" },
+  { artist: "Junior H",    subtitle: "Sad Boyz · 2022–2025",         gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h", signal: "La base sierreña más fuerte en vivo" },
+  { artist: "Luis Miguel", subtitle: "Tour 2023–2024 · Siglo XXI",   gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel", signal: "El estándar histórico del mercado latino" },
 ];
 
 const PROFILE_CARD_NAMES = profileCards.map((p) => p.artist);
@@ -100,7 +100,7 @@ function ShelfCard({
           <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
           {nextEv ? (
             <>
-              <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} shows</div>
+              <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} fechas</div>
               <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "0.03em" }}>
                 {formatDate(nextEv.date)} · {nextEv.city}
               </div>
@@ -208,8 +208,8 @@ export default function TouringHub() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <PageSEO
-        title="Touring — Artistas Mexicanos en Gira 2024"
-        description="Conciertos y giras de artistas mexicanos en 2024. Fechas, ciudades y recaudación de Peso Pluma, Fuerza Regida, Grupo Frontera, Carin León y más."
+        title="Touring — Artistas mexicanos en gira"
+        description="Conciertos y giras de artistas mexicanos. Fechas, ciudades y recaudación de Peso Pluma, Junior H, Luis Miguel, Fuerza Regida, Grupo Frontera, Carin León y más."
         path="/touring"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -607,7 +607,7 @@ export default function TouringHub() {
               <div className="th-hero-stats" style={{ display: "flex", gap: 28 }}>
                 <div>
                   <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{totalShows}</div>
-                  <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Shows próximos</div>
+                  <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Fechas próximas</div>
                 </div>
                 <div style={{ width: 1, background: "rgba(255,255,255,0.1)", alignSelf: "stretch" }} />
                 <div>
@@ -618,25 +618,25 @@ export default function TouringHub() {
             )}
             <Link href="/touring/peso-pluma">
               <button className="th-outline-btn">
-                Explorar Perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
+                Explorar perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
               </button>
             </Link>
           </motion.div>
         </div>
       </section>
 
-      {/* ── UPCOMING TOURS — horizontal shelf ── */}
+      {/* ── Próximas giras ── */}
       <section style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
         <div className="th-shelf-heading" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
           <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
-            Upcoming Tours
+            Próximas giras
           </h2>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
             <span className="th-shelf-meta" style={{ color: "rgba(255,255,255,0.50)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#39FF14", display: "inline-block", boxShadow: "0 0 6px rgba(57,255,20,0.5)" }} />
-              {totalShows} shows · Ticketmaster
+              {totalShows} fechas · Ticketmaster
             </span>
           )}
         </div>
@@ -667,7 +667,7 @@ export default function TouringHub() {
           <div className="th-section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
             <div>
               <SectionEyebrow>Agenda</SectionEyebrow>
-              <SectionHeading white="Todos los" green="Shows" />
+              <SectionHeading white="Todas las" green="Fechas" />
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <div className="th-filter-group" style={{ display: "flex", gap: 3 }}>
@@ -686,7 +686,7 @@ export default function TouringHub() {
                       className={`th-filter-btn${isActive ? " active" : ""}`}
                       onClick={() => setCountryFilter(f)}
                       aria-pressed={isActive}
-                      aria-label={`Filtrar shows: ${COUNTRY_LABELS[f]}`}>
+                      aria-label={`Filtrar fechas: ${COUNTRY_LABELS[f]}`}>
                       {COUNTRY_LABELS[f]}
                       <span style={{
                         background: isActive ? "rgba(0,0,0,0.18)" : "#141414",
@@ -703,7 +703,7 @@ export default function TouringHub() {
                 className="th-city-select"
                 value={cityFilter}
                 onChange={(event) => setCityFilter(event.target.value)}
-                aria-label="Filtrar shows por ciudad"
+                aria-label="Filtrar fechas por ciudad"
               >
                 <option value="ALL">Todas las ciudades ({countryFilteredShows.length})</option>
                 {cityOptions.map((city) => (
@@ -726,7 +726,7 @@ export default function TouringHub() {
               border: "1px solid rgba(255,255,255,0.08)",
               background: "linear-gradient(135deg, rgba(57,255,20,0.055), rgba(255,255,255,0.025) 38%, rgba(0,0,0,0.22))",
             }}>
-              Ticketmaster no tiene shows disponibles para este filtro por el momento
+              Ticketmaster no tiene fechas disponibles para este filtro por el momento
             </div>
           ) : (
             <>
@@ -764,9 +764,9 @@ export default function TouringHub() {
                     className="th-ver-mas-btn"
                     onClick={() => setShowAll(s => !s)}
                     aria-expanded={showAll}
-                    aria-label={showAll ? "Mostrar menos shows" : `Mostrar ${filteredShows.length - PAGE_SIZE} shows más`}
+                    aria-label={showAll ? "Mostrar menos fechas" : `Mostrar ${filteredShows.length - PAGE_SIZE} fechas más`}
                   >
-                    {showAll ? `Ver menos ↑` : `Ver más · ${filteredShows.length - PAGE_SIZE} shows más →`}
+                    {showAll ? `Ver menos ↑` : `Ver más · ${filteredShows.length - PAGE_SIZE} fechas más →`}
                   </button>
                 </div>
               )}
@@ -777,15 +777,21 @@ export default function TouringHub() {
 
       <hr className="th-divider" />
 
-      {/* ── FEATURED TOURING PROFILES ── */}
-      <section className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28 }}>
+      {/* ── Perfiles de touring ── */}
+      <section className="th-content-section" style={{ padding: "48px 32px 52px", borderBottom: "1px solid #111", background: "linear-gradient(180deg, #080808 0%, #060806 100%)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, marginBottom: 28 }}>
           <div>
-            <SectionEyebrow>Artistas Destacados</SectionEyebrow>
-            <SectionHeading white="Featured" green="Touring Profiles" />
+            <SectionEyebrow>Perfiles de touring</SectionEyebrow>
+            <SectionHeading white="Historias" green="de taquilla" />
+            <p style={{ margin: "12px 0 0", maxWidth: 620, color: "rgba(255,255,255,0.52)", fontSize: 12, lineHeight: 1.7 }}>
+              Una lectura editorial de giras mexicanas con taquilla, boletos, mercados clave y contexto de carrera
+            </p>
+          </div>
+          <div style={{ border: "1px solid rgba(57,255,20,0.22)", background: "rgba(57,255,20,0.055)", color: "rgba(57,255,20,0.78)", padding: "10px 12px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", whiteSpace: "nowrap" }}>
+            Fuente: Pollstar Research
           </div>
         </div>
-        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           {profileCards.map((p, i) => {
             const img = deezerImages[p.artist] ?? null;
             return (
@@ -808,23 +814,26 @@ export default function TouringHub() {
                   </div>
                 </div>
                 <div style={{ padding: "14px 14px 16px" }}>
+                  <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.55, minHeight: 32, marginBottom: 12 }}>
+                    {p.signal}
+                  </div>
                   <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
                     <div>
                       <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Gross</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Taquilla</div>
                     </div>
                     <div style={{ textAlign: "center" }}>
                       <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Tickets</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Boletos</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Shows</div>
+                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Fechas</div>
                     </div>
                   </div>
                   <Link href={`/touring/${p.slug}`}>
                     <span aria-label={`Ver perfil completo de ${p.artist}`} style={{ marginTop: 12, color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
-                      Ver Perfil Completo →
+                      Ver perfil completo →
                     </span>
                   </Link>
                 </div>
