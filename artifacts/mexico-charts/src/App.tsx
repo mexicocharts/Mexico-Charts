@@ -18,6 +18,7 @@ const GeneroHub = lazy(() => import("@/pages/GeneroHub"));
 const TouringHub = lazy(() => import("@/pages/TouringHub"));
 const TouringProfile = lazy(() => import("@/pages/TouringProfile"));
 const LuisMiguelProfile = lazy(() => import("@/pages/LuisMiguelProfile"));
+const PesoPlumaProfile = lazy(() => import("@/pages/PesoPlumaProfile"));
 const SocialTemplates = lazy(() => import("@/pages/SocialTemplates"));
 const AcercaDe = lazy(() => import("@/pages/AcercaDe"));
 const Contacto = lazy(() => import("@/pages/Contacto"));
@@ -52,6 +53,7 @@ function Router() {
           <Route path="/industry/certifications" component={Certifications} />
           <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
           <Route path="/touring/luis-miguel" component={LuisMiguelProfile} />
+          <Route path="/touring/peso-pluma" component={PesoPlumaProfile} />
           <Route path="/touring/:slug" component={TouringProfile} />
           <Route path="/touring" component={TouringHub} />
           <Route path="/artist/:slug" component={ArtistDetail} />

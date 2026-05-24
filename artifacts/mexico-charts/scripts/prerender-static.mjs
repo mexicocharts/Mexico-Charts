@@ -127,6 +127,7 @@ const routes = [
       "Agenda de shows, artistas en gira y perfiles editoriales de touring. Mexico Charts usa Ticketmaster para fechas públicas y Pollstar para perfiles históricos cuando hay datos disponibles.",
     links: [
       ["/touring", "Touring"],
+      ["/touring/peso-pluma", "Peso Pluma"],
       ["/touring/junior-h", "Junior H"],
       ["/touring/luis-miguel", "Luis Miguel"],
       ["/metodologia", "Metodologia"],

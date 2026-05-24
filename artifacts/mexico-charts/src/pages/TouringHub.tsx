@@ -11,9 +11,11 @@ const HERO_BG = "/touring-hero.png";
 const PROFILE_SLUGS: Record<string, string> = {
   "junior-h":    "junior-h",
   "luis-miguel": "luis-miguel",
+  "peso-pluma":  "peso-pluma",
 };
 
 const profileCards = [
+  { artist: "Peso Pluma",   subtitle: "Doble P · 2023–2026", gross: "$192.4M", tickets: "1.55M", shows: 124, slug: "peso-pluma" },
   { artist: "Junior H",    subtitle: "Sad Boyz",              gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h"   },
   { artist: "Luis Miguel", subtitle: "Siglo XXI · 2000–2024", gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel" },
 ];
@@ -614,7 +616,7 @@ export default function TouringHub() {
                 </div>
               </div>
             )}
-            <Link href="/touring/junior-h">
+            <Link href="/touring/peso-pluma">
               <button className="th-outline-btn">
                 Explorar Perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
               </button>
@@ -783,7 +785,7 @@ export default function TouringHub() {
             <SectionHeading white="Featured" green="Touring Profiles" />
           </div>
         </div>
-        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
           {profileCards.map((p, i) => {
             const img = deezerImages[p.artist] ?? null;
             return (
