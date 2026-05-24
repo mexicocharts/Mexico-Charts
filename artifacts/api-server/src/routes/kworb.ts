@@ -41,6 +41,12 @@ const SNAPSHOT_TTL_MS: Record<string, number> = {
   D: 30 * 24 * 3_600_000,
 };
 
+const BLOCKED_ARTIST_KEYS = new Set([
+  "jesse", "bandatoro", "jonathancaro", "baektowo", "josemejia",
+  "elfrizian", "los2primos", "elgerryoficial", "lupeborbonysublindaje7",
+  "juanchito", "meloleon", "badguychapo",
+]);
+
 // Exponential backoff for failures (ms), indexed by 0-based attempt count
 const BACKOFF_MS = [
   5 * 60_000,      // 5 min
@@ -1075,7 +1081,7 @@ async function startSentinelLoop(): Promise<void> {
 
 /* ══════════════════════════════════════════════════════════════════════════
    SEED COVERAGE
-   Populates kworb_coverage from the 541-artist metadata sheet.
+   Populates kworb_coverage from the active-artist metadata sheet.
    Called via POST /api/kworb/admin/seed-coverage.
    Spreads initial job due_at over hours/days to avoid a startup burst.
 ══════════════════════════════════════════════════════════════════════════ */
@@ -1101,7 +1107,10 @@ async function seedCoverage(
   for (let i = 1; i < lines.length; i++) {
     const parts = lines[i].match(/"([^"]*)"/g);
     const name  = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
-    if (name) artists.push({ name, slug: toSlug(name) });
+    if (!name) continue;
+    const slug = toSlug(name);
+    if (!slug || BLOCKED_ARTIST_KEYS.has(slug)) continue;
+    artists.push({ name, slug });
   }
 
   let upserted = 0;
@@ -1200,7 +1209,7 @@ async function syncCoverage(): Promise<SyncResult> {
     const name  = parts?.[nameIdx]?.replace(/^"|"$/g, "").trim();
     if (name) {
       const slug = toSlug(name);
-      if (slug) metadataArtists.push({ name, slug });
+      if (slug && !BLOCKED_ARTIST_KEYS.has(slug)) metadataArtists.push({ name, slug });
     }
   }
 

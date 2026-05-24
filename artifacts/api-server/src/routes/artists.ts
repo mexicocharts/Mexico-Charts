@@ -16,6 +16,12 @@ const router = Router();
 const METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
+const BLOCKED_ARTIST_KEYS = new Set([
+  "jesse", "banda toro", "jonathan caro", "baektowo", "jose mejia",
+  "el frizian", "los 2 primos", "el gerry oficial", "lupe borbon y su blindaje 7",
+  "juanchito", "meloleon", "badguychapo",
+]);
+
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
 
@@ -297,7 +303,10 @@ async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
-  return rows.map(sanitizeRow).map(applySubgenreFallback);
+  return rows
+    .map(sanitizeRow)
+    .map(applySubgenreFallback)
+    .filter((r) => !BLOCKED_ARTIST_KEYS.has((r.artist_key ?? r.artist_name ?? "").toLowerCase().trim()));
 }
 
 router.get("/artists/metadata", async (_req, res) => {

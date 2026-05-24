@@ -14,6 +14,22 @@
 import { fetchSheetCSV } from "./googleSheetsData";
 import { normalizeArtistName } from "@/utils/normalizeArtistName";
 
+/* ── Blocked artists (archived — never show on site) ── */
+const BLOCKED_ARTIST_KEYS = new Set([
+  "jesse",
+  "banda toro",
+  "jonathan caro",
+  "baektowo",
+  "jose mejia",
+  "el frizian",
+  "los 2 primos",
+  "el gerry oficial",
+  "lupe borbon y su blindaje 7",
+  "juanchito",
+  "meloleon",
+  "badguychapo",
+]);
+
 /* ── Raw row type (column names must match artist_metadata tab headers) ── */
 export interface RawArtistMetadata {
   artist_key?: string;              // Canonical matching key (preferred)
@@ -274,6 +290,7 @@ function normalizeRow(raw: RawArtistMetadata): ArtistMetadata | null {
   if (!displayName) return null;
 
   const artistKey = (raw.artist_key?.trim() || displayName).toLowerCase();
+  if (BLOCKED_ARTIST_KEYS.has(artistKey)) return null;
 
   const spotifyListeners = parseNum(raw.spotify_monthly_listeners);
   const spotifyFollowers = parseNum(raw.spotify_followers);
