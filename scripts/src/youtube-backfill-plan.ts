@@ -16,7 +16,7 @@ interface ArtistRow {
 }
 
 const ARTIST_METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
 function parseArgs() {
   const args = new Map<string, string>();

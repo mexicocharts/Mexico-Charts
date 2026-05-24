@@ -14,7 +14,7 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
@@ -295,7 +295,7 @@ type MusicbrainzCandidate = {
 
 async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
-  if (!resp.ok) throw new Error(`artist_metadata: HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(`artist_metadata_active: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
   return rows.map(sanitizeRow).map(applySubgenreFallback);
 }
@@ -509,7 +509,7 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
 
     res.setHeader("Cache-Control", "no-store");
     res.json({
-      source: "artist_metadata",
+      source: "artist_metadata_active",
       totalArtists: artistKeys.size,
       generatedAt: new Date().toISOString(),
       providers: {

@@ -15,7 +15,7 @@ export interface RawChartArtist {
   eligibility_type?: string;         // e.g. "Mexican / Regional Mexican" (daily tab)
   status?: string;                   // "APPROVED" | "EXCLUDED" | "REVIEW" (daily tab)
   include_on_site?: string;          // "True" | "False" (daily tab)
-  // Listener / growth stats come from artist_metadata sheet, not chart tabs
+  // Listener / growth stats come from artist_metadata_active sheet, not chart tabs
   monthly_listeners?: string;
   listeners_change_pct?: string;
   genre?: string;

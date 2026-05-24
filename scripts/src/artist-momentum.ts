@@ -43,7 +43,7 @@ const gvizCSV = (sheet: string) =>
 const sources = {
   artistsDaily: gvizCSV("artists_daily_mx"),
   artistMetadata:
-    "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata",
+    "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active",
   touring: process.env.TOURING_API_URL ?? "https://mexicochart.com/api/touring/concerts",
 };
 
@@ -332,7 +332,7 @@ function buildTavusPayload(script: string) {
 async function main() {
   const [artistsDaily, metadata, touring] = await Promise.all([
     fetchRows("artists_daily_mx", sources.artistsDaily),
-    fetchRows("artist_metadata", sources.artistMetadata),
+    fetchRows("artist_metadata_active", sources.artistMetadata),
     fetchTouring(),
   ]);
 

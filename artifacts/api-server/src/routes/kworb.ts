@@ -1080,7 +1080,7 @@ async function startSentinelLoop(): Promise<void> {
    Spreads initial job due_at over hours/days to avoid a startup burst.
 ══════════════════════════════════════════════════════════════════════════ */
 const METADATA_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 
 async function seedCoverage(
   enqueueInitialJobs = true,

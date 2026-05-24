@@ -34,7 +34,7 @@ interface MusicBrainzSearchResponse {
 }
 
 const ARTIST_METADATA_URL =
-  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata";
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
 const MB_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "MexicoCharts/1.0 (https://mexicochart.com)";
 let lastMusicBrainzRequestAt = 0;
