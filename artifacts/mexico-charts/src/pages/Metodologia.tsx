@@ -12,7 +12,7 @@ export default function Metodologia() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Metodología — Mexico Charts"
-        description="Cómo Mexico Charts recopila, organiza y presenta datos de música, streaming, charts, touring e industria."
+        description="Cómo Mexico Charts recopila, organiza y presenta datos de música, streaming, listas, giras e industria."
         path="/metodologia"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
@@ -40,7 +40,7 @@ export default function Metodologia() {
 
         <div style={{ borderTop: `1px solid rgba(57,255,20,0.12)` }} className="pt-12 space-y-10">
           <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Mexico Charts recopila, organiza y presenta información pública y/o licenciada de distintas fuentes relacionadas con música, streaming, charts, touring e industria.
+            Mexico Charts recopila, organiza y presenta información pública y/o licenciada de distintas fuentes relacionadas con música, streaming, listas, giras e industria.
           </p>
           <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
             Nuestros rankings y perfiles pueden incluir datos provenientes de plataformas como Spotify, YouTube, Apple Music, Deezer, Ticketmaster, Pollstar, IFPI, AMPROFON, Chartmetric, Soundcharts, Songstats, Chartmasters u otras fuentes públicas, privadas o editoriales, dependiendo de la disponibilidad y el tipo de sección.
@@ -52,7 +52,7 @@ export default function Metodologia() {
               {[
                 "Transparencia de fuente cuando sea posible",
                 "Actualización regular de datos",
-                "Separación entre charts oficiales, datos agregados y análisis editorial",
+                "Separación entre listas oficiales, datos agregados y análisis editorial",
                 "Corrección de errores cuando sean identificados",
                 "Contexto cultural junto a los números",
               ].map(item => (
@@ -74,8 +74,8 @@ export default function Metodologia() {
           <div className="space-y-5">
             {[
               {
-                title: "Charts",
-                body: "Los charts pueden provenir de plataformas públicas o fuentes externas. Cuando un chart pertenece a una plataforma específica, Mexico Charts lo presenta como ranking de esa plataforma y no como ranking propio, salvo que se indique claramente que es una lista editorial o agregada.",
+                title: "Listas",
+                body: "Las listas pueden provenir de plataformas públicas o fuentes externas. Cuando una lista pertenece a una plataforma específica, Mexico Charts la presenta como ranking de esa plataforma y no como ranking propio, salvo que se indique claramente que es una lista editorial o agregada.",
               },
               {
                 title: "Artistas",
@@ -86,8 +86,8 @@ export default function Metodologia() {
                 body: "Las cifras de streaming, oyentes, seguidores o reproducciones pueden cambiar con el tiempo y depender de la disponibilidad de cada plataforma o fuente.",
               },
               {
-                title: "Touring",
-                body: "Los datos de touring pueden provenir de fuentes oficiales, reportes de la industria, plataformas de venta de boletos o bases de datos especializadas. Cuando los datos sean estimados o incompletos, debe indicarse.",
+                title: "Giras",
+                body: "Los datos de giras pueden provenir de fuentes oficiales, reportes de la industria, plataformas de venta de boletos o bases de datos especializadas. Cuando los datos sean estimados o incompletos, debe indicarse.",
               },
             ].map(({ title, body }) => (
               <div key={title} className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>

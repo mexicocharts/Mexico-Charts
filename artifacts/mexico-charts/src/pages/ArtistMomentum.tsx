@@ -16,7 +16,7 @@ const SCORE_COMPONENTS = [
   { key: "growth", label: "Crecimiento", max: 30, helper: "cambio de oyentes" },
   { key: "audience", label: "Audiencia", max: 20, helper: "escala relativa" },
   { key: "social", label: "Social", max: 10, helper: "alcance medido" },
-  { key: "touring", label: "Touring", max: 5, helper: "fechas activas" },
+  { key: "touring", label: "Giras", max: 5, helper: "fechas activas" },
 ] as const;
 
 interface TmEvent {
@@ -268,7 +268,7 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
             <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
           </div>
           <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Touring</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Giras</div>
             <div className="mt-1 text-sm font-black text-white">{item.touringDates}</div>
           </div>
         </div>
@@ -326,7 +326,7 @@ export default function ArtistMomentum() {
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Índice de Impulso de Artistas — Mexico Charts"
-        description="Ranking de impulso de artistas mexicanos combinando posición en charts, audiencia, crecimiento, alcance social y touring."
+        description="Ranking de impulso de artistas mexicanos combinando posición en listas, audiencia, crecimiento, alcance social y giras."
         path="/artist-momentum"
       />
       <SiteNav />
@@ -344,8 +344,8 @@ export default function ArtistMomentum() {
                   Índice de Impulso de <span style={{ color: ACCENT }}>Artistas</span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  Un indicador editorial de Mexico Charts que combina charts, audiencia, crecimiento,
-                  alcance social y actividad de touring para detectar qué artistas están generando más señal ahora.
+                  Un indicador editorial de Mexico Charts que combina listas, audiencia, crecimiento,
+                  alcance social y actividad de giras para detectar qué artistas están generando más señal ahora.
                 </p>
               </div>
 

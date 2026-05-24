@@ -22,10 +22,10 @@ const PLATFORMS = [
     sourceUrl: "https://charts.youtube.com/charts",
     meta: "YouTube · México · Semanal",
     charts: [
-      { id: "YT_Songs_Weekly",   label: "Top Songs",   period: "Semanal" },
-      { id: "YT_Videos_Daily",   label: "Top Videos",  period: "Diario"  },
-      { id: "YT_Artists_Weekly", label: "Top Artists", period: "Semanal" },
-      { id: "YT_Shorts_Daily",   label: "Top Shorts",  period: "Diario"  },
+      { id: "YT_Songs_Weekly",   label: "Canciones", period: "Semanal" },
+      { id: "YT_Videos_Daily",   label: "Videos",    period: "Diario"  },
+      { id: "YT_Artists_Weekly", label: "Artistas",  period: "Semanal" },
+      { id: "YT_Shorts_Daily",   label: "Shorts",    period: "Diario"  },
     ],
   },
   {
@@ -37,7 +37,7 @@ const PLATFORMS = [
     sourceUrl: "https://charts.spotify.com",
     meta: "Spotify · México · Diario",
     charts: [
-      { id: "Spotify_Artists_Daily",   label: "Top Artistas", period: "Diario"  },
+      { id: "Spotify_Artists_Daily",   label: "Artistas",     period: "Diario"  },
       { id: "Spotify_Regional_Daily",  label: "Regional",     period: "Diario"  },
       { id: "Spotify_Regional_Weekly", label: "Regional",     period: "Semanal" },
       { id: "Spotify_Viral_Daily",     label: "Viral",        period: "Diario"  },
@@ -52,8 +52,8 @@ const PLATFORMS = [
     sourceUrl: "https://music.apple.com/mx/room/1108041827",
     meta: "Apple Music · México · Diario",
     charts: [
-      { id: "Apple_Songs",  label: "Top Songs",  period: "Diario" },
-      { id: "Apple_Albums", label: "Top Albums", period: "Diario" },
+      { id: "Apple_Songs",  label: "Canciones", period: "Diario" },
+      { id: "Apple_Albums", label: "Álbumes",   period: "Diario" },
     ],
   },
   {
@@ -65,7 +65,7 @@ const PLATFORMS = [
     sourceUrl: "https://link.deezer.com/s/33eGo3PgAInikdTPxA2xN",
     meta: "Deezer · México · Diario",
     charts: [
-      { id: "Deezer_Top_Mexico", label: "Top México", period: "Diario" },
+      { id: "Deezer_Top_Mexico", label: "México", period: "Diario" },
     ],
   },
 ] as const;
@@ -94,14 +94,14 @@ const COLS: Record<string, ColDef[]> = {
   ],
   YT_Artists_Weekly: [
     { key: "Artist Name",      label: "Artista",     align: "left",  mobile: true,  isArtist: true },
-    { key: "Views",            label: "Views",       align: "right", mobile: false, isMetric: true },
+    { key: "Views",            label: "Vistas",      align: "right", mobile: false, isMetric: true },
     { key: "Growth",           label: "Crec.",       align: "right", mobile: false },
     { key: "Periods on Chart", label: "Semanas",     align: "right", mobile: false },
   ],
   YT_Songs_Weekly: [
     { key: "Artist Names", label: "Artista",  align: "left",  mobile: true,  isArtist: true },
     { key: "Track Name",   label: "Canción",  align: "left",  mobile: true  },
-    { key: "Views",        label: "Views",    align: "right", mobile: false, isMetric: true },
+    { key: "Views",        label: "Vistas",   align: "right", mobile: false, isMetric: true },
     { key: "Growth",       label: "Crec.",    align: "right", mobile: false },
     { key: "YouTube URL",  label: "Ver",      align: "center",mobile: false, isLink: true },
   ],
@@ -119,14 +119,14 @@ const COLS: Record<string, ColDef[]> = {
   Spotify_Regional_Daily: [
     { key: "artist_names", label: "Artista",  align: "left",  mobile: true,  isArtist: true },
     { key: "track_name",   label: "Canción",  align: "left",  mobile: true  },
-    { key: "streams",      label: "Streams",  align: "right", mobile: false, isMetric: true },
+    { key: "streams",      label: "Reprod.",  align: "right", mobile: false, isMetric: true },
     { key: "peak_rank",    label: "Pico",     align: "right", mobile: false },
     { key: "days_on_chart",label: "Días",     align: "right", mobile: false },
   ],
   Spotify_Regional_Weekly: [
     { key: "artist_names",  label: "Artista",  align: "left",  mobile: true,  isArtist: true },
     { key: "track_name",    label: "Canción",  align: "left",  mobile: true  },
-    { key: "streams",       label: "Streams",  align: "right", mobile: false, isMetric: true },
+    { key: "streams",       label: "Reprod.",  align: "right", mobile: false, isMetric: true },
     { key: "peak_rank",     label: "Pico",     align: "right", mobile: false },
     { key: "weeks_on_chart",label: "Semanas",  align: "right", mobile: false },
   ],
@@ -482,8 +482,8 @@ export default function ChartsHub() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
-        title="Charts de Música Mexicana — YouTube, Spotify, Apple Music"
-        description="Charts semanales y diarios de música mexicana en YouTube, Spotify, Apple Music y Deezer. Corridos tumbados, regional mexicano, norteño y más."
+        title="Listas de música mexicana — YouTube, Spotify, Apple Music"
+        description="Listas semanales y diarias de música mexicana en YouTube, Spotify, Apple Music y Deezer. Corridos tumbados, regional mexicano, norteño y más."
         path="/charts"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
@@ -498,12 +498,12 @@ export default function ChartsHub() {
           <div>
             <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
               className="text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: G }}>
-              Charts
+              Listas
             </motion.p>
             <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
               className="font-black uppercase leading-[0.88]"
               style={{ fontSize: "clamp(2rem,4vw,3.8rem)", letterSpacing: "-0.04em" }}>
-              Charts <span style={{ color: G }}>México</span>
+              Listas <span style={{ color: G }}>México</span>
             </motion.h1>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
               className="mt-3 flex flex-wrap items-center gap-2">
@@ -542,7 +542,7 @@ export default function ChartsHub() {
             return (
               <button key={p.id} type="button" onClick={() => switchPlatform(p.id as PlatformId)}
                 aria-pressed={active}
-                aria-label={`Ver charts de ${p.label}`}
+                aria-label={`Ver listas de ${p.label}`}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-[0.15em] transition-all"
                 style={{
                   background: active ? "rgba(255,255,255,0.07)" : "transparent",
@@ -643,7 +643,7 @@ export default function ChartsHub() {
               {isError && (
                 <div className="py-20 text-center">
                   <p className="text-sm font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
-                    Charts no disponibles
+                    Listas no disponibles
                   </p>
                   <p className="text-xs mt-2" style={{ color: "rgba(255,255,255,0.50)" }}>
                     Intenta recargar la página en unos momentos.
@@ -774,7 +774,7 @@ export default function ChartsHub() {
               </div>
             )}
 
-            {/* Source + methodology */}
+            {/* Fuente + metodología */}
             {!isLoading && !isError && (
               <div className="mt-5 space-y-2">
                 <div className="flex items-center justify-between px-1">
@@ -791,8 +791,8 @@ export default function ChartsHub() {
                   )}
                 </div>
                 <p className="px-1 text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.48)", maxWidth: "65ch" }}>
-                  Mexico Charts organiza y presenta datos de plataformas musicales para mostrar rankings en México.
-                  La vista «Solo artistas mexicanos» es un filtro editorial aplicado a los charts originales y conserva las posiciones originales de cada plataforma.
+                  Mexico Charts organiza y presenta datos de plataformas musicales para mostrar listas en México.
+                  La vista «Solo artistas mexicanos» es un filtro editorial aplicado a las listas originales y conserva las posiciones originales de cada plataforma.
                   La identificación de artistas mexicanos se realiza únicamente contra la base de datos de Mexico Charts y el listado Mexican_Artist_Master; no se infiere la nacionalidad por género, idioma ni popularidad regional.
                 </p>
               </div>

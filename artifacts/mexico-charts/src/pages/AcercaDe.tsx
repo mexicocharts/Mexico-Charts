@@ -11,7 +11,7 @@ export default function AcercaDe() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Acerca de Mexico Charts — Datos y cultura de la música mexicana"
-        description="Mexico Charts es una plataforma independiente de datos sobre música mexicana, charts, artistas, streaming, industria, certificaciones y touring."
+        description="Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras."
         path="/acerca-de"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
@@ -42,20 +42,20 @@ export default function AcercaDe() {
             Mexico Charts es una plataforma independiente dedicada a documentar el crecimiento, desempeño e impacto de la música mexicana dentro de México y alrededor del mundo.
           </p>
           <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Nuestro objetivo es reunir charts, rankings, datos de streaming, touring, industria, artistas y tendencias culturales en un solo espacio con una presentación moderna, clara y visualmente premium.
+            Nuestro objetivo es reunir listas, rankings, datos de streaming, giras, industria, artistas y tendencias culturales en un solo espacio con una presentación moderna, clara y visualmente premium.
           </p>
           <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Mexico Charts nace para conectar los números con la cultura. Detrás de cada chart hay canciones, artistas, comunidades, fans y momentos que impulsan la música mexicana todos los días.
+            Mexico Charts nace para conectar los números con la cultura. Detrás de cada lista hay canciones, artistas, comunidades, fans y momentos que impulsan la música mexicana todos los días.
           </p>
 
           <div>
             <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>Qué cubrimos</h2>
             <ul className="space-y-3">
               {[
-                "Charts de plataformas digitales",
+                "Listas de plataformas digitales",
                 "Artistas mexicanos y de música mexicana",
                 "Streaming, audiencia y crecimiento",
-                "Touring y presentaciones en vivo",
+                "Giras y presentaciones en vivo",
                 "Industria musical mexicana",
                 "Tendencias, logros y contexto cultural",
               ].map(item => (
@@ -68,7 +68,7 @@ export default function AcercaDe() {
           </div>
 
           <div className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.22em] mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>Disclaimer</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.22em] mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>Aviso</h3>
             <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
               Mexico Charts es una plataforma independiente. No estamos afiliados oficialmente con Spotify, YouTube, Apple Music, Deezer, Billboard, IFPI, AMPROFON, Pollstar, Ticketmaster ni con ningún artista, sello discográfico o plataforma mencionada, salvo que se indique lo contrario.
             </p>

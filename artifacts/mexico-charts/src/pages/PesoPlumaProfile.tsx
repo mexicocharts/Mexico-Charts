@@ -184,8 +184,8 @@ export default function PesoPlumaProfile() {
   return (
     <div style={{ background: "#050505", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#a1a1aa", overflowX: "hidden" }}>
       <PageSEO
-        title="Peso Pluma · Perfil de Touring — Mexico Charts"
-        description="Perfil de touring de Peso Pluma con datos Pollstar: $192.4M USD, 1.55M boletos y 124 shows reportados entre 2023 y 2026"
+        title="Peso Pluma · Perfil de touring — Mexico Charts"
+        description="Perfil de touring de Peso Pluma con datos Pollstar: $192.4M USD, 1.55M boletos y 124 fechas reportadas entre 2023 y 2026"
         path="/touring/peso-pluma"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -236,11 +236,11 @@ export default function PesoPlumaProfile() {
         <motion.div className="pp-hero-copy" style={{ position: "relative", zIndex: 10, padding: "0 52px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", maxWidth: 700, y: heroTextY }}>
           <Link href="/touring">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05, duration: 0.5 }} style={{ color: "rgba(255,255,255,0.48)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.3em", marginBottom: 18, cursor: "pointer" }}>
-              ← Touring
+              ← Giras
             </motion.div>
           </Link>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12, duration: 0.6 }} style={{ color: "#39FF14", fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.42em", marginBottom: 22 }}>
-            Perfil de Touring · Doble P
+            Perfil de touring · Doble P
           </motion.div>
           <motion.h1 className="pp-fa pp-hero-name" initial={{ opacity: 0, y: 36 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18, duration: 0.85 }} style={{ color: "#fff", fontSize: "clamp(4.2rem, 16vw, 116px)", lineHeight: 0.84, textTransform: "uppercase", letterSpacing: "0.02em", marginBottom: 40 }}>
             Peso<br />Pluma
@@ -253,7 +253,7 @@ export default function PesoPlumaProfile() {
               $<AnimCount to={192.4} decimals={1} />M
             </div>
             <div style={{ display: "flex", gap: 22, alignItems: "center", flexWrap: "wrap" }}>
-              {["USD · Pollstar", `${CAREER_SHOWS} shows`, "1.55M boletos", `${SELL_THROUGH}% vendido`].map((item) => (
+              {["USD · Pollstar", `${CAREER_SHOWS} fechas`, "1.55M boletos", `${SELL_THROUGH}% vendido`].map((item) => (
                 <div key={item} style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.22em" }}>
                   {item}
                 </div>
@@ -275,9 +275,9 @@ export default function PesoPlumaProfile() {
         <div className="pp-stat-grid" style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-around", alignItems: "center", padding: "0 48px", flexWrap: "wrap", gap: 36 }}>
           {[
             { value: "$192.4M", label: "Taquilla total", sub: "Pollstar · 2023-2026" },
-            { value: "1.55M", label: "Boletos vendidos", sub: `${CAREER_SHOWS} shows totales` },
+            { value: "1.55M", label: "Boletos vendidos", sub: `${CAREER_SHOWS} fechas totales` },
             { value: "99%", label: "Promedio vendido", sub: `${HEADLINE_REPORTS} reportes titulares` },
-            { value: "$1.72M", label: "Promedio por show", sub: `${fmtCompact(AVG_TICKETS)} boletos promedio` },
+            { value: "$1.72M", label: "Promedio por fecha", sub: `${fmtCompact(AVG_TICKETS)} boletos promedio` },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.12, duration: 0.7 }} style={{ textAlign: "center", padding: "0 20px" }}>
               <div className="pp-fa" style={{ color: i === 0 ? "#39FF14" : "#fff", fontSize: 52, lineHeight: 1, marginBottom: 14 }}>{s.value}</div>
@@ -431,7 +431,7 @@ export default function PesoPlumaProfile() {
           ))}
         </div>
         <div style={{ position: "relative", zIndex: 10, color: "rgba(255,255,255,0.44)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em", padding: "30px 56px 0", lineHeight: 1.8 }}>
-          * Datos provistos por Pollstar Research · No incluye shows no reportados o datos no publicados
+          * Datos provistos por Pollstar Research · No incluye fechas no reportadas o datos no publicados
         </div>
       </section>
 
@@ -440,7 +440,7 @@ export default function PesoPlumaProfile() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, #050505 0%, rgba(5,5,5,0) 30%, rgba(5,5,5,0) 62%, #050505 100%)" }} />
         <div style={{ position: "relative", zIndex: 10, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
           <div style={{ color: "rgba(57,255,20,0.58)", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.44em", marginBottom: 20 }}>
-            Perfil de Touring · Doble P
+            Perfil de touring · Doble P
           </div>
           <div className="pp-fa" style={{ color: "#fff", fontSize: 76, textTransform: "uppercase", lineHeight: 0.9, letterSpacing: "0.07em" }}>
             Peso Pluma
@@ -455,11 +455,11 @@ export default function PesoPlumaProfile() {
           © 2026 Mexico Charts · Datos provistos por Pollstar Research
         </div>
         <div style={{ color: "rgba(255,255,255,0.46)", fontSize: 8, textTransform: "uppercase", letterSpacing: "0.12em" }}>
-          {CAREER_SHOWS} shows · ${CAREER_GROSS_USD.toLocaleString()} USD · {CAREER_TICKETS.toLocaleString()} boletos
+          {CAREER_SHOWS} fechas · ${CAREER_GROSS_USD.toLocaleString()} USD · {CAREER_TICKETS.toLocaleString()} boletos
         </div>
         <Link href="/touring">
           <span style={{ color: "rgba(57,255,20,0.62)", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", cursor: "pointer" }}>
-            ← Volver a Touring
+            ← Volver a giras
           </span>
         </Link>
       </footer>
