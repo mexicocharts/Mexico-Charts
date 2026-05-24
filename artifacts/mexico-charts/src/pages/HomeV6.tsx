@@ -9,7 +9,7 @@ import {
   useScroll, useTransform,
   useReducedMotion,
 } from "framer-motion";
-import { Award, BadgeCheck, Disc3, Mail, Music, Play, RadioTower, TrendingUp, Users } from "lucide-react";
+import { Award, BadgeCheck, Disc3, Mail, Music, RadioTower, TrendingUp, Users } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { SHEET_SOURCES } from "@/config/sheetSources";
@@ -18,8 +18,6 @@ import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si
 import SiteNav from "@/components/SiteNav";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
-const tavusVideoMp4 = `${import.meta.env.BASE_URL}media/tavus-mexico-charts.mp4`;
-const tavusVideoMov = `${import.meta.env.BASE_URL}media/tavus-mexico-charts.mov`;
 
 /* ─── NOISE SVG ──────────────────────────────────────────────── */
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -236,7 +234,6 @@ function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode
 export default function HomeV6() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [tickerPaused, setTickerPaused] = useState(false);
-  const [weeklyVideoUnavailable, setWeeklyVideoUnavailable] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
@@ -731,89 +728,6 @@ export default function HomeV6() {
           </span>
         </div>
       )}
-
-      {/* ── WEEKLY VIDEO HEADLINE — compact Tavus module ── */}
-      <section className="px-6 lg:px-12 py-7" data-testid="section-weekly-video">
-        <div
-          className="relative overflow-hidden rounded-xl"
-          style={{
-            background: "linear-gradient(150deg, #0b0b0b 0%, #060606 58%, #090909 100%)",
-            border: "1px solid rgba(255,255,255,0.07)",
-            boxShadow: "0 10px 54px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.045)",
-          }}
-        >
-          <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 18% 24%, rgba(57,255,20,0.09), transparent 32%), radial-gradient(circle at 88% 72%, rgba(57,255,20,0.055), transparent 34%)" }} />
-          <div className="absolute inset-0 pointer-events-none opacity-[0.035]" style={{ backgroundImage: NOISE_SVG, backgroundSize: "128px" }} />
-
-          <div className="relative grid lg:grid-cols-[minmax(0,0.88fr)_minmax(380px,0.72fr)] gap-0">
-            <div className="p-6 md:p-8 lg:p-9 flex flex-col justify-between min-h-[360px]">
-              <div>
-                <div className="flex items-center gap-2 mb-5">
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#39FF14", boxShadow: "0 0 10px rgba(57,255,20,0.6)" }} />
-                  <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: "#39FF14" }}>
-                    Resumen semanal en video
-                  </span>
-                </div>
-                <h2 className="font-black uppercase text-white leading-[0.9] tracking-tight mb-5" style={{ fontSize: "clamp(2.4rem, 7vw, 5.6rem)" }}>
-                  Mexico Charts<br />ahora habla
-                </h2>
-                <p className="text-sm md:text-base text-zinc-400 leading-7 max-w-xl">
-                  Un bloque editorial para convertir los datos de la semana en una lectura rápida: charts, YouTube, momentum y artistas que están moviendo la conversación
-                </p>
-              </div>
-
-              <div className="grid sm:grid-cols-3 gap-2 mt-7 max-w-2xl">
-                {[
-                  ["Spotify México", "Fuerza Regida", "lidera la señal"],
-                  ["YouTube México", "Corridos", "dominio sostenido"],
-                  ["Artistas clave", "Peso Pluma", "presencia fuerte"],
-                ].map(([kicker, value, sub]) => (
-                  <div key={kicker} className="rounded-lg px-4 py-3" style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.065)" }}>
-                    <div className="text-[8px] font-black uppercase tracking-[0.18em] text-zinc-600 mb-1">{kicker}</div>
-                    <div className="text-sm font-black uppercase text-white leading-tight">{value}</div>
-                    <div className="text-[8px] font-black uppercase tracking-[0.14em] mt-2" style={{ color: "rgba(57,255,20,0.72)" }}>{sub}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="p-4 md:p-6 lg:p-7 flex items-center">
-              <div className="relative w-full aspect-video rounded-lg overflow-hidden" style={{ background: "#050505", border: "1px solid rgba(57,255,20,0.18)", boxShadow: "0 18px 60px rgba(0,0,0,0.48)" }}>
-                {!weeklyVideoUnavailable && (
-                  <video
-                    controls
-                    playsInline
-                    preload="metadata"
-                    onError={() => setWeeklyVideoUnavailable(true)}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    style={{ background: "#050505" }}
-                  >
-                    <source src={tavusVideoMp4} type="video/mp4" />
-                    <source src={tavusVideoMov} type="video/quicktime" />
-                  </video>
-                )}
-                {weeklyVideoUnavailable && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6">
-                    <div className="w-16 h-16 rounded-full flex items-center justify-center mb-5" style={{ border: "1px solid rgba(57,255,20,0.34)", color: "#39FF14", boxShadow: "0 0 28px rgba(57,255,20,0.14)" }}>
-                      <Play className="w-7 h-7 ml-1" fill="currentColor" />
-                    </div>
-                    <div className="text-3xl md:text-4xl font-black uppercase leading-none text-white mb-3">
-                      Resumen semanal
-                    </div>
-                    <div className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500 leading-5">
-                      Video Tavus listo para integrarse
-                    </div>
-                  </div>
-                )}
-                <div className="absolute left-3 bottom-3 flex items-center gap-2 px-2.5 py-2 rounded-md" style={{ background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(12px)", pointerEvents: "none" }}>
-                  <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-zinc-300">Resumen semanal</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ══════════════════════════════════════════════════════════
           TOP 10 ARTIST CARDS — V5 cards + premium hover
