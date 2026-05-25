@@ -6,20 +6,22 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
 
 const INDUSTRIA_ITEMS = [
-  { label: "Industria",      href: "/industria" },
-  { label: "Certificaciones", href: "/industry/certifications" },
-  { label: "Música Grabada", href: "/insights/mexico-top-10-ifpi-2026" },
+  { label: "Industria", href: "/industria", description: "Mercado, reportes y contexto" },
+  { label: "Certificaciones", href: "/industry/certifications", description: "Oro, Platino y Diamante" },
+  { label: "Música Grabada", href: "/insights/mexico-top-10-ifpi-2026", description: "IFPI y crecimiento global" },
 ];
 
 const NAV = [
   { label: "INICIO",       href: "/" },
   { label: "ARTISTAS",     href: "/artists" },
   { label: "MOMENTUM",     href: "/artist-momentum" },
-  { label: "CHARTS",       href: "/charts" },
+  { label: "LISTAS",       href: "/charts" },
   { label: "GÉNEROS",      href: "/generos" },
   { label: "INDUSTRIA",    href: "/industria", dropdown: INDUSTRIA_ITEMS },
-  { label: "TOURING",      href: "/touring" },
+  { label: "GIRAS",        href: "/touring" },
 ];
+
+const MOBILE_PRIMARY = NAV.filter(item => !item.dropdown);
 
 type Props = {
   /** Pass true to show "INICIO" pill as green (HomeV6 style) */
@@ -44,6 +46,15 @@ export default function SiteNav({ homeActive = false }: Props) {
   }
 
   const industryActive = location.startsWith("/industria") || location.startsWith("/industry");
+  const isActive = (href: string, label: string) => {
+    if (homeActive) return label === "INICIO";
+    if (href === "/") return location === "/";
+    if (href === "/artists") return location === "/artists" || location.startsWith("/artist/");
+    if (href === "/charts") return location === "/charts";
+    if (href === "/touring") return location === "/touring" || location.startsWith("/touring/");
+    if (href === "/industria") return industryActive || location.startsWith("/insights/");
+    return location === href || location.startsWith(href + "/");
+  };
 
   return (
     <header className="sticky top-0 z-50"
@@ -72,17 +83,31 @@ export default function SiteNav({ homeActive = false }: Props) {
                   </button>
 
                   {dropOpen && (
-                    <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-44 rounded-xl overflow-hidden py-1"
-                      style={{ background: "#111", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 32px rgba(0,0,0,0.6)" }}>
+                    <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-[360px] rounded-xl overflow-hidden p-3"
+                      style={{ background: "linear-gradient(145deg, #090909 0%, #050505 100%)", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 18px 48px rgba(0,0,0,0.72), inset 0 1px 0 rgba(57,255,20,0.08)" }}>
+                      <div className="mb-2 flex items-center justify-between px-2">
+                        <span className="text-[9px] font-black uppercase tracking-[0.26em]" style={{ color: "rgba(57,255,20,0.8)" }}>
+                          Industria
+                        </span>
+                        <span className="h-px flex-1 ml-3" style={{ background: "linear-gradient(to right, rgba(57,255,20,0.18), transparent)" }} />
+                      </div>
                       {item.dropdown.map(sub => {
-                        const subActive = location === sub.href || location.startsWith(sub.href + "/");
+                        const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
                         return (
                           <Link key={sub.href} href={sub.href}>
-                            <span className="block px-4 py-2.5 text-[11px] font-black uppercase tracking-[0.16em] transition-colors cursor-pointer"
-                              style={{ color: subActive ? G : "rgba(255,255,255,0.55)" }}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#fff"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = subActive ? G : "rgba(255,255,255,0.55)"; (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                              {subActive && <span style={{ color: G }}>› </span>}{sub.label}
+                            <span className="mb-1 flex items-center justify-between gap-3 rounded-lg px-3 py-3 transition-colors cursor-pointer"
+                              style={{
+                                color: subActive ? G : "rgba(255,255,255,0.72)",
+                                background: subActive ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.018)",
+                                border: subActive ? "1px solid rgba(57,255,20,0.22)" : "1px solid rgba(255,255,255,0.04)",
+                              }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = subActive ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.045)"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = subActive ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.018)"; }}>
+                              <span>
+                                <span className="block text-[11px] font-black uppercase tracking-[0.16em]">{sub.label}</span>
+                                <span className="mt-1 block text-[10px] font-medium normal-case tracking-normal" style={{ color: "rgba(255,255,255,0.38)" }}>{sub.description}</span>
+                              </span>
+                              <span className="text-[13px]" style={{ color: subActive ? G : "rgba(255,255,255,0.24)" }}>→</span>
                             </span>
                           </Link>
                         );
@@ -93,9 +118,7 @@ export default function SiteNav({ homeActive = false }: Props) {
               );
             }
 
-            const active = homeActive
-              ? item.label === "INICIO"
-              : location === item.href && item.href !== "#";
+            const active = isActive(item.href, item.label);
 
             return (
               <Link key={item.label} href={item.href}>
@@ -133,41 +156,58 @@ export default function SiteNav({ homeActive = false }: Props) {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="lg:hidden border-t" style={{ background: "rgba(8,8,8,0.99)", borderColor: "rgba(255,255,255,0.07)" }}>
-          <nav id="site-mobile-nav" className="px-6 py-4 flex flex-col gap-1">
-            {NAV.map(item => {
-              if (item.dropdown) {
+        <div className="lg:hidden border-t" style={{ background: "rgba(5,5,5,0.99)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <nav id="site-mobile-nav" className="px-6 py-5">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: "rgba(57,255,20,0.82)" }}>
+                Explorar
+              </span>
+              <span className="h-px flex-1 ml-4" style={{ background: "linear-gradient(to right, rgba(57,255,20,0.2), transparent)" }} />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {MOBILE_PRIMARY.map(item => {
+                const active = isActive(item.href, item.label);
                 return (
-                  <div key={item.label}>
-                    <div className="text-[10px] font-black uppercase tracking-[0.22em] px-3 py-2" style={{ color: "rgba(255,255,255,0.28)" }}>
+                  <Link key={item.label} href={item.href}>
+                    <span className="block min-h-12 px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] rounded-lg"
+                      style={{
+                        color: active ? G : "rgba(255,255,255,0.62)",
+                        background: active ? "rgba(57,255,20,0.09)" : "rgba(255,255,255,0.025)",
+                        border: active ? "1px solid rgba(57,255,20,0.24)" : "1px solid rgba(255,255,255,0.055)",
+                      }}>
                       {item.label}
-                    </div>
-                    {item.dropdown.map(sub => {
-                      const subActive = location === sub.href || location.startsWith(sub.href + "/");
-                      return (
-                        <Link key={sub.href} href={sub.href}>
-                          <span className="block px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] rounded-lg"
-                            style={{ color: subActive ? G : "rgba(255,255,255,0.55)", background: subActive ? "rgba(57,255,20,0.06)" : "transparent" }}>
-                            {sub.label}
-                          </span>
-                        </Link>
-                      );
-                    })}
-                  </div>
+                    </span>
+                  </Link>
                 );
-              }
-              const active = homeActive
-                ? item.label === "INICIO"
-                : location === item.href && item.href !== "#";
-              return (
-                <Link key={item.label} href={item.href}>
-                  <span className="block px-3 py-3 text-[11px] font-black uppercase tracking-[0.22em] rounded-lg"
-                    style={{ color: active ? G : "rgba(255,255,255,0.55)", background: active ? "rgba(57,255,20,0.06)" : "transparent" }}>
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            })}
+              })}
+            </div>
+
+            <div className="mt-4 rounded-xl p-3 sm:p-4"
+              style={{ background: "linear-gradient(135deg, rgba(57,255,20,0.055), rgba(255,255,255,0.018))", border: "1px solid rgba(57,255,20,0.12)" }}>
+              <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: industryActive ? G : "rgba(255,255,255,0.42)" }}>
+                Industria
+              </div>
+              <div className="grid gap-1 sm:grid-cols-3 sm:gap-2">
+                {INDUSTRIA_ITEMS.map(sub => {
+                  const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
+                  return (
+                    <Link key={sub.href} href={sub.href}>
+                      <span className="flex min-h-[74px] items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.16em]"
+                        style={{ color: subActive ? G : "rgba(255,255,255,0.6)", background: subActive ? "rgba(57,255,20,0.08)" : "transparent" }}>
+                        <span>
+                          <span className="block">{sub.label}</span>
+                          <span className="mt-1 block text-[10px] font-medium normal-case tracking-normal" style={{ color: "rgba(255,255,255,0.34)" }}>
+                            {sub.description}
+                          </span>
+                        </span>
+                        <span style={{ color: subActive ? G : "rgba(255,255,255,0.22)" }}>→</span>
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
           </nav>
         </div>
       )}

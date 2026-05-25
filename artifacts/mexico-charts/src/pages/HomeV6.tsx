@@ -1318,6 +1318,7 @@ export default function HomeV6() {
               { title:"Explorar", links:[
                 { label:"Listas",           href:"/charts" },
                 { label:"Artistas",         href:"/artists" },
+                { label:"Momentum",         href:"/artist-momentum" },
                 { label:"Giras",            href:"/touring" },
                 { label:"Certificaciones",  href:"/industry/certifications" },
                 { label:"Industria",        href:"/industria" },
