@@ -1,11 +1,13 @@
 import { Router } from "express";
 import { db, pool } from "@workspace/db";
 import { newsletterSubscribers } from "@workspace/db/schema";
+import { desc } from "drizzle-orm";
 
 const router = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SOURCES = new Set(["home", "touring", "site"]);
+const ADMIN_KEY = () => process.env["NEWSLETTER_ADMIN_KEY"] ?? process.env["YOUTUBE_ADMIN_KEY"] ?? process.env["SPOTIFY_ADMIN_KEY"] ?? "";
 let ensureTablePromise: Promise<unknown> | null = null;
 
 function ensureNewsletterTable() {
@@ -28,6 +30,13 @@ function cleanEmail(value: unknown) {
 function cleanSource(value: unknown) {
   const source = typeof value === "string" ? value.trim().toLowerCase() : "site";
   return SOURCES.has(source) ? source : "site";
+}
+
+function isAdminAuthed(req: Parameters<Parameters<typeof router.get>[1]>[0]) {
+  const key = ADMIN_KEY();
+  const header = req.headers["x-admin-key"];
+  const qkey = req.query["adminKey"];
+  return Boolean(key && (header === key || qkey === key));
 }
 
 router.post("/newsletter/subscribe", async (req, res) => {
@@ -63,6 +72,42 @@ router.post("/newsletter/subscribe", async (req, res) => {
   } catch (error) {
     req.log.error({ error, email, source }, "newsletter subscribe failed");
     res.status(500).json({ ok: false, error: "No pudimos guardar tu correo" });
+  }
+});
+
+router.get("/admin/newsletter/subscribers", async (req, res) => {
+  if (!isAdminAuthed(req)) {
+    res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
+    return;
+  }
+
+  try {
+    await ensureNewsletterTable();
+    const rows = await db
+      .select()
+      .from(newsletterSubscribers)
+      .orderBy(desc(newsletterSubscribers.createdAt));
+
+    const sources = rows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.source] = (acc[row.source] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      total: rows.length,
+      sources,
+      subscribers: rows.map(row => ({
+        email: row.email,
+        source: row.source,
+        status: row.status,
+        createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
+        updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
+      })),
+    });
+  } catch (error) {
+    req.log.error({ error }, "newsletter admin list failed");
+    res.status(500).json({ error: "No pudimos cargar los suscriptores" });
   }
 });
 
