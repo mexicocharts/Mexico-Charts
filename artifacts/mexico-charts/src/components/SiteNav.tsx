@@ -156,47 +156,46 @@ export default function SiteNav({ homeActive = false }: Props) {
 
       {/* Mobile drawer */}
       {mobileOpen && (
-        <div className="lg:hidden border-t" style={{ background: "rgba(5,5,5,0.99)", borderColor: "rgba(255,255,255,0.07)" }}>
-          <nav id="site-mobile-nav" className="px-6 py-5">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: "rgba(57,255,20,0.82)" }}>
+        <div className="lg:hidden border-t" style={{ background: "linear-gradient(180deg, rgba(5,5,5,0.99) 0%, rgba(2,2,2,0.99) 100%)", borderColor: "rgba(255,255,255,0.07)" }}>
+          <nav id="site-mobile-nav" className="px-7 py-7">
+            <div className="mb-7 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-[0.32em]" style={{ color: "rgba(57,255,20,0.86)" }}>
                 Explorar
               </span>
-              <span className="h-px flex-1 ml-4" style={{ background: "linear-gradient(to right, rgba(57,255,20,0.2), transparent)" }} />
+              <span className="h-px flex-1 ml-4" style={{ background: "linear-gradient(to right, rgba(57,255,20,0.22), transparent)" }} />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div>
               {MOBILE_PRIMARY.map(item => {
                 const active = isActive(item.href, item.label);
                 return (
                   <Link key={item.label} href={item.href}>
-                    <span className="block min-h-12 px-4 py-3 text-[11px] font-black uppercase tracking-[0.2em] rounded-lg"
+                    <span className="group flex items-center justify-between border-b py-4 text-[13px] font-black uppercase tracking-[0.24em]"
                       style={{
-                        color: active ? G : "rgba(255,255,255,0.62)",
-                        background: active ? "rgba(57,255,20,0.09)" : "rgba(255,255,255,0.025)",
-                        border: active ? "1px solid rgba(57,255,20,0.24)" : "1px solid rgba(255,255,255,0.055)",
+                        color: active ? G : "rgba(255,255,255,0.64)",
+                        borderColor: "rgba(255,255,255,0.06)",
                       }}>
-                      {item.label}
+                      <span>{item.label}</span>
+                      <span className="text-[12px]" style={{ color: active ? G : "rgba(255,255,255,0.2)" }}>→</span>
                     </span>
                   </Link>
                 );
               })}
             </div>
 
-            <div className="mt-4 rounded-xl p-3 sm:p-4"
-              style={{ background: "linear-gradient(135deg, rgba(57,255,20,0.055), rgba(255,255,255,0.018))", border: "1px solid rgba(57,255,20,0.12)" }}>
-              <div className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.24em]" style={{ color: industryActive ? G : "rgba(255,255,255,0.42)" }}>
+            <div className="mt-8">
+              <div className="mb-3 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: industryActive ? G : "rgba(255,255,255,0.34)" }}>
                 Industria
               </div>
-              <div className="grid gap-1 sm:grid-cols-3 sm:gap-2">
+              <div className="border-l pl-4" style={{ borderColor: "rgba(57,255,20,0.18)" }}>
                 {INDUSTRIA_ITEMS.map(sub => {
                   const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
                   return (
                     <Link key={sub.href} href={sub.href}>
-                      <span className="flex min-h-[74px] items-start justify-between gap-3 rounded-lg px-3 py-2.5 text-[11px] font-black uppercase tracking-[0.16em]"
-                        style={{ color: subActive ? G : "rgba(255,255,255,0.6)", background: subActive ? "rgba(57,255,20,0.08)" : "transparent" }}>
+                      <span className="flex items-start justify-between gap-4 py-3"
+                        style={{ color: subActive ? G : "rgba(255,255,255,0.62)" }}>
                         <span>
-                          <span className="block">{sub.label}</span>
+                          <span className="block text-[12px] font-black uppercase tracking-[0.2em]">{sub.label}</span>
                           <span className="mt-1 block text-[10px] font-medium normal-case tracking-normal" style={{ color: "rgba(255,255,255,0.34)" }}>
                             {sub.description}
                           </span>
