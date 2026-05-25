@@ -7,7 +7,12 @@ const router = Router();
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SOURCES = new Set(["home", "touring", "site"]);
-const ADMIN_KEY = () => process.env["NEWSLETTER_ADMIN_KEY"] ?? process.env["YOUTUBE_ADMIN_KEY"] ?? process.env["SPOTIFY_ADMIN_KEY"] ?? "";
+const ADMIN_KEY = () => (
+  process.env["NEWSLETTER_ADMIN_KEY"] ||
+  process.env["YOUTUBE_ADMIN_KEY"] ||
+  process.env["SPOTIFY_ADMIN_KEY"] ||
+  ""
+).trim();
 let ensureTablePromise: Promise<unknown> | null = null;
 
 function ensureNewsletterTable() {
@@ -34,8 +39,9 @@ function cleanSource(value: unknown) {
 
 function isAdminAuthed(req: Parameters<Parameters<typeof router.get>[1]>[0]) {
   const key = ADMIN_KEY();
-  const header = req.headers["x-admin-key"];
-  const qkey = req.query["adminKey"];
+  const headerRaw = req.headers["x-admin-key"];
+  const header = Array.isArray(headerRaw) ? headerRaw[0]?.trim() : headerRaw?.trim();
+  const qkey = typeof req.query["adminKey"] === "string" ? req.query["adminKey"].trim() : undefined;
   return Boolean(key && (header === key || qkey === key));
 }
 

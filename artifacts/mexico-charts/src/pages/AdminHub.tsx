@@ -70,6 +70,14 @@ export default function AdminHub() {
     setAdminKey(next);
   }
 
+  function clearKey() {
+    localStorage.removeItem("mexicocharts_admin_key");
+    setAdminKey("");
+    setDraftKey("");
+    setNewsletter(null);
+    setNewsletterError("");
+  }
+
   async function loadNewsletter(key = adminKey) {
     if (!key.trim()) return;
     setNewsletterLoading(true);
@@ -144,6 +152,16 @@ export default function AdminHub() {
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-zinc-500">
             Herramientas internas para revisar cobertura, datos y flujos de enriquecimiento.
           </p>
+          {unlocked && (
+            <button
+              type="button"
+              onClick={clearKey}
+              className="mt-4 inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 hover:text-white"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              Cambiar clave
+            </button>
+          )}
         </header>
 
         {!unlocked ? (
@@ -247,6 +265,13 @@ export default function AdminHub() {
               {newsletterError && (
                 <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
                   {newsletterError}
+                  <button
+                    type="button"
+                    onClick={clearKey}
+                    className="ml-3 font-black uppercase tracking-[0.12em] text-red-200 underline decoration-red-300/40 underline-offset-4"
+                  >
+                    Cambiar clave
+                  </button>
                 </div>
               )}
 
