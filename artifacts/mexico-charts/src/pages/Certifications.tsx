@@ -17,6 +17,7 @@ const CERT_IMG: Record<string, string> = {
   ORO:      `${BASE}cert-gold.png`,
 };
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+const STAT_BORDER = "1px solid rgba(255,255,255,0.07)";
 
 const PAGE_SIZE = 60;
 
@@ -214,6 +215,14 @@ export default function Certifications() {
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 639px) {
+          .cert-stat-cell:nth-child(2n) > div { border-right: 0 !important; }
+        }
+        @media (min-width: 640px) and (max-width: 1023px) {
+          .cert-stat-cell:nth-child(3n) > div { border-right: 0 !important; }
+        }
+      ` }} />
 
       <SiteNav />
 
@@ -254,7 +263,7 @@ export default function Certifications() {
       {/* STAT STRIP */}
       {stats && (
         <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-          <div className="grid grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             {[
               { icon: Trophy,       v: stats.total.toLocaleString("es-MX"),    l: "Certificaciones\nfiltradas",    hi: false },
               { icon: Trophy,       v: stats.diamante.toLocaleString("es-MX"), l: "Niveles\nDiamante",            hi: true  },
@@ -263,9 +272,9 @@ export default function Certifications() {
               { icon: Disc3,        v: stats.albums.toLocaleString("es-MX"),   l: "Álbumes\ncertificados",        hi: false },
               { icon: Music2,       v: stats.singles.toLocaleString("es-MX"),  l: "Singles\ncertificados",        hi: false },
             ].map(({ icon: Icon, v, l, hi }, i) => (
-              <FadeUp key={i} delay={i * 0.04}>
+              <FadeUp key={i} delay={i * 0.04} className="cert-stat-cell">
                 <div className="relative px-5 py-7"
-                  style={{ borderRight: i < 5 ? "1px solid rgba(255,255,255,0.07)" : "none", background: hi ? "rgba(57,255,20,0.02)" : "transparent" }}>
+                  style={{ borderRight: i < 5 ? STAT_BORDER : "none", background: hi ? "rgba(57,255,20,0.02)" : "transparent" }}>
                   {hi && <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.07) 0%, transparent 70%)" }} />}
                   <div className="font-black leading-none mb-1.5 relative z-10"
                     style={{ fontSize: "clamp(1.4rem, 2.2vw, 2rem)", letterSpacing: "-0.04em", color: hi ? G : "#fff", textShadow: hi ? `0 0 24px ${G}55` : "none" }}>{v}</div>

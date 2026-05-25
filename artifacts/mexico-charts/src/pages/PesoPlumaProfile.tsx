@@ -215,6 +215,12 @@ export default function PesoPlumaProfile() {
           .pp-show-row { align-items: flex-end !important; padding: 24px !important; gap: 20px !important; }
           .pp-show-title { flex-basis: 100%; }
           .pp-show-metrics { width: 100%; justify-content: flex-start !important; gap: 28px !important; }
+          .pp-headline-list { padding: 0 24px !important; }
+          .pp-headline-row { grid-template-columns: 34px 1fr !important; gap: 12px !important; align-items: flex-start !important; }
+          .pp-headline-row > div:nth-child(3),
+          .pp-headline-row > div:nth-child(4) { grid-column: 2; }
+          .pp-headline-row > div:nth-child(3) { margin-top: 8px; }
+          .pp-headline-row > div:nth-child(4) { margin-top: -4px; }
           .pp-era-grid { grid-template-columns: 1fr !important; padding: 0 24px !important; }
           .pp-footer { padding: 20px 24px !important; flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
         }
@@ -392,9 +398,9 @@ export default function PesoPlumaProfile() {
             Las salas<br />que domina
           </div>
         </div>
-        <div style={{ padding: "0 56px", display: "grid", gap: 10 }}>
+        <div className="pp-headline-list" style={{ padding: "0 56px", display: "grid", gap: 10 }}>
           {HEADLINE_SHOWS.map((show, i) => (
-            <motion.div key={show.venue} initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.55 }} style={{ display: "grid", gridTemplateColumns: "42px 1fr auto auto", gap: 18, alignItems: "center", padding: "18px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <motion.div key={show.venue} className="pp-headline-row" initial={{ opacity: 0, y: 18 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08, duration: 0.55 }} style={{ display: "grid", gridTemplateColumns: "42px 1fr auto auto", gap: 18, alignItems: "center", padding: "18px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ color: show.hi ? "#39FF14" : "rgba(57,255,20,0.35)", fontSize: 9, fontWeight: 800, letterSpacing: "0.16em" }}>{show.n}</div>
               <div>
                 <div className="pp-fa" style={{ color: "#fff", fontSize: 24, textTransform: "uppercase", lineHeight: 1 }}>{show.venue}</div>
