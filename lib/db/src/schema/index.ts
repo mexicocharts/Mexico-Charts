@@ -27,3 +27,4 @@ export * from "./youtube_channel_candidates";
 export * from "./youtube_videos";
 export * from "./spotify_artists";
 export * from "./musicbrainz_artists";
+export * from "./newsletter_subscribers";

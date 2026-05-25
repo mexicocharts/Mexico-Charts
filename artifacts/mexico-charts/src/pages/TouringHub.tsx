@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
 import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { CONTACT_EMAIL } from "@/config/brand";
+import { subscribeToNewsletter } from "@/services/newsletter";
 
 const HERO_BG = "/touring-hero.png";
 
@@ -144,18 +144,21 @@ export default function TouringHub() {
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const PAGE_SIZE = 8;
 
-  function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
+  async function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const email = newsletterEmail.trim();
-    const subject = encodeURIComponent("Suscripcion alertas touring Mexico Charts");
-    const body = encodeURIComponent(
-      email
-        ? `Hola Mexico Charts,\n\nQuiero recibir alertas de touring con este correo: ${email}`
-        : "Hola Mexico Charts,\n\nQuiero recibir alertas de touring.",
-    );
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+    if (!email) return;
+    setNewsletterStatus("loading");
+    try {
+      await subscribeToNewsletter(email, "touring");
+      setNewsletterEmail("");
+      setNewsletterStatus("success");
+    } catch {
+      setNewsletterStatus("error");
+    }
   }
 
   const sortedArtists = artists
@@ -864,17 +867,32 @@ export default function TouringHub() {
           <div style={{ color: "#e0e0e0", fontWeight: 700, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Sé el Primero en Saber</div>
           <div style={{ color: "#444", fontSize: 11, lineHeight: 1.5 }}>Recibe alertas de nuevos tours y reportes exclusivos</div>
         </div>
-        <form className="th-newsletter-form" onSubmit={submitNewsletter} style={{ display: "flex", gap: 0, maxWidth: 400, flex: 1 }}>
-          <input
-            type="email"
-            value={newsletterEmail}
-            onChange={(event) => setNewsletterEmail(event.target.value)}
-            placeholder="Tu correo electrónico"
-            className="th-newsletter-input"
-            aria-label="Correo para alertas de touring"
-          />
-          <button type="submit" className="th-subscribe-btn">Suscribirme</button>
-        </form>
+        <div style={{ maxWidth: 400, flex: 1 }}>
+          <form className="th-newsletter-form" onSubmit={submitNewsletter} style={{ display: "flex", gap: 0 }}>
+            <input
+              type="email"
+              required
+              value={newsletterEmail}
+              onChange={(event) => setNewsletterEmail(event.target.value)}
+              placeholder="Tu correo electrónico"
+              className="th-newsletter-input"
+              aria-label="Correo para alertas de touring"
+            />
+            <button type="submit" className="th-subscribe-btn" disabled={newsletterStatus === "loading"}>
+              {newsletterStatus === "loading" ? "Guardando" : "Suscribirme"}
+            </button>
+          </form>
+          {newsletterStatus === "success" && (
+            <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 10 }}>
+              Listo, ya quedaste en la lista
+            </div>
+          )}
+          {newsletterStatus === "error" && (
+            <div style={{ color: "#f87171", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 10 }}>
+              No se pudo guardar, intenta otra vez
+            </div>
+          )}
+        </div>
       </section>
 
       <footer className="th-footer" style={{ padding: "18px 32px", borderTop: "1px solid #0f0f0f", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

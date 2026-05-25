@@ -12,6 +12,7 @@ import imageProxyRouter from "./image-proxy";
 import itunesRouter from "./itunes";
 import wikiRouter from "./wiki";
 import youtubeRouter from "./youtube";
+import newsletterRouter from "./newsletter";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(imageProxyRouter);
 router.use(itunesRouter);
 router.use(wikiRouter);
 router.use(youtubeRouter);
+router.use(newsletterRouter);
 
 export default router;

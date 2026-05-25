@@ -13,9 +13,10 @@ import { Award, BadgeCheck, Disc3, Mail, Music, RadioTower, TrendingUp, Users } 
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { CONTACT_EMAIL, SOCIAL_URLS } from "@/config/brand";
+import { SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
+import { subscribeToNewsletter } from "@/services/newsletter";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -235,19 +236,22 @@ export default function HomeV6() {
   const [heroIndex, setHeroIndex] = useState(0);
   const [tickerPaused, setTickerPaused] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const heroRef = useRef<HTMLElement>(null);
   const reduced = useReducedMotion();
 
-  function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
+  async function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const email = newsletterEmail.trim();
-    const subject = encodeURIComponent("Suscripcion boletin Mexico Charts");
-    const body = encodeURIComponent(
-      email
-        ? `Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal con este correo: ${email}`
-        : "Hola Mexico Charts,\n\nQuiero suscribirme al boletin semanal.",
-    );
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+    if (!email) return;
+    setNewsletterStatus("loading");
+    try {
+      await subscribeToNewsletter(email, "home");
+      setNewsletterEmail("");
+      setNewsletterStatus("success");
+    } catch {
+      setNewsletterStatus("error");
+    }
   }
 
   /* ── Sheet data ── */
@@ -1263,6 +1267,7 @@ export default function HomeV6() {
             <form onSubmit={submitNewsletter} className="relative z-10 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <input
                 type="email"
+                required
                 value={newsletterEmail}
                 onChange={(event) => setNewsletterEmail(event.target.value)}
                 placeholder="correo@ejemplo.com"
@@ -1272,10 +1277,21 @@ export default function HomeV6() {
               <motion.button
                 whileHover={reduced ? {} : { scale:1.03 }}
                 whileTap={reduced ? {} : { scale:0.97 }}
+                disabled={newsletterStatus === "loading"}
                 className="text-black font-black text-xs uppercase tracking-widest px-6 py-3 rounded-full whitespace-nowrap"
                 style={{ background:"#39FF14", boxShadow:"0 0 16px rgba(57,255,20,0.22)" }}
                 data-testid="btn-newsletter"
-              >SUSCRIBIRME</motion.button>
+              >{newsletterStatus === "loading" ? "GUARDANDO" : "SUSCRIBIRME"}</motion.button>
+              {newsletterStatus === "success" && (
+                <div className="sm:basis-full text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
+                  Listo, ya quedaste en la lista
+                </div>
+              )}
+              {newsletterStatus === "error" && (
+                <div className="sm:basis-full text-[10px] font-black uppercase tracking-[0.16em] text-red-400">
+                  No se pudo guardar, intenta otra vez
+                </div>
+              )}
             </form>
           </div>
         </section>
