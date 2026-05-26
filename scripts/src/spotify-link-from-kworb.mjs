@@ -105,6 +105,16 @@ async function fetchSpotifyArtists(ids) {
     const response = await fetch(`${API_BASE}/artists?ids=${batch.join(",")}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
     });
+    if (response.status === 403) {
+      for (const id of batch) {
+        const single = await fetch(`${API_BASE}/artists/${id}`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        if (!single.ok) throw new Error(`Spotify artist ${single.status}: ${(await single.text()).slice(0, 200)}`);
+        artists.push(await single.json());
+      }
+      continue;
+    }
     if (!response.ok) throw new Error(`Spotify artists ${response.status}: ${(await response.text()).slice(0, 200)}`);
     const json = await response.json();
     artists.push(...(json.artists ?? []).filter(Boolean));
