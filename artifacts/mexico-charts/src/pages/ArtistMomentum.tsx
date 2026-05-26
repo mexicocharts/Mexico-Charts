@@ -391,17 +391,18 @@ export default function ArtistMomentum() {
 
       <main>
         <section className="overflow-hidden border-b border-white/[0.06] bg-[radial-gradient(ellipse_at_top,rgba(57,255,20,0.14),transparent_58%),#050505]">
-          <div className="mx-auto max-w-[1320px] px-5 py-14 md:px-8 md:py-18">
+          <div className="mx-auto max-w-[1320px] px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-18">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: ACCENT }}>
               <Activity className="h-4 w-4" />
               Radar Mexico Charts
             </div>
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
               <div>
-                <h1 className="max-w-full text-[2.35rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
+                <h1 className="max-w-full text-[2.08rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
                   <span className="block">Momentum</span>
-                  <span className="block">
-                    de <span style={{ color: ACCENT }}>Artistas</span>
+                  <span className="block">de</span>
+                  <span className="block" style={{ color: ACCENT }}>
+                    Artistas
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
@@ -414,8 +415,8 @@ export default function ArtistMomentum() {
                       className="mt-6 max-w-2xl cursor-pointer overflow-hidden border bg-black/30 transition hover:border-[#39FF14]/40"
                       style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}
                     >
-                      <div className="grid sm:grid-cols-[104px_1fr]">
-                        <div className="relative hidden min-h-28 overflow-hidden bg-white/[0.04] sm:block">
+                      <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[104px_1fr]">
+                        <div className="relative min-h-full overflow-hidden bg-white/[0.04]">
                           {leaderImage ? (
                             <img
                               src={leaderImage}
@@ -429,23 +430,25 @@ export default function ArtistMomentum() {
                             </div>
                           )}
                         </div>
-                        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
-                          <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-                              Líder actual
+                        <div className="min-w-0 p-4">
+                          <div className="flex min-w-0 items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+                                Líder actual
+                              </div>
+                              <div className="mt-2 break-words text-[1.55rem] font-black uppercase leading-[0.95] text-white sm:text-2xl md:text-3xl">
+                                {leader.name}
+                              </div>
                             </div>
-                            <div className="mt-2 text-2xl font-black uppercase leading-none text-white md:text-3xl">
-                              {leader.name}
-                            </div>
-                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                              <span>{leader.dailyStreamsLabel} diario</span>
-                              <span>{compact(leader.socialReach)} fanbase</span>
-                              {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
+                            <div className="flex-shrink-0 text-right">
+                              <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
+                              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
                             </div>
                           </div>
-                          <div className="text-left sm:text-right">
-                            <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
-                            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                            <span>{leader.dailyStreamsLabel} diario</span>
+                            <span>{compact(leader.socialReach)} fanbase</span>
+                            {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
                           </div>
                         </div>
                       </div>
@@ -454,25 +457,25 @@ export default function ArtistMomentum() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2">
-                <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-2">
+                <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-2xl font-black">{leader?.dailyStreamsLabel ?? "—"}</div>
+                  <div className="text-xl font-black sm:text-2xl">{leader?.dailyStreamsLabel ?? "—"}</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Streams líder</div>
                 </div>
-                <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
+                <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-2xl font-black">{momentum.length || "—"}</div>
+                  <div className="text-xl font-black sm:text-2xl">{momentum.length || "—"}</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
                 </div>
-                <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
+                <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <CalendarDays className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-2xl font-black">{touring.data?.reduce((sum, a) => sum + a.events.length, 0) ?? "—"}</div>
+                  <div className="text-xl font-black sm:text-2xl">{touring.data?.reduce((sum, a) => sum + a.events.length, 0) ?? "—"}</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Fechas</div>
                 </div>
-                <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
+                <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Radio className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-2xl font-black">En vivo</div>
+                  <div className="text-xl font-black sm:text-2xl">En vivo</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Datos</div>
                 </div>
               </div>
