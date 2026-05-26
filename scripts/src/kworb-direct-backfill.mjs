@@ -21,6 +21,17 @@ const TIER_A_SLUGS = new Set([
   "elbogueto", "gerardoortiz", "virlangarcia", "luismiguel",
 ]);
 
+const SPOTIFY_ID_OVERRIDES = new Map([
+  ["bandaelrecododecruzlizarraga", "6AcOTCYBMvjKYy4zms0kaC"],
+  ["bandacuisillos", "32lXHXuhXtdA2j3IDXNND4"],
+  ["broncoelgigantedeamerica", "0VKh7CQDi9MkUvaBMoK1V0"],
+  ["elduelo", "0nnp7oJpY2J6yZOqtdKaWq"],
+  ["elyaki", "5l6N2hoIaP7snXdjnCULvk"],
+  ["julionalvarezsunortenobanda", "1bfl0AU8SqmLkElptOprhC"],
+  ["laarrolladorabandaellimon", "5bSfBBCxY8QAk4Pifveisz"],
+  ["losyonicszamacona", "1z8Z3JjXWNa7xbeXcyFZMt"],
+]);
+
 const SNAPSHOT_TTL_MS = {
   A: 26 * 3_600_000,
   B: 3.5 * 24 * 3_600_000,
@@ -370,7 +381,7 @@ async function saveCoverage(pool, artist, spotifyId, spotify, youtube, itunes) {
 }
 
 async function fetchArtist(pool, spotifyIndex, artist) {
-  let spotifyId = spotifyIndex.get(artist.slug) ?? null;
+  let spotifyId = spotifyIndex.get(artist.slug) ?? SPOTIFY_ID_OVERRIDES.get(artist.slug) ?? null;
   let spotify = null;
   let youtube = null;
   let itunes = null;

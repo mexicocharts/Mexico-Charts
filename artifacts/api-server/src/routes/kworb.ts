@@ -190,7 +190,9 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   cardenalesdenuevoleon:            "0GpuSge5ffZ053NhXxgQkV",
   virlangarcia:                     "0vjeBgTzYTwmYoVySJzXGD",
   camila:                           "2gRP1Ezbtj3qrERnd0XasU",
+  bandacuisillos:                   "32lXHXuhXtdA2j3IDXNND4",
   bandaelrecodo:                    "6AcOTCYBMvjKYy4zms0kaC",
+  bandaelrecododecruzlizarraga:     "6AcOTCYBMvjKYy4zms0kaC",
   belinda:                          "5LeiVcEnsZcwc133TUhJNW",
   ynglvcas:                         "1NNRWkhwmcXRimFYSBpB1y",
   jasielunez:                       "0T8Ix53aIN4F7aEKj4EnKy",
@@ -226,6 +228,7 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   elfantasma:                       "0my6Pg4I28dVcZLSpAkqhv",
   humbe:                            "1b7AEdUSudOQoZF5ebUxCL",
   bronco:                           "0VKh7CQDi9MkUvaBMoK1V0",
+  broncoelgigantedeamerica:         "0VKh7CQDi9MkUvaBMoK1V0",
   losdoscarnales:                   "25UNJbwGZSQKvz5cPLWlv3",
   diegoverdaguer:                   "2UFqwY8A3PLcx8pAkg9g5P",
   edicionespecial:                  "7DkseLyOZrdRjCuoWFtqFi",
@@ -251,6 +254,11 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   dannylux:                         "6ElqtIfQsAkEYypgfJIjeK",
   marisela:                         "73c2MjCAFNyKYIs7nBlqG2",
   codigofn:                         "4A4qYy2jK9DDN1OHV0nLkH",
+  elduelo:                          "0nnp7oJpY2J6yZOqtdKaWq",
+  elyaki:                           "5l6N2hoIaP7snXdjnCULvk",
+  julionalvarezsunortenobanda:      "1bfl0AU8SqmLkElptOprhC",
+  laarrolladorabandaellimon:        "5bSfBBCxY8QAk4Pifveisz",
+  losyonicszamacona:                "1z8Z3JjXWNa7xbeXcyFZMt",
 };
 
 /* ══ In-memory slug → Spotify ID map ═════════════════════════════════════ */
