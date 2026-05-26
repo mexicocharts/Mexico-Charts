@@ -9,6 +9,7 @@ import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
+import SiteNav from "@/components/SiteNav";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -367,41 +368,7 @@ export default function ArtistRoster() {
         description="Base de datos completa de artistas de música mexicana con estadísticas de streaming, redes sociales, oyentes globales y datos editoriales. Peso Pluma, Fuerza Regida, Natanael Cano y más artistas."
         path="/artists"
       />
-      {/* ── NAV ── */}
-      <nav
-        className="sticky top-0 z-50 w-full"
-        style={{ background: "rgba(5,5,5,0.92)", backdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.055)" }}
-      >
-        <div className="max-w-[1400px] mx-auto px-6 h-14 flex items-center justify-between gap-4">
-          <Link href="/" className="flex-shrink-0">
-            <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
-          </Link>
-          <div className="flex items-center gap-1">
-            {(["INICIO", "ARTISTAS", "CHARTS", "GÉNEROS", "TOURING"] as const).map((item) => {
-              const href = item === "INICIO" ? "/" : item === "ARTISTAS" ? "/artists" : item === "CHARTS" ? "/charts" : item === "GÉNEROS" ? "/generos" : item === "TOURING" ? "/touring" : "/";
-              const active = item === "ARTISTAS";
-              return (
-                <Link
-                  key={item}
-                  href={href}
-                  className="px-4 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] rounded-full transition-all duration-250"
-                  style={{
-                    background: active ? ACCENT : "transparent",
-                    color: active ? "#000" : "rgba(255,255,255,0.35)",
-                  }}
-                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)"; }}
-                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
-                >
-                  {item}
-                </Link>
-              );
-            })}
-          </div>
-          <div className="text-[11px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.42)" }}>
-            MEXICO CHARTS
-          </div>
-        </div>
-      </nav>
+      <SiteNav />
 
       {/* ── HERO ── */}
       <div
