@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Activity, Award, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
+import { useArtistImages } from "@/hooks/useArtistImages";
 import { useBatchKworbStreamStats, type KworbStreamSnapshot } from "@/hooks/useKworbStats";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
@@ -240,81 +241,99 @@ function ComponentBar({ label, value, max, helper }: { label: string; value: num
   );
 }
 
-function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) {
+function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: number; photoUrl?: string | null }) {
   const { chartArtist, meta, components } = item;
   const slug = slugify(item.name);
   const genre = meta?.subgenre || chartArtist?.subgenre || chartArtist?.genre;
   const isTopThree = index < 3;
+  const rank = index + 1;
+  const initial = item.name.trim()[0]?.toUpperCase() ?? "?";
 
   return (
     <Link href={`/artist/${slug}`}>
       <article
-        className="group relative h-full cursor-pointer overflow-hidden border bg-[#0a0a0a] p-4 transition hover:border-[#39FF14]/35"
+        className="group relative cursor-pointer overflow-hidden border bg-[#080808] transition hover:border-[#39FF14]/35"
         style={{
           borderColor: isTopThree ? "rgba(57,255,20,0.26)" : "rgba(255,255,255,0.08)",
           borderRadius: 8,
-          boxShadow: isTopThree ? "0 0 34px rgba(57,255,20,0.07)" : undefined,
+          boxShadow: isTopThree ? "0 0 34px rgba(57,255,20,0.06)" : undefined,
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">
-              {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
-              Índice #{index + 1}
+        <div className="grid gap-4 p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
+          <div className="flex items-center gap-3 md:gap-4">
+            <div className="w-10 text-right text-3xl font-black tabular-nums leading-none text-zinc-700 md:w-12 md:text-4xl">
+              {rank}
             </div>
-            <h2 className="text-xl font-black uppercase leading-none tracking-normal text-white group-hover:text-[#39FF14]">
-              {item.name}
-            </h2>
-            <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500">
-              {genre || "Mexico Charts"}
+            <div
+              className="relative h-14 w-14 flex-shrink-0 overflow-hidden border bg-white/[0.04] md:h-16 md:w-16"
+              style={{ borderColor: isTopThree ? "rgba(57,255,20,0.28)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
+            >
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt={item.name}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  style={{ filter: "brightness(0.82) saturate(0.78) contrast(1.08)" }}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xl font-black text-zinc-500">
+                  {initial}
+                </div>
+              )}
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
-              {item.score}
-            </div>
-            <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
-            <div className="mt-2 rounded-full border border-[#39FF14]/25 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-[#39FF14]">
+
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">
+              {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
               {scoreTier(item.score)}
             </div>
-          </div>
-        </div>
-
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Posición</div>
-            <div className="mt-1 text-sm font-black text-white">{chartArtist ? `#${chartArtist.mexicoRank}` : "—"}</div>
-          </div>
-          <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
-            <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
-          </div>
-          <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
-            <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
-          </div>
-        </div>
-
-        <div className="mb-4 space-y-2">
-          {SCORE_COMPONENTS.map((component) => (
-            <ComponentBar
-              key={component.key}
-              label={component.label}
-              value={components[component.key]}
-              max={component.max}
-              helper={component.helper}
-            />
-          ))}
-        </div>
-
-        <div className="space-y-1 border-t border-white/[0.06] pt-3">
-          {item.reasons.slice(0, 3).map((reason) => (
-            <div key={reason} className="flex items-center gap-2 text-xs text-zinc-400">
-              <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: ACCENT }} />
-              <span>{reason}</span>
+            <h2 className="truncate text-2xl font-black uppercase leading-none tracking-normal text-white group-hover:text-[#39FF14]">
+              {item.name}
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+              <span>{genre || "Mexico Charts"}</span>
+              {chartArtist && <span>#{chartArtist.mexicoRank} artistas diarios</span>}
             </div>
-          ))}
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-3">
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
+              <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
+            </div>
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Audiencia</div>
+              <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
+            </div>
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
+              <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
+                  {item.score}
+                </div>
+                <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
+              </div>
+              <div className="hidden flex-1 space-y-1.5 lg:block">
+                {SCORE_COMPONENTS.slice(0, 3).map((component) => (
+                  <ComponentBar
+                    key={component.key}
+                    label={component.label}
+                    value={components[component.key]}
+                    max={component.max}
+                    helper={component.helper}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </article>
     </Link>
@@ -335,6 +354,7 @@ export default function ArtistMomentum() {
     [artistsDaily.data, metadata.byKey, touring.data],
   );
   const kworbStreams = useBatchKworbStreamStats(momentumNames);
+  const artistImages = useArtistImages(momentumNames);
 
   const momentum = useMemo(
     () =>
@@ -348,6 +368,7 @@ export default function ArtistMomentum() {
   );
 
   const leader = momentum[0];
+  const leaderImage = leader ? artistImages[leader.name] : null;
   const isLoading = artistsDaily.isLoading || metadata.isLoading || kworbStreams.isLoading;
   const isError = artistsDaily.isError || metadata.isError || kworbStreams.isError;
 
@@ -379,11 +400,26 @@ export default function ArtistMomentum() {
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
                     <div
-                      className="mt-6 max-w-2xl cursor-pointer border bg-black/30 p-4 transition hover:border-[#39FF14]/40"
+                      className="mt-6 max-w-2xl cursor-pointer overflow-hidden border bg-black/30 transition hover:border-[#39FF14]/40"
                       style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}
                     >
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
+                      <div className="grid sm:grid-cols-[104px_1fr]">
+                        <div className="relative hidden min-h-28 overflow-hidden bg-white/[0.04] sm:block">
+                          {leaderImage ? (
+                            <img
+                              src={leaderImage}
+                              alt={leader.name}
+                              className="h-full w-full object-cover"
+                              style={{ filter: "brightness(0.78) saturate(0.78) contrast(1.1)" }}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-3xl font-black text-zinc-600">
+                              {leader.name.trim()[0]?.toUpperCase() ?? "?"}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
                           <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
                             Líder actual
                           </div>
@@ -399,6 +435,7 @@ export default function ArtistMomentum() {
                         <div className="text-left sm:text-right">
                           <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
                           <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
+                        </div>
                         </div>
                       </div>
                     </div>
@@ -458,9 +495,9 @@ export default function ArtistMomentum() {
           </div>
 
           {isLoading && (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="h-80 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
+                <div key={index} className="h-32 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
               ))}
             </div>
           )}
@@ -472,9 +509,14 @@ export default function ArtistMomentum() {
           )}
 
           {!isLoading && !isError && (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="space-y-3">
               {momentum.map((item, index) => (
-                <MomentumCard key={item.name} item={item} index={index} />
+                <MomentumRow
+                  key={item.name}
+                  item={item}
+                  index={index}
+                  photoUrl={artistImages[item.name]}
+                />
               ))}
             </div>
           )}
