@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
@@ -9,6 +9,7 @@ const SPOTIFY_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/spotify-artist-ba
 const MUSICBRAINZ_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-artist-backfill.ts --limit=100 --minAutoScore=65 --write=true";
 const MUSICBRAINZ_APPROVE_COMMAND = "cd scripts && pnpm tsx ./src/musicbrainz-approve-candidates.ts --minScore=65 --write=true";
 const YOUTUBE_SEARCH_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/youtube-channel-search-backfill.ts --limit=25 --minScore=80 --write=true";
+const KWORB_DIRECT_COMMAND = "node scripts/src/kworb-direct-backfill.mjs --concurrency=12";
 
 type ProviderKey = "spotify" | "youtube" | "musicbrainz" | "deezer";
 
@@ -126,7 +127,7 @@ function fmtCompact(value: string | number | null | undefined): string {
 
 function providerMeta(provider: ProviderKey) {
   if (provider === "spotify") {
-    return { label: "Spotify", color: "#1DB954", icon: <SiSpotify className="h-5 w-5" /> };
+    return { label: "Spotify oficial", color: "#1DB954", icon: <SiSpotify className="h-5 w-5" /> };
   }
   if (provider === "youtube") {
     return { label: "YouTube", color: "#ff4444", icon: <SiYoutube className="h-5 w-5" /> };
@@ -163,7 +164,7 @@ function buildTodayTasks(coverage: CoverageResponse, kworb: KworbStats | null, t
     });
   }
 
-  if (spotify.missing > 0) {
+  if (spotify.missing > 0 && !((kworb?.coverage.bySource.withSpotify ?? 0) > 0)) {
     tasks.push({
       title: "Continuar Spotify cuando resetee el límite",
       detail: `${spotify.missing} artistas siguen sin perfil Spotify verificado. No requiere búsqueda manual si el límite ya volvió.`,
@@ -237,6 +238,40 @@ export default function ApiCoverage() {
     if (!coverage) return [] as Array<[ProviderKey, CoverageProvider]>;
     return Object.entries(coverage.providers) as Array<[ProviderKey, CoverageProvider]>;
   }, [coverage]);
+  const visibleProviderEntries = useMemo(
+    () => providerEntries.filter(([key]) => key !== "spotify"),
+    [providerEntries],
+  );
+  const kworbStreamCards = useMemo(() => {
+    if (!coverage || !kworb) return [];
+    const total = coverage.totalArtists || kworb.coverage.total || 0;
+    const makeCard = (
+      key: "spotify" | "youtube" | "charts",
+      label: string,
+      linked: number,
+      today: string | number | undefined,
+      color: string,
+      icon: ReactNode,
+    ) => {
+      const missing = Math.max(0, total - linked);
+      return {
+        key,
+        label,
+        linked,
+        missing,
+        today: Number(today ?? 0),
+        color,
+        icon,
+        coveragePct: total ? Number(((linked / total) * 100).toFixed(1)) : 0,
+      };
+    };
+
+    return [
+      makeCard("spotify", "Spotify Kworb", kworb.coverage.bySource.withSpotify, kworb.snapshotsToday?.spotify, "#1DB954", <SiSpotify className="h-5 w-5" />),
+      makeCard("youtube", "YouTube Kworb", kworb.coverage.bySource.withYoutube, kworb.snapshotsToday?.youtube, "#ff4444", <SiYoutube className="h-5 w-5" />),
+      makeCard("charts", "Charts Kworb", kworb.coverage.bySource.withItunes, kworb.snapshotsToday?.itunes, "#39FF14", <BarChart3 className="h-5 w-5" />),
+    ];
+  }, [coverage, kworb]);
   const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb, touring) : [], [coverage, kworb, touring]);
   const normalizedMissingSearch = missingSearch.trim().toLowerCase();
 
@@ -411,7 +446,7 @@ export default function ApiCoverage() {
   }
 
   async function copyAllMissingArtists() {
-    const blocks = providerEntries
+    const blocks = visibleProviderEntries
       .filter(([, provider]) => provider.missingPreview.length > 0)
       .map(([key, provider]) => {
         const meta = providerMeta(key);
@@ -441,7 +476,7 @@ export default function ApiCoverage() {
   }
 
   function setAllMissingLists(open: boolean) {
-    setExpandedMissing(Object.fromEntries(providerEntries.map(([key]) => [key, open])));
+    setExpandedMissing(Object.fromEntries(visibleProviderEntries.map(([key]) => [key, open])));
   }
 
   useEffect(() => {
@@ -583,7 +618,7 @@ export default function ApiCoverage() {
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-[0.12em] text-white">Buscar faltantes</h2>
-                  <p className="mt-1 text-xs font-bold text-zinc-600">Filtra las listas abiertas por nombre o clave de artista.</p>
+                  <p className="mt-1 text-xs font-bold text-zinc-600">Filtra YouTube, MusicBrainz y portadas Deezer por nombre o clave de artista.</p>
                 </div>
                 <div className="relative lg:ml-auto lg:w-80">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-600" />
@@ -621,8 +656,58 @@ export default function ApiCoverage() {
               </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-4">
-              {providerEntries.map(([key, provider]) => {
+            {kworbStreamCards.length > 0 && (
+              <section className="grid gap-4 lg:grid-cols-3">
+                {kworbStreamCards.map(card => (
+                  <article key={card.key} className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04]" style={{ color: card.color }}>
+                        {card.icon}
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">{card.label}</h2>
+                        <p className="text-xs font-bold text-zinc-600">{card.coveragePct}% de cobertura</p>
+                      </div>
+                      {card.key === "spotify" && (
+                        <button
+                          type="button"
+                          onClick={() => void copyCommand(KWORB_DIRECT_COMMAND, "Kworb directo")}
+                          className="ml-auto inline-flex items-center gap-2 rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/15"
+                        >
+                          Copiar comando
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full rounded-full" style={{ width: `${card.coveragePct}%`, background: card.color }} />
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-3">
+                      <div>
+                        <div className="text-2xl font-black text-white">{card.linked}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con datos</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black text-white">{card.missing}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin datos</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-black text-white">{card.today}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Hoy</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-white/[0.06] pt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                      Datos diarios guardados desde Kworb
+                    </div>
+                  </article>
+                ))}
+              </section>
+            )}
+
+            <section className="grid gap-4 lg:grid-cols-3">
+              {visibleProviderEntries.map(([key, provider]) => {
                 const meta = providerMeta(key);
                 const visibleMissing = normalizedMissingSearch
                   ? provider.missingPreview.filter(row => {
