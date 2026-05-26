@@ -260,14 +260,14 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="grid gap-4 p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
-          <div className="flex items-center justify-between gap-3 md:justify-start md:gap-4">
-            <div className="flex items-center gap-3 md:gap-4">
-              <div className="w-9 text-right text-4xl font-black tabular-nums leading-none text-zinc-700 md:w-12 md:text-4xl">
+        <div className="grid gap-4 p-4 xl:grid-cols-[132px_1.2fr_1fr_240px] xl:items-center xl:gap-5">
+          <div className="flex items-center justify-between gap-3 xl:justify-start xl:gap-4">
+            <div className="flex items-center gap-3 xl:gap-4">
+              <div className="w-9 text-right text-4xl font-black tabular-nums leading-none text-zinc-700 xl:w-12">
                 {rank}
               </div>
               <div
-                className="relative h-14 w-14 flex-shrink-0 overflow-hidden border bg-white/[0.04] md:h-16 md:w-16"
+                className="relative h-14 w-14 flex-shrink-0 overflow-hidden border bg-white/[0.04] sm:h-16 sm:w-16"
                 style={{ borderColor: isTopThree ? "rgba(57,255,20,0.28)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
               >
                 {photoUrl ? (
@@ -284,7 +284,7 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
                 )}
               </div>
             </div>
-            <div className="flex-shrink-0 text-right md:hidden">
+            <div className="flex-shrink-0 text-right xl:hidden">
               <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
                 {item.score}
               </div>
@@ -297,7 +297,7 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
               {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
               {scoreTier(item.score)}
             </div>
-            <h2 className="max-w-full break-words text-[1.65rem] font-black uppercase leading-[0.98] tracking-normal text-white group-hover:text-[#39FF14] sm:text-3xl md:text-2xl xl:text-[1.65rem]">
+            <h2 className="max-w-full break-words text-[1.65rem] font-black uppercase leading-[0.98] tracking-normal text-white group-hover:text-[#39FF14] sm:text-3xl xl:text-[1.65rem]">
               {item.name}
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
@@ -322,8 +322,8 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
           </div>
 
           <div>
-            <div className="hidden items-end justify-between gap-3 border-t border-white/[0.06] pt-3 md:flex md:border-t-0 md:pt-0">
-              <div className="md:block">
+            <div className="hidden items-end justify-between gap-3 border-t border-white/[0.06] pt-3 xl:flex xl:border-t-0 xl:pt-0">
+              <div>
                 <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
                   {item.score}
                 </div>
