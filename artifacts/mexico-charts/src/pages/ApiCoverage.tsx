@@ -60,6 +60,10 @@ interface KworbStats {
   snapshots: {
     artists_with_snapshots?: string;
     stale_snapshots?: string;
+    spotify?: string;
+    youtube?: string;
+    itunes?: string;
+    total?: string;
   };
   snapshotsToday?: {
     artists?: string;
@@ -249,7 +253,7 @@ export default function ApiCoverage() {
       key: "spotify" | "youtube" | "charts",
       label: string,
       linked: number,
-      today: string | number | undefined,
+      snapshots: string | number | undefined,
       color: string,
       icon: ReactNode,
     ) => {
@@ -259,7 +263,7 @@ export default function ApiCoverage() {
         label,
         linked,
         missing,
-        today: Number(today ?? 0),
+        snapshots: Number(snapshots ?? 0),
         color,
         icon,
         coveragePct: total ? Number(((linked / total) * 100).toFixed(1)) : 0,
@@ -267,9 +271,9 @@ export default function ApiCoverage() {
     };
 
     return [
-      makeCard("spotify", "Spotify Kworb", kworb.coverage.bySource.withSpotify, kworb.snapshotsToday?.spotify, "#1DB954", <SiSpotify className="h-5 w-5" />),
-      makeCard("youtube", "YouTube Kworb", kworb.coverage.bySource.withYoutube, kworb.snapshotsToday?.youtube, "#ff4444", <SiYoutube className="h-5 w-5" />),
-      makeCard("charts", "Charts Kworb", kworb.coverage.bySource.withItunes, kworb.snapshotsToday?.itunes, "#39FF14", <BarChart3 className="h-5 w-5" />),
+      makeCard("spotify", "Spotify Kworb", kworb.coverage.bySource.withSpotify, kworb.snapshots.spotify, "#1DB954", <SiSpotify className="h-5 w-5" />),
+      makeCard("youtube", "YouTube Kworb", kworb.coverage.bySource.withYoutube, kworb.snapshots.youtube, "#ff4444", <SiYoutube className="h-5 w-5" />),
+      makeCard("charts", "Charts Kworb", kworb.coverage.bySource.withItunes, kworb.snapshots.itunes, "#39FF14", <BarChart3 className="h-5 w-5" />),
     ];
   }, [coverage, kworb]);
   const todayTasks = useMemo(() => coverage ? buildTodayTasks(coverage, kworb, touring) : [], [coverage, kworb, touring]);
@@ -699,8 +703,8 @@ export default function ApiCoverage() {
                         <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin datos</div>
                       </div>
                       <div>
-                        <div className="text-2xl font-black text-white">{card.today}</div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Hoy</div>
+                        <div className="text-2xl font-black text-white">{card.snapshots}</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Snapshots</div>
                       </div>
                     </div>
 
@@ -990,7 +994,7 @@ export default function ApiCoverage() {
 
                 <div className="mt-6 rounded-lg border border-[#39FF14]/15 bg-[#39FF14]/[0.035] p-4">
                   <div className="mb-4 flex flex-wrap items-center gap-3">
-                    <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">Actividad de hoy</h3>
+                    <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">Actividad reciente</h3>
                     <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
                       Snapshots guardados en base de datos
                     </span>
@@ -1026,7 +1030,7 @@ export default function ApiCoverage() {
                         ))
                       ) : (
                         <div className="rounded border border-white/[0.05] px-3 py-3 text-xs font-bold text-zinc-600">
-                          Sin snapshots de Spotify guardados hoy todavía
+                          Sin snapshots de Spotify guardados todavía
                         </div>
                       )}
                     </div>
@@ -1051,7 +1055,7 @@ export default function ApiCoverage() {
                         ))
                       ) : (
                         <div className="rounded border border-white/[0.05] px-3 py-3 text-xs font-bold text-zinc-600">
-                          Sin snapshots de YouTube guardados hoy todavía
+                          Sin snapshots de YouTube guardados todavía
                         </div>
                       )}
                     </div>

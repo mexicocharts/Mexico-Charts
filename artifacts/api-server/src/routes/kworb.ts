@@ -1547,7 +1547,11 @@ router.get("/kworb/admin/stats", async (_req, res) => {
     pool.query(`
       SELECT
         COUNT(DISTINCT artist_key)                          AS artists_with_snapshots,
-        COUNT(*) FILTER (WHERE expires_at < now())          AS stale_snapshots
+        COUNT(*) FILTER (WHERE expires_at < now())          AS stale_snapshots,
+        COUNT(*) FILTER (WHERE metric_type='spotify')       AS spotify,
+        COUNT(*) FILTER (WHERE metric_type='youtube')       AS youtube,
+        COUNT(*) FILTER (WHERE metric_type='itunes')        AS itunes,
+        COUNT(*)                                            AS total
       FROM kworb_snapshots
     `).then(r => r.rows[0]),
 
@@ -1576,7 +1580,7 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       WHERE fetched_at >= date_trunc('day', now())
     `).then(r => r.rows[0]),
 
-    // Top Spotify daily streams from the latest cached snapshots refreshed today.
+    // Top Spotify daily streams from latest cached snapshots.
     pool.query(`
       SELECT
         s.artist_key,
@@ -1587,13 +1591,12 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       FROM kworb_snapshots s
       LEFT JOIN kworb_coverage c ON c.artist_key = s.artist_key
       WHERE s.metric_type = 'spotify'
-        AND s.fetched_at >= date_trunc('day', now())
         AND NULLIF(s.value->>'dailyStreams', '') IS NOT NULL
       ORDER BY NULLIF(s.value->>'dailyStreams', '')::bigint DESC NULLS LAST
       LIMIT 10
     `).then(r => r.rows),
 
-    // Top YouTube daily average from the latest cached snapshots refreshed today.
+    // Top YouTube daily average from latest cached snapshots.
     pool.query(`
       SELECT
         s.artist_key,
@@ -1604,7 +1607,6 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       FROM kworb_snapshots s
       LEFT JOIN kworb_coverage c ON c.artist_key = s.artist_key
       WHERE s.metric_type = 'youtube'
-        AND s.fetched_at >= date_trunc('day', now())
         AND NULLIF(s.value->>'dailyAvg', '') IS NOT NULL
       ORDER BY NULLIF(s.value->>'dailyAvg', '')::bigint DESC NULLS LAST
       LIMIT 10
