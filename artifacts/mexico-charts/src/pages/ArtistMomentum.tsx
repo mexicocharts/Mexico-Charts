@@ -16,7 +16,7 @@ const SCORE_COMPONENTS = [
   { key: "chart", label: "Ranking", max: 35, helper: "posición diaria" },
   { key: "growth", label: "Streams diarios", max: 30, helper: "Spotify diario" },
   { key: "audience", label: "Audiencia", max: 20, helper: "escala relativa" },
-  { key: "social", label: "Social", max: 10, helper: "alcance medido" },
+  { key: "social", label: "Fanbase", max: 10, helper: "social + plataformas" },
   { key: "touring", label: "Giras", max: 5, helper: "fechas activas" },
 ] as const;
 
@@ -97,7 +97,7 @@ function componentWidth(value: number, max: number) {
 
 function scoreTier(score: number): string {
   if (score >= 80) return "Dominante";
-  if (score >= 65) return "En ascenso fuerte";
+  if (score >= 65) return "Impulso fuerte";
   if (score >= 50) return "Alta señal";
   return "Señal activa";
 }
@@ -194,7 +194,7 @@ function scoreArtists(
         chartArtist ? `#${chartArtist.mexicoRank} en artistas diarios` : "",
         dailyStreams > 0 ? `${compact(dailyStreams)} streams diarios en Spotify` : "",
         listeners > 0 ? `${compact(listeners)} oyentes mensuales` : "",
-        socialReach > 0 ? `${compact(socialReach)} alcance social medido` : "",
+        socialReach > 0 ? `${compact(socialReach)} alcance de fanbase` : "",
         touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
       ].filter(Boolean);
 
@@ -291,8 +291,8 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
             <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
           </div>
           <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Giras</div>
-            <div className="mt-1 text-sm font-black text-white">{item.touringDates}</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
+            <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
           </div>
         </div>
 
@@ -354,8 +354,8 @@ export default function ArtistMomentum() {
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
-        title="Índice de Impulso de Artistas — Mexico Charts"
-        description="Ranking de impulso de artistas mexicanos combinando posición en listas, streams diarios, audiencia, alcance social y giras."
+        title="Momentum de Artistas — Mexico Charts"
+        description="Ranking de impulso de artistas mexicanos combinando posición en listas, streams diarios, audiencia, fanbase y giras."
         path="/artist-momentum"
       />
       <SiteNav />
@@ -365,29 +365,57 @@ export default function ArtistMomentum() {
           <div className="mx-auto max-w-[1320px] px-5 py-14 md:px-8 md:py-18">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: ACCENT }}>
               <Activity className="h-4 w-4" />
-              Inteligencia Mexico Charts
+              Radar Mexico Charts
             </div>
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
               <div>
                 <h1 className="max-w-4xl text-4xl font-black uppercase leading-[0.95] tracking-normal md:text-6xl">
-                  Índice de Impulso de <span style={{ color: ACCENT }}>Artistas</span>
+                  Momentum de <span style={{ color: ACCENT }}>Artistas</span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  Un indicador editorial de Mexico Charts que combina listas, streams diarios,
-                  alcance social y actividad de giras para detectar qué artistas están generando más señal ahora.
+                  Un ranking editorial que combina listas, streams diarios, audiencia,
+                  fanbase y giras para detectar qué artistas están moviendo más señal ahora
                 </p>
+                {leader && (
+                  <Link href={`/artist/${slugify(leader.name)}`}>
+                    <div
+                      className="mt-6 max-w-2xl cursor-pointer border bg-black/30 p-4 transition hover:border-[#39FF14]/40"
+                      style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+                            Líder actual
+                          </div>
+                          <div className="mt-2 text-2xl font-black uppercase leading-none text-white md:text-3xl">
+                            {leader.name}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                            <span>{leader.dailyStreamsLabel} diario</span>
+                            <span>{compact(leader.socialReach)} fanbase</span>
+                            {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
+                          </div>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2">
                 <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-2xl font-black">{leader?.score ?? "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Puntaje líder</div>
+                  <div className="text-2xl font-black">{leader?.dailyStreamsLabel ?? "—"}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Streams líder</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-2xl font-black">{momentum.length || "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Artistas</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-4" style={{ borderRadius: 8 }}>
                   <CalendarDays className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
@@ -410,8 +438,8 @@ export default function ArtistMomentum() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Ranking propietario de Mexico Charts con puntaje máximo de 100. El Top 25 se calcula desde la base
-                  completa de artistas y ahora usa streams diarios de Spotify como señal de impulso constante.
+                  El Top 25 se calcula desde la base activa de artistas con un máximo de 100 puntos
+                  Streams diarios viene de Kworb Spotify y Fanbase combina TikTok, Instagram, YouTube, Facebook y followers de Spotify
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
