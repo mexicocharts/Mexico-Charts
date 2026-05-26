@@ -161,6 +161,11 @@ async function loadYouTubeIndex() {
   return index;
 }
 
+function extractYouTubeArtistHrefFromSpotifyPage(html) {
+  const match = html.match(/href="(\/?youtube\/artist\/[^"]+?\.html)"[^>]*>\s*YouTube stats\s*<\/a>/i);
+  return match?.[1]?.replace(/^\//, "") ?? null;
+}
+
 function scoreIndexCandidate(artist, candidate) {
   const artistSlug = toSlug(artist.artist_name);
   const artistTokens = meaningfulTokens(artist.artist_name);
@@ -218,7 +223,7 @@ async function main() {
     console.log(`Loaded Kworb YouTube index: ${youtubeIndex.length} artists`);
 
     const { rows: artists } = await pool.query(
-      `select artist_key, artist_name, has_spotify, has_itunes
+      `select artist_key, artist_name, spotify_id, has_spotify, has_itunes
        from kworb_coverage
        where not has_youtube
        order by has_itunes desc, has_spotify desc, artist_name
@@ -234,6 +239,19 @@ async function main() {
     for (const artist of artists) {
       checked += 1;
       let match = null;
+      if (artist.spotify_id) {
+        const spotifyHtml = await fetchPage(`https://kworb.net/spotify/artist/${artist.spotify_id}_songs.html`);
+        const youtubeHref = spotifyHtml ? extractYouTubeArtistHrefFromSpotifyPage(spotifyHtml) : null;
+        if (youtubeHref) {
+          const html = await fetchPage(`https://kworb.net/${youtubeHref}`);
+          const youtube = html ? parseYouTubePage(html) : null;
+          if (youtube) {
+            const slug = youtubeHref.match(/artist\/(.+?)\.html/)?.[1] ?? youtubeHref;
+            match = { slug, youtube, source: "spotify-bridge" };
+          }
+        }
+      }
+
       const indexCandidates = youtubeIndex
         .map(candidate => ({ ...candidate, score: scoreIndexCandidate(artist, candidate) }))
         .filter(candidate => candidate.score >= 0.86)

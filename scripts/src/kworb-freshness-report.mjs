@@ -47,6 +47,18 @@ async function main() {
     from kworb_coverage
   `);
 
+  const youtubeBridge = await query(`
+    select
+      count(*) filter (where not has_youtube)::int as missing_youtube,
+      count(*) filter (where not has_youtube and has_spotify)::int as missing_youtube_has_spotify,
+      count(*) filter (
+        where not has_youtube
+          and spotify_id is not null
+          and spotify_id <> ''
+      )::int as missing_youtube_has_spotify_id
+    from kworb_coverage
+  `);
+
   const jobs = await query(`
     select
       metric_type,
@@ -75,6 +87,7 @@ async function main() {
     snapshotSummary,
     coverage: coverage[0],
     stale: stale[0],
+    youtubeBridge: youtubeBridge[0],
     jobs,
     overduePending,
   }, null, 2));
