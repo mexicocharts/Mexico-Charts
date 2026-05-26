@@ -221,7 +221,7 @@ function scoreArtists(
     })
     .filter((artist) => artist.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 25);
+    .slice(0, 50);
 }
 
 function ComponentBar({ label, value, max, helper }: { label: string; value: number; max: number; helper: string }) {
@@ -260,7 +260,7 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="grid gap-4 p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
+        <div className="grid gap-4 p-3 sm:p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
           <div className="flex items-center gap-3 md:gap-4">
             <div className="w-10 text-right text-3xl font-black tabular-nums leading-none text-zinc-700 md:w-12 md:text-4xl">
               {rank}
@@ -298,7 +298,7 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 md:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
               <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
@@ -307,21 +307,21 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Audiencia</div>
               <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
             </div>
-            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2 max-sm:col-span-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
               <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
             </div>
           </div>
 
           <div>
-            <div className="flex items-end justify-between gap-3">
+            <div className="flex items-end justify-between gap-3 border-t border-white/[0.06] pt-3 md:border-t-0 md:pt-0">
               <div>
                 <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
                   {item.score}
                 </div>
                 <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
               </div>
-              <div className="hidden flex-1 space-y-1.5 lg:block">
+              <div className="hidden flex-1 space-y-1.5 xl:block">
                 {SCORE_COMPONENTS.slice(0, 3).map((component) => (
                   <ComponentBar
                     key={component.key}
@@ -475,8 +475,8 @@ export default function ArtistMomentum() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  El Top 25 se calcula desde la base activa de artistas con un máximo de 100 puntos
-                  Streams diarios viene de Kworb Spotify y Fanbase combina TikTok, Instagram, YouTube, Facebook y followers de Spotify
+                  Top 50 artistas con mayor momentum, calculado desde la base activa de Mexico Charts con un máximo de 100 puntos
+                  Streams diarios mide actividad reciente en Spotify y Fanbase combina TikTok, Instagram, YouTube, Facebook y seguidores de Spotify
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
