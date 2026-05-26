@@ -1737,8 +1737,10 @@ router.post("/kworb/admin/enqueue", async (req, res) => {
   res.json({ ok: true, slug, priority: isNaN(priority) ? 5 : priority });
 });
 
-/* POST /api/kworb/admin/run-now — reset pending + zombie running jobs to due now */
+/* POST /api/kworb/admin/run-now — sync coverage, then reset pending + zombie running jobs to due now */
 router.post("/kworb/admin/run-now", async (_req, res) => {
+  const syncResult = await syncCoverage();
+
   // Reset future-dated pending jobs
   const pending = await pool.query(`
     UPDATE kworb_jobs
@@ -1751,7 +1753,14 @@ router.post("/kworb/admin/run-now", async (_req, res) => {
     SET status = 'pending', due_at = NOW(), locked_until = NULL, updated_at = NOW()
     WHERE status = 'running' AND locked_until < NOW()
   `);
-  res.json({ ok: true, pending_reset: pending.rowCount, zombies_released: zombies.rowCount });
+  res.json({
+    ok: true,
+    coverage_synced: syncResult.metadataTotal,
+    coverage_added: syncResult.newAdded,
+    jobs_enqueued: syncResult.jobsEnqueued,
+    pending_reset: pending.rowCount,
+    zombies_released: zombies.rowCount,
+  });
 });
 
 /* POST /api/kworb/admin/set-spotify-id — seed spotify_id and reset job for one artist */

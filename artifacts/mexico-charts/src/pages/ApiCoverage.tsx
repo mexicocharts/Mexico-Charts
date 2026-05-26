@@ -387,8 +387,14 @@ export default function ApiCoverage() {
     try {
       const res = await fetch("/api/kworb/admin/run-now", { method: "POST" });
       if (!res.ok) throw new Error("No se pudo arrancar Kworb.");
-      const data = await res.json() as { pending_reset?: number; zombies_released?: number };
-      setActionMessage(`Kworb listo: ${data.pending_reset ?? 0} pendientes movidos a ahora, ${data.zombies_released ?? 0} jobs atorados liberados.`);
+      const data = await res.json() as {
+        coverage_synced?: number;
+        coverage_added?: number;
+        jobs_enqueued?: number;
+        pending_reset?: number;
+        zombies_released?: number;
+      };
+      setActionMessage(`Kworb listo: ${data.coverage_synced ?? 0} artistas sincronizados, ${data.coverage_added ?? 0} nuevos, ${data.jobs_enqueued ?? 0} jobs nuevos, ${data.pending_reset ?? 0} pendientes movidos a ahora.`);
       await loadDashboard(adminKey);
     } catch (err) {
       setError((err as Error).message);
