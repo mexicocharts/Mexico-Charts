@@ -261,6 +261,11 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   losyonicszamacona:                "1z8Z3JjXWNa7xbeXcyFZMt",
 };
 
+const KWORB_SLUG_OVERRIDES: Record<string, string> = {
+  bandaclavenuevademaxperaza: "bandaclavenueva",
+  gruposuperlamas:           "superlamas",
+};
+
 /* ══ In-memory slug → Spotify ID map ═════════════════════════════════════ */
 const spotifyIdMap = new Map<string, string>(Object.entries(SPOTIFY_ID_SEED));
 
@@ -833,6 +838,7 @@ async function fetchAndStore(
   let spotify: ReturnType<typeof parseSpotifyPage> = null;
   let youtube: ReturnType<typeof parseYouTubePage> = null;
   let itunes:  ReturnType<typeof parseItunesPage>  = null;
+  const kworbSlug = KWORB_SLUG_OVERRIDES[slug] ?? slug;
 
   // Spotify
   if ((doAll || metricType === "spotify") && spotifyId) {
@@ -844,7 +850,7 @@ async function fetchAndStore(
   // YouTube
   if (doAll || metricType === "youtube") {
     if (!await pacedSlot("youtube")) return "rate_limited";
-    const html = await fetchPage(`https://kworb.net/youtube/artist/${slug}.html`);
+    const html = await fetchPage(`https://kworb.net/youtube/artist/${kworbSlug}.html`);
     if (html) youtube = parseYouTubePage(html);
   }
 
@@ -852,7 +858,7 @@ async function fetchAndStore(
   let itunesHtml: string | null = null;
   if (doAll || metricType === "itunes") {
     if (!await pacedSlot("itunes")) return "rate_limited";
-    itunesHtml = await fetchPage(`https://kworb.net/itunes/artist/${slug}.html`);
+    itunesHtml = await fetchPage(`https://kworb.net/itunes/artist/${kworbSlug}.html`);
     if (itunesHtml) itunes = parseItunesPage(itunesHtml);
   }
 

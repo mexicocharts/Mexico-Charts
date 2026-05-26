@@ -32,6 +32,11 @@ const SPOTIFY_ID_OVERRIDES = new Map([
   ["losyonicszamacona", "1z8Z3JjXWNa7xbeXcyFZMt"],
 ]);
 
+const KWORB_SLUG_OVERRIDES = new Map([
+  ["bandaclavenuevademaxperaza", "bandaclavenueva"],
+  ["gruposuperlamas", "superlamas"],
+]);
+
 const SNAPSHOT_TTL_MS = {
   A: 26 * 3_600_000,
   B: 3.5 * 24 * 3_600_000,
@@ -382,6 +387,7 @@ async function saveCoverage(pool, artist, spotifyId, spotify, youtube, itunes) {
 
 async function fetchArtist(pool, spotifyIndex, artist) {
   let spotifyId = spotifyIndex.get(artist.slug) ?? SPOTIFY_ID_OVERRIDES.get(artist.slug) ?? null;
+  const kworbSlug = KWORB_SLUG_OVERRIDES.get(artist.slug) ?? artist.slug;
   let spotify = null;
   let youtube = null;
   let itunes = null;
@@ -397,14 +403,14 @@ async function fetchArtist(pool, spotifyIndex, artist) {
   }
 
   try {
-    const html = await fetchPage(`https://kworb.net/youtube/artist/${artist.slug}.html`);
+    const html = await fetchPage(`https://kworb.net/youtube/artist/${kworbSlug}.html`);
     if (html) youtube = parseYouTubePage(html);
   } catch (error) {
     errors.push(`youtube: ${(error).message ?? String(error)}`);
   }
 
   try {
-    const html = await fetchPage(`https://kworb.net/itunes/artist/${artist.slug}.html`);
+    const html = await fetchPage(`https://kworb.net/itunes/artist/${kworbSlug}.html`);
     if (html) {
       itunes = parseItunesPage(html);
       if (!spotifyId) {
