@@ -85,6 +85,11 @@ function scale(value: number, max: number, points: number): number {
   return clamp((value / max) * points, 0, points);
 }
 
+function scaleSocial(value: number, max: number, points: number): number {
+  if (value <= 0 || max <= 0) return 0;
+  return clamp(Math.pow(value / max, 0.35) * points, 0, points);
+}
+
 function componentWidth(value: number, max: number) {
   if (value <= 0) return "0%";
   return `${Math.max(4, Math.round((value / max) * 100))}%`;
@@ -132,6 +137,17 @@ function getStreamSnapshot(name: string, stats?: Record<string, KworbStreamSnaps
   return stats?.[name] ?? null;
 }
 
+function socialReachFromMeta(meta?: ArtistMetadata): number {
+  if (!meta) return 0;
+  return (
+    meta.tiktokFollowers +
+    meta.instagramFollowers +
+    meta.youtubeSubscribers +
+    meta.facebookFollowers +
+    meta.spotifyFollowers * 0.75
+  );
+}
+
 function scoreArtists(
   artists: ChartArtist[],
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
@@ -152,7 +168,7 @@ function scoreArtists(
   const maxTouring = Math.max(...tours.map((artist) => artist.events.length), 1);
   const socialValues = candidates.map((name) => {
     const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
-    return (meta?.tiktokFollowers ?? 0) + (meta?.instagramFollowers ?? 0) + (meta?.youtubeSubscribers ?? 0);
+    return socialReachFromMeta(meta);
   });
   const maxSocial = Math.max(...socialValues, 1);
 
@@ -164,14 +180,13 @@ function scoreArtists(
       const tour = tourMap.get(key);
       const listeners = chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
       const dailyStreams = getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0;
-      const socialReach =
-        (meta?.tiktokFollowers ?? 0) + (meta?.instagramFollowers ?? 0) + (meta?.youtubeSubscribers ?? 0);
+      const socialReach = socialReachFromMeta(meta);
       const touringDates = tour?.events.length ?? 0;
 
       const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 35 : 0;
       const growthScore = scale(dailyStreams, maxDailyStreams, 30);
       const audienceScore = scale(listeners, maxListeners, 20);
-      const socialScore = scale(socialReach, maxSocial, 10);
+      const socialScore = scaleSocial(socialReach, maxSocial, 10);
       const touringScore = scale(touringDates, maxTouring, 5);
       const score = Math.round(chartScore + growthScore + audienceScore + socialScore + touringScore);
 
