@@ -4,7 +4,12 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const TM_KEY = process.env.TICKETMASTER_API_KEY ?? "";
-const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
+const ADMIN_KEY = () => (
+  process.env["NEWSLETTER_ADMIN_KEY"] ||
+  process.env["YOUTUBE_ADMIN_KEY"] ||
+  process.env["SPOTIFY_ADMIN_KEY"] ||
+  ""
+).trim();
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
 
 const ARTISTS = [

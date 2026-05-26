@@ -23,7 +23,12 @@ const BLOCKED_ARTIST_KEYS = new Set([
 ]);
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-const ADMIN_KEY = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
+const ADMIN_KEY = () => (
+  process.env["NEWSLETTER_ADMIN_KEY"] ||
+  process.env["YOUTUBE_ADMIN_KEY"] ||
+  process.env["SPOTIFY_ADMIN_KEY"] ||
+  ""
+).trim();
 
 /* ── Subgenre fallback (mirrors web artistMetadata.ts SUBGENRE_BY_KEY) ────────
    Applied when the sheet's subgenre column is blank.
