@@ -260,27 +260,35 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="grid gap-4 p-3 sm:p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
-          <div className="flex items-center gap-3 md:gap-4">
-            <div className="w-10 text-right text-3xl font-black tabular-nums leading-none text-zinc-700 md:w-12 md:text-4xl">
-              {rank}
+        <div className="grid gap-4 p-4 md:grid-cols-[132px_1.2fr_1fr_240px] md:items-center md:gap-5">
+          <div className="flex items-center justify-between gap-3 md:justify-start md:gap-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="w-9 text-right text-4xl font-black tabular-nums leading-none text-zinc-700 md:w-12 md:text-4xl">
+                {rank}
+              </div>
+              <div
+                className="relative h-14 w-14 flex-shrink-0 overflow-hidden border bg-white/[0.04] md:h-16 md:w-16"
+                style={{ borderColor: isTopThree ? "rgba(57,255,20,0.28)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
+              >
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={item.name}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    style={{ filter: "brightness(0.82) saturate(0.78) contrast(1.08)" }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xl font-black text-zinc-500">
+                    {initial}
+                  </div>
+                )}
+              </div>
             </div>
-            <div
-              className="relative h-14 w-14 flex-shrink-0 overflow-hidden border bg-white/[0.04] md:h-16 md:w-16"
-              style={{ borderColor: isTopThree ? "rgba(57,255,20,0.28)" : "rgba(255,255,255,0.08)", borderRadius: 8 }}
-            >
-              {photoUrl ? (
-                <img
-                  src={photoUrl}
-                  alt={item.name}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                  style={{ filter: "brightness(0.82) saturate(0.78) contrast(1.08)" }}
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xl font-black text-zinc-500">
-                  {initial}
-                </div>
-              )}
+            <div className="flex-shrink-0 text-right md:hidden">
+              <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
+                {item.score}
+              </div>
+              <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
             </div>
           </div>
 
@@ -289,7 +297,7 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
               {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
               {scoreTier(item.score)}
             </div>
-            <h2 className="truncate text-2xl font-black uppercase leading-none tracking-normal text-white group-hover:text-[#39FF14]">
+            <h2 className="max-w-full break-words text-[1.65rem] font-black uppercase leading-[0.98] tracking-normal text-white group-hover:text-[#39FF14] sm:text-3xl md:text-2xl xl:text-[1.65rem]">
               {item.name}
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
@@ -314,8 +322,8 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
           </div>
 
           <div>
-            <div className="flex items-end justify-between gap-3 border-t border-white/[0.06] pt-3 md:border-t-0 md:pt-0">
-              <div>
+            <div className="hidden items-end justify-between gap-3 border-t border-white/[0.06] pt-3 md:flex md:border-t-0 md:pt-0">
+              <div className="md:block">
                 <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
                   {item.score}
                 </div>
@@ -382,7 +390,7 @@ export default function ArtistMomentum() {
       <SiteNav />
 
       <main>
-        <section className="border-b border-white/[0.06] bg-[radial-gradient(ellipse_at_top,rgba(57,255,20,0.14),transparent_58%),#050505]">
+        <section className="overflow-hidden border-b border-white/[0.06] bg-[radial-gradient(ellipse_at_top,rgba(57,255,20,0.14),transparent_58%),#050505]">
           <div className="mx-auto max-w-[1320px] px-5 py-14 md:px-8 md:py-18">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: ACCENT }}>
               <Activity className="h-4 w-4" />
@@ -390,8 +398,11 @@ export default function ArtistMomentum() {
             </div>
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
               <div>
-                <h1 className="max-w-4xl text-4xl font-black uppercase leading-[0.95] tracking-normal md:text-6xl">
-                  Momentum de <span style={{ color: ACCENT }}>Artistas</span>
+                <h1 className="max-w-full text-[2.35rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
+                  <span className="block">Momentum</span>
+                  <span className="block">
+                    de <span style={{ color: ACCENT }}>Artistas</span>
+                  </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                   Un ranking editorial que combina listas, streams diarios, audiencia,
@@ -420,22 +431,22 @@ export default function ArtistMomentum() {
                         </div>
                         <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:justify-between">
                           <div>
-                          <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-                            Líder actual
+                            <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
+                              Líder actual
+                            </div>
+                            <div className="mt-2 text-2xl font-black uppercase leading-none text-white md:text-3xl">
+                              {leader.name}
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                              <span>{leader.dailyStreamsLabel} diario</span>
+                              <span>{compact(leader.socialReach)} fanbase</span>
+                              {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
+                            </div>
                           </div>
-                          <div className="mt-2 text-2xl font-black uppercase leading-none text-white md:text-3xl">
-                            {leader.name}
+                          <div className="text-left sm:text-right">
+                            <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                            <span>{leader.dailyStreamsLabel} diario</span>
-                            <span>{compact(leader.socialReach)} fanbase</span>
-                            {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
-                          </div>
-                        </div>
-                        <div className="text-left sm:text-right">
-                          <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
-                          <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
-                        </div>
                         </div>
                       </div>
                     </div>
