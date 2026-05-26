@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { Activity, Award, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
+import { useBatchKworbStreamStats, type KworbStreamSnapshot } from "@/hooks/useKworbStats";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import type { ChartArtist } from "@/types/chartData";
@@ -13,7 +14,7 @@ const ACCENT = "#39FF14";
 const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
 const SCORE_COMPONENTS = [
   { key: "chart", label: "Ranking", max: 35, helper: "posición diaria" },
-  { key: "growth", label: "Crecimiento", max: 30, helper: "cambio de oyentes" },
+  { key: "growth", label: "Streams diarios", max: 30, helper: "Spotify diario" },
   { key: "audience", label: "Audiencia", max: 20, helper: "escala relativa" },
   { key: "social", label: "Social", max: 10, helper: "alcance medido" },
   { key: "touring", label: "Giras", max: 5, helper: "fechas activas" },
@@ -43,8 +44,8 @@ interface MomentumArtist {
   meta?: ArtistMetadata;
   score: number;
   listeners: number;
-  growthRaw: number;
-  growthLabel: string;
+  dailyStreams: number;
+  dailyStreamsLabel: string;
   socialReach: number;
   touringDates: number;
   components: {
@@ -127,10 +128,15 @@ function buildCandidateNames(
   return [...names.values()];
 }
 
+function getStreamSnapshot(name: string, stats?: Record<string, KworbStreamSnapshot | null>) {
+  return stats?.[name] ?? null;
+}
+
 function scoreArtists(
   artists: ChartArtist[],
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
   tours: ArtistTours[],
+  streamStats?: Record<string, KworbStreamSnapshot | null>,
 ): MomentumArtist[] {
   const candidates = buildCandidateNames(artists, metadata.byKey, tours);
   const chartMap = buildChartMap(artists);
@@ -141,6 +147,8 @@ function scoreArtists(
     return chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
   });
   const maxListeners = Math.max(...listenerValues, 1);
+  const dailyStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0);
+  const maxDailyStreams = Math.max(...dailyStreamValues, 1);
   const maxTouring = Math.max(...tours.map((artist) => artist.events.length), 1);
   const socialValues = candidates.map((name) => {
     const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
@@ -155,13 +163,13 @@ function scoreArtists(
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
       const tour = tourMap.get(key);
       const listeners = chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
-      const growthRaw = chartArtist?.growthRaw ?? 0;
+      const dailyStreams = getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0;
       const socialReach =
         (meta?.tiktokFollowers ?? 0) + (meta?.instagramFollowers ?? 0) + (meta?.youtubeSubscribers ?? 0);
       const touringDates = tour?.events.length ?? 0;
 
       const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 35 : 0;
-      const growthScore = clamp(growthRaw, 0, 50) * 0.6;
+      const growthScore = scale(dailyStreams, maxDailyStreams, 30);
       const audienceScore = scale(listeners, maxListeners, 20);
       const socialScore = scale(socialReach, maxSocial, 10);
       const touringScore = scale(touringDates, maxTouring, 5);
@@ -169,8 +177,8 @@ function scoreArtists(
 
       const reasons = [
         chartArtist ? `#${chartArtist.mexicoRank} en artistas diarios` : "",
+        dailyStreams > 0 ? `${compact(dailyStreams)} streams diarios en Spotify` : "",
         listeners > 0 ? `${compact(listeners)} oyentes mensuales` : "",
-        growthRaw > 0 ? `${chartArtist?.growth ?? `+${growthRaw.toFixed(0)}%`} en oyentes` : "",
         socialReach > 0 ? `${compact(socialReach)} alcance social medido` : "",
         touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
       ].filter(Boolean);
@@ -180,8 +188,8 @@ function scoreArtists(
         chartArtist,
         meta,
         listeners,
-        growthRaw,
-        growthLabel: chartArtist?.growth ?? "—",
+        dailyStreams,
+        dailyStreamsLabel: compact(dailyStreams),
         score,
         socialReach,
         touringDates,
@@ -264,8 +272,8 @@ function MomentumCard({ item, index }: { item: MomentumArtist; index: number }) 
             <div className="mt-1 text-sm font-black text-white">{chartArtist ? `#${chartArtist.mexicoRank}` : "—"}</div>
           </div>
           <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Oyentes</div>
-            <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
+            <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
+            <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
           </div>
           <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
             <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Giras</div>
@@ -307,6 +315,11 @@ export default function ArtistMomentum() {
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
+  const momentumNames = useMemo(
+    () => buildCandidateNames(artistsDaily.data, metadata.byKey, touring.data ?? []),
+    [artistsDaily.data, metadata.byKey, touring.data],
+  );
+  const kworbStreams = useBatchKworbStreamStats(momentumNames);
 
   const momentum = useMemo(
     () =>
@@ -314,19 +327,20 @@ export default function ArtistMomentum() {
         artistsDaily.data,
         { byKey: metadata.byKey, byName: metadata.byName },
         touring.data ?? [],
+        kworbStreams.data,
       ),
-    [artistsDaily.data, metadata.byKey, metadata.byName, touring.data],
+    [artistsDaily.data, metadata.byKey, metadata.byName, touring.data, kworbStreams.data],
   );
 
   const leader = momentum[0];
-  const isLoading = artistsDaily.isLoading || metadata.isLoading;
-  const isError = artistsDaily.isError || metadata.isError;
+  const isLoading = artistsDaily.isLoading || metadata.isLoading || kworbStreams.isLoading;
+  const isError = artistsDaily.isError || metadata.isError || kworbStreams.isError;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Índice de Impulso de Artistas — Mexico Charts"
-        description="Ranking de impulso de artistas mexicanos combinando posición en listas, audiencia, crecimiento, alcance social y giras."
+        description="Ranking de impulso de artistas mexicanos combinando posición en listas, streams diarios, audiencia, alcance social y giras."
         path="/artist-momentum"
       />
       <SiteNav />
@@ -344,7 +358,7 @@ export default function ArtistMomentum() {
                   Índice de Impulso de <span style={{ color: ACCENT }}>Artistas</span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  Un indicador editorial de Mexico Charts que combina listas, audiencia, crecimiento,
+                  Un indicador editorial de Mexico Charts que combina listas, streams diarios,
                   alcance social y actividad de giras para detectar qué artistas están generando más señal ahora.
                 </p>
               </div>
@@ -375,14 +389,14 @@ export default function ArtistMomentum() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
+      <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 border border-white/[0.08] bg-[#0a0a0a] p-4" style={{ borderRadius: 8 }}>
             <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
                   Ranking propietario de Mexico Charts con puntaje máximo de 100. El Top 25 se calcula desde la base
-                  completa de artistas y luego se ordena por señal actual, no solo por artistas ya visibles en el ranking.
+                  completa de artistas y ahora usa streams diarios de Spotify como señal de impulso constante.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">

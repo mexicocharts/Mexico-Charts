@@ -1470,6 +1470,7 @@ router.get("/kworb/batch-streams", async (req, res) => {
   if (!namesParam) { res.status(400).json({ error: "names query parameter required" }); return; }
 
   const names = namesParam.split(",").map(n => n.trim()).filter(Boolean).slice(0, 150);
+  const details = req.query.details === "1" || req.query.details === "true";
 
   // Single DB read for all Spotify snapshots
   const rows = await db
@@ -1477,11 +1478,17 @@ router.get("/kworb/batch-streams", async (req, res) => {
     .from(kworbSnapshots)
     .where(eq(kworbSnapshots.metricType, "spotify"));
 
-  const snapMap = new Map(rows.map(r => [r.artistKey, r.value as { totalStreams?: number } | null]));
+  const snapMap = new Map(rows.map(r => [r.artistKey, r.value as { totalStreams?: number; dailyStreams?: number } | null]));
 
-  const result: Record<string, number | null> = {};
+  const result: Record<string, number | { totalStreams: number | null; dailyStreams: number | null } | null> = {};
   for (const name of names) {
-    result[name] = snapMap.get(toSlug(name))?.totalStreams ?? null;
+    const snapshot = snapMap.get(toSlug(name));
+    result[name] = details
+      ? {
+          totalStreams: snapshot?.totalStreams ?? null,
+          dailyStreams: snapshot?.dailyStreams ?? null,
+        }
+      : snapshot?.totalStreams ?? null;
   }
 
   res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");

@@ -107,20 +107,50 @@ export function useRefreshStatus() {
   });
 }
 
+async function fetchBatchKworbStreamsChunk<T>(names: string[], details = false): Promise<Record<string, T | null>> {
+  if (!names.length) return {};
+  const resp = await fetch(
+    `/api/kworb/batch-streams?names=${encodeURIComponent(names.join(","))}${details ? "&details=1" : ""}`
+  );
+  if (!resp.ok) return {};
+  return resp.json() as Promise<Record<string, T | null>>;
+}
+
+async function fetchBatchKworbStreams<T>(names: string[], details = false): Promise<Record<string, T | null>> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < names.length; i += 100) chunks.push(names.slice(i, i + 100));
+  const results = await Promise.all(chunks.map((chunk) => fetchBatchKworbStreamsChunk<T>(chunk, details)));
+  return Object.assign({}, ...results);
+}
+
 /* ── Batch total-streams for roster (single API call for all artists) ─── */
 export function useBatchKworbStreams(names: string[]) {
   const key = [...names].sort().join(",");
   return useQuery<Record<string, number | null>>({
     queryKey: ["kworbBatch", key],
     queryFn: async () => {
-      if (!names.length) return {};
-      const resp = await fetch(
-        `/api/kworb/batch-streams?names=${encodeURIComponent(names.join(","))}`
-      );
-      if (!resp.ok) return {};
-      return resp.json() as Promise<Record<string, number | null>>;
+      return fetchBatchKworbStreams<number>(names);
     },
     staleTime: 24 * 60 * 60 * 1000,
+    retry: 1,
+    enabled: names.length > 0,
+  });
+}
+
+export interface KworbStreamSnapshot {
+  totalStreams: number | null;
+  dailyStreams: number | null;
+}
+
+/* ── Batch daily-stream snapshots for Momentum ───────────────────────── */
+export function useBatchKworbStreamStats(names: string[]) {
+  const key = [...names].sort().join(",");
+  return useQuery<Record<string, KworbStreamSnapshot | null>>({
+    queryKey: ["kworbBatchStats", key],
+    queryFn: async () => {
+      return fetchBatchKworbStreams<KworbStreamSnapshot>(names, true);
+    },
+    staleTime: 15 * 60 * 1000,
     retry: 1,
     enabled: names.length > 0,
   });
