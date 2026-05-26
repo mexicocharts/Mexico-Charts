@@ -35,8 +35,16 @@ interface KworbStats {
   fetchingEnabled: boolean;
   requestBudget: {
     today: number;
+    thisHour?: number;
     caps: { daily: number; hourly: number };
     remainingToday: number;
+    byMetric?: Record<string, number>;
+  };
+  queue?: {
+    pending?: string;
+    running?: string;
+    done?: string;
+    failed?: string;
   };
   coverage: {
     total: number;
@@ -51,6 +59,29 @@ interface KworbStats {
   snapshots: {
     artists_with_snapshots?: string;
     stale_snapshots?: string;
+  };
+  snapshotsToday?: {
+    artists?: string;
+    spotify?: string;
+    youtube?: string;
+    itunes?: string;
+    total?: string;
+  };
+  topDaily?: {
+    spotify?: Array<{
+      artist_key: string;
+      artist_name: string;
+      daily_streams: string | number | null;
+      total_streams: string | number | null;
+      fetched_at: string;
+    }>;
+    youtube?: Array<{
+      artist_key: string;
+      artist_name: string;
+      daily_views: string | number | null;
+      total_views: string | number | null;
+      fetched_at: string;
+    }>;
   };
   noSnapshotCount: number;
   estimatedDaysToFull: string;
@@ -76,6 +107,21 @@ function fmtDate(iso: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
+}
+
+function fmtCount(value: string | number | null | undefined): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  return new Intl.NumberFormat("en-US").format(n);
+}
+
+function fmtCompact(value: string | number | null | undefined): string {
+  const n = typeof value === "number" ? value : Number(value ?? 0);
+  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
 }
 
 function providerMeta(provider: ProviderKey) {
@@ -181,6 +227,8 @@ export default function ApiCoverage() {
   const [loading, setLoading] = useState(false);
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
+  const [syncingKworb, setSyncingKworb] = useState(false);
+  const [runningKworb, setRunningKworb] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
   const [expandedReview, setExpandedReview] = useState<Record<string, boolean>>({});
   const [missingSearch, setMissingSearch] = useState("");
@@ -277,6 +325,40 @@ export default function ApiCoverage() {
       setError((err as Error).message);
     } finally {
       setRefreshingYoutube(false);
+    }
+  }
+
+  async function syncKworbCoverage() {
+    setSyncingKworb(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/kworb/admin/sync-coverage", { method: "POST" });
+      if (!res.ok) throw new Error("No se pudo sincronizar Kworb.");
+      const data = await res.json() as { metadataTotal?: number; newAdded?: number; jobsEnqueued?: number };
+      setActionMessage(`Kworb sincronizado: ${data.metadataTotal ?? 0} artistas revisados, ${data.newAdded ?? 0} nuevos, ${data.jobsEnqueued ?? 0} jobs en cola.`);
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSyncingKworb(false);
+    }
+  }
+
+  async function runKworbNow() {
+    setRunningKworb(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/kworb/admin/run-now", { method: "POST" });
+      if (!res.ok) throw new Error("No se pudo arrancar Kworb.");
+      const data = await res.json() as { pending_reset?: number; zombies_released?: number };
+      setActionMessage(`Kworb listo: ${data.pending_reset ?? 0} pendientes movidos a ahora, ${data.zombies_released ?? 0} jobs atorados liberados.`);
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRunningKworb(false);
     }
   }
 
@@ -783,7 +865,27 @@ export default function ApiCoverage() {
                 <div className="mb-5 flex items-center gap-3">
                   <BarChart3 className="h-5 w-5 text-[#39FF14]" />
                   <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Kworb</h2>
-                  <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void syncKworbCoverage()}
+                      disabled={syncingKworb}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:border-[#39FF14]/30 hover:text-[#39FF14] disabled:cursor-wait disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${syncingKworb ? "animate-spin" : ""}`} />
+                      Sync
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void runKworbNow()}
+                      disabled={runningKworb}
+                      className="inline-flex items-center gap-2 rounded-lg border border-[#39FF14]/30 bg-[#39FF14]/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:cursor-wait disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${runningKworb ? "animate-spin" : ""}`} />
+                      Run now
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
                     {kworb.fetchingEnabled ? "Activo" : "Pausado"}
                   </span>
                 </div>
@@ -793,6 +895,76 @@ export default function ApiCoverage() {
                   <div><div className="text-2xl font-black text-white">{kworb.noSnapshotCount}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin snapshot</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.snapshots.stale_snapshots ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vencidos</div></div>
                   <div><div className="text-2xl font-black text-white">{kworb.estimatedDaysToFull}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Días est.</div></div>
+                </div>
+
+                <div className="mt-6 rounded-lg border border-[#39FF14]/15 bg-[#39FF14]/[0.035] p-4">
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <h3 className="text-sm font-black uppercase tracking-[0.12em] text-white">Actividad de hoy</h3>
+                    <span className="ml-auto text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                      Snapshots guardados en base de datos
+                    </span>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-4 lg:grid-cols-7">
+                    <div><div className="text-2xl font-black text-white">{kworb.snapshotsToday?.artists ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Artistas hoy</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.snapshotsToday?.spotify ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Spotify</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.snapshotsToday?.youtube ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">YouTube</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.snapshotsToday?.itunes ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Charts</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.queue?.pending ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Pendientes</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.queue?.running ?? "0"}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Corriendo</div></div>
+                    <div><div className="text-2xl font-black text-white">{kworb.requestBudget.today}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Requests sesión</div></div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-lg border border-white/[0.07] bg-black/25 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-xs font-black uppercase tracking-[0.14em] text-white">Spotify diario</h3>
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14]">Streams</span>
+                    </div>
+                    <div className="space-y-2">
+                      {(kworb.topDaily?.spotify ?? []).length > 0 ? (
+                        (kworb.topDaily?.spotify ?? []).slice(0, 6).map((row, index) => (
+                          <div key={row.artist_key} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 rounded border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                            <span className="text-[10px] font-black text-zinc-700">#{index + 1}</span>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-black text-zinc-200">{row.artist_name}</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">Total {fmtCompact(row.total_streams)}</div>
+                            </div>
+                            <div className="text-right text-sm font-black text-white">{fmtCount(row.daily_streams)}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded border border-white/[0.05] px-3 py-3 text-xs font-bold text-zinc-600">
+                          Sin snapshots de Spotify guardados hoy todavía
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-white/[0.07] bg-black/25 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h3 className="text-xs font-black uppercase tracking-[0.14em] text-white">YouTube diario</h3>
+                      <span className="text-[10px] font-black uppercase tracking-[0.14em] text-red-300">Views</span>
+                    </div>
+                    <div className="space-y-2">
+                      {(kworb.topDaily?.youtube ?? []).length > 0 ? (
+                        (kworb.topDaily?.youtube ?? []).slice(0, 6).map((row, index) => (
+                          <div key={row.artist_key} className="grid grid-cols-[28px_1fr_auto] items-center gap-3 rounded border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                            <span className="text-[10px] font-black text-zinc-700">#{index + 1}</span>
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-black text-zinc-200">{row.artist_name}</div>
+                              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">Total {fmtCompact(row.total_views)}</div>
+                            </div>
+                            <div className="text-right text-sm font-black text-white">{fmtCount(row.daily_views)}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded border border-white/[0.05] px-3 py-3 text-xs font-bold text-zinc-600">
+                          Sin snapshots de YouTube guardados hoy todavía
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </section>
             )}

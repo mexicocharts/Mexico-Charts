@@ -1503,7 +1503,7 @@ router.get("/kworb/refresh-status", async (_req, res) => {
 
 /* GET /api/kworb/admin/stats */
 router.get("/kworb/admin/stats", async (_req, res) => {
-  const [jobRow, covRow, snapRow, refreshedTodayRow, oldestStaleRow, noSnapshotRow, etaRow] = await Promise.all([
+  const [jobRow, covRow, snapRow, refreshedTodayRow, snapshotsTodayRow, topSpotifyDailyRows, topYoutubeDailyRows, oldestStaleRow, noSnapshotRow, etaRow] = await Promise.all([
     // Queue status
     pool.query(`
       SELECT
@@ -1562,6 +1562,53 @@ router.get("/kworb/admin/stats", async (_req, res) => {
       FROM kworb_coverage
       WHERE last_fetch_at >= date_trunc('day', now())
     `).then(r => r.rows[0]),
+
+    // Snapshots written today by source. This survives server restarts, unlike
+    // in-memory request counters.
+    pool.query(`
+      SELECT
+        COUNT(DISTINCT artist_key)                                                       AS artists,
+        COUNT(*) FILTER (WHERE metric_type='spotify')                                    AS spotify,
+        COUNT(*) FILTER (WHERE metric_type='youtube')                                    AS youtube,
+        COUNT(*) FILTER (WHERE metric_type='itunes')                                     AS itunes,
+        COUNT(*)                                                                         AS total
+      FROM kworb_snapshots
+      WHERE fetched_at >= date_trunc('day', now())
+    `).then(r => r.rows[0]),
+
+    // Top Spotify daily streams from the latest cached snapshots refreshed today.
+    pool.query(`
+      SELECT
+        s.artist_key,
+        COALESCE(c.artist_name, s.artist_key)                                            AS artist_name,
+        NULLIF(s.value->>'dailyStreams', '')::bigint                                     AS daily_streams,
+        NULLIF(s.value->>'totalStreams', '')::bigint                                     AS total_streams,
+        s.fetched_at
+      FROM kworb_snapshots s
+      LEFT JOIN kworb_coverage c ON c.artist_key = s.artist_key
+      WHERE s.metric_type = 'spotify'
+        AND s.fetched_at >= date_trunc('day', now())
+        AND NULLIF(s.value->>'dailyStreams', '') IS NOT NULL
+      ORDER BY NULLIF(s.value->>'dailyStreams', '')::bigint DESC NULLS LAST
+      LIMIT 10
+    `).then(r => r.rows),
+
+    // Top YouTube daily average from the latest cached snapshots refreshed today.
+    pool.query(`
+      SELECT
+        s.artist_key,
+        COALESCE(c.artist_name, s.artist_key)                                            AS artist_name,
+        NULLIF(s.value->>'dailyAvg', '')::bigint                                         AS daily_views,
+        NULLIF(s.value->>'totalViews', '')::bigint                                       AS total_views,
+        s.fetched_at
+      FROM kworb_snapshots s
+      LEFT JOIN kworb_coverage c ON c.artist_key = s.artist_key
+      WHERE s.metric_type = 'youtube'
+        AND s.fetched_at >= date_trunc('day', now())
+        AND NULLIF(s.value->>'dailyAvg', '') IS NOT NULL
+      ORDER BY NULLIF(s.value->>'dailyAvg', '')::bigint DESC NULLS LAST
+      LIMIT 10
+    `).then(r => r.rows),
 
     // Oldest un-refreshed artist per tier (no-starvation audit)
     pool.query(`
@@ -1644,6 +1691,11 @@ router.get("/kworb/admin/stats", async (_req, res) => {
     },
     snapshots:           snapRow          ?? {},
     refreshedToday:      refreshedTodayRow ?? {},
+    snapshotsToday:      snapshotsTodayRow ?? {},
+    topDaily: {
+      spotify:           topSpotifyDailyRows ?? [],
+      youtube:           topYoutubeDailyRows ?? [],
+    },
     oldestStaleByTier:   oldestStaleRow   ?? [],
     noSnapshotCount:     parseInt(noSnapshotRow?.count ?? "0", 10),
     estimatedDaysToFull: estimatedDays,
