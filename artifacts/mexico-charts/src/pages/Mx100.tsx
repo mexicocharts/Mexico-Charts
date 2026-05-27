@@ -14,9 +14,8 @@ import type { ArtistMetadata } from "@/services/artistMetadata";
 const ACCENT = "#39FF14";
 const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
 const SCORE_COMPONENTS = [
-  { key: "streaming", label: "Streaming", max: 40 },
-  { key: "chart", label: "Listas", max: 20 },
-  { key: "audience", label: "Audiencia", max: 15 },
+  { key: "streaming", label: "Streaming", max: 50 },
+  { key: "chart", label: "Listas", max: 25 },
   { key: "social", label: "Fanbase", max: 15 },
   { key: "touring", label: "Giras", max: 10 },
 ] as const;
@@ -44,7 +43,6 @@ interface Mx100Artist {
   chartArtist?: ChartArtist;
   meta?: ArtistMetadata;
   score: number;
-  listeners: number;
   totalStreams: number;
   dailyStreams: number;
   totalStreamsLabel: string;
@@ -153,12 +151,6 @@ function scoreArtists(
   const candidates = buildCandidateNames(artists, metadata.byKey, tours);
   const chartMap = buildChartMap(artists);
   const tourMap = buildTouringMap(tours);
-  const listenerValues = candidates.map((name) => {
-    const chartArtist = chartMap.get(normalizeName(name));
-    const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
-    return chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
-  });
-  const maxListeners = Math.max(...listenerValues, 1);
   const dailyStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0);
   const maxDailyStreams = Math.max(...dailyStreamValues, 1);
   const totalStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.totalStreams ?? 0);
@@ -176,25 +168,22 @@ function scoreArtists(
       const chartArtist = chartMap.get(key);
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
       const tour = tourMap.get(key);
-      const listeners = chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
       const streamSnapshot = getStreamSnapshot(name, streamStats);
       const totalStreams = streamSnapshot?.totalStreams ?? 0;
       const dailyStreams = streamSnapshot?.dailyStreams ?? 0;
       const socialReach = socialReachFromMeta(meta);
       const touringDates = tour?.events.length ?? 0;
 
-      const streamingScore = scaleLog(dailyStreams, maxDailyStreams, 22) + scaleLog(totalStreams, maxTotalStreams, 18);
-      const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 20 : 0;
-      const audienceScore = scaleLog(listeners, maxListeners, 15);
+      const streamingScore = scaleLog(dailyStreams, maxDailyStreams, 28) + scaleLog(totalStreams, maxTotalStreams, 22);
+      const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 25 : 0;
       const socialScore = scaleSocial(socialReach, maxSocial, 15);
       const touringScore = scale(touringDates, maxTouring, 10);
-      const score = Math.round(chartScore + streamingScore + audienceScore + socialScore + touringScore);
+      const score = Math.round(chartScore + streamingScore + socialScore + touringScore);
 
       const reasons = [
         chartArtist ? `#${chartArtist.mexicoRank} en artistas diarios` : "",
         dailyStreams > 0 ? `${compact(dailyStreams)} streams diarios en Spotify` : "",
         totalStreams > 0 ? `${compact(totalStreams)} streams totales en Spotify` : "",
-        listeners > 0 ? `${compact(listeners)} oyentes mensuales` : "",
         socialReach > 0 ? `${compact(socialReach)} alcance de fanbase` : "",
         touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
       ].filter(Boolean);
@@ -203,7 +192,6 @@ function scoreArtists(
         name,
         chartArtist,
         meta,
-        listeners,
         totalStreams,
         dailyStreams,
         totalStreamsLabel: compact(totalStreams),
@@ -278,7 +266,7 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Streaming</div>
               <div className="mt-1 text-sm font-black text-white">{item.totalStreamsLabel}</div>
@@ -286,10 +274,6 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
               <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
-            </div>
-            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Audiencia</div>
-              <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
             </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
@@ -338,7 +322,7 @@ export default function Mx100() {
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de streaming, listas, audiencia, fanbase y giras."
+        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de streaming, listas, fanbase y giras."
         path="/mx100"
       />
       <SiteNav />
@@ -366,7 +350,7 @@ export default function Mx100() {
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                   El ranking editorial de Mexico Charts que mide a los artistas más exitosos
-                  de la música mexicana a partir de streaming, listas, audiencia, fanbase y giras
+                  de la música mexicana a partir de streaming, listas, fanbase y giras
                 </p>
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
@@ -445,7 +429,7 @@ export default function Mx100() {
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
                   Mexico Charts Top 100 mide a los artistas más exitosos desde la base activa de Mexico Charts
-                  Streaming es el eje principal y se combina con listas, audiencia, fanbase y giras
+                  Streaming es el eje principal y se combina con listas, fanbase y giras
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
