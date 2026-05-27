@@ -440,6 +440,28 @@ function Thumbnail({ src, name, round, size = 36 }: { src?: string | null; name:
   );
 }
 
+function PreviewArt({ src, name }: { src?: string | null; name: string }) {
+  const [status, setStatus] = useState<"idle" | "loaded" | "error">("idle");
+  return (
+    <div className="relative h-full w-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+      {src && status !== "error" && (
+        <img
+          src={src}
+          alt={name}
+          onLoad={() => setStatus("loaded")}
+          onError={() => setStatus("error")}
+          className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          style={{ opacity: status === "loaded" ? 1 : 0 }}
+        />
+      )}
+      <div className="absolute inset-0 flex items-center justify-center text-2xl font-black"
+        style={{ color: "rgba(255,255,255,0.4)", opacity: status === "loaded" ? 0 : 1 }}>
+        {name.charAt(0).toUpperCase()}
+      </div>
+    </div>
+  );
+}
+
 /* ── Skeleton ────────────────────────────────────────────────────────────── */
 function SkeletonRow({ i }: { i: number }) {
   return (
@@ -518,16 +540,57 @@ export default function ChartsHub() {
   /* ── Per-row image resolution ─────────────────────────────────────────── */
   const imgCfg = SHEET_IMG[activeSheet] ?? null;
 
-  const artistNamesForImg = useMemo<string[]>(() => {
-    if (!imgCfg || imgCfg.source !== "artist") return [];
+  const topSpotifyArtists = useMemo(() => {
+    return data?.sheets?.["Spotify_Artists_Weekly"]?.rows.slice(0, 5) ?? [];
+  }, [data]);
+
+  const topYoutubeArtists = useMemo(() => {
+    return data?.sheets?.["YT_Artists_Weekly"]?.rows.slice(0, 5) ?? [];
+  }, [data]);
+
+  const topYoutubeSongs = useMemo(() => {
+    return data?.sheets?.["YT_Songs_Weekly"]?.rows.slice(0, 5) ?? [];
+  }, [data]);
+
+  const topRegionalSongs = useMemo(() => {
+    return data?.sheets?.["Spotify_Regional_Weekly"]?.rows.slice(0, 5) ?? [];
+  }, [data]);
+
+  const featuredArtistNames = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
-    for (const row of rows) {
-      const name = firstArtist(row[imgCfg.field] ?? "");
-      if (name && !seen.has(name)) { seen.add(name); out.push(name); }
+    const add = (name: string) => {
+      const clean = firstArtist(name ?? "");
+      if (clean && !seen.has(clean)) {
+        seen.add(clean);
+        out.push(clean);
+      }
+    };
+    topSpotifyArtists.forEach(row => add(row["Artist"] ?? ""));
+    topYoutubeArtists.forEach(row => add(row["Artist Name"] ?? ""));
+    topYoutubeSongs.forEach(row => add(row["Artist Names"] ?? ""));
+    topRegionalSongs.forEach(row => add(row["artist_names"] ?? ""));
+    return out;
+  }, [topSpotifyArtists, topYoutubeArtists, topYoutubeSongs, topRegionalSongs]);
+
+  const artistNamesForImg = useMemo<string[]>(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const add = (name: string) => {
+      const clean = firstArtist(name ?? "");
+      if (clean && !seen.has(clean)) {
+        seen.add(clean);
+        out.push(clean);
+      }
+    };
+    featuredArtistNames.forEach(add);
+    if (imgCfg?.source === "artist") {
+      for (const row of rows) {
+        add(row[imgCfg.field] ?? "");
+      }
     }
     return out;
-  }, [rows, imgCfg, activeSheet]);
+  }, [rows, imgCfg, activeSheet, featuredArtistNames]);
 
   const { data: artistImgData } = useQuery<Record<string, string | null>>({
     queryKey: ["chart-artist-images", artistNamesForImg.join(",")],
@@ -552,6 +615,35 @@ export default function ChartsHub() {
   function getRowName(row: Row): string {
     if (!imgCfg) return "";
     return firstArtist(row[imgCfg.field] ?? "") || (row[imgCfg.field] ?? "");
+  }
+
+  function getArtistPreviewImg(name: string): string | null {
+    const clean = firstArtist(name);
+    return clean ? (artistImgData?.[clean] ?? null) : null;
+  }
+
+  function previewImg(sheetId: string, row: Row): string | null {
+    if (sheetId === "YT_Songs_Weekly") return ytThumb(row["YouTube URL"] ?? "");
+    if (sheetId === "YT_Artists_Weekly") return getArtistPreviewImg(row["Artist Name"] ?? "");
+    if (sheetId === "Spotify_Artists_Weekly") return getArtistPreviewImg(row["Artist"] ?? "");
+    if (sheetId === "Spotify_Regional_Weekly") return getArtistPreviewImg(row["artist_names"] ?? "");
+    return null;
+  }
+
+  function previewTitle(sheetId: string, row: Row): string {
+    if (sheetId === "YT_Songs_Weekly") return row["Track Name"] ?? "—";
+    if (sheetId === "YT_Artists_Weekly") return row["Artist Name"] ?? "—";
+    if (sheetId === "Spotify_Artists_Weekly") return row["Artist"] ?? "—";
+    if (sheetId === "Spotify_Regional_Weekly") return row["track_name"] ?? "—";
+    return "—";
+  }
+
+  function previewDetail(sheetId: string, row: Row): string {
+    if (sheetId === "YT_Songs_Weekly") return row["Artist Names"] ?? "";
+    if (sheetId === "YT_Artists_Weekly") return row["Views"] ? `${fmt(row["Views"])} vistas` : "YouTube semanal";
+    if (sheetId === "Spotify_Artists_Weekly") return "Spotify semanal";
+    if (sheetId === "Spotify_Regional_Weekly") return row["artist_names"] ?? "";
+    return "";
   }
 
   const switchPlatform = useCallback((pid: PlatformId) => {
@@ -649,137 +741,199 @@ export default function ChartsHub() {
 
       <div className="px-6 lg:px-12 py-6 space-y-5">
         {/* ── CHART UNIVERSE ─────────────────────────────────────────────── */}
-        <section className="grid gap-5 xl:grid-cols-[260px_1fr]">
-          <aside className="hidden xl:block rounded-lg p-4 h-fit sticky top-24"
-            style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.025)" }}>
-            <p className="text-[9px] font-black uppercase tracking-[0.22em] mb-4" style={{ color: G }}>
-              Explorar
-            </p>
-            {[
-              ["Mexico Charts", "#mexico-charts"],
-              ["No. 1 esta semana", "#no1"],
-              ["Géneros", "#genres"],
-              ["Plataformas", "#platforms"],
-            ].map(([label, href]) => (
-              <a key={href} href={href}
-                className="block py-3 text-[11px] font-black uppercase tracking-[0.16em] hover:opacity-70 transition-opacity"
-                style={{ color: "rgba(255,255,255,0.72)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                {label}
-              </a>
-            ))}
-          </aside>
+        <section id="mexico-charts" className="relative overflow-hidden px-4 py-5 md:px-7 md:py-7"
+          style={{ border: `1px solid ${G}24`, background: "radial-gradient(circle at 20% 0%, rgba(57,255,20,0.14), transparent 34%), linear-gradient(135deg, rgba(57,255,20,0.055), rgba(255,255,255,0.018) 48%, rgba(0,0,0,0))" }}>
+          <div className="pointer-events-none absolute -right-8 top-2 hidden text-[13vw] font-black uppercase leading-none opacity-[0.045] xl:block">
+            Charts
+          </div>
 
-          <div className="space-y-5">
-            <section id="mexico-charts" className="rounded-lg p-4 md:p-5"
-              style={{ border: `1px solid ${G}24`, background: "linear-gradient(135deg, rgba(57,255,20,0.08), rgba(255,255,255,0.018) 58%, rgba(0,0,0,0))" }}>
-              <div className="flex items-end justify-between gap-4 mb-4">
+          <div className="relative grid gap-7 xl:grid-cols-[minmax(0,1fr)_440px]">
+            <div className="min-w-0">
+              <div className="mb-8 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-[0.24em] mb-2" style={{ color: G }}>
+                  <p className="text-[9px] font-black uppercase tracking-[0.28em] mb-3" style={{ color: G }}>
                     Mexico Charts
                   </p>
-                  <h2 className="font-black uppercase leading-none text-2xl md:text-4xl">
-                    Rankings propios
+                  <h2 className="max-w-5xl font-black uppercase leading-[0.86]"
+                    style={{ fontSize: "clamp(2.55rem,7vw,7.25rem)", letterSpacing: "-0.055em" }}>
+                    Charts con identidad propia
                   </h2>
                 </div>
                 <Link href="/mx100">
-                  <span className="hidden sm:inline-flex text-[9px] font-black uppercase tracking-[0.2em] hover:opacity-70 transition-opacity"
+                  <span className="hidden shrink-0 text-[9px] font-black uppercase tracking-[0.2em] hover:opacity-70 transition-opacity md:inline-flex"
                     style={{ color: G }}>
                     Ver MX100
                   </span>
                 </Link>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-                {MEXICO_CHARTS.map((chart, index) => (
-                  <Link key={chart.title} href={chart.href}>
-                    <motion.article whileHover={{ y: -3 }}
-                      className="group min-h-[145px] p-4 flex flex-col justify-between cursor-pointer"
-                      style={{
-                        borderRadius: 8,
-                        border: index === 0 ? `1px solid ${G}66` : "1px solid rgba(255,255,255,0.08)",
-                        background: index === 0 ? `${G}12` : "rgba(255,255,255,0.03)",
-                        boxShadow: index === 0 ? `0 0 24px ${G}10` : "none",
-                      }}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: G }}>
-                            {chart.kicker}
-                          </p>
-                          <h3 className="mt-3 text-xl md:text-2xl font-black uppercase leading-[0.94]">
-                            {chart.title}
-                          </h3>
+              <Link href="/mx100">
+                <motion.article whileHover={{ y: -3 }}
+                  className="group grid cursor-pointer gap-5 overflow-hidden p-4 md:grid-cols-[minmax(0,1fr)_220px] md:p-5"
+                  style={{ borderRadius: 8, border: `1px solid ${G}66`, background: "rgba(0,0,0,0.42)", boxShadow: `0 0 32px ${G}10` }}>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                      MX100 · Activo
+                    </p>
+                    <h3 className="mt-4 max-w-3xl text-3xl font-black uppercase leading-[0.9] md:text-5xl">
+                      Mexico Charts Top 100
+                    </h3>
+                    <p className="mt-5 max-w-2xl text-sm leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.58)" }}>
+                      Los artistas más exitosos de la semana, con una fórmula editorial pensada para música mexicana.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2 md:grid-cols-2">
+                    {topSpotifyArtists.slice(0, 4).map((row, index) => {
+                      const artist = row["Artist"] ?? "";
+                      return (
+                        <div key={`${artist}-${index}`} className="relative aspect-square overflow-hidden"
+                          style={{ borderRadius: 8, border: `1px solid ${index === 0 ? G : "rgba(255,255,255,0.12)"}` }}>
+                          <PreviewArt src={getArtistPreviewImg(artist)} name={artist || "MX"} />
+                          <span className="absolute bottom-1 left-1 px-1.5 py-0.5 text-[10px] font-black tabular-nums"
+                            style={{ background: G, color: "#000", borderRadius: 4 }}>
+                            {index + 1}
+                          </span>
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-[0.16em] whitespace-nowrap"
-                          style={{ color: index === 0 ? G : "rgba(255,255,255,0.36)" }}>
-                          {chart.status}
+                      );
+                    })}
+                  </div>
+                </motion.article>
+              </Link>
+
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                {MEXICO_CHARTS.slice(1).map((chart) => (
+                  <Link key={chart.title} href={chart.href}>
+                    <span className="flex min-h-[62px] items-center justify-between gap-3 px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] hover:bg-white/[0.035] transition-colors"
+                      style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.76)" }}>
+                      <span>
+                        <span className="block text-[8px] tracking-[0.2em]" style={{ color: G }}>{chart.kicker}</span>
+                        <span className="mt-1 block">{chart.title}</span>
+                      </span>
+                      <span className="text-[8px] tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {chart.status}
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                  Top semanal
+                </p>
+                <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  Spotify Artists
+                </span>
+              </div>
+              <div className="divide-y divide-white/[0.06] overflow-hidden"
+                style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.36)" }}>
+                {topSpotifyArtists.map((row, index) => {
+                  const artist = row["Artist"] ?? "";
+                  return (
+                    <Link key={`${artist}-${index}`} href="/charts?platform=Spotify&sheet=Spotify_Artists_Weekly">
+                      <div className="grid cursor-pointer grid-cols-[34px_44px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 hover:bg-white/[0.035]">
+                        <span className="text-xl font-black tabular-nums" style={{ color: index === 0 ? G : "#fff" }}>
+                          {index + 1}
+                        </span>
+                        <Thumbnail src={getArtistPreviewImg(artist)} name={artist} round={true} size={44} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black uppercase tracking-tight">{artist || "—"}</p>
+                          <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+                            Pico {row["Peak"] || "—"} · Racha {row["Streak"] || "—"}
+                          </p>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: G }}>
+                          Ver
                         </span>
                       </div>
-                      <p className="mt-4 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
-                        {chart.body}
-                      </p>
-                    </motion.article>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
-            {no1Entries.length > 0 && (
-              <section id="no1" className="rounded-lg p-4 md:p-5"
-                style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-                    No. 1 esta semana
-                  </h2>
-                  {updatedFmt && (
-                    <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.32)" }}>
-                      {updatedFmt}
-                    </span>
-                  )}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  {no1Entries.map((item) => (
-                    <Link key={item.label} href={item.href}>
-                      <article className="h-full p-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
-                        style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
-                        <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: G }}>
-                          {item.label}
-                        </p>
-                        <h3 className="mt-4 text-base font-black uppercase leading-tight line-clamp-2">
-                          {item.entry.title}
-                        </h3>
-                        <p className="mt-2 text-[11px] font-bold leading-relaxed line-clamp-2" style={{ color: "rgba(255,255,255,0.46)" }}>
-                          {item.entry.detail}
-                        </p>
-                      </article>
                     </Link>
-                  ))}
-                </div>
-              </section>
-            )}
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
 
-            <section id="genres" className="rounded-lg p-4 md:p-5"
-              style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-                  Géneros
-                </h2>
-                <Link href="/generos">
-                  <span className="text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity" style={{ color: G }}>
-                    Explorar
-                  </span>
-                </Link>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-                {GENRE_LANES.map((genre) => (
-                  <Link key={genre} href="/generos">
-                    <span className="block p-3 text-[11px] font-black uppercase tracking-[0.14em] hover:bg-white/[0.035] transition-colors"
-                      style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.78)" }}>
-                      {genre}
-                    </span>
+        {no1Entries.length > 0 && (
+          <section id="no1" className="px-4 py-5 md:px-7 md:py-6"
+            style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <h2 className="text-2xl font-black uppercase leading-none md:text-4xl">
+                No. 1 esta semana
+              </h2>
+              {updatedFmt && (
+                <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] md:block" style={{ color: "rgba(255,255,255,0.32)" }}>
+                  {updatedFmt}
+                </span>
+              )}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {[
+                { label: "YouTube artistas", sheet: "YT_Artists_Weekly", rows: topYoutubeArtists, href: "/charts?platform=YouTube&sheet=YT_Artists_Weekly" },
+                { label: "Spotify semanal", sheet: "Spotify_Artists_Weekly", rows: topSpotifyArtists, href: "/charts?platform=Spotify&sheet=Spotify_Artists_Weekly" },
+                { label: "YouTube canciones", sheet: "YT_Songs_Weekly", rows: topYoutubeSongs, href: "/charts?platform=YouTube&sheet=YT_Songs_Weekly" },
+                { label: "Regional semanal", sheet: "Spotify_Regional_Weekly", rows: topRegionalSongs, href: "/charts?platform=Spotify&sheet=Spotify_Regional_Weekly" },
+              ].map((module) => (
+                <div key={module.sheet} className="overflow-hidden"
+                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.28)" }}>
+                  <Link href={module.href}>
+                    <div className="flex items-center justify-between px-4 py-3" style={{ background: `${G}e8`, color: "#000" }}>
+                      <h3 className="text-sm font-black uppercase tracking-[0.1em]">{module.label}</h3>
+                      <span className="text-[8px] font-black uppercase tracking-[0.18em]">Ver lista</span>
+                    </div>
                   </Link>
-                ))}
-              </div>
-            </section>
+                  <div className="divide-y divide-white/[0.06]">
+                    {module.rows.map((row, index) => (
+                      <Link key={`${module.sheet}-${index}`} href={module.href}>
+                        <div className="grid cursor-pointer grid-cols-[28px_42px_minmax(0,1fr)] items-center gap-3 px-4 py-3 hover:bg-white/[0.035]">
+                          <span className="text-xl font-black tabular-nums" style={{ color: index === 0 ? G : "rgba(255,255,255,0.72)" }}>
+                            {index + 1}
+                          </span>
+                          <Thumbnail src={previewImg(module.sheet, row)} name={previewTitle(module.sheet, row)} round={module.sheet.includes("Artists")} size={42} />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">{previewTitle(module.sheet, row)}</p>
+                            <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.42)" }}>
+                              {previewDetail(module.sheet, row)}
+                            </p>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section id="genres" className="px-4 py-5 md:px-7 md:py-6"
+          style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+              Géneros
+            </h2>
+            <Link href="/generos">
+              <span className="text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity" style={{ color: G }}>
+                Explorar
+              </span>
+            </Link>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+            {GENRE_LANES.map((genre, index) => (
+              <Link key={genre} href="/generos">
+                <span className="group flex min-h-[74px] items-end justify-between p-3 text-[11px] font-black uppercase tracking-[0.14em] hover:bg-white/[0.035] transition-colors"
+                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.78)" }}>
+                  {genre}
+                  <span className="text-lg tabular-nums" style={{ color: index === 0 ? G : "rgba(255,255,255,0.18)" }}>
+                    {index + 1}
+                  </span>
+                </span>
+              </Link>
+            ))}
           </div>
         </section>
 
