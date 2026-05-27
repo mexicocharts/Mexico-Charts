@@ -2,6 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 const SHEET_ID = "1pmfNth0H5qlXXs-6ZfYMC57YQXCoRQTk3_3NB8scHl4";
+const MASTER_CHART_SHEET_ID = "1lnqsIqI3mi3eC7iD6H7QThS-tzZ4thyyHcYNfX3Vdts";
 const CACHE_TTL    = 60 * 60 * 1000; // 1 hour
 const MASTER_TTL   =  6 * 60 * 60 * 1000; // 6 hours
 
@@ -12,6 +13,7 @@ const SHEETS = [
   "YT_Videos_Daily",
   "YT_Shorts_Daily",
   "Spotify_Artists_Daily",
+  "Spotify_Artists_Weekly",
   "Spotify_Regional_Daily",
   "Spotify_Regional_Weekly",
   "Spotify_Viral_Daily",
@@ -23,6 +25,11 @@ const SHEETS = [
 // Maps internal key → actual Google Sheets tab name when they differ
 const SHEET_TAB_NAMES: Partial<Record<SheetName, string>> = {
   Deezer_Top_Mexico: "Deezer Top Mexico",
+  Spotify_Artists_Weekly: "artists_weekly_mx",
+};
+
+const SHEET_SOURCE_IDS: Partial<Record<SheetName, string>> = {
+  Spotify_Artists_Weekly: MASTER_CHART_SHEET_ID,
 };
 
 type SheetName = typeof SHEETS[number];
@@ -134,11 +141,60 @@ const ARTIST_FIELD: Partial<Record<SheetName, string>> = {
   YT_Videos_Daily:         "Artist Names",
   YT_Shorts_Daily:         "Artist Names",
   Spotify_Artists_Daily:   "Artist",
+  Spotify_Artists_Weekly:  "Artist",
   Spotify_Regional_Daily:  "artist_names",
   Spotify_Regional_Weekly: "artist_names",
   Spotify_Viral_Daily:     "artist_names",
   Deezer_Top_Mexico:       "Artist",
 };
+
+function formatWeeklyRange(start: string, end: string): string {
+  if (!start && !end) return "";
+  if (!start) return end;
+  if (!end || end === start) return start;
+  return `${start} – ${end}`;
+}
+
+function normalizeSpotifyArtistsWeekly(data: SheetData): SheetData {
+  const rows = data.rows.map((row) => {
+    const movement = row["movement"] || row["rank_change"] || "";
+    const normalized: Row = {
+      Rank: row["mexico_charts_rank"] || row["Rank"] || "",
+      Movement: cleanMovement(movement === "—" ? "" : movement),
+      Artist: row["artist"] || row["Artist"] || "",
+      Peak: row["peak"] || row["Peak"] || "",
+      Previous: row["previous_rank"] || row["Prev"] || row["Previous"] || "",
+      Streak: row["streak_weeks"] || row["Streak"] || "",
+      "Chart Date": formatWeeklyRange(row["chart_start_date"] || "", row["chart_end_date"] || ""),
+      Source: row["Source"] || "Spotify Charts",
+      "Source Label": row["chart_name"] || "Spotify Weekly Top Artists Mexico",
+      "Source File": row["source_url"] || "",
+      "Fetched At": row["chart_end_date"] || "",
+      "Contains Mexican Artist": "TRUE",
+      "Matched Mexican Artists": row["artist"] || "",
+    };
+    return normalized;
+  });
+
+  return {
+    headers: [
+      "Rank",
+      "Movement",
+      "Artist",
+      "Peak",
+      "Previous",
+      "Streak",
+      "Chart Date",
+      "Source",
+      "Source Label",
+      "Source File",
+      "Fetched At",
+      "Contains Mexican Artist",
+      "Matched Mexican Artists",
+    ],
+    rows,
+  };
+}
 
 /* ── Compute Contains Mexican Artist for sheets that don't have it ───────── */
 function enrichSheet(
@@ -172,12 +228,17 @@ function enrichSheet(
 /* ── Fetch one sheet as CSV ─────────────────────────────────────────────── */
 async function fetchSheet(name: SheetName): Promise<SheetData> {
   const tabName = SHEET_TAB_NAMES[name] ?? name;
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
+  const sheetId = SHEET_SOURCE_IDS[name] ?? SHEET_ID;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tabName)}`;
   const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`Sheet ${name}: HTTP ${resp.status}`);
   const text = await resp.text();
 
   const parsed = parseCSV(text);
+
+  if (name === "Spotify_Artists_Weekly") {
+    return normalizeSpotifyArtistsWeekly(parsed);
+  }
 
   // Normalise movement column if present
   const movKey = parsed.headers.find(h => h.toLowerCase() === "movement");

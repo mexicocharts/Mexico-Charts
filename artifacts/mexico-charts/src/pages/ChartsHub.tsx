@@ -35,9 +35,10 @@ const PLATFORMS = [
     color: "#1DB954",
     source: "Spotify Charts",
     sourceUrl: "https://charts.spotify.com",
-    meta: "Spotify · México · Diario",
+    meta: "Spotify · México · Diario y semanal",
     charts: [
       { id: "Spotify_Artists_Daily",   label: "Artistas",     period: "Diario"  },
+      { id: "Spotify_Artists_Weekly",  label: "Artistas",     period: "Semanal" },
       { id: "Spotify_Regional_Daily",  label: "Regional",     period: "Diario"  },
       { id: "Spotify_Regional_Weekly", label: "Regional",     period: "Semanal" },
       { id: "Spotify_Viral_Daily",     label: "Viral",        period: "Diario"  },
@@ -91,6 +92,13 @@ const COLS: Record<string, ColDef[]> = {
     { key: "Previous",   label: "Anterior", align: "right", mobile: false },
     { key: "Streak",     label: "Racha",    align: "right", mobile: false },
     { key: "Chart Date", label: "Fecha",    align: "right", mobile: false },
+  ],
+  Spotify_Artists_Weekly: [
+    { key: "Artist",     label: "Artista",  align: "left",  mobile: true,  isArtist: true },
+    { key: "Peak",       label: "Pico",     align: "right", mobile: false },
+    { key: "Previous",   label: "Anterior", align: "right", mobile: false },
+    { key: "Streak",     label: "Semanas",  align: "right", mobile: false },
+    { key: "Chart Date", label: "Semana",   align: "right", mobile: false },
   ],
   YT_Artists_Weekly: [
     { key: "Artist Name",      label: "Artista",     align: "left",  mobile: true,  isArtist: true },
@@ -175,6 +183,7 @@ type ImgSrc = "youtube" | "artist";
 interface SheetImgCfg { source: ImgSrc; round: boolean; field: string }
 const SHEET_IMG: Record<string, SheetImgCfg> = {
   Spotify_Artists_Daily:   { source: "artist",  round: true,  field: "Artist"       },
+  Spotify_Artists_Weekly:  { source: "artist",  round: true,  field: "Artist"       },
   YT_Artists_Weekly:       { source: "artist",  round: true,  field: "Artist Name"  },
   YT_Songs_Weekly:         { source: "youtube", round: false, field: "YouTube URL"  },
   YT_Videos_Daily:         { source: "youtube", round: false, field: "YouTube URL"  },
