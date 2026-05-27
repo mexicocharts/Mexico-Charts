@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Activity, Award, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
+import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
@@ -87,13 +87,6 @@ function scaleLog(value: number, max: number, points: number): number {
 function scaleSocial(value: number, max: number, points: number): number {
   if (value <= 0 || max <= 0) return 0;
   return clamp(Math.pow(value / max, 0.35) * points, 0, points);
-}
-
-function scoreTier(score: number): string {
-  if (score >= 80) return "Dominio total";
-  if (score >= 65) return "Alto impacto";
-  if (score >= 50) return "Impacto sólido";
-  return "Presencia activa";
 }
 
 async function fetchLiveTouring(): Promise<ArtistTours[]> {
@@ -253,10 +246,6 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
           </div>
 
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">
-              {isTopThree && <Award className="h-3.5 w-3.5" style={{ color: ACCENT }} />}
-              {scoreTier(item.score)}
-            </div>
             <h2 className="max-w-full break-words text-[1.65rem] font-black uppercase leading-[0.98] tracking-normal text-white group-hover:text-[#39FF14] sm:text-3xl xl:text-[1.65rem]">
               {item.name}
             </h2>
