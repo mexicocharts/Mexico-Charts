@@ -39,7 +39,7 @@ interface TouringResponse {
   artists: ArtistTours[];
 }
 
-interface MomentumArtist {
+interface Mx100Artist {
   name: string;
   chartArtist?: ChartArtist;
   meta?: ArtistMetadata;
@@ -154,7 +154,7 @@ function scoreArtists(
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
   tours: ArtistTours[],
   streamStats?: Record<string, KworbStreamSnapshot | null>,
-): MomentumArtist[] {
+): Mx100Artist[] {
   const candidates = buildCandidateNames(artists, metadata.byKey, tours);
   const chartMap = buildChartMap(artists);
   const tourMap = buildTouringMap(tours);
@@ -241,7 +241,7 @@ function ComponentBar({ label, value, max, helper }: { label: string; value: num
   );
 }
 
-function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: number; photoUrl?: string | null }) {
+function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number; photoUrl?: string | null }) {
   const { chartArtist, meta, components } = item;
   const slug = slugify(item.name);
   const genre = meta?.subgenre || chartArtist?.subgenre || chartArtist?.genre;
@@ -348,23 +348,23 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
   );
 }
 
-export default function ArtistMomentum() {
+export default function Mx100() {
   const artistsDaily = useArtistsDaily();
   const metadata = useArtistMetadata();
   const touring = useQuery({
-    queryKey: ["artist-momentum", "live-touring"],
+    queryKey: ["mx100", "live-touring"],
     queryFn: fetchLiveTouring,
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
-  const momentumNames = useMemo(
+  const mx100Names = useMemo(
     () => buildCandidateNames(artistsDaily.data, metadata.byKey, touring.data ?? []),
     [artistsDaily.data, metadata.byKey, touring.data],
   );
-  const kworbStreams = useBatchKworbStreamStats(momentumNames);
-  const artistImages = useArtistImages(momentumNames);
+  const kworbStreams = useBatchKworbStreamStats(mx100Names);
+  const artistImages = useArtistImages(mx100Names);
 
-  const momentum = useMemo(
+  const mx100 = useMemo(
     () =>
       scoreArtists(
         artistsDaily.data,
@@ -375,7 +375,7 @@ export default function ArtistMomentum() {
     [artistsDaily.data, metadata.byKey, metadata.byName, touring.data, kworbStreams.data],
   );
 
-  const leader = momentum[0];
+  const leader = mx100[0];
   const leaderImage = leader ? artistImages[leader.name] : null;
   const isLoading = artistsDaily.isLoading || metadata.isLoading || kworbStreams.isLoading;
   const isError = artistsDaily.isError || metadata.isError || kworbStreams.isError;
@@ -470,7 +470,7 @@ export default function ArtistMomentum() {
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">{momentum.length || "—"}</div>
+                  <div className="text-xl font-black sm:text-2xl">{mx100.length || "—"}</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
@@ -529,8 +529,8 @@ export default function ArtistMomentum() {
 
           {!isLoading && !isError && (
             <div className="space-y-3">
-              {momentum.map((item, index) => (
-                <MomentumRow
+              {mx100.map((item, index) => (
+                <Mx100Row
                   key={item.name}
                   item={item}
                   index={index}

@@ -142,7 +142,7 @@ export interface KworbStreamSnapshot {
   dailyStreams: number | null;
 }
 
-/* ── Batch daily-stream snapshots for Momentum ───────────────────────── */
+/* ── Batch daily-stream snapshots for MX100 ──────────────────────────── */
 export function useBatchKworbStreamStats(names: string[]) {
   const key = [...names].sort().join(",");
   return useQuery<Record<string, KworbStreamSnapshot | null>>({
