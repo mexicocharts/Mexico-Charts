@@ -260,10 +260,10 @@ function MomentumRow({ item, index, photoUrl }: { item: MomentumArtist; index: n
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="grid gap-4 p-4 xl:grid-cols-[132px_1.2fr_1fr_240px] xl:items-center xl:gap-5">
-          <div className="flex items-center justify-between gap-3 xl:justify-start xl:gap-4">
-            <div className="flex items-center gap-3 xl:gap-4">
-              <div className="w-9 text-right text-4xl font-black tabular-nums leading-none text-zinc-700 xl:w-12">
+        <div className="grid gap-4 p-4 xl:grid-cols-[152px_1.2fr_1fr_240px] xl:items-center xl:gap-5">
+          <div className="flex items-center justify-between gap-4 xl:justify-start xl:gap-5">
+            <div className="flex items-center gap-4 xl:gap-5">
+              <div className="w-12 text-right text-4xl font-black tabular-nums leading-none text-zinc-200 sm:w-14 xl:w-14">
                 {rank}
               </div>
               <div
