@@ -221,7 +221,7 @@ function scoreArtists(
     })
     .filter((artist) => artist.score > 0)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 50);
+    .slice(0, 100);
 }
 
 function ComponentBar({ label, value, max, helper }: { label: string; value: number; max: number; helper: string }) {
@@ -383,9 +383,9 @@ export default function ArtistMomentum() {
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
-        title="Momentum de Artistas — Mexico Charts"
-        description="Ranking de impulso de artistas mexicanos combinando posición en listas, streams diarios, audiencia, fanbase y giras."
-        path="/artist-momentum"
+        title="Mexico Charts Top 100 — MX100"
+        description="Ranking editorial de Mexico Charts que mide a los artistas con mayor impacto en la música mexicana a partir de listas, streams diarios, audiencia, fanbase y giras."
+        path="/mx100"
       />
       <SiteNav />
 
@@ -394,25 +394,25 @@ export default function ArtistMomentum() {
           <div className="mx-auto max-w-[1320px] px-4 py-10 sm:px-5 sm:py-14 md:px-8 md:py-18">
             <div className="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: ACCENT }}>
               <Activity className="h-4 w-4" />
-              Radar Mexico Charts
+              MX100
             </div>
             <div className="flex flex-col gap-8">
               <div className="w-full">
                 <h1 className="max-w-full text-[2.08rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
                   <span className="lg:hidden">
-                    <span className="block">Momentum</span>
-                    <span className="block">de</span>
+                    <span className="block">Mexico Charts</span>
+                    <span className="block">Top</span>
                     <span className="block" style={{ color: ACCENT }}>
-                      Artistas
+                      100
                     </span>
                   </span>
                   <span className="hidden lg:block">
-                    Momentum de <span style={{ color: ACCENT }}>Artistas</span>
+                    Mexico Charts Top <span style={{ color: ACCENT }}>100</span>
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  Un ranking editorial que combina listas, streams diarios, audiencia,
-                  fanbase y giras para detectar qué artistas están moviendo más señal ahora
+                  El ranking editorial de Mexico Charts que mide a los artistas con mayor impacto
+                  en la música mexicana a partir de listas, streams diarios, audiencia, fanbase y giras
                 </p>
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
@@ -494,7 +494,7 @@ export default function ArtistMomentum() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Top 50 artistas con mayor momentum, calculado desde la base activa de Mexico Charts con un máximo de 100 puntos
+                  Mexico Charts Top 100 mide a los artistas con mayor impacto desde la base activa de Mexico Charts con un máximo de 100 puntos
                   Streams diarios mide actividad reciente en Spotify y Fanbase combina TikTok, Instagram, YouTube, Facebook y seguidores de Spotify
                 </p>
               </div>
@@ -523,7 +523,7 @@ export default function ArtistMomentum() {
 
           {isError && (
             <div className="border border-red-500/25 bg-red-500/5 p-5 text-sm text-red-200" style={{ borderRadius: 8 }}>
-              No se pudo cargar la data de momentum en este momento.
+              No se pudo cargar la data del MX100 en este momento.
             </div>
           )}
 

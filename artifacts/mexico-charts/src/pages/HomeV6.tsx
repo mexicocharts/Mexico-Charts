@@ -72,10 +72,10 @@ const SOCIAL_LINKS = [
 
 const PUBLIC_FEATURES = [
   {
-    title: "Índice de Impulso",
-    kicker: "Ranking propietario",
-    description: "Top 25 de artistas con mayor momentum usando charts, audiencia, crecimiento, redes y touring.",
-    href: "/artist-momentum",
+    title: "Mexico Charts Top 100",
+    kicker: "MX100",
+    description: "El ranking editorial de artistas con mayor impacto en la música mexicana.",
+    href: "/mx100",
     icon: TrendingUp,
   },
   {
@@ -1318,7 +1318,7 @@ export default function HomeV6() {
               { title:"Explorar", links:[
                 { label:"Listas",           href:"/charts" },
                 { label:"Artistas",         href:"/artists" },
-                { label:"Momentum",         href:"/artist-momentum" },
+                { label:"MX100",            href:"/mx100" },
                 { label:"Giras",            href:"/touring" },
                 { label:"Certificaciones",  href:"/industry/certifications" },
                 { label:"Industria",        href:"/industria" },

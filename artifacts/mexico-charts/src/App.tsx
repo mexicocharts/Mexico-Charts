@@ -47,6 +47,7 @@ function Router() {
         <Switch>
           <Route path="/" component={HomeV6} />
           <Route path="/artists" component={ArtistRoster} />
+          <Route path="/mx100" component={ArtistMomentum} />
           <Route path="/artist-momentum" component={ArtistMomentum} />
           <Route path="/charts" component={ChartsHub} />
           <Route path="/generos" component={GeneroHub} />
