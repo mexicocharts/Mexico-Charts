@@ -399,10 +399,15 @@ export default function ArtistMomentum() {
             <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
               <div>
                 <h1 className="max-w-full text-[2.08rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
-                  <span className="block">Momentum</span>
-                  <span className="block">de</span>
-                  <span className="block" style={{ color: ACCENT }}>
-                    Artistas
+                  <span className="lg:hidden">
+                    <span className="block">Momentum</span>
+                    <span className="block">de</span>
+                    <span className="block" style={{ color: ACCENT }}>
+                      Artistas
+                    </span>
+                  </span>
+                  <span className="hidden lg:block">
+                    Momentum de <span style={{ color: ACCENT }}>Artistas</span>
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
