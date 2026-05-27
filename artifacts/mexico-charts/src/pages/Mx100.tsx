@@ -5,8 +5,7 @@ import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-r
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
-import { useBatchKworbStreamStats, type KworbStreamSnapshot } from "@/hooks/useKworbStats";
-import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily } from "@/services/dataProvider";
+import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import type { ChartArtist } from "@/types/chartData";
 import type { ArtistMetadata } from "@/services/artistMetadata";
@@ -14,10 +13,10 @@ import type { ArtistMetadata } from "@/services/artistMetadata";
 const ACCENT = "#39FF14";
 const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
 const SCORE_COMPONENTS = [
-  { key: "streaming", label: "Streaming", max: 50 },
-  { key: "chart", label: "Listas", max: 25 },
-  { key: "social", label: "Fanbase", max: 15 },
-  { key: "touring", label: "Giras", max: 10 },
+  { key: "spotify", label: "Spotify semanal" },
+  { key: "youtube", label: "YouTube México" },
+  { key: "fanbase", label: "Fanbase" },
+  { key: "touring", label: "Giras" },
 ] as const;
 
 interface TmEvent {
@@ -38,15 +37,22 @@ interface TouringResponse {
   artists: ArtistTours[];
 }
 
+type HubRow = Record<string, string>;
+
+interface HubData {
+  sheets: Record<string, { rows: HubRow[] }>;
+}
+
 interface Mx100Artist {
   name: string;
-  chartArtist?: ChartArtist;
+  dailyChartArtist?: ChartArtist;
+  weeklyChartArtist?: ChartArtist;
   meta?: ArtistMetadata;
   score: number;
-  totalStreams: number;
-  dailyStreams: number;
-  totalStreamsLabel: string;
-  dailyStreamsLabel: string;
+  spotifyWeeklyRank?: number;
+  youtubeWeeklyRank?: number;
+  youtubeWeeklyViews: number;
+  youtubeWeeklyViewsLabel: string;
   socialReach: number;
   touringDates: number;
   reasons: string[];
@@ -89,6 +95,15 @@ function scaleSocial(value: number, max: number, points: number): number {
   return clamp(Math.pow(value / max, 0.35) * points, 0, points);
 }
 
+function rankScore(rank: number | undefined, maxRank: number, points: number): number {
+  if (!rank || rank > maxRank) return 0;
+  return ((maxRank + 1 - rank) / maxRank) * points;
+}
+
+function rankSort(rank: number | undefined): number {
+  return rank ?? 9999;
+}
+
 async function fetchLiveTouring(): Promise<ArtistTours[]> {
   const response = await fetch(LIVE_TOURING_API);
   if (!response.ok) return [];
@@ -108,20 +123,33 @@ function buildChartMap(artists: ChartArtist[]) {
   return map;
 }
 
-function buildCandidateNames(
-  artists: ChartArtist[],
-  metadata: Map<string, ArtistMetadata>,
-  tours: ArtistTours[],
-) {
-  const names = new Map<string, string>();
-  artists.forEach((artist) => names.set(normalizeName(artist.name), artist.name));
-  metadata.forEach((meta) => names.set(normalizeName(meta.displayName), meta.displayName));
-  tours.forEach((tour) => names.set(normalizeName(tour.name), tour.name));
-  return [...names.values()];
+function parseMetric(raw: string | undefined): number {
+  if (!raw) return 0;
+  const cleaned = raw.replace(/,/g, "").trim().toUpperCase();
+  if (cleaned.endsWith("B")) return Math.round(parseFloat(cleaned) * 1_000_000_000);
+  if (cleaned.endsWith("M")) return Math.round(parseFloat(cleaned) * 1_000_000);
+  if (cleaned.endsWith("K")) return Math.round(parseFloat(cleaned) * 1_000);
+  return parseInt(cleaned.replace(/[^0-9.-]/g, ""), 10) || 0;
 }
 
-function getStreamSnapshot(name: string, stats?: Record<string, KworbStreamSnapshot | null>) {
-  return stats?.[name] ?? null;
+function buildYoutubeArtistMap(rows: HubRow[]) {
+  const map = new Map<string, { rank: number; views: number }>();
+  rows.forEach((row) => {
+    const name = (row["Artist Name"] ?? row["Artist"] ?? "").trim();
+    const rank = parseInt(row["Rank"] ?? row["rank"] ?? "", 10);
+    if (!name || !rank) return;
+    map.set(normalizeName(name), {
+      rank,
+      views: parseMetric(row["Views"]),
+    });
+  });
+  return map;
+}
+
+function buildCandidateNames(metadata: Map<string, ArtistMetadata>) {
+  const names = new Map<string, string>();
+  metadata.forEach((meta) => names.set(normalizeName(meta.displayName), meta.displayName));
+  return [...names.values()];
 }
 
 function socialReachFromMeta(meta?: ArtistMetadata): number {
@@ -131,64 +159,69 @@ function socialReachFromMeta(meta?: ArtistMetadata): number {
     meta.instagramFollowers +
     meta.youtubeSubscribers +
     meta.facebookFollowers +
-    meta.spotifyFollowers * 0.75
+    meta.spotifyFollowers
   );
 }
 
 function scoreArtists(
-  artists: ChartArtist[],
+  dailyArtists: ChartArtist[],
+  weeklyArtists: ChartArtist[],
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
   tours: ArtistTours[],
-  streamStats?: Record<string, KworbStreamSnapshot | null>,
+  youtubeArtistRows: HubRow[] = [],
 ): Mx100Artist[] {
-  const candidates = buildCandidateNames(artists, metadata.byKey, tours);
-  const chartMap = buildChartMap(artists);
+  const candidates = buildCandidateNames(metadata.byKey);
+  const dailyChartMap = buildChartMap(dailyArtists);
+  const weeklyChartMap = buildChartMap(weeklyArtists);
+  const youtubeChartMap = buildYoutubeArtistMap(youtubeArtistRows);
   const tourMap = buildTouringMap(tours);
-  const dailyStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0);
-  const maxDailyStreams = Math.max(...dailyStreamValues, 1);
-  const totalStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.totalStreams ?? 0);
-  const maxTotalStreams = Math.max(...totalStreamValues, 1);
+  const youtubeWeeklyValues = candidates.map((name) => youtubeChartMap.get(normalizeName(name))?.views ?? 0);
+  const maxYoutubeWeeklyViews = Math.max(...youtubeWeeklyValues, 1);
   const maxTouring = Math.max(...tours.map((artist) => artist.events.length), 1);
   const socialValues = candidates.map((name) => {
     const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
     return socialReachFromMeta(meta);
   });
   const maxSocial = Math.max(...socialValues, 1);
+  const spotifyRankMax = 100;
 
   return candidates
     .map((name) => {
       const key = normalizeName(name);
-      const chartArtist = chartMap.get(key);
+      const dailyChartArtist = dailyChartMap.get(key);
+      const weeklyChartArtist = weeklyChartMap.get(key);
+      const youtubeChartArtist = youtubeChartMap.get(key);
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
       const tour = tourMap.get(key);
-      const streamSnapshot = getStreamSnapshot(name, streamStats);
-      const totalStreams = streamSnapshot?.totalStreams ?? 0;
-      const dailyStreams = streamSnapshot?.dailyStreams ?? 0;
+      const spotifyWeeklyRank = weeklyChartArtist?.mexicoRank;
+      const youtubeWeeklyRank = youtubeChartArtist?.rank;
+      const youtubeWeeklyViews = youtubeChartArtist?.views ?? 0;
       const socialReach = socialReachFromMeta(meta);
       const touringDates = tour?.events.length ?? 0;
 
-      const streamingScore = scaleLog(dailyStreams, maxDailyStreams, 28) + scaleLog(totalStreams, maxTotalStreams, 22);
-      const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 25 : 0;
-      const socialScore = scaleSocial(socialReach, maxSocial, 15);
-      const touringScore = scale(touringDates, maxTouring, 10);
-      const score = Math.round(chartScore + streamingScore + socialScore + touringScore);
+      const spotifyScore = rankScore(spotifyWeeklyRank, spotifyRankMax, 55);
+      const youtubeScore = scaleLog(youtubeWeeklyViews, maxYoutubeWeeklyViews, 25);
+      const fanbaseScore = scaleSocial(socialReach, maxSocial, 12);
+      const touringScore = scale(touringDates, maxTouring, 8);
+      const score = Math.round(spotifyScore + youtubeScore + fanbaseScore + touringScore);
 
       const reasons = [
-        chartArtist ? `#${chartArtist.mexicoRank} en artistas diarios` : "",
-        dailyStreams > 0 ? `${compact(dailyStreams)} streams diarios en Spotify` : "",
-        totalStreams > 0 ? `${compact(totalStreams)} streams totales en Spotify` : "",
-        socialReach > 0 ? `${compact(socialReach)} alcance de fanbase` : "",
+        spotifyWeeklyRank ? `#${spotifyWeeklyRank} en Spotify semanal` : "",
+        youtubeWeeklyRank ? `#${youtubeWeeklyRank} en YouTube artistas` : "",
+        youtubeWeeklyViews > 0 ? `${compact(youtubeWeeklyViews)} vistas semanales en México` : "",
+        socialReach > 0 ? `${compact(socialReach)} fanbase` : "",
         touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
       ].filter(Boolean);
 
       return {
         name,
-        chartArtist,
+        dailyChartArtist,
+        weeklyChartArtist,
         meta,
-        totalStreams,
-        dailyStreams,
-        totalStreamsLabel: compact(totalStreams),
-        dailyStreamsLabel: compact(dailyStreams),
+        spotifyWeeklyRank,
+        youtubeWeeklyRank,
+        youtubeWeeklyViews,
+        youtubeWeeklyViewsLabel: compact(youtubeWeeklyViews),
         score,
         socialReach,
         touringDates,
@@ -196,14 +229,20 @@ function scoreArtists(
       };
     })
     .filter((artist) => artist.score > 0)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => (
+      b.score - a.score ||
+      rankSort(a.spotifyWeeklyRank) - rankSort(b.spotifyWeeklyRank) ||
+      rankSort(a.youtubeWeeklyRank) - rankSort(b.youtubeWeeklyRank) ||
+      b.youtubeWeeklyViews - a.youtubeWeeklyViews ||
+      b.socialReach - a.socialReach
+    ))
     .slice(0, 100);
 }
 
 function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number; photoUrl?: string | null }) {
-  const { chartArtist, meta } = item;
+  const { dailyChartArtist, meta } = item;
   const slug = slugify(item.name);
-  const genre = meta?.subgenre || chartArtist?.subgenre || chartArtist?.genre;
+  const genre = meta?.subgenre || dailyChartArtist?.subgenre || dailyChartArtist?.genre;
   const isTopThree = index < 3;
   const rank = index + 1;
   const initial = item.name.trim()[0]?.toUpperCase() ?? "?";
@@ -251,18 +290,19 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
               <span>{genre || "Mexico Charts"}</span>
-              {chartArtist && <span>#{chartArtist.mexicoRank} artistas diarios</span>}
+              {item.spotifyWeeklyRank && <span>Spotify #{item.spotifyWeeklyRank}</span>}
+              {item.youtubeWeeklyRank && <span>YouTube #{item.youtubeWeeklyRank}</span>}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Streaming</div>
-              <div className="mt-1 text-sm font-black text-white">{item.totalStreamsLabel}</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">YouTube MX</div>
+              <div className="mt-1 text-sm font-black text-white">{item.youtubeWeeklyViewsLabel}</div>
             </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
-              <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Spotify MX</div>
+              <div className="mt-1 text-sm font-black text-white">{item.spotifyWeeklyRank ? `#${item.spotifyWeeklyRank}` : "—"}</div>
             </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
@@ -277,6 +317,7 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
 
 export default function Mx100() {
   const artistsDaily = useArtistsDaily();
+  const artistsWeekly = useArtistsWeekly();
   const metadata = useArtistMetadata();
   const touring = useQuery({
     queryKey: ["mx100", "live-touring"],
@@ -284,34 +325,44 @@ export default function Mx100() {
     staleTime: 10 * 60 * 1000,
     retry: 1,
   });
+  const chartsHub = useQuery<HubData>({
+    queryKey: ["charts-hub"],
+    queryFn: async () => {
+      const response = await fetch("/api/charts/hub");
+      if (!response.ok) throw new Error("Failed to fetch charts");
+      return response.json() as Promise<HubData>;
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 2,
+  });
   const mx100Names = useMemo(
-    () => buildCandidateNames(artistsDaily.data, metadata.byKey, touring.data ?? []),
-    [artistsDaily.data, metadata.byKey, touring.data],
+    () => buildCandidateNames(metadata.byKey),
+    [metadata.byKey],
   );
-  const kworbStreams = useBatchKworbStreamStats(mx100Names);
   const artistImages = useArtistImages(mx100Names);
 
   const mx100 = useMemo(
     () =>
       scoreArtists(
         artistsDaily.data,
+        artistsWeekly.data,
         { byKey: metadata.byKey, byName: metadata.byName },
         touring.data ?? [],
-        kworbStreams.data,
+        chartsHub.data?.sheets?.YT_Artists_Weekly?.rows ?? [],
       ),
-    [artistsDaily.data, metadata.byKey, metadata.byName, touring.data, kworbStreams.data],
+    [artistsDaily.data, artistsWeekly.data, metadata.byKey, metadata.byName, touring.data, chartsHub.data],
   );
 
   const leader = mx100[0];
   const leaderImage = leader ? artistImages[leader.name] : null;
-  const isLoading = artistsDaily.isLoading || metadata.isLoading || kworbStreams.isLoading;
-  const isError = artistsDaily.isError || metadata.isError || kworbStreams.isError;
+  const isLoading = artistsDaily.isLoading || artistsWeekly.isLoading || metadata.isLoading || chartsHub.isLoading;
+  const isError = artistsDaily.isError || artistsWeekly.isError || metadata.isError || chartsHub.isError;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de streaming, listas, fanbase y giras."
+        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras."
         path="/mx100"
       />
       <SiteNav />
@@ -339,7 +390,7 @@ export default function Mx100() {
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                   El ranking editorial de Mexico Charts que mide a los artistas más exitosos
-                  de la música mexicana a partir de streaming, listas, fanbase y giras
+                  de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras
                 </p>
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
@@ -374,9 +425,9 @@ export default function Mx100() {
                             </div>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                            <span>{leader.totalStreamsLabel} streaming</span>
-                            <span>{leader.dailyStreamsLabel} diario</span>
-                            {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
+                            {leader.spotifyWeeklyRank && <span>Spotify #{leader.spotifyWeeklyRank}</span>}
+                            {leader.youtubeWeeklyRank && <span>YouTube #{leader.youtubeWeeklyRank}</span>}
+                            <span>{leader.youtubeWeeklyViewsLabel} YouTube MX</span>
                           </div>
                         </div>
                       </div>
@@ -388,8 +439,8 @@ export default function Mx100() {
               <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">{leader?.totalStreamsLabel ?? "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Streaming líder</div>
+                  <div className="text-xl font-black sm:text-2xl">{leader?.youtubeWeeklyViewsLabel ?? "—"}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">YouTube México</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
@@ -418,7 +469,7 @@ export default function Mx100() {
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
                   Mexico Charts Top 100 mide a los artistas más exitosos desde la base activa de Mexico Charts
-                  Streaming es el eje principal y se combina con listas, fanbase y giras
+                  Consumo manda con Spotify semanal México y vistas semanales de YouTube México, con fanbase y giras como señales secundarias
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
