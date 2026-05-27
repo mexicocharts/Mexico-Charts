@@ -118,15 +118,6 @@ const MEXICO_CHARTS = [
   },
 ] as const;
 
-const GENRE_LANES = [
-  "Corridos Tumbados",
-  "Regional Mexicano",
-  "Banda",
-  "Norteño",
-  "Pop Mexicano",
-  "Urbano Latino",
-] as const;
-
 /* ── Column definitions per sheet ────────────────────────────────────────── */
 type ColDef = {
   key: string;
@@ -633,6 +624,16 @@ export default function ChartsHub() {
     setShowAll(false);
   }, []);
 
+  const focusChart = useCallback((pid: PlatformId, sid: string) => {
+    setActivePlatform(pid);
+    setActiveSheet(sid);
+    setFilterMex(false);
+    setShowAll(false);
+    window.requestAnimationFrame(() => {
+      document.getElementById("platforms")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
   const updatedFmt = useMemo(() => {
     if (!data?.lastUpdated) return null;
     return new Date(data.lastUpdated).toLocaleString("es-MX", {
@@ -644,7 +645,36 @@ export default function ChartsHub() {
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
   const selectedChartTitle = `${platform.label} ${currentChartMeta.label} ${currentChartMeta.period || ""}`.trim();
   const featuredRow = rows[0] ?? null;
-  const flagshipArtists = topSpotifyArtists.length ? topSpotifyArtists : topYoutubeArtists;
+  const no1Cards = useMemo(() => ([
+    {
+      label: "YouTube artistas",
+      sheet: "YT_Artists_Weekly",
+      platform: "YouTube" as PlatformId,
+      row: topYoutubeArtists[0],
+      color: "#FF0000",
+    },
+    {
+      label: "Spotify semanal",
+      sheet: "Spotify_Artists_Weekly",
+      platform: "Spotify" as PlatformId,
+      row: topSpotifyArtists[0],
+      color: "#1DB954",
+    },
+    {
+      label: "YouTube canciones",
+      sheet: "YT_Songs_Weekly",
+      platform: "YouTube" as PlatformId,
+      row: topYoutubeSongs[0],
+      color: "#FF0000",
+    },
+    {
+      label: "Regional semanal",
+      sheet: "Spotify_Regional_Weekly",
+      platform: "Spotify" as PlatformId,
+      row: topRegionalSongs[0],
+      color: G,
+    },
+  ].filter(card => card.row)), [topYoutubeArtists, topSpotifyArtists, topYoutubeSongs, topRegionalSongs]);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
@@ -664,7 +694,7 @@ export default function ChartsHub() {
         <div className="pointer-events-none absolute inset-x-0 top-12 hidden text-center text-[18vw] font-black uppercase leading-none opacity-[0.035] lg:block">
           Charts
         </div>
-        <div className="relative grid gap-7 xl:grid-cols-[minmax(0,1fr)_460px] xl:items-end">
+        <div className="relative max-w-6xl">
           <div>
             <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
               className="mb-3 text-[10px] font-black uppercase tracking-[0.35em]" style={{ color: G }}>
@@ -693,44 +723,6 @@ export default function ChartsHub() {
               </Link>
             </motion.div>
           </div>
-
-          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}
-            className="hidden min-w-0 xl:block">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-                Top semanal
-              </span>
-              {updatedFmt && (
-                <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  {updatedFmt}
-                </span>
-              )}
-            </div>
-            <div className="divide-y divide-white/[0.06]" style={{ border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, background: "rgba(0,0,0,0.34)" }}>
-              {flagshipArtists.slice(0, 5).map((row, index) => {
-                const artist = row["Artist"] ?? row["Artist Name"] ?? "";
-                return (
-                  <Link key={`${artist}-${index}`} href="/mx100">
-                    <div className="grid cursor-pointer grid-cols-[36px_46px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-3 hover:bg-white/[0.035]">
-                      <span className="text-xl font-black tabular-nums" style={{ color: index === 0 ? G : "rgba(255,255,255,0.8)" }}>
-                        {index + 1}
-                      </span>
-                      <Thumbnail src={getArtistPreviewImg(artist)} name={artist} round={true} size={46} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black uppercase">{artist || "—"}</p>
-                        <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.35)" }}>
-                          Pico {row["Peak"] || "—"} · Racha {row["Streak"] || row["Periods on Chart"] || "—"}
-                        </p>
-                      </div>
-                      <span className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: G }}>
-                        Ver
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </motion.div>
         </div>
       </section>
 
@@ -757,20 +749,18 @@ export default function ChartsHub() {
                   style={{ color: "rgba(255,255,255,0.58)" }}>
                   Los artistas más exitosos de la semana, con una fórmula editorial pensada para música mexicana
                 </p>
-                <div className="relative mt-8 grid max-w-xl grid-cols-4 gap-2">
-                  {flagshipArtists.slice(0, 4).map((row, index) => {
-                    const artist = row["Artist"] ?? row["Artist Name"] ?? "";
-                    return (
-                      <div key={`${artist}-${index}`} className="relative aspect-square overflow-hidden"
-                        style={{ borderRadius: 8, border: `1px solid ${index === 0 ? G : "rgba(255,255,255,0.12)"}` }}>
-                        <PreviewArt src={getArtistPreviewImg(artist)} name={artist || "MX"} />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 text-[10px] font-black tabular-nums"
-                          style={{ background: G, color: "#000", borderRadius: 4 }}>
-                          {index + 1}
-                        </span>
-                      </div>
-                    );
-                  })}
+                <div className="relative mt-8 grid max-w-2xl gap-2 sm:grid-cols-3">
+                  {["Streaming", "Audiencia", "Señal editorial"].map((label, index) => (
+                    <div key={label} className="px-4 py-4"
+                      style={{ borderRadius: 8, border: `1px solid ${index === 0 ? `${G}66` : "rgba(255,255,255,0.1)"}`, background: index === 0 ? `${G}12` : "rgba(255,255,255,0.025)" }}>
+                      <span className="block text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: index === 0 ? G : "rgba(255,255,255,0.36)" }}>
+                        {label}
+                      </span>
+                      <span className="mt-5 block text-2xl font-black uppercase leading-none" style={{ color: index === 0 ? "#fff" : "rgba(255,255,255,0.72)" }}>
+                        {index === 0 ? "Base" : index === 1 ? "México" : "Top 100"}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </motion.article>
             </Link>
@@ -818,68 +808,55 @@ export default function ChartsHub() {
             )}
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            {[
-              { label: "YouTube artistas", sheet: "YT_Artists_Weekly", rows: topYoutubeArtists, href: "/charts?platform=YouTube&sheet=YT_Artists_Weekly" },
-              { label: "Spotify semanal", sheet: "Spotify_Artists_Weekly", rows: topSpotifyArtists, href: "/charts?platform=Spotify&sheet=Spotify_Artists_Weekly" },
-              { label: "YouTube canciones", sheet: "YT_Songs_Weekly", rows: topYoutubeSongs, href: "/charts?platform=YouTube&sheet=YT_Songs_Weekly" },
-              { label: "Regional semanal", sheet: "Spotify_Regional_Weekly", rows: topRegionalSongs, href: "/charts?platform=Spotify&sheet=Spotify_Regional_Weekly" },
-            ].map((module) => (
-              <div key={module.sheet} className="overflow-hidden"
-                style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.3)" }}>
-                <Link href={module.href}>
-                  <div className="flex items-center justify-between px-4 py-3" style={{ background: G, color: "#000" }}>
-                    <h3 className="text-sm font-black uppercase tracking-[0.12em]">{module.label}</h3>
-                    <span className="text-[8px] font-black uppercase tracking-[0.18em]">Ver lista</span>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {no1Cards.map((module) => {
+              const row = module.row as Row;
+              const title = previewTitle(module.sheet, row);
+              const detail = previewDetail(module.sheet, row);
+              const img = previewImg(module.sheet, row);
+              return (
+                <motion.button key={module.sheet} type="button"
+                  onClick={() => focusChart(module.platform, module.sheet)}
+                  whileHover={{ y: -3 }}
+                  className="group relative min-h-[300px] overflow-hidden text-left"
+                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(0,0,0,0.44)" }}>
+                  <div className="absolute inset-0">
+                    {img ? (
+                      <img src={img} alt="" className="h-full w-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="h-full w-full" style={{ background: `radial-gradient(circle at 30% 20%, ${module.color}33, transparent 42%), #0b0b0b` }} />
+                    )}
                   </div>
-                </Link>
-                <div className="divide-y divide-white/[0.06]">
-                  {module.rows.map((row, index) => (
-                    <Link key={`${module.sheet}-${index}`} href={module.href}>
-                      <div className="grid cursor-pointer grid-cols-[30px_46px_minmax(0,1fr)] items-center gap-3 px-4 py-3.5 hover:bg-white/[0.035]">
-                        <span className="text-2xl font-black tabular-nums" style={{ color: index === 0 ? G : "rgba(255,255,255,0.72)" }}>
-                          {index + 1}
-                        </span>
-                        <Thumbnail src={previewImg(module.sheet, row)} name={previewTitle(module.sheet, row)} round={module.sheet.includes("Artists")} size={46} />
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-black text-white">{previewTitle(module.sheet, row)}</p>
-                          <p className="mt-0.5 truncate text-[11px] font-bold" style={{ color: "rgba(255,255,255,0.42)" }}>
-                            {previewDetail(module.sheet, row)}
-                          </p>
-                        </div>
+                  <div className="absolute inset-0"
+                    style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.82) 58%, rgba(0,0,0,0.96))" }} />
+                  <div className="relative flex min-h-[300px] flex-col justify-between p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: module.color }}>
+                        {module.label}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.54)" }}>
+                        No. 1
+                      </span>
+                    </div>
+                    <div>
+                      <div className="mb-4 inline-flex h-14 w-14 items-center justify-center text-3xl font-black"
+                        style={{ borderRadius: 8, background: module.color, color: "#000" }}>
+                        1
                       </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="genres" className="px-4 py-5 md:px-7 md:py-6"
-          style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(255,255,255,0.018)" }}>
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-              Géneros
-            </h2>
-            <Link href="/generos">
-              <span className="text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity" style={{ color: G }}>
-                Explorar
-              </span>
-            </Link>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {GENRE_LANES.map((genre, index) => (
-              <Link key={genre} href="/generos">
-                <span className="group flex min-h-[86px] items-center justify-between px-4 py-3 text-[12px] font-black uppercase tracking-[0.16em] hover:bg-white/[0.035] transition-colors"
-                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.78)" }}>
-                  {genre}
-                  <span className="text-xl tabular-nums" style={{ color: index === 0 ? G : "rgba(255,255,255,0.18)" }}>
-                    {index + 1}
-                  </span>
-                </span>
-              </Link>
-            ))}
+                      <h3 className="text-3xl font-black uppercase leading-[0.92] text-white md:text-4xl">
+                        {title}
+                      </h3>
+                      <p className="mt-3 line-clamp-2 text-sm font-bold" style={{ color: "rgba(255,255,255,0.58)" }}>
+                        {detail}
+                      </p>
+                      <span className="mt-6 inline-flex text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: module.color }}>
+                        Ver en listas oficiales
+                      </span>
+                    </div>
+                  </div>
+                </motion.button>
+              );
+            })}
           </div>
         </section>
 
