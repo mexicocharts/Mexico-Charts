@@ -106,8 +106,8 @@ const MEXICO_CHARTS = [
     title: "Legacy Acts",
     kicker: "Catálogo",
     body: "Carreras históricas con consumo vigente",
-    href: "/charts",
-    status: "Próximo",
+    href: "/legacy-acts",
+    status: "Activo",
   },
   {
     title: "Breakout Songs",
