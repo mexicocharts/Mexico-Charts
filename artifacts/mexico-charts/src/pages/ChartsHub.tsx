@@ -741,9 +741,10 @@ export default function ChartsHub() {
                 <p className="relative text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>
                   Mexico Charts · Activo
                 </p>
-                <h2 className="relative mt-8 max-w-4xl font-black uppercase leading-[0.86]"
-                  style={{ fontSize: "clamp(3rem,8.3vw,9rem)" }}>
-                  Mexico Charts Top 100
+                <h2 className="relative mt-8 max-w-full font-black uppercase leading-[0.86]"
+                  style={{ fontSize: "clamp(3.1rem,6.2vw,7.6rem)" }}>
+                  <span className="block">Mexico Charts</span>
+                  <span className="block">Top 100</span>
                 </h2>
                 <p className="relative mt-5 max-w-2xl text-sm leading-relaxed md:text-lg"
                   style={{ color: "rgba(255,255,255,0.58)" }}>
@@ -767,9 +768,9 @@ export default function ChartsHub() {
 
             <div className="grid border-t border-white/[0.06] xl:border-t-0">
               <div className="grid grid-cols-2">
-                {MEXICO_CHARTS.slice(1).map((chart, index) => (
+                {MEXICO_CHARTS.slice(1).map((chart, index, charts) => (
                   <Link key={chart.title} href={chart.href}>
-                    <span className="group flex min-h-[130px] flex-col justify-between border-b border-r border-white/[0.06] p-4 hover:bg-white/[0.035] md:min-h-[160px] md:p-5">
+                    <span className={`group flex min-h-[130px] flex-col justify-between border-b border-r border-white/[0.06] p-4 hover:bg-white/[0.035] md:min-h-[160px] md:p-5 ${index === charts.length - 1 ? "col-span-2" : ""}`}>
                       <span className="flex items-center justify-between gap-3">
                         <span className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: G }}>
                           {chart.kicker}
