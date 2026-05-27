@@ -73,6 +73,60 @@ const PLATFORMS = [
 
 type PlatformId = typeof PLATFORMS[number]["id"];
 
+const MEXICO_CHARTS = [
+  {
+    title: "Mexico Charts Top 100",
+    kicker: "MX100",
+    body: "Los artistas más exitosos de la semana",
+    href: "/mx100",
+    status: "Activo",
+  },
+  {
+    title: "Touring Power",
+    kicker: "Giras",
+    body: "Demanda en vivo y fechas activas",
+    href: "/touring",
+    status: "Base activa",
+  },
+  {
+    title: "Radar Nuevos",
+    kicker: "Nuevos",
+    body: "Artistas emergentes con señal temprana",
+    href: "/charts",
+    status: "Próximo",
+  },
+  {
+    title: "Social Power",
+    kicker: "Fanbase",
+    body: "Audiencia social y crecimiento digital",
+    href: "/charts",
+    status: "Próximo",
+  },
+  {
+    title: "Legacy Acts",
+    kicker: "Catálogo",
+    body: "Carreras históricas con consumo vigente",
+    href: "/charts",
+    status: "Próximo",
+  },
+  {
+    title: "Breakout Songs",
+    kicker: "Canciones",
+    body: "Tracks con mayor impulso reciente",
+    href: "/charts",
+    status: "Próximo",
+  },
+] as const;
+
+const GENRE_LANES = [
+  "Corridos Tumbados",
+  "Regional Mexicano",
+  "Banda",
+  "Norteño",
+  "Pop Mexicano",
+  "Urbano Latino",
+] as const;
+
 /* ── Column definitions per sheet ────────────────────────────────────────── */
 type ColDef = {
   key: string;
@@ -210,6 +264,42 @@ function fmt(val: string): string {
   const n = parseInt(val.replace(/,/g, ""), 10);
   if (isNaN(n)) return val;
   return n.toLocaleString("es-MX");
+}
+
+function topEntry(sheetId: string, data?: HubData) {
+  const rows = data?.sheets?.[sheetId]?.rows ?? [];
+  const row = rows[0];
+  if (!row) return null;
+
+  if (sheetId === "YT_Artists_Weekly") {
+    return {
+      title: row["Artist Name"] ?? "—",
+      detail: row["Views"] ? `${fmt(row["Views"])} vistas` : "YouTube Artists",
+    };
+  }
+
+  if (sheetId === "YT_Songs_Weekly") {
+    return {
+      title: row["Track Name"] ?? "—",
+      detail: row["Artist Names"] ?? "YouTube Songs",
+    };
+  }
+
+  if (sheetId === "Spotify_Artists_Weekly") {
+    return {
+      title: row["Artist"] ?? "—",
+      detail: "Spotify Artists semanal",
+    };
+  }
+
+  if (sheetId === "Spotify_Regional_Weekly") {
+    return {
+      title: row["track_name"] ?? "—",
+      detail: row["artist_names"] ?? "Spotify Regional",
+    };
+  }
+
+  return null;
 }
 
 function rankKey(row: Row): string {
@@ -393,7 +483,7 @@ export default function ChartsHub() {
 
   const platform = PLATFORMS.find(p => p.id === activePlatform)!;
 
-  const { data, isLoading, isError, dataUpdatedAt } = useQuery<HubData>({
+  const { data, isLoading, isError } = useQuery<HubData>({
     queryKey: ["charts-hub"],
     queryFn: async () => {
       const resp = await fetch("/api/charts/hub");
@@ -485,6 +575,16 @@ export default function ChartsHub() {
     });
   }, [data]);
 
+  const no1Entries = useMemo(() => {
+    const entries = [
+      { label: "YouTube artistas", entry: topEntry("YT_Artists_Weekly", data), href: "/charts?platform=YouTube&sheet=YT_Artists_Weekly" },
+      { label: "Spotify semanal", entry: topEntry("Spotify_Artists_Weekly", data), href: "/charts?platform=Spotify&sheet=Spotify_Artists_Weekly" },
+      { label: "YouTube canciones", entry: topEntry("YT_Songs_Weekly", data), href: "/charts?platform=YouTube&sheet=YT_Songs_Weekly" },
+      { label: "Regional semanal", entry: topEntry("Spotify_Regional_Weekly", data), href: "/charts?platform=Spotify&sheet=Spotify_Regional_Weekly" },
+    ];
+    return entries.flatMap(item => item.entry ? [{ ...item, entry: item.entry }] : []);
+  }, [data]);
+
   const currentChartMeta = platform.charts.find(c => c.id === activeSheet) ?? platform.charts[0];
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
 
@@ -512,13 +612,18 @@ export default function ChartsHub() {
             <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
               className="font-black uppercase leading-[0.88]"
               style={{ fontSize: "clamp(2rem,4vw,3.8rem)", letterSpacing: "-0.04em" }}>
-              Listas <span style={{ color: G }}>México</span>
+              Universo de <span style={{ color: G }}>charts</span>
             </motion.h1>
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+              className="mt-4 max-w-3xl text-sm md:text-base leading-relaxed"
+              style={{ color: "rgba(255,255,255,0.55)" }}>
+              Rankings propios de Mexico Charts, números uno de la semana, géneros y listas oficiales de plataformas en un solo lugar.
+            </motion.p>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
               className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-[9px] font-black uppercase tracking-[0.22em]"
                 style={{ color: "rgba(255,255,255,0.48)" }}>
-                {activeMeta}
+                MX100 · Plataformas · Géneros · Giras
               </span>
               <Link href="/metodologia">
                 <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity"
@@ -543,6 +648,156 @@ export default function ChartsHub() {
       </section>
 
       <div className="px-6 lg:px-12 py-6 space-y-5">
+        {/* ── CHART UNIVERSE ─────────────────────────────────────────────── */}
+        <section className="grid gap-5 xl:grid-cols-[260px_1fr]">
+          <aside className="hidden xl:block rounded-lg p-4 h-fit sticky top-24"
+            style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.025)" }}>
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] mb-4" style={{ color: G }}>
+              Explorar
+            </p>
+            {[
+              ["Mexico Charts", "#mexico-charts"],
+              ["No. 1 esta semana", "#no1"],
+              ["Géneros", "#genres"],
+              ["Plataformas", "#platforms"],
+            ].map(([label, href]) => (
+              <a key={href} href={href}
+                className="block py-3 text-[11px] font-black uppercase tracking-[0.16em] hover:opacity-70 transition-opacity"
+                style={{ color: "rgba(255,255,255,0.72)", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                {label}
+              </a>
+            ))}
+          </aside>
+
+          <div className="space-y-5">
+            <section id="mexico-charts" className="rounded-lg p-4 md:p-5"
+              style={{ border: `1px solid ${G}24`, background: "linear-gradient(135deg, rgba(57,255,20,0.08), rgba(255,255,255,0.018) 58%, rgba(0,0,0,0))" }}>
+              <div className="flex items-end justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.24em] mb-2" style={{ color: G }}>
+                    Mexico Charts
+                  </p>
+                  <h2 className="font-black uppercase leading-none text-2xl md:text-4xl">
+                    Rankings propios
+                  </h2>
+                </div>
+                <Link href="/mx100">
+                  <span className="hidden sm:inline-flex text-[9px] font-black uppercase tracking-[0.2em] hover:opacity-70 transition-opacity"
+                    style={{ color: G }}>
+                    Ver MX100
+                  </span>
+                </Link>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                {MEXICO_CHARTS.map((chart, index) => (
+                  <Link key={chart.title} href={chart.href}>
+                    <motion.article whileHover={{ y: -3 }}
+                      className="group min-h-[145px] p-4 flex flex-col justify-between cursor-pointer"
+                      style={{
+                        borderRadius: 8,
+                        border: index === 0 ? `1px solid ${G}66` : "1px solid rgba(255,255,255,0.08)",
+                        background: index === 0 ? `${G}12` : "rgba(255,255,255,0.03)",
+                        boxShadow: index === 0 ? `0 0 24px ${G}10` : "none",
+                      }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: G }}>
+                            {chart.kicker}
+                          </p>
+                          <h3 className="mt-3 text-xl md:text-2xl font-black uppercase leading-[0.94]">
+                            {chart.title}
+                          </h3>
+                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-[0.16em] whitespace-nowrap"
+                          style={{ color: index === 0 ? G : "rgba(255,255,255,0.36)" }}>
+                          {chart.status}
+                        </span>
+                      </div>
+                      <p className="mt-4 text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>
+                        {chart.body}
+                      </p>
+                    </motion.article>
+                  </Link>
+                ))}
+              </div>
+            </section>
+
+            {no1Entries.length > 0 && (
+              <section id="no1" className="rounded-lg p-4 md:p-5"
+                style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                    No. 1 esta semana
+                  </h2>
+                  {updatedFmt && (
+                    <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.32)" }}>
+                      {updatedFmt}
+                    </span>
+                  )}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  {no1Entries.map((item) => (
+                    <Link key={item.label} href={item.href}>
+                      <article className="h-full p-3 cursor-pointer hover:bg-white/[0.03] transition-colors"
+                        style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <p className="text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: G }}>
+                          {item.label}
+                        </p>
+                        <h3 className="mt-4 text-base font-black uppercase leading-tight line-clamp-2">
+                          {item.entry.title}
+                        </h3>
+                        <p className="mt-2 text-[11px] font-bold leading-relaxed line-clamp-2" style={{ color: "rgba(255,255,255,0.46)" }}>
+                          {item.entry.detail}
+                        </p>
+                      </article>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section id="genres" className="rounded-lg p-4 md:p-5"
+              style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <h2 className="text-[11px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                  Géneros
+                </h2>
+                <Link href="/generos">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] hover:opacity-70 transition-opacity" style={{ color: G }}>
+                    Explorar
+                  </span>
+                </Link>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                {GENRE_LANES.map((genre) => (
+                  <Link key={genre} href="/generos">
+                    <span className="block p-3 text-[11px] font-black uppercase tracking-[0.14em] hover:bg-white/[0.035] transition-colors"
+                      style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.78)" }}>
+                      {genre}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section id="platforms" className="pt-4">
+          <div className="flex items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.24em] mb-2" style={{ color: G }}>
+                Plataformas
+              </p>
+              <h2 className="text-2xl md:text-3xl font-black uppercase leading-none">
+                Listas oficiales
+              </h2>
+            </div>
+            <span className="hidden md:block text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.32)" }}>
+              {activeMeta}
+            </span>
+          </div>
+        </section>
 
         {/* ── PLATFORM TABS ───────────────────────────────────────────────── */}
         <div className="flex flex-wrap gap-2">
