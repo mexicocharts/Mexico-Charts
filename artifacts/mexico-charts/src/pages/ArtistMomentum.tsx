@@ -396,8 +396,8 @@ export default function ArtistMomentum() {
               <Activity className="h-4 w-4" />
               Radar Mexico Charts
             </div>
-            <div className="grid gap-8">
-              <div>
+            <div className="flex flex-col gap-8">
+              <div className="w-full">
                 <h1 className="max-w-full text-[2.08rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
                   <span className="lg:hidden">
                     <span className="block">Momentum</span>
@@ -462,7 +462,7 @@ export default function ArtistMomentum() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+              <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-xl font-black sm:text-2xl">{leader?.dailyStreamsLabel ?? "—"}</div>
