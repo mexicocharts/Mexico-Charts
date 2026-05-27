@@ -396,7 +396,7 @@ export default function ArtistMomentum() {
               <Activity className="h-4 w-4" />
               Radar Mexico Charts
             </div>
-            <div className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+            <div className="grid gap-8">
               <div>
                 <h1 className="max-w-full text-[2.08rem] font-black uppercase leading-[0.9] tracking-normal text-white sm:text-5xl md:max-w-4xl md:text-6xl">
                   <span className="lg:hidden">
@@ -417,7 +417,7 @@ export default function ArtistMomentum() {
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
                     <div
-                      className="mt-6 max-w-2xl cursor-pointer overflow-hidden border bg-black/30 transition hover:border-[#39FF14]/40"
+                      className="mt-6 max-w-2xl cursor-pointer overflow-hidden border bg-black/30 transition hover:border-[#39FF14]/40 lg:max-w-4xl"
                       style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}
                     >
                       <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[104px_1fr]">
@@ -462,7 +462,7 @@ export default function ArtistMomentum() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4 lg:grid-cols-2">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-xl font-black sm:text-2xl">{leader?.dailyStreamsLabel ?? "—"}</div>
