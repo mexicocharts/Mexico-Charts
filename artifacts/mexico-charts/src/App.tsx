@@ -39,6 +39,14 @@ function ScrollToTop() {
   return null;
 }
 
+function RedirectToMx100() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/mx100", { replace: true });
+  }, [setLocation]);
+  return null;
+}
+
 function Router() {
   return (
     <>
@@ -48,7 +56,7 @@ function Router() {
           <Route path="/" component={HomeV6} />
           <Route path="/artists" component={ArtistRoster} />
           <Route path="/mx100" component={ArtistMomentum} />
-          <Route path="/artist-momentum" component={ArtistMomentum} />
+          <Route path="/artist-momentum" component={RedirectToMx100} />
           <Route path="/charts" component={ChartsHub} />
           <Route path="/generos" component={GeneroHub} />
           <Route path="/industria" component={IndustryLanding} />
