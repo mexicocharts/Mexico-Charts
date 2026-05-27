@@ -14,11 +14,11 @@ import type { ArtistMetadata } from "@/services/artistMetadata";
 const ACCENT = "#39FF14";
 const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
 const SCORE_COMPONENTS = [
-  { key: "chart", label: "Ranking", max: 35, helper: "posición diaria" },
-  { key: "growth", label: "Streams diarios", max: 30, helper: "Spotify diario" },
-  { key: "audience", label: "Audiencia", max: 20, helper: "escala relativa" },
-  { key: "social", label: "Fanbase", max: 10, helper: "social + plataformas" },
-  { key: "touring", label: "Giras", max: 5, helper: "fechas activas" },
+  { key: "streaming", label: "Streaming", max: 40 },
+  { key: "chart", label: "Listas", max: 20 },
+  { key: "audience", label: "Audiencia", max: 15 },
+  { key: "social", label: "Fanbase", max: 15 },
+  { key: "touring", label: "Giras", max: 10 },
 ] as const;
 
 interface TmEvent {
@@ -45,17 +45,12 @@ interface Mx100Artist {
   meta?: ArtistMetadata;
   score: number;
   listeners: number;
+  totalStreams: number;
   dailyStreams: number;
+  totalStreamsLabel: string;
   dailyStreamsLabel: string;
   socialReach: number;
   touringDates: number;
-  components: {
-    chart: number;
-    growth: number;
-    audience: number;
-    social: number;
-    touring: number;
-  };
   reasons: string[];
 }
 
@@ -86,21 +81,21 @@ function scale(value: number, max: number, points: number): number {
   return clamp((value / max) * points, 0, points);
 }
 
+function scaleLog(value: number, max: number, points: number): number {
+  if (value <= 0 || max <= 0) return 0;
+  return clamp((Math.log10(value + 1) / Math.log10(max + 1)) * points, 0, points);
+}
+
 function scaleSocial(value: number, max: number, points: number): number {
   if (value <= 0 || max <= 0) return 0;
   return clamp(Math.pow(value / max, 0.35) * points, 0, points);
 }
 
-function componentWidth(value: number, max: number) {
-  if (value <= 0) return "0%";
-  return `${Math.max(4, Math.round((value / max) * 100))}%`;
-}
-
 function scoreTier(score: number): string {
-  if (score >= 80) return "Dominante";
-  if (score >= 65) return "Impulso fuerte";
-  if (score >= 50) return "Alta señal";
-  return "Señal activa";
+  if (score >= 80) return "Dominio total";
+  if (score >= 65) return "Alto impacto";
+  if (score >= 50) return "Impacto sólido";
+  return "Presencia activa";
 }
 
 async function fetchLiveTouring(): Promise<ArtistTours[]> {
@@ -166,6 +161,8 @@ function scoreArtists(
   const maxListeners = Math.max(...listenerValues, 1);
   const dailyStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0);
   const maxDailyStreams = Math.max(...dailyStreamValues, 1);
+  const totalStreamValues = candidates.map((name) => getStreamSnapshot(name, streamStats)?.totalStreams ?? 0);
+  const maxTotalStreams = Math.max(...totalStreamValues, 1);
   const maxTouring = Math.max(...tours.map((artist) => artist.events.length), 1);
   const socialValues = candidates.map((name) => {
     const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
@@ -180,20 +177,23 @@ function scoreArtists(
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
       const tour = tourMap.get(key);
       const listeners = chartArtist?.listenersRaw || meta?.spotifyListeners || 0;
-      const dailyStreams = getStreamSnapshot(name, streamStats)?.dailyStreams ?? 0;
+      const streamSnapshot = getStreamSnapshot(name, streamStats);
+      const totalStreams = streamSnapshot?.totalStreams ?? 0;
+      const dailyStreams = streamSnapshot?.dailyStreams ?? 0;
       const socialReach = socialReachFromMeta(meta);
       const touringDates = tour?.events.length ?? 0;
 
-      const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 35 : 0;
-      const growthScore = scale(dailyStreams, maxDailyStreams, 30);
-      const audienceScore = scale(listeners, maxListeners, 20);
-      const socialScore = scaleSocial(socialReach, maxSocial, 10);
-      const touringScore = scale(touringDates, maxTouring, 5);
-      const score = Math.round(chartScore + growthScore + audienceScore + socialScore + touringScore);
+      const streamingScore = scaleLog(dailyStreams, maxDailyStreams, 22) + scaleLog(totalStreams, maxTotalStreams, 18);
+      const chartScore = chartArtist && chartArtist.mexicoRank <= 100 ? ((101 - chartArtist.mexicoRank) / 100) * 20 : 0;
+      const audienceScore = scaleLog(listeners, maxListeners, 15);
+      const socialScore = scaleSocial(socialReach, maxSocial, 15);
+      const touringScore = scale(touringDates, maxTouring, 10);
+      const score = Math.round(chartScore + streamingScore + audienceScore + socialScore + touringScore);
 
       const reasons = [
         chartArtist ? `#${chartArtist.mexicoRank} en artistas diarios` : "",
         dailyStreams > 0 ? `${compact(dailyStreams)} streams diarios en Spotify` : "",
+        totalStreams > 0 ? `${compact(totalStreams)} streams totales en Spotify` : "",
         listeners > 0 ? `${compact(listeners)} oyentes mensuales` : "",
         socialReach > 0 ? `${compact(socialReach)} alcance de fanbase` : "",
         touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
@@ -204,18 +204,13 @@ function scoreArtists(
         chartArtist,
         meta,
         listeners,
+        totalStreams,
         dailyStreams,
+        totalStreamsLabel: compact(totalStreams),
         dailyStreamsLabel: compact(dailyStreams),
         score,
         socialReach,
         touringDates,
-        components: {
-          chart: Math.round(chartScore),
-          growth: Math.round(growthScore),
-          audience: Math.round(audienceScore),
-          social: Math.round(socialScore),
-          touring: Math.round(touringScore),
-        },
         reasons,
       };
     })
@@ -224,25 +219,8 @@ function scoreArtists(
     .slice(0, 100);
 }
 
-function ComponentBar({ label, value, max, helper }: { label: string; value: number; max: number; helper: string }) {
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-        <span>{label}</span>
-        <span className="text-zinc-300">
-          {value}/{max}
-        </span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
-        <div className="h-full rounded-full" style={{ width: componentWidth(value, max), background: ACCENT }} />
-      </div>
-      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{helper}</div>
-    </div>
-  );
-}
-
 function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number; photoUrl?: string | null }) {
-  const { chartArtist, meta, components } = item;
+  const { chartArtist, meta } = item;
   const slug = slugify(item.name);
   const genre = meta?.subgenre || chartArtist?.subgenre || chartArtist?.genre;
   const isTopThree = index < 3;
@@ -260,8 +238,8 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
         }}
       >
         {isTopThree && <div className="absolute inset-x-0 top-0 h-0.5" style={{ background: ACCENT }} />}
-        <div className="grid gap-4 p-4 xl:grid-cols-[152px_1.2fr_1fr_240px] xl:items-center xl:gap-5">
-          <div className="flex items-center justify-between gap-4 xl:justify-start xl:gap-5">
+        <div className="grid gap-4 p-4 xl:grid-cols-[152px_1.2fr_1.35fr] xl:items-center xl:gap-5">
+          <div className="flex items-center gap-4 xl:gap-5">
             <div className="flex items-center gap-4 xl:gap-5">
               <div className="w-12 text-right text-4xl font-black tabular-nums leading-none text-zinc-200 sm:w-14 xl:w-14">
                 {rank}
@@ -284,12 +262,6 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
                 )}
               </div>
             </div>
-            <div className="flex-shrink-0 text-right xl:hidden">
-              <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
-                {item.score}
-              </div>
-              <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
-            </div>
           </div>
 
           <div className="min-w-0">
@@ -306,7 +278,11 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Streaming</div>
+              <div className="mt-1 text-sm font-black text-white">{item.totalStreamsLabel}</div>
+            </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Diario</div>
               <div className="mt-1 text-sm font-black text-white">{item.dailyStreamsLabel}</div>
@@ -315,31 +291,9 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Audiencia</div>
               <div className="mt-1 text-sm font-black text-white">{compact(item.listeners)}</div>
             </div>
-            <div className="border border-white/[0.06] bg-white/[0.025] p-2 max-sm:col-span-2" style={{ borderRadius: 6 }}>
+            <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
               <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
               <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
-            </div>
-          </div>
-
-          <div>
-            <div className="hidden items-end justify-between gap-3 border-t border-white/[0.06] pt-3 xl:flex xl:border-t-0 xl:pt-0">
-              <div>
-                <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>
-                  {item.score}
-                </div>
-                <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">/ 100</div>
-              </div>
-              <div className="hidden flex-1 space-y-1.5 xl:block">
-                {SCORE_COMPONENTS.slice(0, 3).map((component) => (
-                  <ComponentBar
-                    key={component.key}
-                    label={component.label}
-                    value={components[component.key]}
-                    max={component.max}
-                    helper={component.helper}
-                  />
-                ))}
-              </div>
             </div>
           </div>
         </div>
@@ -384,7 +338,7 @@ export default function Mx100() {
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de Mexico Charts que mide a los artistas con mayor impacto en la música mexicana a partir de listas, streams diarios, audiencia, fanbase y giras."
+        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de streaming, listas, audiencia, fanbase y giras."
         path="/mx100"
       />
       <SiteNav />
@@ -411,8 +365,8 @@ export default function Mx100() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  El ranking editorial de Mexico Charts que mide a los artistas con mayor impacto
-                  en la música mexicana a partir de listas, streams diarios, audiencia, fanbase y giras
+                  El ranking editorial de Mexico Charts que mide a los artistas más exitosos
+                  de la música mexicana a partir de streaming, listas, audiencia, fanbase y giras
                 </p>
                 {leader && (
                   <Link href={`/artist/${slugify(leader.name)}`}>
@@ -436,7 +390,7 @@ export default function Mx100() {
                           )}
                         </div>
                         <div className="min-w-0 p-4">
-                          <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
                             <div className="min-w-0">
                               <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
                                 Líder actual
@@ -445,14 +399,10 @@ export default function Mx100() {
                                 {leader.name}
                               </div>
                             </div>
-                            <div className="flex-shrink-0 text-right">
-                              <div className="text-4xl font-black leading-none" style={{ color: ACCENT }}>{leader.score}</div>
-                              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">puntos</div>
-                            </div>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
+                            <span>{leader.totalStreamsLabel} streaming</span>
                             <span>{leader.dailyStreamsLabel} diario</span>
-                            <span>{compact(leader.socialReach)} fanbase</span>
                             {leader.chartArtist && <span>#{leader.chartArtist.mexicoRank} ranking</span>}
                           </div>
                         </div>
@@ -465,8 +415,8 @@ export default function Mx100() {
               <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">{leader?.dailyStreamsLabel ?? "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Streams líder</div>
+                  <div className="text-xl font-black sm:text-2xl">{leader?.totalStreamsLabel ?? "—"}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Streaming líder</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
@@ -494,8 +444,8 @@ export default function Mx100() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Mexico Charts Top 100 mide a los artistas con mayor impacto desde la base activa de Mexico Charts con un máximo de 100 puntos
-                  Streams diarios mide actividad reciente en Spotify y Fanbase combina TikTok, Instagram, YouTube, Facebook y seguidores de Spotify
+                  Mexico Charts Top 100 mide a los artistas más exitosos desde la base activa de Mexico Charts
+                  Streaming es el eje principal y se combina con listas, audiencia, fanbase y giras
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -505,8 +455,7 @@ export default function Mx100() {
                     className="border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400"
                     style={{ borderRadius: 6 }}
                   >
-                    <span className="text-white">{component.label}</span>{" "}
-                    <span style={{ color: ACCENT }}>{component.max}</span>
+                    <span className="text-white">{component.label}</span>
                   </div>
                 ))}
               </div>
