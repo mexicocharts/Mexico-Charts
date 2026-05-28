@@ -185,7 +185,7 @@ function buildLegacyActs(metadata: Map<string, ArtistMetadata>): LegacyAct[] {
   const values = candidates.map((meta) => ({
     meta,
     catalog: meta.spotifyStreams + meta.youtubeViews,
-    audience: meta.spotifyListeners + Math.round(meta.spotifyPlaylistReach / 4),
+    audience: meta.spotifyListeners,
     fanbase:
       meta.spotifyFollowers +
       meta.youtubeSubscribers +
@@ -200,8 +200,8 @@ function buildLegacyActs(metadata: Map<string, ArtistMetadata>): LegacyAct[] {
 
   return values
     .map((item) => {
-      const catalogScore = logScore(item.catalog, maxCatalog, 45);
-      const audienceScore = logScore(item.audience, maxAudience, 43);
+      const catalogScore = logScore(item.catalog, maxCatalog, 70);
+      const audienceScore = logScore(item.audience, maxAudience, 18);
       const fanbaseScore = socialScore(item.fanbase, maxFanbase, 12);
       return {
         ...item,
@@ -383,7 +383,7 @@ export default function LegacyActs() {
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 border border-white/[0.08] bg-[#0a0a0a] p-4" style={{ borderRadius: 8 }}>
             <p className="text-xs leading-5 text-zinc-400">
-              Ranking editorial de legacy acts en la base activa de Mexico Charts. La elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden se calcula con metadata activa: audiencia actual, streams y vistas acumuladas, seguidores y presencia social
+              Ranking editorial de legacy acts en la base activa de Mexico Charts. La elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden prioriza consumo histórico: streams, vistas acumuladas, audiencia actual, seguidores y presencia social
             </p>
           </div>
 
