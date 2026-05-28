@@ -146,6 +146,17 @@ function buildYoutubeArtistMap(rows: HubRow[]) {
   return map;
 }
 
+function buildSpotifyArtistMap(rows: HubRow[]) {
+  const map = new Map<string, { rank: number }>();
+  rows.forEach((row) => {
+    const name = (row["Artist"] ?? row["Artist Name"] ?? "").trim();
+    const rank = parseInt(row["Rank"] ?? row["rank"] ?? "", 10);
+    if (!name || !rank) return;
+    map.set(normalizeName(name), { rank });
+  });
+  return map;
+}
+
 function buildCandidateNames(metadata: Map<string, ArtistMetadata>) {
   const names = new Map<string, string>();
   metadata.forEach((meta) => names.set(normalizeName(meta.displayName), meta.displayName));
@@ -169,11 +180,13 @@ function scoreArtists(
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
   tours: ArtistTours[],
   youtubeArtistRows: HubRow[] = [],
+  spotifyArtistRows: HubRow[] = [],
 ): Mx100Artist[] {
   const candidates = buildCandidateNames(metadata.byKey);
   const dailyChartMap = buildChartMap(dailyArtists);
   const weeklyChartMap = buildChartMap(weeklyArtists);
   const youtubeChartMap = buildYoutubeArtistMap(youtubeArtistRows);
+  const spotifyChartMap = buildSpotifyArtistMap(spotifyArtistRows);
   const tourMap = buildTouringMap(tours);
   const youtubeWeeklyValues = candidates.map((name) => youtubeChartMap.get(normalizeName(name))?.views ?? 0);
   const maxYoutubeWeeklyViews = Math.max(...youtubeWeeklyValues, 1);
@@ -190,10 +203,11 @@ function scoreArtists(
       const key = normalizeName(name);
       const dailyChartArtist = dailyChartMap.get(key);
       const weeklyChartArtist = weeklyChartMap.get(key);
+      const spotifyChartArtist = spotifyChartMap.get(key);
       const youtubeChartArtist = youtubeChartMap.get(key);
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
       const tour = tourMap.get(key);
-      const spotifyWeeklyRank = weeklyChartArtist?.mexicoRank;
+      const spotifyWeeklyRank = spotifyChartArtist?.rank ?? weeklyChartArtist?.mexicoRank;
       const youtubeWeeklyRank = youtubeChartArtist?.rank;
       const youtubeWeeklyViews = youtubeChartArtist?.views ?? 0;
       const socialReach = socialReachFromMeta(meta);
@@ -349,6 +363,7 @@ export default function Mx100() {
         { byKey: metadata.byKey, byName: metadata.byName },
         touring.data ?? [],
         chartsHub.data?.sheets?.YT_Artists_Weekly?.rows ?? [],
+        chartsHub.data?.sheets?.Spotify_Artists_Weekly?.rows ?? [],
       ),
     [artistsDaily.data, artistsWeekly.data, metadata.byKey, metadata.byName, touring.data, chartsHub.data],
   );

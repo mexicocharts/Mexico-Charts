@@ -1472,23 +1472,43 @@ router.get("/kworb/batch-streams", async (req, res) => {
   const names = namesParam.split(",").map(n => n.trim()).filter(Boolean).slice(0, 150);
   const details = req.query.details === "1" || req.query.details === "true";
 
-  // Single DB read for all Spotify snapshots
-  const rows = await db
+  const spotifyRows = await db
     .select({ artistKey: kworbSnapshots.artistKey, value: kworbSnapshots.value })
     .from(kworbSnapshots)
     .where(eq(kworbSnapshots.metricType, "spotify"));
 
-  const snapMap = new Map(rows.map(r => [r.artistKey, r.value as { totalStreams?: number; dailyStreams?: number } | null]));
+  const youtubeRows = details
+    ? await db
+      .select({ artistKey: kworbSnapshots.artistKey, value: kworbSnapshots.value })
+      .from(kworbSnapshots)
+      .where(eq(kworbSnapshots.metricType, "youtube"))
+    : [];
 
-  const result: Record<string, number | { totalStreams: number | null; dailyStreams: number | null } | null> = {};
+  const spotifySnapMap = new Map(spotifyRows.map(r => [r.artistKey, r.value as { totalStreams?: number; dailyStreams?: number } | null]));
+  const youtubeSnapMap = new Map(youtubeRows.map(r => [r.artistKey, r.value as { totalViews?: number; dailyAvg?: number } | null]));
+
+  type BatchStreamResult =
+    | number
+    | {
+        totalStreams: number | null;
+        dailyStreams: number | null;
+        totalViews: number | null;
+        dailyAvg: number | null;
+      }
+    | null;
+
+  const result: Record<string, BatchStreamResult> = {};
   for (const name of names) {
-    const snapshot = snapMap.get(toSlug(name));
+    const spotifySnapshot = spotifySnapMap.get(toSlug(name));
+    const youtubeSnapshot = youtubeSnapMap.get(toSlug(name));
     result[name] = details
       ? {
-          totalStreams: snapshot?.totalStreams ?? null,
-          dailyStreams: snapshot?.dailyStreams ?? null,
+          totalStreams: spotifySnapshot?.totalStreams ?? null,
+          dailyStreams: spotifySnapshot?.dailyStreams ?? null,
+          totalViews: youtubeSnapshot?.totalViews ?? null,
+          dailyAvg: youtubeSnapshot?.dailyAvg ?? null,
         }
-      : snapshot?.totalStreams ?? null;
+      : spotifySnapshot?.totalStreams ?? null;
   }
 
   res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");

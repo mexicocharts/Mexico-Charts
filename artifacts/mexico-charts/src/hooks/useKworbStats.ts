@@ -140,6 +140,8 @@ export function useBatchKworbStreams(names: string[]) {
 export interface KworbStreamSnapshot {
   totalStreams: number | null;
   dailyStreams: number | null;
+  totalViews?: number | null;
+  dailyAvg?: number | null;
 }
 
 /* ── Batch daily-stream snapshots for MX100 ──────────────────────────── */

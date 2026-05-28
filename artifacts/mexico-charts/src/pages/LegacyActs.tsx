@@ -4,6 +4,7 @@ import { Archive, Disc3, Headphones, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useBatchKworbStreamStats, type KworbStreamSnapshot } from "@/hooks/useKworbStats";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import type { ArtistMetadata } from "@/services/artistMetadata";
@@ -24,7 +25,6 @@ const LEGACY_ACT_NAMES = [
   "José José",
   "Cardenales De Nuevo León",
   "Banda El Recodo",
-  "Banda El Recodo De Cruz Lizárraga",
   "Cartel De Santa",
   "Selena",
   "Intocable",
@@ -125,13 +125,11 @@ const LEGACY_ACT_NAMES = [
   "Mariachi Vargas De Tecalitlan",
   "Banda R-15",
   "Grupo Pegasso",
-  "Ramón Ayala",
   "Paquita La Del Barrio",
   "Aida Cuevas",
   "Gerardo Reyes",
   "Los Freddy's",
   "Miguel Aceves Mejia",
-  "Bronco El Gigante De America",
   "Jorge Negrete",
   "Control",
   "Beto Zapata",
@@ -178,13 +176,21 @@ function socialScore(value: number, max: number, points: number): number {
   return Math.min(points, Math.pow(value / max, 0.38) * points);
 }
 
-function buildLegacyActs(metadata: Map<string, ArtistMetadata>): LegacyAct[] {
+function getLegacyCandidates(metadata: Map<string, ArtistMetadata>): ArtistMetadata[] {
   const legacySet = new Set(LEGACY_ACT_NAMES.map(normalize));
-  const candidates = [...metadata.values()].filter((meta) => legacySet.has(normalize(meta.displayName)));
+  return [...metadata.values()].filter((meta) => legacySet.has(normalize(meta.displayName)));
+}
 
+function buildLegacyActs(
+  metadata: Map<string, ArtistMetadata>,
+  streamSnapshots: Record<string, KworbStreamSnapshot | null> = {},
+): LegacyAct[] {
+  const candidates = getLegacyCandidates(metadata);
   const values = candidates.map((meta) => ({
     meta,
-    catalog: meta.spotifyStreams + meta.youtubeViews,
+    catalog:
+      (streamSnapshots[meta.displayName]?.totalStreams ?? 0) +
+      (streamSnapshots[meta.displayName]?.totalViews ?? 0),
     audience: meta.spotifyListeners,
     fanbase:
       meta.spotifyFollowers +
@@ -288,10 +294,20 @@ function LegacyRow({ act, photoUrl }: { act: LegacyAct; photoUrl?: string | null
 
 export default function LegacyActs() {
   const metadata = useArtistMetadata();
-  const legacyActs = useMemo(() => buildLegacyActs(metadata.byKey), [metadata.byKey]);
+  const legacyNames = useMemo(
+    () => getLegacyCandidates(metadata.byKey).map((meta) => meta.displayName),
+    [metadata.byKey],
+  );
+  const streamStats = useBatchKworbStreamStats(legacyNames);
+  const legacyActs = useMemo(
+    () => buildLegacyActs(metadata.byKey, streamStats.data ?? {}),
+    [metadata.byKey, streamStats.data],
+  );
   const imageNames = useMemo(() => legacyActs.map((act) => act.meta.displayName), [legacyActs]);
   const artistImages = useArtistImages(imageNames);
   const leader = legacyActs[0];
+  const isLoading = metadata.isLoading || streamStats.isLoading;
+  const isError = metadata.isError || streamStats.isError;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
@@ -383,11 +399,11 @@ export default function LegacyActs() {
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 border border-white/[0.08] bg-[#0a0a0a] p-4" style={{ borderRadius: 8 }}>
             <p className="text-xs leading-5 text-zinc-400">
-              Ranking editorial de legacy acts en la base activa de Mexico Charts. La elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden prioriza consumo histórico: streams, vistas acumuladas, audiencia actual, seguidores y presencia social
+              Ranking editorial de legacy acts en la base activa de Mexico Charts. La elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden prioriza consumo histórico verificado en snapshots de artistas, audiencia actual, seguidores y presencia social
             </p>
           </div>
 
-          {metadata.isLoading && (
+          {isLoading && (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-32 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
@@ -395,13 +411,13 @@ export default function LegacyActs() {
             </div>
           )}
 
-          {metadata.isError && (
+          {isError && (
             <div className="border border-red-500/25 bg-red-500/5 p-5 text-sm text-red-200" style={{ borderRadius: 8 }}>
               No se pudo cargar la metadata de artistas en este momento
             </div>
           )}
 
-          {!metadata.isLoading && !metadata.isError && (
+          {!isLoading && !isError && (
             <div className="space-y-3">
               {legacyActs.map((act) => (
                 <LegacyRow
