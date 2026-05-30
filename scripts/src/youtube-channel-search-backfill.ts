@@ -263,6 +263,9 @@ function scoreChannel(artist: ArtistRow, channel: ChannelItem): { score: number;
     } else if (ratio >= 0.15 && ratio <= 6) {
       score += 4;
       reasons.push("views loose");
+    } else if (sheetViews >= 1_000_000 && views < sheetViews * 0.05) {
+      score -= 35;
+      reasons.push("views severe mismatch");
     }
   }
 
