@@ -85,9 +85,9 @@ function scale(value: number, max: number, points: number): number {
   return clamp((value / max) * points, 0, points);
 }
 
-function scaleLog(value: number, max: number, points: number): number {
+function scaleSqrt(value: number, max: number, points: number): number {
   if (value <= 0 || max <= 0) return 0;
-  return clamp((Math.log10(value + 1) / Math.log10(max + 1)) * points, 0, points);
+  return clamp(Math.sqrt(value / max) * points, 0, points);
 }
 
 function scaleSocial(value: number, max: number, points: number): number {
@@ -214,7 +214,7 @@ function scoreArtists(
       const touringDates = tour?.events.length ?? 0;
 
       const spotifyScore = rankScore(spotifyWeeklyRank, spotifyRankMax, 55);
-      const youtubeScore = scaleLog(youtubeWeeklyViews, maxYoutubeWeeklyViews, 25);
+      const youtubeScore = scaleSqrt(youtubeWeeklyViews, maxYoutubeWeeklyViews, 25);
       const fanbaseScore = scaleSocial(socialReach, maxSocial, 12);
       const touringScore = scale(touringDates, maxTouring, 8);
       const score = Math.round(spotifyScore + youtubeScore + fanbaseScore + touringScore);
