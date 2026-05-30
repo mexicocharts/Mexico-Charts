@@ -689,7 +689,7 @@ export default function ChartsHub() {
       <SiteNav />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden px-6 pb-8 pt-10 lg:px-12 lg:pb-10 lg:pt-12"
+      <section className="relative overflow-hidden px-4 pb-7 pt-8 sm:px-6 sm:pb-8 sm:pt-10 lg:px-12 lg:pb-10 lg:pt-12"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="pointer-events-none absolute inset-x-0 top-12 hidden text-center text-[18vw] font-black uppercase leading-none opacity-[0.035] lg:block">
           Charts
@@ -697,22 +697,28 @@ export default function ChartsHub() {
         <div className="relative max-w-6xl">
           <div>
             <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-              className="mb-3 text-[10px] font-black uppercase tracking-[0.35em]" style={{ color: G }}>
+              className="mb-3 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.35em]" style={{ color: G }}>
               Listas Mexico Charts
             </motion.p>
             <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
-              className="max-w-6xl font-black uppercase leading-[0.86]"
-              style={{ fontSize: "clamp(3rem,9.3vw,9.4rem)" }}>
+              className="max-w-[9ch] font-black uppercase leading-[0.88] md:hidden"
+              style={{ fontSize: "clamp(3.15rem,14vw,4.8rem)" }}>
+              <span className="block">Listas</span>
+              <span className="block" style={{ color: G }}>México</span>
+            </motion.h1>
+            <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
+              className="hidden max-w-6xl font-black uppercase leading-[0.86] md:block"
+              style={{ fontSize: "clamp(4.6rem,9.3vw,9.4rem)" }}>
               Charts de música mexicana
             </motion.h1>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-              className="mt-5 max-w-3xl text-sm leading-relaxed md:text-lg"
+              className="mt-4 max-w-3xl text-sm leading-relaxed sm:mt-5 md:text-lg"
               style={{ color: "rgba(255,255,255,0.58)" }}>
-              Rankings propios, números uno de la semana, géneros y listas oficiales de plataformas en un solo lugar
+              Rankings propios, números uno de la semana, géneros y listas oficiales de plataformas en un solo lugar.
             </motion.p>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
               className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-              <span className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.46)" }}>
+              <span className="text-[8px] font-black uppercase tracking-[0.18em] sm:text-[9px] sm:tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.46)" }}>
                 MX100 · YouTube · Spotify · Apple Music · Deezer
               </span>
               <Link href="/metodologia">
@@ -726,23 +732,28 @@ export default function ChartsHub() {
         </div>
       </section>
 
-      <div className="px-6 lg:px-12 py-6 space-y-7">
+      <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 md:space-y-7 lg:px-12">
         {/* ── MEXICO CHARTS ──────────────────────────────────────────────── */}
         <section id="mexico-charts" className="relative overflow-hidden"
           style={{ border: `1px solid ${G}28`, borderRadius: 8, background: "radial-gradient(circle at 9% 5%, rgba(57,255,20,0.16), transparent 34%), rgba(255,255,255,0.018)" }}>
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
             <Link href="/mx100">
               <motion.article whileHover={{ y: -2 }}
-                className="group relative min-h-[390px] cursor-pointer overflow-hidden px-6 py-7 md:min-h-[500px] md:px-9 md:py-10"
+                className="group relative min-h-[330px] cursor-pointer overflow-hidden px-4 py-6 sm:px-6 sm:py-7 md:min-h-[500px] md:px-9 md:py-10"
                 style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}>
-                <div className="pointer-events-none absolute -right-8 top-4 text-[18vw] font-black uppercase leading-none opacity-[0.035]">
+                <div className="pointer-events-none absolute -right-8 top-4 text-[30vw] font-black uppercase leading-none opacity-[0.035] md:text-[18vw]">
                   MX100
                 </div>
                 <p className="relative text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>
                   Mexico Charts · Activo
                 </p>
-                <h2 className="relative mt-8 max-w-full font-black uppercase leading-[0.86]"
-                  style={{ fontSize: "clamp(3.1rem,6.2vw,7.6rem)" }}>
+                <h2 className="relative mt-7 max-w-full font-black uppercase leading-[0.86] md:hidden"
+                  style={{ fontSize: "clamp(3.2rem,15vw,5rem)" }}>
+                  <span className="block">Top</span>
+                  <span className="block">100</span>
+                </h2>
+                <h2 className="relative mt-8 hidden max-w-full font-black uppercase leading-[0.86] md:block"
+                  style={{ fontSize: "clamp(4.5rem,6.2vw,7.6rem)" }}>
                   <span className="block">Mexico Charts</span>
                   <span className="block">Top 100</span>
                 </h2>
@@ -750,7 +761,20 @@ export default function ChartsHub() {
                   style={{ color: "rgba(255,255,255,0.58)" }}>
                   Los artistas más exitosos de la semana, con una fórmula editorial pensada para música mexicana
                 </p>
-                <div className="relative mt-8 grid max-w-2xl gap-2 sm:grid-cols-3">
+                <div className="relative mt-7 grid max-w-2xl grid-cols-3 gap-2 md:hidden">
+                  {["Base", "México", "Top 100"].map((value, index) => (
+                    <div key={value} className="px-3 py-3"
+                      style={{ borderRadius: 8, border: `1px solid ${index === 0 ? `${G}66` : "rgba(255,255,255,0.1)"}`, background: index === 0 ? `${G}12` : "rgba(255,255,255,0.025)" }}>
+                      <span className="block text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: index === 0 ? G : "rgba(255,255,255,0.36)" }}>
+                        {["Streaming", "Audiencia", "Editorial"][index]}
+                      </span>
+                      <span className="mt-3 block text-lg font-black uppercase leading-none" style={{ color: index === 0 ? "#fff" : "rgba(255,255,255,0.72)" }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="relative mt-8 hidden max-w-2xl gap-2 md:grid md:grid-cols-3">
                   {["Streaming", "Audiencia", "Señal editorial"].map((label, index) => (
                     <div key={label} className="px-4 py-4"
                       style={{ borderRadius: 8, border: `1px solid ${index === 0 ? `${G}66` : "rgba(255,255,255,0.1)"}`, background: index === 0 ? `${G}12` : "rgba(255,255,255,0.025)" }}>
@@ -767,10 +791,32 @@ export default function ChartsHub() {
             </Link>
 
             <div className="grid border-t border-white/[0.06] xl:border-t-0">
-              <div className="grid grid-cols-2">
+              <div className="grid md:hidden">
+                {MEXICO_CHARTS.slice(1).map((chart) => (
+                  <Link key={chart.title} href={chart.href}>
+                    <span className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-white/[0.06] px-4 py-4 hover:bg-white/[0.035]">
+                      <span className="min-w-0">
+                        <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.2em]" style={{ color: G }}>
+                          {chart.kicker}
+                        </span>
+                        <span className="block text-2xl font-black uppercase leading-[0.9]">
+                          {chart.title}
+                        </span>
+                        <span className="mt-2 block text-sm leading-snug" style={{ color: "rgba(255,255,255,0.5)" }}>
+                          {chart.body}
+                        </span>
+                      </span>
+                      <span className="text-right text-[8px] font-black uppercase tracking-[0.15em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {chart.status}
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+              <div className="hidden md:grid md:grid-cols-2">
                 {MEXICO_CHARTS.slice(1).map((chart, index, charts) => (
                   <Link key={chart.title} href={chart.href}>
-                    <span className={`group flex min-h-[130px] flex-col justify-between border-b border-r border-white/[0.06] p-4 hover:bg-white/[0.035] md:min-h-[160px] md:p-5 ${index === charts.length - 1 ? "col-span-2" : ""}`}>
+                    <span className={`group flex min-h-[122px] flex-col justify-between border-b border-r border-white/[0.06] p-4 hover:bg-white/[0.035] md:min-h-[160px] md:p-5 ${index === charts.length - 1 ? "md:col-span-2" : ""}`}>
                       <span className="flex items-center justify-between gap-3">
                         <span className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: G }}>
                           {chart.kicker}
@@ -780,10 +826,10 @@ export default function ChartsHub() {
                         </span>
                       </span>
                       <span>
-                        <span className="block text-2xl font-black uppercase leading-[0.9] md:text-3xl">
+                        <span className="block text-xl font-black uppercase leading-[0.94] sm:text-2xl md:text-3xl">
                           {chart.title}
                         </span>
-                        <span className="mt-3 block text-sm leading-snug" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        <span className="mt-2 block text-xs leading-snug sm:mt-3 sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
                           {chart.body}
                         </span>
                       </span>
@@ -798,18 +844,19 @@ export default function ChartsHub() {
         {/* ── NO 1 THIS WEEK ─────────────────────────────────────────────── */}
         <section id="no1" className="px-4 py-5 md:px-7 md:py-7"
           style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(255,255,255,0.018)" }}>
-          <div className="mb-5 flex items-end justify-between gap-4">
-            <h2 className="text-3xl font-black uppercase leading-none md:text-6xl">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+            <h2 className="font-black uppercase leading-[0.9] sm:text-5xl md:text-6xl"
+              style={{ fontSize: "clamp(2.55rem,12vw,4rem)" }}>
               No. 1 esta semana
             </h2>
             {updatedFmt && (
-              <span className="hidden text-[9px] font-bold uppercase tracking-[0.16em] md:block" style={{ color: "rgba(255,255,255,0.32)" }}>
+              <span className="text-[8px] font-bold uppercase tracking-[0.16em] sm:text-[9px]" style={{ color: "rgba(255,255,255,0.32)" }}>
                 {updatedFmt}
               </span>
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
             {no1Cards.map((module) => {
               const row = module.row as Row;
               const title = previewTitle(module.sheet, row);
@@ -819,7 +866,7 @@ export default function ChartsHub() {
                 <motion.button key={module.sheet} type="button"
                   onClick={() => focusChart(module.platform, module.sheet)}
                   whileHover={{ y: -3 }}
-                  className="group relative min-h-[300px] overflow-hidden text-left"
+                  className="group relative min-h-[240px] overflow-hidden text-left sm:min-h-[280px] md:min-h-[300px]"
                   style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(0,0,0,0.44)" }}>
                   <div className="absolute inset-0">
                     {img ? (
@@ -830,7 +877,7 @@ export default function ChartsHub() {
                   </div>
                   <div className="absolute inset-0"
                     style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.82) 58%, rgba(0,0,0,0.96))" }} />
-                  <div className="relative flex min-h-[300px] flex-col justify-between p-5">
+                  <div className="relative flex min-h-[240px] flex-col justify-between p-4 sm:min-h-[280px] sm:p-5 md:min-h-[300px]">
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: module.color }}>
                         {module.label}
@@ -840,11 +887,11 @@ export default function ChartsHub() {
                       </span>
                     </div>
                     <div>
-                      <div className="mb-4 inline-flex h-14 w-14 items-center justify-center text-3xl font-black"
+                      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center text-2xl font-black sm:h-14 sm:w-14 sm:text-3xl"
                         style={{ borderRadius: 8, background: module.color, color: "#000" }}>
                         1
                       </div>
-                      <h3 className="text-3xl font-black uppercase leading-[0.92] text-white md:text-4xl">
+                      <h3 className="line-clamp-3 text-2xl font-black uppercase leading-[0.94] text-white sm:text-3xl md:text-4xl">
                         {title}
                       </h3>
                       <p className="mt-3 line-clamp-2 text-sm font-bold" style={{ color: "rgba(255,255,255,0.58)" }}>
@@ -869,24 +916,25 @@ export default function ChartsHub() {
               <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
                 Plataformas
               </p>
-              <h2 className="text-4xl font-black uppercase leading-[0.9] md:text-6xl">
+              <h2 className="font-black uppercase leading-[0.9] sm:text-5xl md:text-6xl"
+                style={{ fontSize: "clamp(2.55rem,11vw,4rem)" }}>
                 Listas oficiales
               </h2>
             </div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+            <div className="text-[8px] font-bold uppercase tracking-[0.16em] sm:text-[9px] sm:tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.34)" }}>
               {activeMeta}
             </div>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
-            <div className="flex gap-2 overflow-x-auto pb-1 xl:block xl:space-y-2 xl:overflow-visible xl:pb-0">
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 xl:block xl:space-y-2 xl:overflow-visible xl:pb-0">
               {PLATFORMS.map(p => {
                 const active = activePlatform === p.id;
                 return (
                   <button key={p.id} type="button" onClick={() => switchPlatform(p.id as PlatformId)}
                     aria-pressed={active}
                     aria-label={`Ver listas de ${p.label}`}
-                    className="flex min-w-[160px] items-center justify-between gap-3 px-4 py-3 text-left text-[11px] font-black uppercase tracking-[0.15em] transition-all xl:w-full"
+                    className="flex min-w-[142px] items-center justify-between gap-3 px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] transition-all md:min-w-[160px] md:px-4 md:text-[11px] md:tracking-[0.15em] xl:w-full"
                     style={{
                       borderRadius: 8,
                       background: active ? `${p.color}18` : "rgba(255,255,255,0.025)",
@@ -904,14 +952,14 @@ export default function ChartsHub() {
             </div>
 
             <div className="min-w-0 space-y-4">
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
                 {platform.charts.map(c => {
                   const active = activeSheet === c.id;
                   return (
                     <button key={c.id} type="button" onClick={() => switchSheet(c.id)}
                       aria-pressed={active}
                       aria-label={`Ver ${c.label}${c.period ? ` ${c.period}` : ""}`}
-                      className="px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.15em] transition-all"
+                      className="shrink-0 px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.15em] transition-all"
                       style={{
                         borderRadius: 8,
                         background: active ? G : "rgba(255,255,255,0.045)",
@@ -930,18 +978,33 @@ export default function ChartsHub() {
                   <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
                     Chart seleccionado
                   </p>
-                  <h3 className="mt-3 text-3xl font-black uppercase leading-[0.9] md:text-5xl">
+                  <h3 className="mt-3 max-w-full font-black uppercase leading-[0.9] md:hidden"
+                    style={{ fontSize: "clamp(2.4rem,10vw,3.5rem)" }}>
+                    <span className="block">{platform.label}</span>
+                    <span className="block text-[0.72em]" style={{ color: "rgba(255,255,255,0.76)" }}>
+                      {currentChartMeta.label}
+                    </span>
+                  </h3>
+                  <p className="mt-2 text-[9px] font-black uppercase tracking-[0.18em] md:hidden" style={{ color: G }}>
+                    {currentChartMeta.period || "Diario"}
+                  </p>
+                  <h3 className="mt-3 hidden text-5xl font-black uppercase leading-[0.9] md:block">
                     {selectedChartTitle}
                   </h3>
                   {featuredRow && (
-                    <div className="mt-5 grid grid-cols-[34px_52px_minmax(0,1fr)] items-center gap-3">
-                      <span className="text-3xl font-black tabular-nums" style={{ color: G }}>
+                    <div className="mt-5 grid grid-cols-[28px_44px_minmax(0,1fr)] items-center gap-3 sm:grid-cols-[34px_52px_minmax(0,1fr)]">
+                      <span className="text-2xl font-black tabular-nums sm:text-3xl" style={{ color: G }}>
                         {rankKey(featuredRow) || 1}
                       </span>
-                      <Thumbnail src={previewImg(activeSheet, featuredRow) || getRowImg(featuredRow)} name={previewTitle(activeSheet, featuredRow)} round={activeSheet.includes("Artists")} size={52} />
+                      <div className="sm:hidden">
+                        <Thumbnail src={previewImg(activeSheet, featuredRow) || getRowImg(featuredRow)} name={previewTitle(activeSheet, featuredRow)} round={activeSheet.includes("Artists")} size={44} />
+                      </div>
+                      <div className="hidden sm:block">
+                        <Thumbnail src={previewImg(activeSheet, featuredRow) || getRowImg(featuredRow)} name={previewTitle(activeSheet, featuredRow)} round={activeSheet.includes("Artists")} size={52} />
+                      </div>
                       <div className="min-w-0">
-                        <p className="truncate text-lg font-black text-white">{previewTitle(activeSheet, featuredRow)}</p>
-                        <p className="mt-1 truncate text-[11px] font-bold uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        <p className="truncate text-base font-black text-white sm:text-lg">{previewTitle(activeSheet, featuredRow)}</p>
+                        <p className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.1em] sm:text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
                           {previewDetail(activeSheet, featuredRow) || activeMeta}
                         </p>
                       </div>
@@ -960,7 +1023,7 @@ export default function ChartsHub() {
                     {[false, true].map(isMex => (
                       <button key={String(isMex)} type="button" onClick={() => setFilterMex(isMex)}
                         aria-pressed={filterMex === isMex}
-                        className="flex-1 px-3 py-2 text-[9px] font-black uppercase tracking-[0.13em] transition-all"
+                        className="min-w-0 flex-1 px-3 py-2 text-[9px] font-black uppercase tracking-[0.1em] transition-all sm:tracking-[0.13em]"
                         style={{
                           background: filterMex === isMex ? (isMex ? `${G}22` : "rgba(255,255,255,0.07)") : "transparent",
                           color: filterMex === isMex ? (isMex ? G : "#fff") : "rgba(255,255,255,0.34)",
@@ -992,7 +1055,7 @@ export default function ChartsHub() {
         </section>
 
         {/* ── CHART TABLE ─────────────────────────────────────────────────── */}
-        <div className="px-1 md:px-7">
+        <div className="md:px-7">
         <AnimatePresence mode="wait">
           <motion.div key={activeSheet + String(filterMex)}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -1012,7 +1075,7 @@ export default function ChartsHub() {
               </div>
             )}
 
-            <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="overflow-hidden rounded-lg md:rounded-2xl" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
 
               {isLoading && Array.from({ length: 15 }, (_, i) => <SkeletonRow key={i} i={i} />)}
 
@@ -1098,8 +1161,8 @@ export default function ChartsHub() {
                     </div>
 
                     {/* Mobile card */}
-                    <div className="md:hidden flex items-center gap-3 px-4 py-3.5">
-                      <div className="w-7 text-right font-black text-sm flex-shrink-0"
+                    <div className="flex items-center gap-2.5 px-3 py-3.5 sm:gap-3 sm:px-4 md:hidden">
+                      <div className="w-6 flex-shrink-0 text-right text-sm font-black sm:w-7"
                         style={{ color: isTop3 ? G : "rgba(255,255,255,0.3)" }}>
                         {rank}
                       </div>
@@ -1111,21 +1174,21 @@ export default function ChartsHub() {
                           size={32}
                         />
                       )}
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         {/* Artist */}
                         {cols.filter(c => c.isArtist && c.mobile).map((col, ci) => (
-                          <div key={ci} className="text-sm font-black text-white truncate">
+                          <div key={ci} className="truncate text-sm font-black text-white">
                             <ArtistCell value={row[col.key] ?? ""} knownSlugs={knownSlugs} />
                           </div>
                         ))}
                         {/* Title/track */}
                         {cols.filter(c => !c.isArtist && c.mobile && !c.isLink).map((col, ci) => (
-                          <div key={ci} className="text-[11px] truncate mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>
+                          <div key={ci} className="mt-0.5 truncate text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
                             {row[col.key] || ""}
                           </div>
                         ))}
                       </div>
-                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <div className="flex max-w-[76px] flex-shrink-0 flex-col items-end gap-1">
                         <Movement rank={rank} prev={prev} mov={mov} />
                         {cols.filter(c => c.isMetric).map((col, ci) => (
                           <div key={ci} className="text-[10px] font-black tabular-nums" style={{ color: G }}>
@@ -1153,15 +1216,15 @@ export default function ChartsHub() {
             {/* Fuente + metodología */}
             {!isLoading && !isError && (
               <div className="mt-5 space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
+                <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="break-all text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                     Fuente: {platform.source} · {activeMeta} ·{" "}
                     <a href={platform.sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:opacity-70">
                       {platform.sourceUrl}
                     </a>
                   </span>
                   {sheetData && (
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
+                    <span className="shrink-0 text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
                       {rows.length} entradas
                     </span>
                   )}
