@@ -6,6 +6,11 @@ import SiteSearch from "@/components/SiteSearch";
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
 
+const ARTISTAS_ITEMS = [
+  { label: "Directorio", href: "/artists", description: "Roster completo con filtros" },
+  { label: "Comparar artistas", href: "/compare", description: "Dos perfiles, señales lado a lado" },
+];
+
 const INDUSTRIA_ITEMS = [
   { label: "Industria", href: "/industria", description: "Mercado, reportes y contexto" },
   { label: "Certificaciones", href: "/industry/certifications", description: "Oro, Platino y Diamante" },
@@ -14,7 +19,7 @@ const INDUSTRIA_ITEMS = [
 
 const NAV = [
   { label: "INICIO",       href: "/" },
-  { label: "ARTISTAS",     href: "/artists" },
+  { label: "ARTISTAS",     href: "/artists", dropdown: ARTISTAS_ITEMS },
   { label: "MX100",        href: "/mx100" },
   { label: "LISTAS",       href: "/charts" },
   { label: "GÉNEROS",      href: "/generos" },
@@ -29,27 +34,27 @@ type Props = {
 
 export default function SiteNav({ homeActive = false }: Props) {
   const [location] = useLocation();
-  const [dropOpen, setDropOpen] = useState(false);
+  const [dropOpen, setDropOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [mobileIndustryOpen, setMobileIndustryOpen] = useState(false);
+  const [mobileDropdownOpen, setMobileDropdownOpen] = useState<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close mobile menu on route change
   useEffect(() => { setMobileOpen(false); }, [location]);
 
-  function openDrop() {
+  function openDrop(label: string) {
     if (closeTimer.current) clearTimeout(closeTimer.current);
-    setDropOpen(true);
+    setDropOpen(label);
   }
   function closeDrop() {
-    closeTimer.current = setTimeout(() => setDropOpen(false), 120);
+    closeTimer.current = setTimeout(() => setDropOpen(null), 120);
   }
 
   const industryActive = location.startsWith("/industria") || location.startsWith("/industry");
   const isActive = (href: string, label: string) => {
     if (homeActive) return label === "INICIO";
     if (href === "/") return location === "/";
-    if (href === "/artists") return location === "/artists" || location.startsWith("/artist/");
+    if (href === "/artists") return location === "/artists" || location.startsWith("/artist/") || location === "/compare";
     if (href === "/charts") return location === "/charts";
     if (href === "/touring") return location === "/touring" || location.startsWith("/touring/");
     if (href === "/industria") return industryActive || location.startsWith("/insights/");
@@ -65,29 +70,30 @@ export default function SiteNav({ homeActive = false }: Props) {
         <nav className="hidden lg:flex items-center gap-7">
           {NAV.map(item => {
             if (item.dropdown) {
+              const dropdownActive = isActive(item.href, item.label);
               return (
                 <div key={item.label} className="relative"
-                  onMouseEnter={openDrop} onMouseLeave={closeDrop}>
+                  onMouseEnter={() => openDrop(item.label)} onMouseLeave={closeDrop}>
                   <button
                     type="button"
                     className="relative flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] cursor-pointer transition-colors"
-                    aria-expanded={dropOpen}
+                    aria-expanded={dropOpen === item.label}
                     aria-haspopup="true"
-                    aria-label="Abrir menú de industria"
-                    style={{ color: industryActive ? G : "rgba(255,255,255,0.42)", background: "none", border: "none" }}>
+                    aria-label={`Abrir menú de ${item.label.toLowerCase()}`}
+                    style={{ color: dropdownActive ? G : "rgba(255,255,255,0.42)", background: "none", border: "none" }}>
                     {item.label}
                     <ChevronDown className="w-3 h-3 opacity-60" />
-                    {industryActive && (
+                    {dropdownActive && (
                       <span className="absolute -bottom-[20px] left-0 right-0 h-[2px] rounded-full" style={{ background: G }} />
                     )}
                   </button>
 
-                  {dropOpen && (
+                  {dropOpen === item.label && (
                     <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-[360px] rounded-xl overflow-hidden p-3"
                       style={{ background: "linear-gradient(145deg, #090909 0%, #050505 100%)", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 18px 48px rgba(0,0,0,0.72), inset 0 1px 0 rgba(57,255,20,0.08)" }}>
                       <div className="mb-2 flex items-center justify-between px-2">
                         <span className="text-[9px] font-black uppercase tracking-[0.26em]" style={{ color: "rgba(57,255,20,0.8)" }}>
-                          Industria
+                          {item.label}
                         </span>
                         <span className="h-px flex-1 ml-3" style={{ background: "linear-gradient(to right, rgba(57,255,20,0.18), transparent)" }} />
                       </div>
@@ -169,16 +175,19 @@ export default function SiteNav({ homeActive = false }: Props) {
             <div>
               {NAV.map(item => {
                 if (item.dropdown) {
+                  const dropdownActive = isActive(item.href, item.label);
+                  const mobileItemOpen = mobileDropdownOpen === item.label;
+                  const mobilePanelId = `site-mobile-${item.label.toLowerCase()}`;
                   return (
                     <div key={item.label}>
                       <button
                         type="button"
                         className="flex w-full items-center justify-between border-b py-4 text-left text-[13px] font-black uppercase tracking-[0.24em]"
-                        aria-expanded={mobileIndustryOpen}
-                        aria-controls="site-mobile-industria"
-                        onClick={() => setMobileIndustryOpen(open => !open)}
+                        aria-expanded={mobileItemOpen}
+                        aria-controls={mobilePanelId}
+                        onClick={() => setMobileDropdownOpen(open => open === item.label ? null : item.label)}
                         style={{
-                          color: industryActive ? G : "rgba(255,255,255,0.64)",
+                          color: dropdownActive ? G : "rgba(255,255,255,0.64)",
                           borderColor: "rgba(255,255,255,0.06)",
                           background: "transparent",
                         }}
@@ -187,14 +196,14 @@ export default function SiteNav({ homeActive = false }: Props) {
                         <ChevronDown
                           className="h-3.5 w-3.5 transition-transform"
                           style={{
-                            color: industryActive ? G : "rgba(255,255,255,0.24)",
-                            transform: mobileIndustryOpen ? "rotate(180deg)" : "rotate(0deg)",
+                            color: dropdownActive ? G : "rgba(255,255,255,0.24)",
+                            transform: mobileItemOpen ? "rotate(180deg)" : "rotate(0deg)",
                           }}
                         />
                       </button>
 
-                      {mobileIndustryOpen && (
-                        <div id="site-mobile-industria" className="border-b py-2 pl-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                      {mobileItemOpen && (
+                        <div id={mobilePanelId} className="border-b py-2 pl-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
                           {item.dropdown.map(sub => {
                             const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
                             return (
