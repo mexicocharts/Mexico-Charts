@@ -455,6 +455,7 @@ export default function ChartsHub() {
   const [activeSheet, setActiveSheet] = useState(initialState.sheet);
   const [filterMex, setFilterMex] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [detailRow, setDetailRow] = useState<Row | null>(null);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, []);
 
@@ -616,12 +617,14 @@ export default function ChartsHub() {
     setActiveSheet(p.charts[0].id);
     setFilterMex(false);
     setShowAll(false);
+    setDetailRow(null);
   }, []);
 
   const switchSheet = useCallback((sid: string) => {
     setActiveSheet(sid);
     setFilterMex(false);
     setShowAll(false);
+    setDetailRow(null);
   }, []);
 
   const focusChart = useCallback((pid: PlatformId, sid: string) => {
@@ -629,6 +632,7 @@ export default function ChartsHub() {
     setActiveSheet(sid);
     setFilterMex(false);
     setShowAll(false);
+    setDetailRow(null);
     window.requestAnimationFrame(() => {
       document.getElementById("platforms")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -645,6 +649,20 @@ export default function ChartsHub() {
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
   const selectedChartTitle = `${platform.label} ${currentChartMeta.label} ${currentChartMeta.period || ""}`.trim();
   const featuredRow = rows[0] ?? null;
+  const detailTitle = detailRow ? previewTitle(activeSheet, detailRow) : "";
+  const detailSubtitle = detailRow ? previewDetail(activeSheet, detailRow) : "";
+  const detailImg = detailRow ? (previewImg(activeSheet, detailRow) || getRowImg(detailRow)) : null;
+  const detailRank = detailRow ? rankKey(detailRow) : "";
+  const detailPrev = detailRow ? prevKey(detailRow) : "";
+  const detailMov = detailRow ? movKey(detailRow) : "";
+  const detailCredit = detailRow ? (["Artist", "Artist Name", "Artist Names", "artist_names"].map(key => detailRow[key]).find(Boolean) ?? "") : "";
+  const detailCreditSlug = slugify(firstArtist(detailCredit));
+  const detailExternal = detailRow ? (detailRow["YouTube URL"] || detailRow["Track Link"] || "") : "";
+  const detailFields = detailRow ? cols
+    .filter(col => !col.isLink)
+    .map(col => ({ ...col, value: detailRow[col.key] ?? "" }))
+    .filter(col => col.value)
+    : [];
   const no1Cards = useMemo(() => ([
     {
       label: "YouTube artistas",
@@ -1116,7 +1134,22 @@ export default function ChartsHub() {
                     style={{ borderBottom: i < visibleRows.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
 
                     {/* Desktop row */}
-                    <div className="hidden md:flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.018] transition-colors">
+                    <div
+                      className="hidden cursor-pointer items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.028] md:flex"
+                      role="button"
+                      tabIndex={0}
+                      onClick={event => {
+                        if ((event.target as HTMLElement).closest("a,button")) return;
+                        setDetailRow(row);
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailRow(row);
+                        }
+                      }}
+                      aria-label={`Ver detalle de ${previewTitle(activeSheet, row)}`}
+                    >
                       {/* Rank */}
                       <div className="w-8 text-right font-black text-sm flex-shrink-0"
                         style={{ color: isTop3 ? G : "rgba(255,255,255,0.3)", textShadow: isTop3 ? `0 0 20px ${G}55` : "none" }}>
@@ -1144,6 +1177,7 @@ export default function ChartsHub() {
                             className={`${isFirst ? "flex-1 min-w-0" : "w-24 flex-shrink-0"} ${col.align === "right" ? "text-right" : ""}`}>
                             {col.isLink && val ? (
                               <a href={val} target="_blank" rel="noopener noreferrer"
+                                onClick={event => event.stopPropagation()}
                                 className="text-[10px] font-black uppercase tracking-widest hover:opacity-70 transition-opacity"
                                 style={{ color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.25)", padding: "3px 8px", borderRadius: 6 }}>
                                 ↗ Ver
@@ -1165,7 +1199,22 @@ export default function ChartsHub() {
                     </div>
 
                     {/* Mobile card */}
-                    <div className="flex items-center gap-2.5 px-3 py-3.5 sm:gap-3 sm:px-4 md:hidden">
+                    <div
+                      className="flex cursor-pointer items-center gap-2.5 px-3 py-3.5 transition-colors hover:bg-white/[0.028] sm:gap-3 sm:px-4 md:hidden"
+                      role="button"
+                      tabIndex={0}
+                      onClick={event => {
+                        if ((event.target as HTMLElement).closest("a,button")) return;
+                        setDetailRow(row);
+                      }}
+                      onKeyDown={event => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setDetailRow(row);
+                        }
+                      }}
+                      aria-label={`Ver detalle de ${previewTitle(activeSheet, row)}`}
+                    >
                       <div className="w-6 flex-shrink-0 text-right text-sm font-black sm:w-7"
                         style={{ color: isTop3 ? G : "rgba(255,255,255,0.3)" }}>
                         {rank}
@@ -1243,6 +1292,125 @@ export default function ChartsHub() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {detailRow && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end justify-center bg-black/72 px-3 pb-3 backdrop-blur-md md:items-stretch md:justify-end md:p-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setDetailRow(null)}
+          >
+            <motion.aside
+              className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-xl md:h-full md:max-h-none md:rounded-none"
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onMouseDown={event => event.stopPropagation()}
+              style={{ background: "linear-gradient(180deg,#0b0b0b,#050505)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 28px 90px rgba(0,0,0,0.76)" }}
+            >
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3 md:px-6"
+                style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(14px)" }}>
+                <span className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                  Detalle de chart
+                </span>
+                <button type="button" onClick={() => setDetailRow(null)}
+                  className="h-9 w-9 rounded-lg text-lg font-black text-white/50 hover:text-white"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                  aria-label="Cerrar detalle">
+                  ×
+                </button>
+              </div>
+
+              <div className="p-4 md:p-6">
+                <div className="overflow-hidden" style={{ borderRadius: 8, border: `1px solid ${G}28`, background: "radial-gradient(circle at 8% 0%, rgba(57,255,20,0.12), transparent 36%), rgba(255,255,255,0.02)" }}>
+                  <div className="relative aspect-[16/10] overflow-hidden bg-white/[0.04]">
+                    {detailImg ? (
+                      <img src={detailImg} alt="" className="h-full w-full object-cover opacity-80" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-7xl font-black uppercase opacity-20">
+                        {detailTitle.charAt(0)}
+                      </div>
+                    )}
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 20%, rgba(0,0,0,0.88))" }} />
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="text-4xl font-black tabular-nums" style={{ color: G }}>{detailRank || "—"}</span>
+                        <Movement rank={detailRank} prev={detailPrev} mov={detailMov} />
+                      </div>
+                      <h3 className="text-4xl font-black uppercase leading-[0.9] md:text-5xl">{detailTitle}</h3>
+                      <p className="mt-3 text-sm font-bold" style={{ color: "rgba(255,255,255,0.58)" }}>
+                        {detailSubtitle || activeMeta}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-px bg-white/[0.06]">
+                    <div className="bg-[#080808] px-4 py-3">
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>Fuente</span>
+                      <a href={platform.sourceUrl} target="_blank" rel="noopener noreferrer"
+                        className="mt-2 block text-[11px] font-black uppercase tracking-[0.12em] hover:opacity-70"
+                        style={{ color: G }}>
+                        {platform.source}
+                      </a>
+                    </div>
+                    <div className="bg-[#080808] px-4 py-3">
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>Chart</span>
+                      <span className="mt-2 block text-[11px] font-black uppercase tracking-[0.12em] text-white">
+                        {selectedChartTitle}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {detailCredit && (
+                  <div className="mt-4 rounded-lg px-4 py-3" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+                    <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>
+                      Artista
+                    </span>
+                    <p className="text-lg font-black text-white">
+                      <ArtistCell value={detailCredit} knownSlugs={knownSlugs} />
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {detailFields.map(field => (
+                    <div key={field.key} className="rounded-lg px-4 py-3" style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.018)" }}>
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+                        {field.label}
+                      </span>
+                      <span className="mt-2 block truncate text-sm font-black" style={{ color: field.isMetric ? G : "rgba(255,255,255,0.76)" }}>
+                        {field.isMetric ? fmt(field.value) : field.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                  {detailCreditSlug && knownSlugs.has(detailCreditSlug) && (
+                    <Link href={`/artist/${detailCreditSlug}`}>
+                      <span className="inline-flex justify-center rounded-lg px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                        style={{ background: G, color: "#000" }}>
+                        Abrir perfil
+                      </span>
+                    </Link>
+                  )}
+                  {detailExternal && (
+                    <a href={detailExternal} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex justify-center rounded-lg px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                      style={{ border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.72)" }}>
+                      Abrir en plataforma
+                    </a>
+                  )}
+                </div>
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </div>
   );

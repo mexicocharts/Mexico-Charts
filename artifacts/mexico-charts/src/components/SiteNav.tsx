@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { ChevronDown, Menu, X } from "lucide-react";
+import SiteSearch from "@/components/SiteSearch";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
@@ -132,6 +133,7 @@ export default function SiteNav({ homeActive = false }: Props) {
         </nav>
 
         <div className="flex items-center gap-3">
+          <SiteSearch />
           <div className="hidden lg:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.55)" }}>
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: G }} />En vivo
           </div>
