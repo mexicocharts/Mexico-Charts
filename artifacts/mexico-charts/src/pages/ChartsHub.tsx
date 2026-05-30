@@ -916,8 +916,12 @@ export default function ChartsHub() {
               <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
                 Plataformas
               </p>
-              <h2 className="font-black uppercase leading-[0.9] sm:text-5xl md:text-6xl"
-                style={{ fontSize: "clamp(2.55rem,11vw,4rem)" }}>
+              <h2 className="font-black uppercase leading-[0.9] md:hidden"
+                style={{ fontSize: "clamp(2.25rem,9.2vw,3.2rem)" }}>
+                <span className="block">Listas</span>
+                <span className="block">oficiales</span>
+              </h2>
+              <h2 className="hidden font-black uppercase leading-[0.9] md:block md:text-6xl">
                 Listas oficiales
               </h2>
             </div>
@@ -927,14 +931,14 @@ export default function ChartsHub() {
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0 xl:block xl:space-y-2 xl:overflow-visible xl:pb-0">
+            <div className="grid grid-cols-2 gap-2 md:mx-0 md:flex md:overflow-x-auto md:px-0 md:pb-1 xl:block xl:space-y-2 xl:overflow-visible xl:pb-0">
               {PLATFORMS.map(p => {
                 const active = activePlatform === p.id;
                 return (
                   <button key={p.id} type="button" onClick={() => switchPlatform(p.id as PlatformId)}
                     aria-pressed={active}
                     aria-label={`Ver listas de ${p.label}`}
-                    className="flex min-w-[142px] items-center justify-between gap-3 px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] transition-all md:min-w-[160px] md:px-4 md:text-[11px] md:tracking-[0.15em] xl:w-full"
+                    className="flex min-w-0 items-center justify-between gap-3 px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.11em] transition-all md:min-w-[160px] md:px-4 md:text-[11px] md:tracking-[0.15em] xl:w-full"
                     style={{
                       borderRadius: 8,
                       background: active ? `${p.color}18` : "rgba(255,255,255,0.025)",
@@ -952,14 +956,14 @@ export default function ChartsHub() {
             </div>
 
             <div className="min-w-0 space-y-4">
-              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:pb-0">
+              <div className="flex flex-wrap gap-2">
                 {platform.charts.map(c => {
                   const active = activeSheet === c.id;
                   return (
                     <button key={c.id} type="button" onClick={() => switchSheet(c.id)}
                       aria-pressed={active}
                       aria-label={`Ver ${c.label}${c.period ? ` ${c.period}` : ""}`}
-                      className="shrink-0 px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.15em] transition-all"
+                      className="shrink-0 px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.13em] transition-all sm:text-[10px] sm:tracking-[0.15em]"
                       style={{
                         borderRadius: 8,
                         background: active ? G : "rgba(255,255,255,0.045)",
@@ -978,10 +982,10 @@ export default function ChartsHub() {
                   <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
                     Chart seleccionado
                   </p>
-                  <h3 className="mt-3 max-w-full font-black uppercase leading-[0.9] md:hidden"
-                    style={{ fontSize: "clamp(2.4rem,10vw,3.5rem)" }}>
-                    <span className="block">{platform.label}</span>
-                    <span className="block text-[0.72em]" style={{ color: "rgba(255,255,255,0.76)" }}>
+                  <h3 className="mt-3 max-w-full overflow-hidden font-black uppercase leading-[0.9] md:hidden"
+                    style={{ fontSize: "clamp(2rem,8vw,2.75rem)" }}>
+                    <span className="block max-w-full truncate">{platform.label}</span>
+                    <span className="block max-w-full truncate text-[0.76em]" style={{ color: "rgba(255,255,255,0.76)" }}>
                       {currentChartMeta.label}
                     </span>
                   </h3>
