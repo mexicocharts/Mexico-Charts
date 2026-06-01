@@ -476,7 +476,7 @@ export default function Mx100() {
           </div>
 
           {isLoading && (
-            <div className="space-y-3">
+            <div className="space-y-3" aria-busy="true" aria-label="Cargando ranking MX100">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-32 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
               ))}
@@ -484,12 +484,23 @@ export default function Mx100() {
           )}
 
           {isError && (
-            <div className="border border-red-500/25 bg-red-500/5 p-5 text-sm text-red-200" style={{ borderRadius: 8 }}>
-              No se pudo cargar la data del MX100 en este momento.
+            <div className="border border-red-500/20 bg-red-500/[0.045] p-5" style={{ borderRadius: 8 }} role="status">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
+                MX100 temporalmente no disponible
+              </div>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+                No pudimos actualizar el ranking en este momento. La página mantiene su estructura y volverá a mostrar el listado cuando la fuente responda.
+              </p>
             </div>
           )}
 
-          {!isLoading && !isError && (
+          {!isLoading && !isError && mx100.length === 0 && (
+            <div className="border border-white/[0.08] bg-white/[0.025] p-5 text-sm leading-6 text-zinc-500" style={{ borderRadius: 8 }}>
+              Aún no hay suficientes señales activas para construir el MX100.
+            </div>
+          )}
+
+          {!isLoading && !isError && mx100.length > 0 && (
             <div className="space-y-3">
               {mx100.map((item, index) => (
                 <Mx100Row

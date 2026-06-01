@@ -404,7 +404,7 @@ export default function LegacyActs() {
           </div>
 
           {isLoading && (
-            <div className="space-y-3">
+            <div className="space-y-3" aria-busy="true" aria-label="Cargando legacy acts">
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-32 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
               ))}
@@ -412,12 +412,23 @@ export default function LegacyActs() {
           )}
 
           {isError && (
-            <div className="border border-red-500/25 bg-red-500/5 p-5 text-sm text-red-200" style={{ borderRadius: 8 }}>
-              No se pudo cargar la metadata de artistas en este momento
+            <div className="border border-red-500/20 bg-red-500/[0.045] p-5" style={{ borderRadius: 8 }} role="status">
+              <div className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
+                Catálogo temporalmente no disponible
+              </div>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
+                No pudimos actualizar la metadata de artistas en este momento. Inténtalo de nuevo cuando la fuente vuelva a responder.
+              </p>
             </div>
           )}
 
-          {!isLoading && !isError && (
+          {!isLoading && !isError && legacyActs.length === 0 && (
+            <div className="border border-white/[0.08] bg-white/[0.025] p-5 text-sm leading-6 text-zinc-500" style={{ borderRadius: 8 }}>
+              Aún no hay legacy acts disponibles con la fuente actual.
+            </div>
+          )}
+
+          {!isLoading && !isError && legacyActs.length > 0 && (
             <div className="space-y-3">
               {legacyActs.map((act) => (
                 <LegacyRow

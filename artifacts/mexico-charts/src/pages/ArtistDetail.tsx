@@ -487,10 +487,10 @@ export default function ArtistDetail() {
           data-testid="artist-error-banner"
         >
           <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,80,80,0.9)" }}>
-            Error al cargar datos del artista
+            Fuente temporalmente no disponible
           </span>
           <span className="text-[10px] text-zinc-600 font-medium">
-            · Mostrando datos de referencia.
+            · Mostrando datos de referencia mientras vuelve la conexión.
           </span>
         </div>
       )}

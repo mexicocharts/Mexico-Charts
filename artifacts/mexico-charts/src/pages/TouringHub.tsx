@@ -659,8 +659,17 @@ export default function TouringHub() {
         </div>
 
         {isError && (
-          <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.15)", padding: "14px 20px", color: "rgba(255,80,80,0.6)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em" }}>
-            Error cargando datos
+          <div role="status" style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,60,60,0.15)", padding: "14px 20px", color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: "0.04em", lineHeight: 1.6 }}>
+            <span style={{ display: "block", color: "rgba(255,80,80,0.72)", fontSize: 10, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em" }}>
+              Giras temporalmente no disponibles
+            </span>
+            No pudimos actualizar las fechas en este momento. La agenda volverá cuando la fuente responda.
+          </div>
+        )}
+
+        {!isLoading && !isError && sortedArtists.length === 0 && (
+          <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,255,255,0.08)", padding: "14px 20px", color: "rgba(255,255,255,0.42)", fontSize: 11, lineHeight: 1.6 }}>
+            Aún no hay giras activas para mostrar.
           </div>
         )}
 
