@@ -89,6 +89,13 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "los morros del norte", artistName: "Los Morros Del Norte", handle: "losmorrosdelnorteoficial7000" },
   { artistKey: "luis y julian", artistName: "Luis y Julian", handle: "LuisYJulianVEVO-db6xc" },
   { artistKey: "miguel aceves mejia", artistName: "Miguel Aceves Mejia", handle: "MiguelAcevesMejiaOk" },
+  { artistKey: "el as de la sierra", artistName: "El As De La Sierra", handle: "jh_elasdelasierra" },
+  { artistKey: "el chachito", artistName: "El Chachito", handle: "Elchachitotv" },
+  { artistKey: "grupo delta norteno", artistName: "Grupo Delta Norteño", handle: "Grupodeltaoficial" },
+  { artistKey: "roberto junior y su bandeno", artistName: "Roberto Junior Y Su Bandeño", handle: "RobertoJuniorOficialMx" },
+  { artistKey: "los cachorros de juan villarreal", artistName: "Los Cachorros de Juan Villarreal", handle: "OficialLosCachorros" },
+  { artistKey: "la dinastia de tuzantla michoacan", artistName: "La Dinastía de Tuzantla Michoacán", handle: "LaDinastiaDeTuzantlaOficial" },
+  { artistKey: "banda la sinaloense de alex ojeda", artistName: "Banda la Sinaloense de Alex Ojeda", handle: "bandalasinaloensedealexojeda" },
 ];
 
 function parseArgs() {
