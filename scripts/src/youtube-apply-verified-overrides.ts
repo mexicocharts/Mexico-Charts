@@ -77,6 +77,18 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "los razos", artistName: "Los Razos", handle: "losrazosVEVO" },
   { artistKey: "nivel codiciado", artistName: "Nivel Codiciado", handle: "OficialmenteNivel" },
   { artistKey: "nueva h", artistName: "Nueva H", handle: "NuevaH_CT" },
+  { artistKey: "adan chalino sanchez", artistName: "Adan Chalino Sanchez", handle: "adanchalinosanchez1869" },
+  { artistKey: "banda r 15", artistName: "Banda R-15", handle: "BandaR-15" },
+  { artistKey: "beto quintanilla", artistName: "Beto Quintanilla", handle: "betoquintanilla1948" },
+  { artistKey: "cornelio vega y su dinastia", artistName: "Cornelio Vega y Su Dinastia", handle: "corneliovegaysudinastia9977" },
+  { artistKey: "el halcon de la sierra", artistName: "El Halcon De La Sierra", handle: "halcondelasierra" },
+  { artistKey: "grupo selectivo", artistName: "Grupo Selectivo", handle: "gruposelectivo" },
+  { artistKey: "jimmy guzman", artistName: "Jimmy Guzman", handle: "JimmyGuzmanMusic" },
+  { artistKey: "juanpa salazar", artistName: "Juanpa Salazar", handle: "juanpasalazarmusic3196" },
+  { artistKey: "los amos de nuevo leon", artistName: "Los Amos De Nuevo Leon", handle: "LosAmosOficial" },
+  { artistKey: "los morros del norte", artistName: "Los Morros Del Norte", handle: "losmorrosdelnorteoficial7000" },
+  { artistKey: "luis y julian", artistName: "Luis y Julian", handle: "LuisYJulianVEVO-db6xc" },
+  { artistKey: "miguel aceves mejia", artistName: "Miguel Aceves Mejia", handle: "MiguelAcevesMejiaOk" },
 ];
 
 function parseArgs() {
