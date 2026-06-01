@@ -238,6 +238,15 @@ async function main() {
         console.log(`NO_RESULT,${override.artistKey},${override.artistName},@${override.handle}`);
         continue;
       }
+      const existingOwner = await pool.query<{ artist_key: string }>(
+        "select artist_key from youtube_channels where channel_id = $1 and artist_key <> $2",
+        [channel.id, override.artistKey],
+      );
+      if (existingOwner.rows.length > 0) {
+        skipped += 1;
+        console.log(`DUPLICATE_CHANNEL,${override.artistKey},${override.artistName},${channel.id},owned_by=${existingOwner.rows[0].artist_key}`);
+        continue;
+      }
       const subscribers = channel.statistics?.hiddenSubscriberCount ? null : Number(channel.statistics?.subscriberCount ?? 0);
       console.log(`${write ? "SAVE" : "MATCH"},${override.artistKey},${override.artistName},${channel.id},${channel.snippet.title},${fmtCount(subscribers)},@${override.handle}`);
       if (write) {
