@@ -30,6 +30,10 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "banda ms de sergio lizarraga", artistName: "Banda MS de Sergio Lizárraga", handle: "BandaMS" },
   { artistKey: "julion alvarez and su norteno banda", artistName: "Julión Álvarez & Su Norteño Banda", handle: "LosPasosdeJulionOficial" },
   { artistKey: "jesse and joy", artistName: "Jesse & Joy", handle: "jesseyjoyoficial" },
+  { artistKey: "danna paola", artistName: "Danna Paola", handle: "dannapaolaVEVO" },
+  { artistKey: "edicion especial", artistName: "Edición Especial", handle: "edicionespecial" },
+  { artistKey: "la original banda el limon de salvador lizarraga", artistName: "La Original Banda El Limón de Salvador Lizárraga", handle: "LaOriginalBandaElLimon" },
+  { artistKey: "los rehenes", artistName: "Los Rehenes", handle: "LosRehenesOficial" },
 ];
 
 function parseArgs() {
