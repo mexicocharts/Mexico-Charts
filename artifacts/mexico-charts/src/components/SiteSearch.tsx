@@ -174,6 +174,8 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { byKey } = useArtistMetadata();
+  const normalizedQuery = norm(query.trim());
+  const deepSearchEnabled = normalizedQuery.length >= 2;
   const { data: chartData } = useQuery<HubData>({
     queryKey: ["charts-hub"],
     queryFn: async () => {
@@ -181,6 +183,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       if (!resp.ok) throw new Error("Failed to fetch charts");
       return resp.json();
     },
+    enabled: deepSearchEnabled,
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });
@@ -192,6 +195,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       const data = await resp.json() as { rows?: CertRow[] };
       return data.rows ?? [];
     },
+    enabled: deepSearchEnabled,
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });
@@ -203,6 +207,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       const data = await resp.json() as { artists?: TouringArtist[] };
       return data.artists ?? [];
     },
+    enabled: deepSearchEnabled,
     staleTime: 8 * 60 * 1000,
     retry: 1,
   });
@@ -213,8 +218,8 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
   }, []);
 
   const results = useMemo<SearchResult[]>(() => {
-    const q = norm(query.trim());
-    const includeDeep = q.length >= 2;
+    const q = normalizedQuery;
+    const includeDeep = deepSearchEnabled;
     const artists: SearchCandidate[] = Array.from(byKey.values()).map(artist => ({
       label: artist.displayName,
       href: `/artist/${slugify(artist.displayName)}`,
@@ -312,7 +317,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       .slice(0, 12);
 
     return ranked;
-  }, [byKey, certificationRows, chartData, query, touringArtists]);
+  }, [byKey, certificationRows, chartData, deepSearchEnabled, normalizedQuery, touringArtists]);
 
   return (
         <div className="fixed inset-0 z-[90] px-4 pt-20" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={onClose}>
