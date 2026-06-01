@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Helmet } from "react-helmet-async";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
@@ -13,10 +14,52 @@ interface PageSEOProps {
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
+const DEDUPED_HEAD_SELECTORS = [
+  "title",
+  'meta[name="description"]',
+  'meta[name="robots"]',
+  'link[rel="canonical"]',
+  'meta[property="og:type"]',
+  'meta[property="og:title"]',
+  'meta[property="og:description"]',
+  'meta[property="og:url"]',
+  'meta[property="og:image"]',
+  'meta[property="og:image:width"]',
+  'meta[property="og:image:height"]',
+  'meta[property="og:site_name"]',
+  'meta[property="og:locale"]',
+  'meta[name="twitter:card"]',
+  'meta[name="twitter:title"]',
+  'meta[name="twitter:description"]',
+  'meta[name="twitter:image"]',
+] as const;
+
+function isHelmetManaged(node: Element) {
+  return node.getAttribute("data-rh") === "true" || node.getAttribute("data-react-helmet") === "true";
+}
+
+function removeStaticSeoDuplicates() {
+  if (typeof document === "undefined") return;
+
+  DEDUPED_HEAD_SELECTORS.forEach((selector) => {
+    const nodes = Array.from(document.head.querySelectorAll(selector));
+    if (!nodes.some(isHelmetManaged)) return;
+
+    nodes.forEach((node) => {
+      if (!isHelmetManaged(node)) node.remove();
+    });
+  });
+}
+
 export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd }: PageSEOProps) {
   const canonical = `${SITE_URL}${path}`;
   const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
   const structuredData = jsonLd ? JSON.stringify(jsonLd) : null;
+
+  useEffect(() => {
+    const cleanupId = window.setTimeout(removeStaticSeoDuplicates, 0);
+    return () => window.clearTimeout(cleanupId);
+  }, [canonical, description, fullTitle, noindex, ogImage, structuredData, type]);
 
   return (
     <Helmet>
