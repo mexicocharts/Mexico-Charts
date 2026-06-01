@@ -1,10 +1,10 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
@@ -18,12 +18,6 @@ const SCORE_COMPONENTS = [
   { key: "fanbase", label: "Fanbase" },
   { key: "touring", label: "Giras" },
 ] as const;
-
-type HubRow = Record<string, string>;
-
-interface HubData {
-  sheets: Record<string, { rows: HubRow[] }>;
-}
 
 interface Mx100Artist {
   name: string;
@@ -313,16 +307,7 @@ export default function Mx100() {
   const artistsWeekly = useArtistsWeekly();
   const metadata = useArtistMetadata();
   const touring = useTouring();
-  const chartsHub = useQuery<HubData>({
-    queryKey: ["charts-hub"],
-    queryFn: async () => {
-      const response = await fetch("/api/charts/hub");
-      if (!response.ok) throw new Error("Failed to fetch charts");
-      return response.json() as Promise<HubData>;
-    },
-    staleTime: 30 * 60 * 1000,
-    retry: 2,
-  });
+  const chartsHub = useChartsHub({ retry: 2 });
   const mx100Names = useMemo(
     () => buildCandidateNames(metadata.byKey),
     [metadata.byKey],

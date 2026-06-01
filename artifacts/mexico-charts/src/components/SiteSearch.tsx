@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
+import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 
 const G = "#39FF14";
 
@@ -45,9 +46,6 @@ const CHART_META: Record<string, { platform: string; label: string; period: stri
   Apple_Albums: { platform: "Apple Music", label: "Álbumes", period: "Diario" },
   Deezer_Top_Mexico: { platform: "Deezer", label: "México", period: "Diario" },
 };
-
-type HubRow = Record<string, string>;
-interface HubData { lastUpdated: string; sheets: Record<string, { headers: string[]; rows: HubRow[] }> }
 
 type CertRow = {
   artista: string;
@@ -190,17 +188,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
   const { byKey } = useArtistMetadata();
   const normalizedQuery = norm(query.trim());
   const deepSearchEnabled = normalizedQuery.length >= 2;
-  const { data: chartData } = useQuery<HubData>({
-    queryKey: ["charts-hub"],
-    queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
-      if (!resp.ok) throw new Error("Failed to fetch charts");
-      return resp.json();
-    },
-    enabled: deepSearchEnabled,
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
+  const { data: chartData } = useChartsHub({ enabled: deepSearchEnabled, retry: 1 });
   const { data: certificationRows = [] } = useQuery<CertRow[]>({
     queryKey: ["search", "certifications"],
     queryFn: async () => {

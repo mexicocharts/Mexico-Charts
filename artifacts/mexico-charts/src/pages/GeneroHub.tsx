@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import PageSEO from "@/components/PageSEO";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
 import SiteNav from "@/components/SiteNav";
 import { useArtistMetadata } from "@/services/dataProvider";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -59,10 +59,6 @@ const GENRES: GenreDef[] = [
     description: "Pop latino con sello mexicano. Melodías que cruzan fronteras y conectan culturas.",
   },
 ];
-
-/* ─── Types ─────────────────────────────────────────────────── */
-type HubRow = Record<string, string>;
-interface HubData { lastUpdated: string; sheets: Record<string, { headers: string[]; rows: HubRow[] }> }
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 function fmtNum(n: number): string {
@@ -270,16 +266,7 @@ export default function GeneroHub() {
   /* ── Data ── */
   const { byKey: metaByKey, isLoading: metaLoading } = useArtistMetadata();
 
-  const { data: hubData } = useQuery<HubData>({
-    queryKey: ["charts-hub"],
-    queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
-      if (!resp.ok) throw new Error("hub fetch failed");
-      return resp.json();
-    },
-    staleTime: 30 * 60 * 1000,
-    retry: 2,
-  });
+  const { data: hubData } = useChartsHub({ retry: 2 });
 
   const spotifyDailyRows: HubRow[] = hubData?.sheets?.["Spotify_Artists_Daily"]?.rows ?? [];
 

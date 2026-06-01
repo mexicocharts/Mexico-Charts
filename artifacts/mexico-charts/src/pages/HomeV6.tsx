@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import PageSEO from "@/components/PageSEO";
-import { useQuery } from "@tanstack/react-query";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { Link } from "wouter";
 import { slugify } from "@/lib/utils";
 import {
@@ -100,11 +100,6 @@ const PUBLIC_FEATURES = [
     icon: RadioTower,
   },
 ] as const;
-
-/* ── Charts-hub types (minimal, same shape as ChartsHub.tsx) ── */
-type HubRow = Record<string, string>;
-interface HubSheetData { headers: string[]; rows: HubRow[] }
-interface HubData { lastUpdated: string; sheets: Record<string, HubSheetData> }
 
 function fmtViews(raw: string): string {
   const n = parseInt((raw ?? "").replace(/,/g, ""), 10);
@@ -258,16 +253,7 @@ export default function HomeV6() {
   const verifiedArtistKeys = useVerifiedArtistKeys();
 
   /* ── Charts-hub data, same source as /charts page ── */
-  const { data: hubData, isLoading: hubLoading } = useQuery<HubData>({
-    queryKey: ["charts-hub"],
-    queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
-      if (!resp.ok) throw new Error("hub fetch failed");
-      return resp.json();
-    },
-    staleTime: 30 * 60 * 1000,
-    retry: 2,
-  });
+  const { data: hubData, isLoading: hubLoading } = useChartsHub({ retry: 2 });
   const ytArtistRows: HubRow[] = hubData?.sheets?.["YT_Artists_Weekly"]?.rows ?? [];
 
   /* ── Loading/error state only relevant when a URL is actually configured ── */

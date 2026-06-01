@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
 import type { ComponentType, CSSProperties } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { BadgeCheck, BarChart3, CalendarDays, Check, Copy, Search, Shuffle, Trophy } from "lucide-react";
 import { SiInstagram, SiSpotify, SiTiktok, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { artistMatches, useCertifications } from "@/hooks/useCertifications";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useChartsHub, type ChartsHubData } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
 import { slugify } from "@/lib/utils";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
@@ -16,8 +16,7 @@ const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 type Row = Record<string, string>;
-interface SheetData { headers: string[]; rows: Row[] }
-interface HubData { lastUpdated: string; sheets: Record<string, SheetData> }
+type HubData = ChartsHubData;
 
 type Metric = {
   key: string;
@@ -312,16 +311,7 @@ export default function ArtistCompare() {
   const { byKey } = useArtistMetadata();
   const { data: tours } = useTouring();
   const { rows: certRows } = useCertifications();
-  const { data: hub } = useQuery<HubData>({
-    queryKey: ["charts-hub"],
-    queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
-      if (!resp.ok) throw new Error("Failed to fetch charts");
-      return resp.json();
-    },
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
+  const { data: hub } = useChartsHub();
 
   const artists = useMemo(() => (
     Array.from(byKey.values())
