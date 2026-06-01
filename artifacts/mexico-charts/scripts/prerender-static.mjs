@@ -59,6 +59,22 @@ const routes = [
     ],
   },
   {
+    path: "/radar-nuevos",
+    title: "Radar Nuevos — Mexico Charts",
+    description:
+      "Ranking editorial de artistas nuevos y emergentes en música mexicana: primeras señales, etapa de descubrimiento, consumo actual y potencial de breakout.",
+    eyebrow: "Radar Nuevos",
+    heading: "Artistas en primer impulso",
+    body:
+      "Una lectura editorial de artistas nuevos, emergentes o en etapa de primer gran breakout dentro de la música mexicana.",
+    links: [
+      ["/radar-nuevos", "Radar Nuevos"],
+      ["/mx100", "MX100"],
+      ["/charts", "Charts"],
+      ["/artists", "Artistas"],
+    ],
+  },
+  {
     path: "/artists",
     title: "Artistas de musica mexicana — Mexico Charts",
     description:

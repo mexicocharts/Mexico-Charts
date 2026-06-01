@@ -91,9 +91,9 @@ const MEXICO_CHARTS = [
   {
     title: "Radar Nuevos",
     kicker: "Nuevos",
-    body: "Artistas emergentes con señal temprana",
-    href: "/charts",
-    status: "Próximo",
+    body: "Artistas emergentes con primer impulso",
+    href: "/radar-nuevos",
+    status: "Activo",
   },
   {
     title: "Social Power",

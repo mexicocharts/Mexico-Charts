@@ -19,6 +19,12 @@
     <priority>0.95</priority>
   </url>
   <url>
+    <loc>https://mexicochart.com/radar-nuevos</loc>
+    <lastmod>2026-06-01</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://mexicochart.com/artists</loc>
     <lastmod>2026-06-01</lastmod>
     <changefreq>weekly</changefreq>

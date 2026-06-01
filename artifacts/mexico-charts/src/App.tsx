@@ -11,6 +11,7 @@ const ArtistDetail = lazy(() => import("@/pages/ArtistDetail"));
 const ArtistRoster = lazy(() => import("@/pages/ArtistRoster"));
 const ArtistCompare = lazy(() => import("@/pages/ArtistCompare"));
 const Mx100 = lazy(() => import("@/pages/Mx100"));
+const RadarNuevos = lazy(() => import("@/pages/RadarNuevos"));
 const LegacyActs = lazy(() => import("@/pages/LegacyActs"));
 const InsightIFPI2026 = lazy(() => import("@/pages/InsightIFPI2026"));
 const IndustryLanding = lazy(() => import("@/pages/IndustryLanding"));
@@ -51,6 +52,7 @@ function Router() {
           <Route path="/artists" component={ArtistRoster} />
           <Route path="/compare" component={ArtistCompare} />
           <Route path="/mx100" component={Mx100} />
+          <Route path="/radar-nuevos" component={RadarNuevos} />
           <Route path="/legacy-acts" component={LegacyActs} />
           <Route path="/charts" component={ChartsHub} />
           <Route path="/generos" component={GeneroHub} />

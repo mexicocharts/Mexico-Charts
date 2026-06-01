@@ -11,6 +11,7 @@ const G = "#39FF14";
 
 const STATIC_RESULTS = [
   { label: "MX100", href: "/mx100", type: "Ranking", detail: "Ranking editorial de artistas" },
+  { label: "Radar Nuevos", href: "/radar-nuevos", type: "Ranking", detail: "Artistas nuevos y emergentes" },
   { label: "Listas oficiales", href: "/charts", type: "Listas", detail: "YouTube, Spotify, Apple Music y Deezer" },
   { label: "Artistas", href: "/artists", type: "Directorio", detail: "Roster completo con filtros" },
   { label: "Comparar artistas", href: "/compare", type: "Herramienta", detail: "Dos artistas, señales lado a lado" },
