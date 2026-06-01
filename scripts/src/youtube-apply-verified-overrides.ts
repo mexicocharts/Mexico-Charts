@@ -41,6 +41,17 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "javier rosas y su artilleria pesada", artistName: "Javier Rosas Y Su Artillería Pesada", handle: "JavierRosasap" },
   { artistKey: "jose maria napoleon", artistName: "José Maria Napoleón", handle: "josenapoleonoficial" },
   { artistKey: "tito torbellino", artistName: "Tito Torbellino", handle: "TitoTorbellinoOficial" },
+  { artistKey: "banda los sebastianes de saul plata", artistName: "Banda Los Sebastianes de Saúl Plata", handle: "BandaLosSebastianes" },
+  { artistKey: "banda pequenos musical", artistName: "Banda Pequeños Musical", handle: "pequenosmusicaloficial" },
+  { artistKey: "banda cuisillos", artistName: "Banda Cuisillos", handle: "CuisillosOficial" },
+  { artistKey: "colmillo norteno", artistName: "COLMILLO NORTEÑO", handle: "ColmilloOficial" },
+  { artistKey: "grupo limite", artistName: "Grupo Limite", handle: "limiteoficial6415" },
+  { artistKey: "los gemelos de sinaloa", artistName: "Los Gemelos De Sinaloa", handle: "LosGemelosOficial" },
+  { artistKey: "noel torres", artistName: "Noel Torres", handle: "Noeltorresmusica" },
+  { artistKey: "ramon ayala", artistName: "Ramón Ayala", handle: "ramonayalatv" },
+  { artistKey: "ramon ayala y sus bravos del norte", artistName: "Ramón Ayala y Sus Bravos del Norte", handle: "ramonayalatv" },
+  { artistKey: "sergio vega el shaka", artistName: "Sergio Vega El Shaka", handle: "SergioVegaVEVO" },
+  { artistKey: "timbiriche", artistName: "Timbiriche", handle: "TimbiricheVEVO" },
 ];
 
 function parseArgs() {
