@@ -71,7 +71,11 @@ type SearchResult = {
   type: string;
   detail: string;
   score: number;
+  category?: SearchCategory;
+  dedupeKey?: string;
 };
+
+type SearchCategory = "site" | "artist" | "genre" | "chart" | "certification" | "touring" | "event";
 
 type SearchCandidate = SearchResult & {
   haystack: string;
@@ -90,6 +94,37 @@ function rankCandidate(row: SearchCandidate, q: string): SearchResult | null {
   if (!score) return null;
   const { haystack: _haystack, baseScore: _baseScore, ...result } = row;
   return { ...result, score: score + row.baseScore };
+}
+
+function pruneRankedResults(rows: SearchResult[]) {
+  const seen = new Set<string>();
+  const categoryCounts: Partial<Record<SearchCategory, number>> = {};
+  const categoryLimits: Partial<Record<SearchCategory, number>> = {
+    chart: 4,
+    certification: 3,
+    event: 2,
+    touring: 3,
+  };
+  const pruned: SearchResult[] = [];
+
+  for (const row of rows) {
+    const key = row.dedupeKey ?? `${norm(row.type)}|${norm(row.label)}|${row.href}`;
+    if (seen.has(key)) continue;
+
+    const category = row.category;
+    if (category) {
+      const limit = categoryLimits[category];
+      const count = categoryCounts[category] ?? 0;
+      if (limit != null && count >= limit) continue;
+      categoryCounts[category] = count + 1;
+    }
+
+    seen.add(key);
+    pruned.push(row);
+    if (pruned.length >= 12) break;
+  }
+
+  return pruned;
 }
 
 function chartTitle(row: HubRow) {
@@ -195,6 +230,14 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
     return () => window.clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   const results = useMemo<SearchResult[]>(() => {
     const q = normalizedQuery;
     const includeDeep = deepSearchEnabled;
@@ -204,14 +247,18 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       type: "Artista",
       detail: [artist.subgenre || artist.genre, artist.spotifyListenersFmt].filter(Boolean).join(" · "),
       score: 0,
-      baseScore: 110,
+      baseScore: 170,
+      category: "artist",
+      dedupeKey: `artist:${slugify(artist.displayName)}`,
       haystack: norm(`${artist.displayName} ${artist.artistKey} ${artist.genre} ${artist.subgenre} ${artist.label}`),
     }));
 
     const staticRows: SearchCandidate[] = STATIC_RESULTS.map(row => ({
       ...row,
       score: 0,
-      baseScore: 130,
+      baseScore: 150,
+      category: "site",
+      dedupeKey: `site:${row.href}`,
       haystack: norm(`${row.label} ${row.type} ${row.detail}`),
     }));
 
@@ -219,6 +266,8 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       ...row,
       score: 0,
       baseScore: 90,
+      category: "genre",
+      dedupeKey: `genre:${norm(row.label)}`,
       haystack: norm(`${row.label} ${row.type} ${row.detail}`),
     }));
 
@@ -235,7 +284,9 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
             type: "Chart",
             detail: [`#${rank}`, artist, meta.platform, meta.label, meta.period].filter(Boolean).join(" · "),
             score: 0,
-            baseScore: 70,
+            baseScore: 55,
+            category: "chart",
+            dedupeKey: `chart:${norm(title)}:${norm(artist)}`,
             haystack: norm(`${title} ${artist} ${meta.platform} ${meta.label} ${meta.period} ${sheetId}`),
           };
         });
@@ -249,7 +300,9 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
         type: "Certificación",
         detail: [row.artista, row.certificacion || row.nivel, row.year].filter(Boolean).join(" · "),
         score: 0,
-        baseScore: 62,
+        baseScore: 48,
+        category: "certification",
+        dedupeKey: `cert:${norm(row.artista)}:${norm(row.titulo)}:${norm(row.certificacion || row.nivel)}`,
         haystack: norm(`${row.artista} ${row.titulo} ${row.certificacion} ${row.nivel} ${row.year}`),
       }))
       : [];
@@ -263,16 +316,20 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
           detail: artist.events.length ? `${artist.events.length} fechas activas` : "Perfil de touring",
           score: 0,
           baseScore: 58,
+          category: "touring",
+          dedupeKey: `touring:${artist.id || slugify(artist.name)}`,
           haystack: norm(`${artist.name} gira touring conciertos ${artist.events.map(event => `${event.city} ${event.state} ${event.venue} ${event.name}`).join(" ")}`),
         };
         const eventRows = artist.events.slice(0, 3).map(event => ({
-          label: `${artist.name} · ${event.city}`,
+          label: `${event.city || event.venue} · ${artist.name}`,
           href: `/touring/${artist.id || slugify(artist.name)}`,
           type: "Concierto",
-          detail: [event.venue, event.state, event.date].filter(Boolean).join(" · "),
+          detail: [artist.name, event.venue, event.state, event.date].filter(Boolean).join(" · "),
           score: 0,
-          baseScore: 52,
-          haystack: norm(`${artist.name} ${event.name} ${event.city} ${event.state} ${event.venue} ${event.date}`),
+          baseScore: 28,
+          category: "event" as const,
+          dedupeKey: `event:${artist.id || slugify(artist.name)}:${norm(event.date)}:${norm(event.venue)}:${norm(event.city)}`,
+          haystack: norm(`${event.city} ${event.state} ${event.venue} ${event.date}`),
         }));
         return [artistRow, ...eventRows];
       })
@@ -291,10 +348,9 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
     const ranked = all
       .map(row => rankCandidate(row, q))
       .filter((row): row is SearchResult => row !== null && row.score > 0)
-      .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "es", { sensitivity: "base" }))
-      .slice(0, 12);
+      .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "es", { sensitivity: "base" }));
 
-    return ranked;
+    return pruneRankedResults(ranked);
   }, [byKey, certificationRows, chartData, deepSearchEnabled, normalizedQuery, touringArtists]);
 
   return (
@@ -328,7 +384,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
             <div id={resultsId} className="max-h-[65vh] overflow-y-auto p-2" aria-live="polite">
               {results.map(result => (
                 <button
-                  key={`${result.type}-${result.href}`}
+                  key={result.dedupeKey ?? `${result.type}-${result.href}-${result.label}-${result.detail}`}
                   type="button"
                   onClick={() => onNavigate(result.href)}
                   aria-label={`${result.label}. ${result.detail}. ${result.type}`}
