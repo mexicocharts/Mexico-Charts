@@ -13,6 +13,11 @@ const args = new Map(
 const limit = Math.max(1, Number(args.get("limit") ?? 50));
 const offset = Math.max(0, Number(args.get("offset") ?? 0));
 const write = args.get("write") === "true";
+const artistKeyArg = args.get("artistKey") ? toSlug(String(args.get("artistKey"))) : undefined;
+
+const MANUAL_YOUTUBE_SLUG_BY_ARTIST_KEY = new Map([
+  ["arielcamachoylosplebesdelrancho", "arielcamachoylosplebesdelrancho"],
+]);
 
 const STOP_TOKENS = new Set([
   "banda", "grupo", "los", "las", "del", "de", "el", "la", "y", "su", "sus",
@@ -222,14 +227,22 @@ async function main() {
     const youtubeIndex = await loadYouTubeIndex();
     console.log(`Loaded Kworb YouTube index: ${youtubeIndex.length} artists`);
 
-    const { rows: artists } = await pool.query(
-      `select artist_key, artist_name, spotify_id, has_spotify, has_itunes
-       from kworb_coverage
-       where not has_youtube
-       order by has_itunes desc, has_spotify desc, artist_name
-       limit $1 offset $2`,
-      [limit, offset],
-    );
+    const { rows: artists } = artistKeyArg
+      ? await pool.query(
+        `select artist_key, artist_name, spotify_id, has_spotify, has_itunes
+         from kworb_coverage
+         where artist_key = $1
+         limit 1`,
+        [artistKeyArg],
+      )
+      : await pool.query(
+        `select artist_key, artist_name, spotify_id, has_spotify, has_itunes
+         from kworb_coverage
+         where not has_youtube
+         order by has_itunes desc, has_spotify desc, artist_name
+         limit $1 offset $2`,
+        [limit, offset],
+      );
 
     let found = 0;
     let saved = 0;
@@ -239,7 +252,16 @@ async function main() {
     for (const artist of artists) {
       checked += 1;
       let match = null;
-      if (artist.spotify_id) {
+      const manualSlug = MANUAL_YOUTUBE_SLUG_BY_ARTIST_KEY.get(artist.artist_key);
+      if (manualSlug) {
+        const html = await fetchPage(`https://kworb.net/youtube/artist/${manualSlug}.html`);
+        const youtube = html ? parseYouTubePage(html) : null;
+        if (youtube) {
+          match = { slug: manualSlug, youtube, source: "manual" };
+        }
+      }
+
+      if (!match && artist.spotify_id) {
         const spotifyHtml = await fetchPage(`https://kworb.net/spotify/artist/${artist.spotify_id}_songs.html`);
         const youtubeHref = spotifyHtml ? extractYouTubeArtistHrefFromSpotifyPage(spotifyHtml) : null;
         if (youtubeHref) {
@@ -252,18 +274,20 @@ async function main() {
         }
       }
 
-      const indexCandidates = youtubeIndex
-        .map(candidate => ({ ...candidate, score: scoreIndexCandidate(artist, candidate) }))
-        .filter(candidate => candidate.score >= 0.86)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
+      if (!match) {
+        const indexCandidates = youtubeIndex
+          .map(candidate => ({ ...candidate, score: scoreIndexCandidate(artist, candidate) }))
+          .filter(candidate => candidate.score >= 0.86)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 5);
 
-      for (const candidate of indexCandidates) {
-        const html = await fetchPage(`https://kworb.net/youtube/${candidate.href}`);
-        const youtube = html ? parseYouTubePage(html) : null;
-        if (youtube) {
-          match = { slug: candidate.rawSlug, youtube, source: `index:${candidate.name}:${candidate.score.toFixed(2)}` };
-          break;
+        for (const candidate of indexCandidates) {
+          const html = await fetchPage(`https://kworb.net/youtube/${candidate.href}`);
+          const youtube = html ? parseYouTubePage(html) : null;
+          if (youtube) {
+            match = { slug: candidate.rawSlug, youtube, source: `index:${candidate.name}:${candidate.score.toFixed(2)}` };
+            break;
+          }
         }
       }
 

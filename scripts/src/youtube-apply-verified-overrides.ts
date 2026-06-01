@@ -98,7 +98,6 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "banda la sinaloense de alex ojeda", artistName: "Banda la Sinaloense de Alex Ojeda", handle: "bandalasinaloensedealexojeda" },
   { artistKey: "oscar maydon", artistName: "Oscar Maydon", handle: "Oscar_Maydon" },
   { artistKey: "los plebes del rancho de ariel camacho", artistName: "Los Plebes del Rancho de Ariel Camacho", handle: "losplebesdelranchodearielc5101" },
-  { artistKey: "ariel camacho y los plebes del rancho", artistName: "Ariel Camacho y Los Plebes Del Rancho", handle: "ArielyLosPlebes" },
   { artistKey: "edwin luna y la trakalosa de monterrey", artistName: "Edwin Luna y La Trakalosa de Monterrey", handle: "edwinlunaylatrakalosademon2137" },
   { artistKey: "los felinos", artistName: "Los Felinos", handle: "LosFelinosOficial" },
   { artistKey: "clase personal", artistName: "Clase Personal", handle: "clasepersonal_official" },
