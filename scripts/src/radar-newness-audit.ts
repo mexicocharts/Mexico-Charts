@@ -12,6 +12,7 @@ const { Pool } = require("../../lib/db/node_modules/pg") as {
 interface ArtistRow {
   artist_key: string;
   artist_name: string;
+  spotify_followers_hint?: string;
   spotify_artist_id: string | null;
   spotify_followers: number | null;
   spotify_popularity: number | null;
@@ -23,6 +24,24 @@ interface ArtistRow {
 interface SpotifyTokenResponse {
   access_token: string;
   expires_in: number;
+}
+
+interface SpotifyArtist {
+  id: string;
+  name: string;
+  popularity: number | null;
+  followers?: { total?: number };
+  external_urls?: { spotify?: string };
+  images?: Array<{ url: string; height?: number; width?: number }>;
+  genres?: string[];
+}
+
+interface SpotifySearchResponse {
+  artists?: { items?: SpotifyArtist[] };
+}
+
+interface SpotifyArtistsResponse {
+  artists?: Array<SpotifyArtist | null>;
 }
 
 interface SpotifyAlbum {
@@ -73,6 +92,9 @@ interface WikidataCareer {
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql";
+const ARTIST_METADATA_URL =
+  "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
+const MIN_SPOTIFY_SEARCH_SCORE = 72;
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
 let lastWikidataRequestAt = 0;
@@ -95,6 +117,83 @@ function parseArgs() {
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+    if (quoted) {
+      if (char === "\"" && next === "\"") {
+        field += "\"";
+        i += 1;
+      } else if (char === "\"") quoted = false;
+      else field += char;
+      continue;
+    }
+    if (char === "\"") quoted = true;
+    else if (char === ",") {
+      row.push(field);
+      field = "";
+    } else if (char === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else if (char !== "\r") field += char;
+  }
+  row.push(field);
+  rows.push(row);
+  return rows.filter(r => r.some(cell => cell.trim()));
+}
+
+function rowsToObjects(rows: string[][]): ArtistRow[] {
+  const [headers = [], ...body] = rows;
+  return body
+    .map(row => {
+      const obj: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        obj[header.trim()] = row[index]?.trim() ?? "";
+      });
+      return {
+        artist_key: obj["artist_key"] ?? "",
+        artist_name: obj["artist_name"] ?? "",
+        spotify_followers_hint: obj["spotify_followers"] ?? "",
+        spotify_artist_id: null,
+        spotify_followers: null,
+        spotify_popularity: null,
+        spotify_genres: null,
+        mbid: null,
+        musicbrainz_begin_date: null,
+      } satisfies ArtistRow;
+    })
+    .filter(row => row.artist_key && row.artist_name);
+}
+
+function normalizeName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .trim();
+}
+
+function compactName(value: string): string {
+  return normalizeName(value).replace(/\s+/g, "");
+}
+
+function parseCount(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const parsed = Number(value.replace(/,/g, "").trim());
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeDate(value: string | null | undefined) {
@@ -193,6 +292,76 @@ async function spotifyFetch<T>(path: string, params: Record<string, string>): Pr
   return res.json() as Promise<T>;
 }
 
+async function fetchArtistsByIds(ids: string[]): Promise<SpotifyArtist[]> {
+  if (ids.length === 0) return [];
+  const artists: SpotifyArtist[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const batch = ids.slice(i, i + 50);
+    const data = await spotifyFetch<SpotifyArtistsResponse>("/artists", { ids: batch.join(",") });
+    artists.push(...(data.artists ?? []).filter((artist): artist is SpotifyArtist => Boolean(artist)));
+  }
+  return artists;
+}
+
+function scoreSpotifyCandidate(artist: ArtistRow, candidate: SpotifyArtist) {
+  const artistName = normalizeName(artist.artist_name);
+  const spotifyName = normalizeName(candidate.name);
+  const followers = candidate.followers?.total ?? null;
+  const sheetFollowers = parseCount(artist.spotify_followers_hint);
+  let score = 0;
+
+  if (spotifyName === artistName) score += 45;
+  else if (compactName(candidate.name) === compactName(artist.artist_name)) score += 38;
+  else if (spotifyName.includes(artistName) || artistName.includes(spotifyName)) score += 25;
+  else {
+    const artistTokens = new Set(artistName.split(" ").filter(Boolean));
+    const candidateTokens = new Set(spotifyName.split(" ").filter(Boolean));
+    const overlap = [...artistTokens].filter(token => candidateTokens.has(token)).length;
+    const ratio = artistTokens.size > 0 ? overlap / artistTokens.size : 0;
+    if (ratio >= 0.75) score += 18;
+    else if (ratio >= 0.5) score += 8;
+  }
+
+  if (sheetFollowers != null && followers != null && sheetFollowers > 0) {
+    const ratio = followers / sheetFollowers;
+    if (ratio >= 0.5 && ratio <= 2) score += 35;
+    else if (ratio >= 0.25 && ratio <= 4) score += 22;
+    else if (ratio >= 0.1 && ratio <= 10) score += 8;
+    else score -= 25;
+  } else if ((followers ?? 0) >= 100_000) score += 8;
+
+  if ((candidate.popularity ?? 0) >= 40) score += 10;
+  else if ((candidate.popularity ?? 0) >= 20) score += 4;
+
+  return {
+    artist: candidate,
+    score: Math.max(0, Math.min(score, 100)),
+  };
+}
+
+async function enrichWithSpotifySearch(artist: ArtistRow): Promise<ArtistRow> {
+  if (artist.spotify_artist_id) return artist;
+  const data = await spotifyFetch<SpotifySearchResponse>("/search", {
+    type: "artist",
+    q: artist.artist_name,
+    limit: "5",
+  });
+  const ids = [...new Set((data.artists?.items ?? []).map(item => item.id).filter(Boolean))];
+  const candidates = (await fetchArtistsByIds(ids))
+    .map(candidate => scoreSpotifyCandidate(artist, candidate))
+    .sort((a, b) => b.score - a.score);
+  const best = candidates[0];
+  if (!best || best.score < MIN_SPOTIFY_SEARCH_SCORE) return artist;
+
+  return {
+    ...artist,
+    spotify_artist_id: best.artist.id,
+    spotify_followers: best.artist.followers?.total ?? null,
+    spotify_popularity: best.artist.popularity,
+    spotify_genres: best.artist.genres ?? [],
+  };
+}
+
 async function loadSpotifyCareer(spotifyArtistId: string | null): Promise<SpotifyCareer> {
   if (!spotifyArtistId) {
     return { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false };
@@ -269,27 +438,39 @@ async function loadWikidataCareer(mbid: string | null): Promise<WikidataCareer |
 
 async function main() {
   const args = parseArgs();
-  if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
 
-  const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
+  const pool = process.env["DATABASE_URL"] ? new Pool({ connectionString: process.env["DATABASE_URL"] }) : null;
   try {
-    const query = args.artistKey
-      ? `select s.artist_key, coalesce(s.spotify_name, s.artist_key) as artist_name, s.spotify_artist_id,
-              s.spotify_followers, s.spotify_popularity, s.spotify_genres, m.mbid,
-              m.begin_date as musicbrainz_begin_date
-         from spotify_artists s
-         left join musicbrainz_artists m on m.artist_key = s.artist_key
-         where s.artist_key = $1
-         limit 1`
-      : `select s.artist_key, coalesce(s.spotify_name, s.artist_key) as artist_name, s.spotify_artist_id,
-              s.spotify_followers, s.spotify_popularity, s.spotify_genres, m.mbid,
-              m.begin_date as musicbrainz_begin_date
-         from spotify_artists s
-         left join musicbrainz_artists m on m.artist_key = s.artist_key
-         order by s.spotify_popularity desc nulls last, s.spotify_followers desc nulls last, s.artist_key
-         limit $1 offset $2`;
-    const params = args.artistKey ? [args.artistKey] : [args.limit, args.offset];
-    const { rows: artists } = await pool.query<ArtistRow>(query, params);
+    let artists: ArtistRow[] = [];
+    if (pool) {
+      const query = args.artistKey
+        ? `select s.artist_key, coalesce(s.spotify_name, s.artist_key) as artist_name, null as spotify_followers_hint,
+                s.spotify_artist_id, s.spotify_followers, s.spotify_popularity, s.spotify_genres, m.mbid,
+                m.begin_date as musicbrainz_begin_date
+           from spotify_artists s
+           left join musicbrainz_artists m on m.artist_key = s.artist_key
+           where s.artist_key = $1
+           limit 1`
+        : `select s.artist_key, coalesce(s.spotify_name, s.artist_key) as artist_name, null as spotify_followers_hint,
+                s.spotify_artist_id, s.spotify_followers, s.spotify_popularity, s.spotify_genres, m.mbid,
+                m.begin_date as musicbrainz_begin_date
+           from spotify_artists s
+           left join musicbrainz_artists m on m.artist_key = s.artist_key
+           order by s.spotify_popularity desc nulls last, s.spotify_followers desc nulls last, s.artist_key
+           limit $1 offset $2`;
+      const params = args.artistKey ? [args.artistKey] : [args.limit, args.offset];
+      const result = await pool.query<ArtistRow>(query, params);
+      artists = result.rows;
+    }
+
+    if (artists.length === 0) {
+      const response = await fetch(ARTIST_METADATA_URL);
+      if (!response.ok) throw new Error(`artist_metadata_active HTTP ${response.status}`);
+      artists = rowsToObjects(parseCsv(await response.text()))
+        .filter(row => !args.artistKey || row.artist_key === args.artistKey)
+        .slice(args.offset, args.offset + args.limit);
+      console.log(`Using artist_metadata_active fallback: artists=${artists.length}`);
+    }
 
     const outputRows: Record<string, unknown>[] = [];
     const summary = {
@@ -302,7 +483,8 @@ async function main() {
       legacy: 0,
     };
     console.log(`Auditing Radar newness: artists=${artists.length} wikidata=${args.wikidata}`);
-    for (const artist of artists) {
+    for (const rawArtist of artists) {
+      const artist = await enrichWithSpotifySearch(rawArtist);
       const spotify = await loadSpotifyCareer(artist.spotify_artist_id);
       const wikidata = args.wikidata ? await loadWikidataCareer(artist.mbid) : null;
       const firstExternalDate = earliestDate([
@@ -353,7 +535,7 @@ async function main() {
       console.log(`Wrote ${outputRows.length} rows to ${args.out}`);
     }
   } finally {
-    await pool.end();
+    await pool?.end();
   }
 }
 
