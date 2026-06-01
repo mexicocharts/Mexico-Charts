@@ -109,6 +109,7 @@ function parseArgs() {
     artistKey: args.get("artistKey")?.trim().toLowerCase(),
     limit: Math.max(1, Math.min(Number(args.get("limit") ?? 600), 1000)),
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
+    source: args.get("source") === "db" ? "db" : "metadata",
     wikidata: args.get("wikidata") === "true",
     out: args.get("out") ?? "radar-newness-candidates.csv",
     summaryOnly: args.get("summaryOnly") === "true",
@@ -439,7 +440,9 @@ async function loadWikidataCareer(mbid: string | null): Promise<WikidataCareer |
 async function main() {
   const args = parseArgs();
 
-  const pool = process.env["DATABASE_URL"] ? new Pool({ connectionString: process.env["DATABASE_URL"] }) : null;
+  const pool = args.source === "db" && process.env["DATABASE_URL"]
+    ? new Pool({ connectionString: process.env["DATABASE_URL"] })
+    : null;
   try {
     let artists: ArtistRow[] = [];
     if (pool) {
@@ -461,6 +464,7 @@ async function main() {
       const params = args.artistKey ? [args.artistKey] : [args.limit, args.offset];
       const result = await pool.query<ArtistRow>(query, params);
       artists = result.rows;
+      console.log(`Using spotify_artists db source: artists=${artists.length}`);
     }
 
     if (artists.length === 0) {
@@ -469,7 +473,7 @@ async function main() {
       artists = rowsToObjects(parseCsv(await response.text()))
         .filter(row => !args.artistKey || row.artist_key === args.artistKey)
         .slice(args.offset, args.offset + args.limit);
-      console.log(`Using artist_metadata_active fallback: artists=${artists.length}`);
+      console.log(`Using artist_metadata_active source: artists=${artists.length}`);
     }
 
     const outputRows: Record<string, unknown>[] = [];
