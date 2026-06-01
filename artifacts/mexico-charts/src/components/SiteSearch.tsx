@@ -20,6 +20,8 @@ const STATIC_RESULTS = [
   { label: "Contacto", href: "/contacto", type: "Sitio", detail: "Correcciones, alianzas y contacto" },
 ] as const;
 
+const EMPTY_STATE_LINKS = ["MX100", "Listas oficiales", "Géneros", "Certificaciones"] as const;
+
 const GENRE_RESULTS = [
   { label: "Corridos Tumbados", href: "/generos", type: "Género", detail: "Corridos, trap y regional mexicano" },
   { label: "Regional Mexicano", href: "/generos", type: "Género", detail: "Banda, norteño, corridos y grupero" },
@@ -261,6 +263,15 @@ export default function SiteSearch() {
         return [artistRow, ...eventRows];
       })
       : [];
+
+    if (!q) {
+      return staticRows
+        .filter(row => EMPTY_STATE_LINKS.includes(row.label as typeof EMPTY_STATE_LINKS[number]))
+        .map(row => {
+          const { haystack: _haystack, baseScore: _baseScore, ...result } = row;
+          return { ...result, score: row.baseScore };
+        });
+    }
 
     const all = [...staticRows, ...artists, ...genreRows, ...chartRows, ...certRows, ...touringRows];
     const ranked = all
