@@ -10,11 +10,13 @@ interface PageSEOProps {
   ogImage?: string;
   type?: "website" | "article";
   noindex?: boolean;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false }: PageSEOProps) {
+export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd }: PageSEOProps) {
   const canonical = `${SITE_URL}${path}`;
   const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
+  const structuredData = jsonLd ? JSON.stringify(jsonLd) : null;
 
   return (
     <Helmet>
@@ -37,6 +39,7 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
       <meta name="twitter:image" content={ogImage} />
+      {structuredData && <script type="application/ld+json">{structuredData}</script>}
     </Helmet>
   );
 }

@@ -6,11 +6,13 @@ import {
   ChevronDown, ChevronUp, X, Trophy, Disc3, Music2,
   ArrowUpDown
 } from "lucide-react";
+import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
 const BASE = import.meta.env.BASE_URL;
+const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
 const CERT_IMG: Record<string, string> = {
   DIAMANTE: `${BASE}cert-diamond.png`,
   PLATINO:  `${BASE}cert-platinum.png`,
@@ -213,6 +215,23 @@ export default function Certifications() {
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
+      <PageSEO
+        title="Certificaciones en México"
+        description="Archivo filtrado de certificaciones musicales en México: Oro, Platino y Diamante por artista, título, formato y año."
+        path="/industry/certifications"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: "Certificaciones en México",
+          description: "Archivo filtrado de certificaciones musicales en México por artista, título, formato y año.",
+          url: `${SITE_URL}/industry/certifications`,
+          isPartOf: {
+            "@type": "WebSite",
+            name: "Mexico Charts",
+            url: SITE_URL,
+          },
+        }}
+      />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
       <style dangerouslySetInnerHTML={{ __html: `
