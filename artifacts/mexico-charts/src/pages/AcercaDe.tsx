@@ -1,10 +1,35 @@
 import { Link } from "wouter";
-import { Home, ChevronRight } from "lucide-react";
+import { BarChart3, ChevronRight, Disc3, Globe2, Home, Landmark, Radio, ShieldCheck, Sparkles, Users } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
+
+const PILLARS = [
+  {
+    title: "Datos",
+    body: "Rankings, señales de streaming, fuentes públicas y lectura editorial para entender movimiento real.",
+    icon: BarChart3,
+  },
+  {
+    title: "Cultura",
+    body: "Artistas, escenas, géneros, comunidades y momentos que empujan la música mexicana.",
+    icon: Sparkles,
+  },
+  {
+    title: "Industria",
+    body: "Certificaciones, mercado, giras y contexto para leer el impacto más allá de una lista.",
+    icon: Landmark,
+  },
+] as const;
+
+const COVERAGE = [
+  { label: "Listas", detail: "Plataformas digitales", icon: Disc3 },
+  { label: "Artistas", detail: "Perfiles y audiencia", icon: Users },
+  { label: "Streaming", detail: "Crecimiento y señales", icon: Radio },
+  { label: "Industria", detail: "Mercado y contexto", icon: Globe2 },
+] as const;
 
 export default function AcercaDe() {
   return (
@@ -16,6 +41,10 @@ export default function AcercaDe() {
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
+      <div
+        className="pointer-events-none fixed inset-x-0 top-0 h-72"
+        style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(57,255,20,0.10), transparent 70%)", zIndex: 0 }}
+      />
 
       <SiteNav />
 
@@ -25,54 +54,103 @@ export default function AcercaDe() {
         <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>Acerca de</span>
       </div>
 
-      <div className="relative z-10 max-w-[860px] mx-auto px-6 lg:px-10 py-20">
-        <div className="mb-4">
-          <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>Mexico Charts</span>
-        </div>
-        <h1 className="font-black uppercase leading-[0.88] mb-6"
-          style={{ fontSize: "clamp(52px,8vw,108px)", letterSpacing: "-0.04em" }}>
-          ACERCA<br />DE
-        </h1>
-        <p className="text-lg font-medium mb-16 max-w-xl" style={{ color: "rgba(255,255,255,0.38)", letterSpacing: "-0.01em" }}>
-          Datos, cultura e impacto de la música mexicana
-        </p>
-
-        <div style={{ borderTop: `1px solid rgba(57,255,20,0.12)` }} className="pt-12 space-y-10">
-          <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Mexico Charts es una plataforma independiente dedicada a documentar el crecimiento, desempeño e impacto de la música mexicana dentro de México y alrededor del mundo.
-          </p>
-          <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Nuestro objetivo es reunir listas, rankings, datos de streaming, giras, industria, artistas y tendencias culturales en un solo espacio con una presentación moderna, clara y visualmente premium.
-          </p>
-          <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Mexico Charts nace para conectar los números con la cultura. Detrás de cada lista hay canciones, artistas, comunidades, fans y momentos que impulsan la música mexicana todos los días.
-          </p>
-
+      <div className="relative z-10 mx-auto max-w-6xl px-6 py-14 sm:py-18 lg:px-10 lg:py-24">
+        <section className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
           <div>
-            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>Qué cubrimos</h2>
-            <ul className="space-y-3">
-              {[
-                "Listas de plataformas digitales",
-                "Artistas mexicanos y de música mexicana",
-                "Streaming, audiencia y crecimiento",
-                "Giras y presentaciones en vivo",
-                "Industria musical mexicana",
-                "Tendencias, logros y contexto cultural",
-              ].map(item => (
-                <li key={item} className="flex items-start gap-3">
-                  <span className="mt-1.5 flex-shrink-0 w-1 h-1 rounded-full" style={{ background: G }} />
-                  <span className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-            <h3 className="text-[10px] font-black uppercase tracking-[0.22em] mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>Aviso</h3>
-            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
-              Mexico Charts es una plataforma independiente. No estamos afiliados oficialmente con Spotify, YouTube, Apple Music, Deezer, Billboard, IFPI, AMPROFON, Pollstar, Ticketmaster ni con ningún artista, sello discográfico o plataforma mencionada, salvo que se indique lo contrario.
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>Mexico Charts</span>
+              <span className="h-px w-10" style={{ background: "rgba(57,255,20,0.25)" }} />
+            </div>
+            <h1 className="max-w-4xl font-black uppercase leading-[0.84] tracking-normal"
+              style={{ fontSize: "clamp(54px,10vw,136px)" }}>
+              Datos con contexto cultural
+            </h1>
+            <p className="mt-7 max-w-2xl text-lg font-medium leading-8 sm:text-xl" style={{ color: "rgba(255,255,255,0.52)" }}>
+              Mexico Charts documenta el crecimiento, desempeño e impacto de la música mexicana dentro de México y alrededor del mundo.
             </p>
           </div>
+
+          <div
+            className="rounded-3xl p-6"
+            style={{ background: "linear-gradient(160deg,rgba(57,255,20,0.075),rgba(255,255,255,0.028) 45%,rgba(0,0,0,0.24))", border: "1px solid rgba(57,255,20,0.16)" }}
+          >
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(57,255,20,0.10)", color: G }}>
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-white">Independiente</h2>
+            <p className="mt-4 text-sm font-medium leading-7 text-zinc-500">
+              No somos una lista oficial de una plataforma. Reunimos señales disponibles y criterio editorial para hacer más legible el momento de la música mexicana.
+            </p>
+          </div>
+        </section>
+
+        <section className="mt-16 grid gap-3 md:grid-cols-3">
+          {PILLARS.map(({ title, body, icon: Icon }) => (
+            <article
+              key={title}
+              className="rounded-2xl p-5"
+              style={{ background: "rgba(255,255,255,0.028)", border: "1px solid rgba(255,255,255,0.075)" }}
+            >
+              <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-xl" style={{ background: "rgba(57,255,20,0.08)", color: G }}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <h2 className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: G }}>{title}</h2>
+              <p className="mt-3 text-sm font-medium leading-6" style={{ color: "rgba(255,255,255,0.48)" }}>{body}</p>
+            </article>
+          ))}
+        </section>
+
+        <section className="mt-14 grid gap-8 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+          <div>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em]" style={{ color: G }}>Qué cubrimos</h2>
+            <p className="mt-4 text-sm font-medium leading-7 text-zinc-500">
+              Listas, artistas, streaming, giras, industria y tendencias culturales en un solo espacio diseñado para lectura rápida.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {COVERAGE.map(({ label, detail, icon: Icon }) => (
+              <div
+                key={label}
+                className="flex items-center gap-4 rounded-2xl p-4"
+                style={{ background: "rgba(255,255,255,0.026)", border: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ background: "rgba(255,255,255,0.045)", color: "rgba(255,255,255,0.62)" }}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span>
+                  <span className="block text-sm font-black uppercase tracking-[0.1em] text-white">{label}</span>
+                  <span className="mt-1 block text-xs font-medium text-zinc-600">{detail}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section
+          className="mt-14 rounded-2xl p-5 sm:p-6"
+          style={{ background: "rgba(255,255,255,0.026)", border: "1px solid rgba(255,255,255,0.075)" }}
+        >
+          <h2 className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: "rgba(255,255,255,0.38)" }}>Aviso independiente</h2>
+          <p className="mt-3 text-xs font-medium leading-6" style={{ color: "rgba(255,255,255,0.36)" }}>
+            Mexico Charts es una plataforma independiente. No estamos afiliados oficialmente con Spotify, YouTube, Apple Music, Deezer, Billboard, IFPI, AMPROFON, Pollstar, Ticketmaster ni con ningún artista, sello discográfico o plataforma mencionada, salvo que se indique lo contrario.
+          </p>
+        </section>
+
+        <div className="mt-10 flex flex-wrap gap-3">
+          <Link
+            href="/mx100"
+            className="inline-flex items-center justify-center rounded-full px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-black"
+            style={{ background: G }}
+          >
+            Explorar MX100
+          </Link>
+          <Link
+            href="/charts"
+            className="inline-flex items-center justify-center rounded-full border border-white/10 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:text-white"
+          >
+            Ver listas
+          </Link>
         </div>
       </div>
 
