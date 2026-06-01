@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
+import { useTouring } from "@/hooks/useTouring";
 
 const G = "#39FF14";
 
@@ -53,20 +54,6 @@ type CertRow = {
   certificacion: string;
   nivel: string;
   year: number;
-};
-
-type TouringEvent = {
-  name: string;
-  date: string;
-  venue: string;
-  city: string;
-  state: string;
-};
-
-type TouringArtist = {
-  id: string;
-  name: string;
-  events: TouringEvent[];
 };
 
 function norm(value: string) {
@@ -201,18 +188,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });
-  const { data: touringArtists = [] } = useQuery<TouringArtist[]>({
-    queryKey: ["touring", "concerts"],
-    queryFn: async () => {
-      const resp = await fetch("/api/touring/concerts");
-      if (!resp.ok) return [];
-      const data = await resp.json() as { artists?: TouringArtist[] };
-      return data.artists ?? [];
-    },
-    enabled: deepSearchEnabled,
-    staleTime: 8 * 60 * 1000,
-    retry: 1,
-  });
+  const { data: touringArtists = [] } = useTouring({ enabled: deepSearchEnabled, retry: 1 });
 
   useEffect(() => {
     const t = window.setTimeout(() => inputRef.current?.focus(), 40);
