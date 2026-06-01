@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
@@ -19,11 +20,62 @@ const STATIC_RESULTS = [
   { label: "Contacto", href: "/contacto", type: "Sitio", detail: "Correcciones, alianzas y contacto" },
 ] as const;
 
+const GENRE_RESULTS = [
+  { label: "Corridos Tumbados", href: "/generos", type: "Género", detail: "Corridos, trap y regional mexicano" },
+  { label: "Regional Mexicano", href: "/generos", type: "Género", detail: "Banda, norteño, corridos y grupero" },
+  { label: "Norteño", href: "/generos", type: "Género", detail: "Acordeón, bajo sexto y música del norte" },
+  { label: "Banda", href: "/generos", type: "Género", detail: "Banda sinaloense y música de metales" },
+  { label: "Hip-Hop Mexicano", href: "/generos", type: "Género", detail: "Rap, hip-hop y escenas urbanas mexicanas" },
+  { label: "Pop", href: "/generos", type: "Género", detail: "Pop mexicano y pop latino" },
+] as const;
+
+const CHART_META: Record<string, { platform: string; label: string; period: string }> = {
+  YT_Songs_Weekly: { platform: "YouTube", label: "Canciones", period: "Semanal" },
+  YT_Videos_Daily: { platform: "YouTube", label: "Videos", period: "Diario" },
+  YT_Artists_Weekly: { platform: "YouTube", label: "Artistas", period: "Semanal" },
+  YT_Shorts_Daily: { platform: "YouTube", label: "Shorts", period: "Diario" },
+  Spotify_Artists_Daily: { platform: "Spotify", label: "Artistas", period: "Diario" },
+  Spotify_Artists_Weekly: { platform: "Spotify", label: "Artistas", period: "Semanal" },
+  Spotify_Regional_Daily: { platform: "Spotify", label: "Regional", period: "Diario" },
+  Spotify_Regional_Weekly: { platform: "Spotify", label: "Regional", period: "Semanal" },
+  Spotify_Viral_Daily: { platform: "Spotify", label: "Viral", period: "Diario" },
+  Apple_Songs: { platform: "Apple Music", label: "Canciones", period: "Diario" },
+  Apple_Albums: { platform: "Apple Music", label: "Álbumes", period: "Diario" },
+  Deezer_Top_Mexico: { platform: "Deezer", label: "México", period: "Diario" },
+};
+
+type HubRow = Record<string, string>;
+interface HubData { lastUpdated: string; sheets: Record<string, { headers: string[]; rows: HubRow[] }> }
+
+type CertRow = {
+  artista: string;
+  titulo: string;
+  certificacion: string;
+  nivel: string;
+  year: number;
+};
+
+type TouringEvent = {
+  name: string;
+  date: string;
+  venue: string;
+  city: string;
+  state: string;
+};
+
+type TouringArtist = {
+  id: string;
+  name: string;
+  events: TouringEvent[];
+};
+
 function norm(value: string) {
   return value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 type SearchResult = {
@@ -34,12 +86,78 @@ type SearchResult = {
   score: number;
 };
 
+type SearchCandidate = SearchResult & {
+  haystack: string;
+  baseScore: number;
+};
+
+function rankCandidate(row: SearchCandidate, q: string): SearchResult | null {
+  if (!q) return { ...row, score: row.baseScore };
+  const label = norm(row.label);
+  const terms = q.split(/\s+/).filter(Boolean);
+  let score = 0;
+  if (label === q) score = 1000;
+  else if (label.startsWith(q)) score = 820;
+  else if (row.haystack.includes(q)) score = 560;
+  else if (terms.length > 1 && terms.every(term => row.haystack.includes(term))) score = 470;
+  if (!score) return null;
+  const { haystack: _haystack, baseScore: _baseScore, ...result } = row;
+  return { ...result, score: score + row.baseScore };
+}
+
+function chartTitle(row: HubRow) {
+  return row["Track Name"] || row["Video Title"] || row.Title || row.track_name || row.Artist || row["Artist Name"] || "Entrada de chart";
+}
+
+function chartArtist(row: HubRow) {
+  return row["Artist Names"] || row.artist_names || row.Artist || row["Artist Name"] || "";
+}
+
+function chartRank(row: HubRow, index: number) {
+  return row.Rank || row.rank || row.Position || row.position || String(index + 1);
+}
+
 export default function SiteSearch() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [, navigate] = useLocation();
   const inputRef = useRef<HTMLInputElement>(null);
   const { byKey } = useArtistMetadata();
+  const { data: chartData } = useQuery<HubData>({
+    queryKey: ["search", "charts-hub"],
+    queryFn: async () => {
+      const resp = await fetch("/api/charts/hub");
+      if (!resp.ok) throw new Error("Failed to fetch charts");
+      return resp.json();
+    },
+    enabled: open,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: certificationRows = [] } = useQuery<CertRow[]>({
+    queryKey: ["search", "certifications"],
+    queryFn: async () => {
+      const resp = await fetch(`${import.meta.env.BASE_URL}certifications.json`);
+      if (!resp.ok) return [];
+      const data = await resp.json() as { rows?: CertRow[] };
+      return data.rows ?? [];
+    },
+    enabled: open,
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: touringArtists = [] } = useQuery<TouringArtist[]>({
+    queryKey: ["search", "touring"],
+    queryFn: async () => {
+      const resp = await fetch("/api/touring/concerts");
+      if (!resp.ok) return [];
+      const data = await resp.json() as { artists?: TouringArtist[] };
+      return data.artists ?? [];
+    },
+    enabled: open,
+    staleTime: 8 * 60 * 1000,
+    retry: 1,
+  });
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -63,36 +181,96 @@ export default function SiteSearch() {
 
   const results = useMemo<SearchResult[]>(() => {
     const q = norm(query.trim());
-    const artists = Array.from(byKey.values()).map(artist => ({
+    const includeDeep = q.length >= 2;
+    const artists: SearchCandidate[] = Array.from(byKey.values()).map(artist => ({
       label: artist.displayName,
       href: `/artist/${slugify(artist.displayName)}`,
       type: "Artista",
       detail: [artist.subgenre || artist.genre, artist.spotifyListenersFmt].filter(Boolean).join(" · "),
       score: 0,
+      baseScore: 110,
       haystack: norm(`${artist.displayName} ${artist.artistKey} ${artist.genre} ${artist.subgenre} ${artist.label}`),
     }));
 
-    const staticRows = STATIC_RESULTS.map(row => ({
+    const staticRows: SearchCandidate[] = STATIC_RESULTS.map(row => ({
       ...row,
       score: 0,
+      baseScore: 130,
       haystack: norm(`${row.label} ${row.type} ${row.detail}`),
     }));
 
-    const all = [...staticRows, ...artists];
-    const ranked = all
-      .map(row => {
-        if (!q) return { ...row, score: row.type === "Artista" ? 1 : 2 };
-        if (norm(row.label) === q) return { ...row, score: 100 };
-        if (norm(row.label).startsWith(q)) return { ...row, score: 80 };
-        if (row.haystack.includes(q)) return { ...row, score: 50 };
-        return { ...row, score: 0 };
-      })
-      .filter(row => row.score > 0)
-      .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "es", { sensitivity: "base" }))
-      .slice(0, 9);
+    const genreRows: SearchCandidate[] = GENRE_RESULTS.map(row => ({
+      ...row,
+      score: 0,
+      baseScore: 90,
+      haystack: norm(`${row.label} ${row.type} ${row.detail}`),
+    }));
 
-    return ranked.map(({ haystack: _haystack, ...row }) => row);
-  }, [byKey, query]);
+    const chartRows: SearchCandidate[] = includeDeep && chartData?.sheets
+      ? Object.entries(chartData.sheets).flatMap(([sheetId, sheet]) => {
+        const meta = CHART_META[sheetId] ?? { platform: "Listas", label: sheetId.replace(/_/g, " "), period: "" };
+        return sheet.rows.slice(0, 250).map((row, index) => {
+          const title = chartTitle(row);
+          const artist = chartArtist(row);
+          const rank = chartRank(row, index);
+          return {
+            label: title,
+            href: `/charts?platform=${encodeURIComponent(meta.platform)}&sheet=${encodeURIComponent(sheetId)}`,
+            type: "Chart",
+            detail: [`#${rank}`, artist, meta.platform, meta.label, meta.period].filter(Boolean).join(" · "),
+            score: 0,
+            baseScore: 70,
+            haystack: norm(`${title} ${artist} ${meta.platform} ${meta.label} ${meta.period} ${sheetId}`),
+          };
+        });
+      })
+      : [];
+
+    const certRows: SearchCandidate[] = includeDeep
+      ? certificationRows.slice(0, 1000).map(row => ({
+        label: row.titulo || "Certificación",
+        href: `/industry/certifications?artist=${encodeURIComponent(row.artista)}`,
+        type: "Certificación",
+        detail: [row.artista, row.certificacion || row.nivel, row.year].filter(Boolean).join(" · "),
+        score: 0,
+        baseScore: 62,
+        haystack: norm(`${row.artista} ${row.titulo} ${row.certificacion} ${row.nivel} ${row.year}`),
+      }))
+      : [];
+
+    const touringRows: SearchCandidate[] = includeDeep
+      ? touringArtists.flatMap(artist => {
+        const artistRow: SearchCandidate = {
+          label: artist.name,
+          href: `/touring/${artist.id || slugify(artist.name)}`,
+          type: "Gira",
+          detail: artist.events.length ? `${artist.events.length} fechas activas` : "Perfil de touring",
+          score: 0,
+          baseScore: 58,
+          haystack: norm(`${artist.name} gira touring conciertos ${artist.events.map(event => `${event.city} ${event.state} ${event.venue} ${event.name}`).join(" ")}`),
+        };
+        const eventRows = artist.events.slice(0, 3).map(event => ({
+          label: `${artist.name} · ${event.city}`,
+          href: `/touring/${artist.id || slugify(artist.name)}`,
+          type: "Concierto",
+          detail: [event.venue, event.state, event.date].filter(Boolean).join(" · "),
+          score: 0,
+          baseScore: 52,
+          haystack: norm(`${artist.name} ${event.name} ${event.city} ${event.state} ${event.venue} ${event.date}`),
+        }));
+        return [artistRow, ...eventRows];
+      })
+      : [];
+
+    const all = [...staticRows, ...artists, ...genreRows, ...chartRows, ...certRows, ...touringRows];
+    const ranked = all
+      .map(row => rankCandidate(row, q))
+      .filter((row): row is SearchResult => row !== null && row.score > 0)
+      .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "es", { sensitivity: "base" }))
+      .slice(0, 12);
+
+    return ranked;
+  }, [byKey, certificationRows, chartData, query, touringArtists]);
 
   function go(href: string) {
     setOpen(false);
@@ -140,7 +318,7 @@ export default function SiteSearch() {
                   if (event.key === "Enter" && results[0]) go(results[0].href);
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/25"
-                placeholder="Buscar artista, chart, género, gira..."
+                placeholder="Buscar artista, canción, chart, certificado, gira..."
               />
               <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label="Cerrar búsqueda">
                 <X className="h-4 w-4" />
@@ -171,7 +349,7 @@ export default function SiteSearch() {
               )}
               {!query.trim() && (
                 <div className="px-4 pb-4 pt-2 text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.28)" }}>
-                  Tip: usa <span style={{ color: G }}>/</span> o Cmd K para abrir búsqueda.
+                  Tip: busca artistas, canciones, certificaciones, ciudades o géneros.
                 </div>
               )}
             </div>
