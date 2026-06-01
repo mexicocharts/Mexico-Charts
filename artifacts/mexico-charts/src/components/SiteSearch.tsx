@@ -121,45 +121,7 @@ function chartRank(row: HubRow, index: number) {
 
 export default function SiteSearch() {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [, navigate] = useLocation();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const { byKey } = useArtistMetadata();
-  const { data: chartData } = useQuery<HubData>({
-    queryKey: ["search", "charts-hub"],
-    queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
-      if (!resp.ok) throw new Error("Failed to fetch charts");
-      return resp.json();
-    },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-  const { data: certificationRows = [] } = useQuery<CertRow[]>({
-    queryKey: ["search", "certifications"],
-    queryFn: async () => {
-      const resp = await fetch(`${import.meta.env.BASE_URL}certifications.json`);
-      if (!resp.ok) return [];
-      const data = await resp.json() as { rows?: CertRow[] };
-      return data.rows ?? [];
-    },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
-    retry: 1,
-  });
-  const { data: touringArtists = [] } = useQuery<TouringArtist[]>({
-    queryKey: ["search", "touring"],
-    queryFn: async () => {
-      const resp = await fetch("/api/touring/concerts");
-      if (!resp.ok) return [];
-      const data = await resp.json() as { artists?: TouringArtist[] };
-      return data.artists ?? [];
-    },
-    enabled: open,
-    staleTime: 8 * 60 * 1000,
-    retry: 1,
-  });
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -175,11 +137,80 @@ export default function SiteSearch() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  function go(href: string) {
+    setOpen(false);
+    navigate(href);
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors lg:flex"
+        style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.48)" }}
+        aria-label="Buscar en Mexico Charts"
+      >
+        <Search className="h-3.5 w-3.5" />
+        Buscar
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
+        aria-label="Buscar"
+      >
+        <Search className="h-4 w-4" />
+      </button>
+
+      {open && <SearchDialog onClose={() => setOpen(false)} onNavigate={go} />}
+    </>
+  );
+}
+
+function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate: (href: string) => void }) {
+  const [query, setQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { byKey } = useArtistMetadata();
+  const { data: chartData } = useQuery<HubData>({
+    queryKey: ["charts-hub"],
+    queryFn: async () => {
+      const resp = await fetch("/api/charts/hub");
+      if (!resp.ok) throw new Error("Failed to fetch charts");
+      return resp.json();
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: certificationRows = [] } = useQuery<CertRow[]>({
+    queryKey: ["search", "certifications"],
+    queryFn: async () => {
+      const resp = await fetch(`${import.meta.env.BASE_URL}certifications.json`);
+      if (!resp.ok) return [];
+      const data = await resp.json() as { rows?: CertRow[] };
+      return data.rows ?? [];
+    },
+    staleTime: 30 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: touringArtists = [] } = useQuery<TouringArtist[]>({
+    queryKey: ["touring", "concerts"],
+    queryFn: async () => {
+      const resp = await fetch("/api/touring/concerts");
+      if (!resp.ok) return [];
+      const data = await resp.json() as { artists?: TouringArtist[] };
+      return data.artists ?? [];
+    },
+    staleTime: 8 * 60 * 1000,
+    retry: 1,
+  });
+
   useEffect(() => {
-    if (!open) return;
     const t = window.setTimeout(() => inputRef.current?.focus(), 40);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, []);
 
   const results = useMemo<SearchResult[]>(() => {
     const q = norm(query.trim());
@@ -283,37 +314,8 @@ export default function SiteSearch() {
     return ranked;
   }, [byKey, certificationRows, chartData, query, touringArtists]);
 
-  function go(href: string) {
-    setOpen(false);
-    setQuery("");
-    navigate(href);
-  }
-
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors lg:flex"
-        style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.48)" }}
-        aria-label="Buscar en Mexico Charts"
-      >
-        <Search className="h-3.5 w-3.5" />
-        Buscar
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
-        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
-        aria-label="Buscar"
-      >
-        <Search className="h-4 w-4" />
-      </button>
-
-      {open && (
-        <div className="fixed inset-0 z-[90] px-4 pt-20" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[90] px-4 pt-20" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={onClose}>
           <div
             className="mx-auto max-w-2xl overflow-hidden rounded-xl"
             style={{ background: "linear-gradient(180deg,#0b0b0b,#050505)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 28px 80px rgba(0,0,0,0.72)" }}
@@ -326,12 +328,12 @@ export default function SiteSearch() {
                 value={query}
                 onChange={event => setQuery(event.target.value)}
                 onKeyDown={event => {
-                  if (event.key === "Enter" && results[0]) go(results[0].href);
+                  if (event.key === "Enter" && results[0]) onNavigate(results[0].href);
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/25"
                 placeholder="Buscar artista, canción, chart, certificado, gira..."
               />
-              <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label="Cerrar búsqueda">
+              <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label="Cerrar búsqueda">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -341,7 +343,7 @@ export default function SiteSearch() {
                 <button
                   key={`${result.type}-${result.href}`}
                   type="button"
-                  onClick={() => go(result.href)}
+                  onClick={() => onNavigate(result.href)}
                   className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
                 >
                   <span className="min-w-0">
@@ -366,7 +368,5 @@ export default function SiteSearch() {
             </div>
           </div>
         </div>
-      )}
-    </>
   );
 }
