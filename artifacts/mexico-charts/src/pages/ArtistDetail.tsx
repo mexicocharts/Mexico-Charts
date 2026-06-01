@@ -529,7 +529,7 @@ export default function ArtistDetail() {
             <ArrowLeft className="w-3.5 h-3.5" />
             Volver
           </button>
-          <span className="text-zinc-700 text-[11px] uppercase tracking-widest">/ {artist.name}</span>
+          <span className="min-w-0 truncate text-[11px] uppercase tracking-widest text-zinc-700">/ {artist.name}</span>
         </div>
       </nav>
 
@@ -1466,7 +1466,7 @@ export default function ArtistDetail() {
                 <div className="mb-5 flex items-center gap-3">
                   <SiYoutube className="w-4 h-4 text-red-500" />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top videos en YouTube</h2>
-                  <div className="ml-auto text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Vistas históricas</div>
+                  <div className="ml-auto hidden text-[9px] font-bold uppercase tracking-widest text-zinc-700 sm:block">Vistas históricas</div>
                 </div>
 
                 {kworbStats.youtube.topVideos[0] && (
@@ -1524,7 +1524,7 @@ export default function ArtistDetail() {
                   </a>
                 )}
 
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid min-w-0 gap-2 md:grid-cols-2">
                   {kworbStats.youtube.topVideos.slice(1, 8).map((v, i) => (
                     <motion.a
                       key={i}
@@ -1535,7 +1535,7 @@ export default function ArtistDetail() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.35, delay: i * 0.035, ease: [0.16, 1, 0.3, 1] }}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3"
+                      className="grid min-w-0 grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-xl px-3 py-3 sm:flex sm:items-center"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                     >
                       <div
@@ -1554,13 +1554,13 @@ export default function ArtistDetail() {
                           {i + 2}
                         </span>
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 sm:flex-1">
                         <div className="truncate text-sm font-bold text-zinc-300">{v.title}</div>
                         {v.published && (
                           <div className="mt-0.5 text-[10px] text-zinc-700">{v.published}</div>
                         )}
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="col-start-2 min-w-0 text-left sm:col-start-auto sm:shrink-0 sm:text-right">
                         <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
                         <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
                       </div>
