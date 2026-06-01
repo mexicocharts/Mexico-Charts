@@ -425,7 +425,7 @@ export default function ArtistCompare() {
           <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>
             Herramienta Mexico Charts
           </p>
-          <h1 className="max-w-5xl font-black uppercase leading-[0.88]" style={{ fontSize: "clamp(2.95rem,8vw,7rem)" }}>
+          <h1 className="max-w-5xl font-black uppercase leading-[0.9]" style={{ fontSize: "clamp(2.25rem,7vw,7rem)" }}>
             Comparar artistas
           </h1>
           <div className="mt-4 flex max-w-5xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
