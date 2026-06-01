@@ -52,6 +52,21 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "ramon ayala y sus bravos del norte", artistName: "Ramón Ayala y Sus Bravos del Norte", handle: "ramonayalatv" },
   { artistKey: "sergio vega el shaka", artistName: "Sergio Vega El Shaka", handle: "SergioVegaVEVO" },
   { artistKey: "timbiriche", artistName: "Timbiriche", handle: "TimbiricheVEVO" },
+  { artistKey: "adan romero", artistName: "Adan Romero", handle: "AdanRomerooficial" },
+  { artistKey: "banda clave nueva de max peraza", artistName: "Banda Clave Nueva de Max Peraza", handle: "bandaclavenueva5113" },
+  { artistKey: "chuy montana", artistName: "Chuy Montana", handle: "ChuyMontana-Oficial" },
+  { artistKey: "fito olivares y la pura sabrosura", artistName: "Fito Olivares Y La Pura Sabrosura", handle: "Fitoolivares-w4p7i" },
+  { artistKey: "grupo kual dinastia pedraza", artistName: "Grupo Kual Dinastía Pedraza", handle: "grupokualdinastiapedraza6570" },
+  { artistKey: "grupo pegasso del pollo esteban", artistName: "Grupo Pegasso Del Pollo Esteban", handle: "grupopegassooficial" },
+  { artistKey: "grupo super lamas", artistName: "Grupo SUPER LAMAS", handle: "lossuperlamas" },
+  { artistKey: "jorsshh", artistName: "Jorsshh", handle: "Jorsshhoficial" },
+  { artistKey: "julio preciado y su banda perla del pacifico", artistName: "Julio Preciado Y Su Banda Perla Del Pacifico", handle: "JulioPreciadoOficial" },
+  { artistKey: "leandro rios", artistName: "Leandro Ríos", handle: "LeandroRiosG" },
+  { artistKey: "los alegres de la sierra", artistName: "Los Alegres de la Sierra", handle: "alegresdelasierraoficial2856" },
+  { artistKey: "los buitres de culiacan", artistName: "Los Buitres De Culiacán", handle: "LosBuitresdeCuliacánSinaloa" },
+  { artistKey: "los tiranos del norte", artistName: "Los Tiranos Del Norte", handle: "LosTiranosdelNortemusic" },
+  { artistKey: "mariachi vargas de tecalitlan", artistName: "Mariachi Vargas De Tecalitlan", handle: "MariachiVargasOficial" },
+  { artistKey: "mariana seoane", artistName: "Mariana Seoane", handle: "laseoaneoficial_" },
 ];
 
 function parseArgs() {
