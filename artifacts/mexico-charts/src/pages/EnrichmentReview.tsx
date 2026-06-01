@@ -148,6 +148,14 @@ export default function EnrichmentReview() {
 
   function saveKey() {
     const next = draftKey.trim();
+    if (!next) {
+      localStorage.removeItem("mexicocharts_admin_key");
+      setAdminKey("");
+      setData(null);
+      setError(null);
+      setActionMessage(null);
+      return;
+    }
     localStorage.setItem("mexicocharts_admin_key", next);
     setAdminKey(next);
     void loadReviewQueue(next);

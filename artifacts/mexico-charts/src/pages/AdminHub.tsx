@@ -66,6 +66,10 @@ export default function AdminHub() {
 
   function saveKey() {
     const next = draftKey.trim();
+    if (!next) {
+      clearKey();
+      return;
+    }
     localStorage.setItem("mexicocharts_admin_key", next);
     setAdminKey(next);
   }

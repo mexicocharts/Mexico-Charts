@@ -280,17 +280,19 @@ export default function ApiCoverage() {
   const normalizedMissingSearch = missingSearch.trim().toLowerCase();
 
   async function loadDashboard(key = adminKey) {
-    if (!key.trim()) return;
+    const savedKey = key.trim();
+    if (!savedKey) return;
     setLoading(true);
     setError(null);
     try {
-      const [coverageRes, kworbRes, touringRes] = await Promise.all([
-        fetch("/api/admin/artists/api-coverage", { headers: { "X-Admin-Key": key.trim() } }),
-        fetch("/api/kworb/admin/stats"),
-        fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": key.trim() } }),
-      ]);
+      const coverageRes = await fetch("/api/admin/artists/api-coverage", { headers: { "X-Admin-Key": savedKey } });
       if (!coverageRes.ok) throw new Error(coverageRes.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cobertura.");
       setCoverage(await coverageRes.json());
+
+      const [kworbRes, touringRes] = await Promise.all([
+        fetch("/api/kworb/admin/stats"),
+        fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": savedKey } }),
+      ]);
       setKworb(kworbRes.ok ? await kworbRes.json() : null);
       setTouring(touringRes.ok ? await touringRes.json() : null);
     } catch (err) {
@@ -305,6 +307,15 @@ export default function ApiCoverage() {
 
   function saveKey() {
     const next = draftKey.trim();
+    if (!next) {
+      localStorage.removeItem("mexicocharts_admin_key");
+      setAdminKey("");
+      setCoverage(null);
+      setKworb(null);
+      setTouring(null);
+      setError(null);
+      return;
+    }
     localStorage.setItem("mexicocharts_admin_key", next);
     setAdminKey(next);
     void loadDashboard(next);
@@ -368,6 +379,11 @@ export default function ApiCoverage() {
   }
 
   async function syncKworbCoverage() {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
     setSyncingKworb(true);
     setActionMessage(null);
     setError(null);
@@ -385,6 +401,11 @@ export default function ApiCoverage() {
   }
 
   async function runKworbNow() {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
     setRunningKworb(true);
     setActionMessage(null);
     setError(null);
