@@ -290,7 +290,7 @@ export default function ApiCoverage() {
       setCoverage(await coverageRes.json());
 
       const [kworbRes, touringRes] = await Promise.all([
-        fetch("/api/kworb/admin/stats"),
+        fetch("/api/kworb/admin/stats", { headers: { "X-Admin-Key": savedKey } }),
         fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": savedKey } }),
       ]);
       setKworb(kworbRes.ok ? await kworbRes.json() : null);
@@ -388,7 +388,10 @@ export default function ApiCoverage() {
     setActionMessage(null);
     setError(null);
     try {
-      const res = await fetch("/api/kworb/admin/sync-coverage", { method: "POST" });
+      const res = await fetch("/api/kworb/admin/sync-coverage", {
+        method: "POST",
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
       if (!res.ok) throw new Error("No se pudo sincronizar Kworb.");
       const data = await res.json() as { metadataTotal?: number; newAdded?: number; jobsEnqueued?: number };
       setActionMessage(`Kworb sincronizado: ${data.metadataTotal ?? 0} artistas revisados, ${data.newAdded ?? 0} nuevos, ${data.jobsEnqueued ?? 0} jobs en cola.`);
@@ -410,7 +413,10 @@ export default function ApiCoverage() {
     setActionMessage(null);
     setError(null);
     try {
-      const res = await fetch("/api/kworb/admin/run-now", { method: "POST" });
+      const res = await fetch("/api/kworb/admin/run-now", {
+        method: "POST",
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
       if (!res.ok) throw new Error("No se pudo arrancar Kworb.");
       const data = await res.json() as {
         coverage_synced?: number;

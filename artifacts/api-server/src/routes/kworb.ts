@@ -4,6 +4,32 @@ import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
 
+const ADMIN_KEY = () => (
+  process.env["NEWSLETTER_ADMIN_KEY"] ||
+  process.env["YOUTUBE_ADMIN_KEY"] ||
+  process.env["SPOTIFY_ADMIN_KEY"] ||
+  ""
+).trim();
+
+function isAdminAuthed(req: { headers: Record<string, string | string[] | undefined>; query: Record<string, unknown> }): boolean {
+  const key = ADMIN_KEY();
+  if (!key) return false;
+  const header = req.headers["x-admin-key"];
+  const qkey = req.query["adminKey"];
+  return header === key || qkey === key;
+}
+
+function requireAdmin(
+  req: Parameters<Parameters<typeof router.get>[1]>[0],
+  res: Parameters<Parameters<typeof router.get>[1]>[1],
+): boolean {
+  if (!isAdminAuthed(req as Parameters<typeof isAdminAuthed>[0])) {
+    res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
+    return false;
+  }
+  return true;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    KILL SWITCH
    Set KWORB_FETCHING_ENABLED=false to disable all outbound kworb scraping
@@ -1543,7 +1569,9 @@ router.get("/kworb/refresh-status", async (_req, res) => {
 });
 
 /* GET /api/kworb/admin/stats */
-router.get("/kworb/admin/stats", async (_req, res) => {
+router.get("/kworb/admin/stats", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   const [jobRow, covRow, snapRow, refreshedTodayRow, snapshotsTodayRow, topSpotifyDailyRows, topYoutubeDailyRows, oldestStaleRow, noSnapshotRow, etaRow] = await Promise.all([
     // Queue status
     pool.query(`
@@ -1748,7 +1776,9 @@ router.get("/kworb/admin/stats", async (_req, res) => {
 });
 
 /* POST /api/kworb/admin/seed-coverage  — populate coverage + queue initial jobs */
-router.post("/kworb/admin/seed-coverage", async (_req, res) => {
+router.post("/kworb/admin/seed-coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   try {
     const result = await seedCoverage(true);
     res.json({ ok: true, ...result });
@@ -1761,7 +1791,9 @@ router.post("/kworb/admin/seed-coverage", async (_req, res) => {
    Diffs the 541-artist metadata sheet against kworb_coverage and adds any
    missing artists. Idempotent — safe to run multiple times.
    Does NOT touch existing coverage rows or snapshots.                     */
-router.post("/kworb/admin/sync-coverage", async (_req, res) => {
+router.post("/kworb/admin/sync-coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   try {
     const result = await syncCoverage();
     res.json({ ok: true, ...result });
@@ -1772,6 +1804,8 @@ router.post("/kworb/admin/sync-coverage", async (_req, res) => {
 
 /* POST /api/kworb/admin/enqueue?name=X&priority=5  — manual enqueue */
 router.post("/kworb/admin/enqueue", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   const name     = (req.query.name as string | undefined)?.trim();
   const priority = parseInt((req.query.priority as string | undefined) ?? "5", 10);
   if (!name) { res.status(400).json({ error: "name required" }); return; }
@@ -1781,7 +1815,9 @@ router.post("/kworb/admin/enqueue", async (req, res) => {
 });
 
 /* POST /api/kworb/admin/run-now — sync coverage, then reset pending + zombie running jobs to due now */
-router.post("/kworb/admin/run-now", async (_req, res) => {
+router.post("/kworb/admin/run-now", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   const syncResult = await syncCoverage();
 
   // Reset future-dated pending jobs
@@ -1808,6 +1844,8 @@ router.post("/kworb/admin/run-now", async (_req, res) => {
 
 /* POST /api/kworb/admin/set-spotify-id — seed spotify_id and reset job for one artist */
 router.post("/kworb/admin/set-spotify-id", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   const { artist_key, spotify_id } = req.body as { artist_key?: string; spotify_id?: string };
   if (!artist_key || !spotify_id) { res.status(400).json({ error: "artist_key and spotify_id required" }); return; }
 
@@ -1831,7 +1869,9 @@ router.post("/kworb/admin/set-spotify-id", async (req, res) => {
 /* POST /api/kworb/admin/requeue-itunes-only
    Re-enqueues all artists that have iTunes chart positions but no Spotify data,
    so the worker re-fetches them with the Spotify-ID-extraction logic.         */
-router.post("/kworb/admin/requeue-itunes-only", async (_req, res) => {
+router.post("/kworb/admin/requeue-itunes-only", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
   try {
     const { rows } = await pool.query<{ artist_key: string }>(`
       SELECT artist_key FROM kworb_coverage
