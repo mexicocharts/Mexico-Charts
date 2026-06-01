@@ -67,6 +67,16 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "los tiranos del norte", artistName: "Los Tiranos Del Norte", handle: "LosTiranosdelNortemusic" },
   { artistKey: "mariachi vargas de tecalitlan", artistName: "Mariachi Vargas De Tecalitlan", handle: "MariachiVargasOficial" },
   { artistKey: "mariana seoane", artistName: "Mariana Seoane", handle: "laseoaneoficial_" },
+  { artistKey: "banda sinaloense ms de sergio lizarraga", artistName: "Banda Sinaloense MS de Sergio Lizárraga", handle: "BandaMS" },
+  { artistKey: "banda tito y su torbellino", artistName: "Banda Tito Y Su Torbellino", handle: "TitoTorbellinoOficial" },
+  { artistKey: "el tigrillo palma", artistName: "El Tigrillo Palma", handle: "eltigrillopalma9984" },
+  { artistKey: "ezequiel pena", artistName: "Ezequiel Peña", handle: "chequepena" },
+  { artistKey: "ian cordova", artistName: "Ian Cordova", handle: "IanCordova_Oficial" },
+  { artistKey: "lorenzo de monteclaro", artistName: "Lorenzo De Monteclaro", handle: "LORENZODEMONTECLAROOFFICIAL" },
+  { artistKey: "los nuevos ilegales", artistName: "Los Nuevos Ilegales", handle: "losnuevosilegalesoficial" },
+  { artistKey: "los razos", artistName: "Los Razos", handle: "losrazosVEVO" },
+  { artistKey: "nivel codiciado", artistName: "Nivel Codiciado", handle: "OficialmenteNivel" },
+  { artistKey: "nueva h", artistName: "Nueva H", handle: "NuevaH_CT" },
 ];
 
 function parseArgs() {
