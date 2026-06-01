@@ -120,6 +120,17 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "chuy vega y los nuevos cadetes", artistName: "Chuy Vega Y Los Nuevos Cadetes", handle: "CHUYVEGAOFICIAL" },
   { artistKey: "los esquivel", artistName: "Los Esquivel", handle: "eugenioesquivel2385" },
   { artistKey: "los amables del norte", artistName: "Los Amables Del Norte", handle: "losamablesdelnortetv2418" },
+  { artistKey: "el de la guitarra", artistName: "EL DE LA GUITARRA", handle: "ElDeLaGuitarraOficial" },
+  { artistKey: "banda zeta", artistName: "Banda Zeta", handle: "BandaZetaOficial" },
+  { artistKey: "grupo mente maestra", artistName: "Grupo Mente Maestra", handle: "GrupoMenteMaestra" },
+  { artistKey: "macari martinez", artistName: "Macariø Martínez", handle: "MacarioMartinezmusica" },
+  { artistKey: "linea personal", artistName: "Linea Personal", handle: "LineaPersonalofficial" },
+  { artistKey: "oscar ivan trevino", artistName: "Oscar Iván Treviño", handle: "OscarIvanTreviño" },
+  { artistKey: "el rabbanito", artistName: "El Rabbanito", handle: "Elrabbanito" },
+  { artistKey: "el de la tinta", artistName: "EL DE LA TINTA", handle: "eldelatinta1" },
+  { artistKey: "emmanuellcortess", artistName: "emmanuellcortess_", handle: "EmmanuelCortesOficial" },
+  { artistKey: "xolo music", artistName: "Xolo Music", handle: "Xolo_Music_MX" },
+  { artistKey: "ldne", artistName: "LDNE", handle: "ldneofficial3122" },
 ];
 
 function parseArgs() {
