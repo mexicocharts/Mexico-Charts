@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export interface ArtistEnrichment {
   artistKey: string;
+  canonicalArtistKey?: string;
   spotify: {
     artistId: string;
     name: string | null;

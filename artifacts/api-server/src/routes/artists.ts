@@ -8,7 +8,7 @@ import {
   spotifyArtists,
   youtubeChannels,
 } from "@workspace/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -21,6 +21,41 @@ const BLOCKED_ARTIST_KEYS = new Set([
   "el frizian", "los 2 primos", "el gerry oficial", "lupe borbon y su blindaje 7",
   "juanchito", "meloleon", "badguychapo",
 ]);
+
+const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
+  "banda el recodo de cruz lizarraga": "banda el recodo",
+  "banda sinaloense ms de sergio lizarraga": "banda ms de sergio lizarraga",
+  "banda tito y su torbellino": "tito torbellino",
+  "ramon ayala y sus bravos del norte": "ramon ayala",
+};
+
+function normalizeArtistKey(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function canonicalArtistKey(value: string | null | undefined) {
+  const key = normalizeArtistKey(value);
+  return CANONICAL_ARTIST_KEY_BY_ALIAS[key] ?? key;
+}
+
+function artistLookupKeys(value: string) {
+  const key = normalizeArtistKey(value);
+  const canonical = canonicalArtistKey(key);
+  return key === canonical ? [key] : [key, canonical];
+}
+
+function pickArtistRow<T extends { artistKey: string }>(rows: T[], requestedKey: string) {
+  const key = normalizeArtistKey(requestedKey);
+  const canonical = canonicalArtistKey(key);
+  return rows.find(row => normalizeArtistKey(row.artistKey) === key)
+    ?? rows.find(row => normalizeArtistKey(row.artistKey) === canonical)
+    ?? null;
+}
+
+function hasLinkedArtist(linkedKeys: Set<string>, artistKey: string | null | undefined) {
+  const key = normalizeArtistKey(artistKey);
+  return Boolean(key && (linkedKeys.has(key) || linkedKeys.has(canonicalArtistKey(key))));
+}
 
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 const ADMIN_KEY = () => (
@@ -346,13 +381,20 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
   }
 
   try {
-    const [spotify] = await db.select().from(spotifyArtists).where(eq(spotifyArtists.artistKey, artistKey));
-    const [musicbrainz] = await db.select().from(musicbrainzArtists).where(eq(musicbrainzArtists.artistKey, artistKey));
-    const [youtube] = await db.select().from(youtubeChannels).where(eq(youtubeChannels.artistKey, artistKey));
+    const lookupKeys = artistLookupKeys(artistKey);
+    const [spotifyRows, musicbrainzRows, youtubeRows] = await Promise.all([
+      db.select().from(spotifyArtists).where(inArray(spotifyArtists.artistKey, lookupKeys)),
+      db.select().from(musicbrainzArtists).where(inArray(musicbrainzArtists.artistKey, lookupKeys)),
+      db.select().from(youtubeChannels).where(inArray(youtubeChannels.artistKey, lookupKeys)),
+    ]);
+    const spotify = pickArtistRow(spotifyRows, artistKey);
+    const musicbrainz = pickArtistRow(musicbrainzRows, artistKey);
+    const youtube = pickArtistRow(youtubeRows, artistKey);
 
     res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=3600");
     res.json({
       artistKey,
+      canonicalArtistKey: canonicalArtistKey(artistKey),
       spotify: spotify ? {
         artistId: spotify.spotifyArtistId,
         name: spotify.spotifyName,
@@ -423,6 +465,11 @@ router.get("/artists/verified", async (_req, res) => {
     spotifyRows.forEach(row => addSource(row.artistKey, "spotify"));
     musicbrainzRows.forEach(row => addSource(row.artistKey, "musicbrainz"));
     youtubeRows.forEach(row => addSource(row.artistKey, "youtube"));
+    Object.entries(CANONICAL_ARTIST_KEY_BY_ALIAS).forEach(([aliasKey, canonicalKey]) => {
+      const canonicalSources = verified.get(canonicalKey);
+      if (!canonicalSources) return;
+      canonicalSources.forEach(source => addSource(aliasKey, source));
+    });
 
     res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=3600");
     res.json({
@@ -501,6 +548,13 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
     const linkedMusicbrainz = new Set(musicbrainzRows.map(row => row.artistKey));
     const linkedYoutube = new Set(youtubeRows.map(row => row.artistKey));
     const linkedDeezerCovers = new Set(deezerRows.map(row => row.artistKey));
+    const linkedCount = (linkedKeys: Set<string>) => artists
+      .filter(row => row.artist_key && hasLinkedArtist(linkedKeys, row.artist_key))
+      .length;
+    const spotifyLinked = linkedCount(linkedSpotify);
+    const musicbrainzLinked = linkedCount(linkedMusicbrainz);
+    const youtubeLinked = linkedCount(linkedYoutube);
+    const deezerLinked = linkedCount(linkedDeezerCovers);
 
     const spotifyReview = spotifyCandidates.filter(row => row.status === "review");
     const musicbrainzReview = musicbrainzCandidates.filter(row => row.status === "review");
@@ -508,7 +562,7 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
     const musicbrainzRejected = musicbrainzCandidates.filter(row => row.status === "rejected");
 
     const missingPreview = (linkedKeys: Set<string>) => artists
-      .filter(row => row.artist_key && !linkedKeys.has(row.artist_key))
+      .filter(row => row.artist_key && !hasLinkedArtist(linkedKeys, row.artist_key))
       .slice(0, 150)
       .map(row => ({ artistKey: row.artist_key, artistName: row.artist_name }));
 
@@ -528,11 +582,11 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
       generatedAt: new Date().toISOString(),
       providers: {
         spotify: {
-          linked: linkedSpotify.size,
-          missing: Math.max(0, artistKeys.size - linkedSpotify.size),
+          linked: spotifyLinked,
+          missing: Math.max(0, artistKeys.size - spotifyLinked),
           review: spotifyReview.length,
           rejected: spotifyRejected.length,
-          coveragePct: artistKeys.size ? Number(((linkedSpotify.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          coveragePct: artistKeys.size ? Number(((spotifyLinked / artistKeys.size) * 100).toFixed(1)) : 0,
           newestUpdatedAt: newestDate(spotifyRows.map(row => row.spotifyLastUpdated)),
           oldestUpdatedAt: oldestDate(spotifyRows.map(row => row.spotifyLastUpdated)),
           missingPreview: missingPreview(linkedSpotify),
@@ -543,21 +597,21 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
           })),
         },
         youtube: {
-          linked: linkedYoutube.size,
-          missing: Math.max(0, artistKeys.size - linkedYoutube.size),
+          linked: youtubeLinked,
+          missing: Math.max(0, artistKeys.size - youtubeLinked),
           review: 0,
           rejected: 0,
-          coveragePct: artistKeys.size ? Number(((linkedYoutube.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          coveragePct: artistKeys.size ? Number(((youtubeLinked / artistKeys.size) * 100).toFixed(1)) : 0,
           newestUpdatedAt: newestDate(youtubeRows.map(row => row.cachedAt)),
           oldestUpdatedAt: oldestDate(youtubeRows.map(row => row.cachedAt)),
           missingPreview: missingPreview(linkedYoutube),
         },
         musicbrainz: {
-          linked: linkedMusicbrainz.size,
-          missing: Math.max(0, artistKeys.size - linkedMusicbrainz.size),
+          linked: musicbrainzLinked,
+          missing: Math.max(0, artistKeys.size - musicbrainzLinked),
           review: musicbrainzReview.length,
           rejected: musicbrainzRejected.length,
-          coveragePct: artistKeys.size ? Number(((linkedMusicbrainz.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          coveragePct: artistKeys.size ? Number(((musicbrainzLinked / artistKeys.size) * 100).toFixed(1)) : 0,
           newestUpdatedAt: newestDate(musicbrainzRows.map(row => row.lastUpdated)),
           oldestUpdatedAt: oldestDate(musicbrainzRows.map(row => row.lastUpdated)),
           missingPreview: missingPreview(linkedMusicbrainz),
@@ -568,11 +622,11 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
           })),
         },
         deezer: {
-          linked: linkedDeezerCovers.size,
-          missing: Math.max(0, artistKeys.size - linkedDeezerCovers.size),
+          linked: deezerLinked,
+          missing: Math.max(0, artistKeys.size - deezerLinked),
           review: 0,
           rejected: 0,
-          coveragePct: artistKeys.size ? Number(((linkedDeezerCovers.size / artistKeys.size) * 100).toFixed(1)) : 0,
+          coveragePct: artistKeys.size ? Number(((deezerLinked / artistKeys.size) * 100).toFixed(1)) : 0,
           newestUpdatedAt: newestDate(deezerRows.map(row => row.updatedAt)),
           oldestUpdatedAt: oldestDate(deezerRows.map(row => row.updatedAt)),
           missingPreview: missingPreview(linkedDeezerCovers),
