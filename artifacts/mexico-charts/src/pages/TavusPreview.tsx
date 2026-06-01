@@ -24,6 +24,7 @@ export default function TavusPreview() {
         title="Video Tavus · Mexico Charts"
         description="Vista editorial de un video Tavus integrado dentro de Mexico Charts"
         path="/tavus-preview"
+        noindex
       />
 
       <style dangerouslySetInnerHTML={{ __html: `
