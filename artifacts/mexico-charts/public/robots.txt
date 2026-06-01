@@ -1,4 +1,6 @@
 User-agent: *
+Disallow: /admin
 Disallow: /social-templates
+Disallow: /tavus-preview
 Allow: /
 Sitemap: https://mexicochart.com/sitemap.xml
