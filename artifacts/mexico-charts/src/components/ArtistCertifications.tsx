@@ -30,6 +30,8 @@ function CertImage({ cert, size = 28 }: { cert: string; size?: number }) {
       alt={key}
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       style={{ objectFit: "contain", display: "block", flexShrink: 0 }}
     />
   );
@@ -47,6 +49,8 @@ function CertBadge({ cert }: { cert: string }) {
       title={label}
       width={44}
       height={44}
+      loading="lazy"
+      decoding="async"
       style={{ objectFit: "contain", display: "block" }}
     />
   );
@@ -73,6 +77,8 @@ function StatCard({ label, value, certKey: ck }: { label: string; value: string 
             alt={ck}
             width={12}
             height={12}
+            loading="lazy"
+            decoding="async"
             style={{ objectFit: "contain", display: "block" }}
           />
         )}

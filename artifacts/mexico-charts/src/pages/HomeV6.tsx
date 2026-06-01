@@ -942,6 +942,8 @@ export default function HomeV6() {
                   alt=""
                   width={1916}
                   height={821}
+                  loading="lazy"
+                  decoding="async"
                   style={{
                     width: "100%", height: "auto", display: "block",
                     mixBlendMode: "screen",
@@ -1081,7 +1083,7 @@ export default function HomeV6() {
                       >
                         <div className="text-xl font-black text-zinc-800 w-8 font-mono shrink-0">{String(a.rank).padStart(2,"0")}</div>
                         {photo
-                          ? <img src={photo} alt={a.name} width={36} height={36} className="w-9 h-9 rounded-full object-cover shrink-0 transition-all duration-300 group-hover/row:brightness-105" style={{ border:`1px solid ${a.accent}30`, filter:"saturate(0.68) contrast(1.08) brightness(0.86)" }} />
+                          ? <img src={photo} alt={a.name} width={36} height={36} loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover shrink-0 transition-all duration-300 group-hover/row:brightness-105" style={{ border:`1px solid ${a.accent}30`, filter:"saturate(0.68) contrast(1.08) brightness(0.86)" }} />
                           : <div className="w-9 h-9 rounded-full shrink-0" style={{ background:"#1c1c1c", border:`1px solid ${a.accent}30` }} />
                         }
                         <div className="flex-1 min-w-0">
@@ -1306,7 +1308,7 @@ export default function HomeV6() {
         <div className="relative z-10 max-w-[1400px] mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
-              <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} className="h-9 object-contain mb-4 opacity-90" />
+              <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
               <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">Datos, charts y contexto de la música mexicana.</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (

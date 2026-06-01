@@ -601,7 +601,7 @@ export default function TouringHub() {
       {/* ── HERO ── */}
       <section className="th-hero" style={{ position: "relative", height: 540, overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.05, mixBlendMode: "overlay", pointerEvents: "none", zIndex: 4 }} />
-        <img src={HERO_BG} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
+        <img src={HERO_BG} alt="" width={1200} height={720} loading="eager" fetchPriority="high" decoding="async" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center 75%", filter: "contrast(1.06) brightness(1.01) saturate(1.08)" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(4,10,4,0.74) 0%, rgba(4,10,4,0.40) 30%, transparent 56%)", zIndex: 3, pointerEvents: "none" }} />
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 100, background: "linear-gradient(to top, #080808 0%, transparent 100%)", zIndex: 3, pointerEvents: "none" }} />
 
@@ -758,7 +758,7 @@ export default function TouringHub() {
                     transition={{ delay: i * 0.02, duration: 0.4, ease: [0.16,1,0.3,1] }}>
                     {ev.img && (
                       <div className="th-show-thumb" style={{ width: 54, height: 54, flexShrink: 0, overflow: "hidden" }}>
-                        <img src={ev.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.45) saturate(0.3)" }} />
+                        <img src={ev.img} alt="" width={54} height={54} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "brightness(0.45) saturate(0.3)" }} />
                       </div>
                     )}
                     <div className="th-show-row-main" style={{ flex: 1, display: "flex", alignItems: "center", padding: "0 18px", minWidth: 0, gap: 0 }}>
@@ -820,7 +820,7 @@ export default function TouringHub() {
                 transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
                 <div className="th-profile-image" style={{ position: "relative", height: 168, overflow: "hidden", background: "#0a0a0a" }}>
                   {img ? (
-                    <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
+                    <img src={img} alt="" width={320} height={220} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
                   ) : (
                     <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0d0d0d 0%, #111 100%)" }} />
                   )}

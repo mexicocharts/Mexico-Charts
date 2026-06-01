@@ -261,6 +261,10 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
                   <img
                     src={photoUrl}
                     alt={item.name}
+                    width={64}
+                    height={64}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     style={{ filter: "brightness(0.82) saturate(0.78) contrast(1.08)" }}
                   />

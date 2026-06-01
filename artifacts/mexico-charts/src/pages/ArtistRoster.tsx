@@ -133,7 +133,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
                   }}
                 />
                 {/* Invisible img for error detection */}
-                <img src={photoUrl!} alt="" className="hidden" onError={handleImgError} />
+                <img src={photoUrl!} alt="" decoding="async" className="hidden" onError={handleImgError} />
                 {/* Cinematic edge vignette */}
                 <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 80% at 50% 30%, transparent 35%, rgba(0,0,0,0.40) 75%, rgba(0,0,0,0.72) 100%)" }} />
                 {/* Bottom fade into card body */}
