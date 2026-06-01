@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
@@ -121,7 +121,18 @@ function chartRank(row: HubRow, index: number) {
 
 export default function SiteSearch() {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [, navigate] = useLocation();
+
+  function openSearch(event: MouseEvent<HTMLButtonElement>) {
+    triggerRef.current = event.currentTarget;
+    setOpen(true);
+  }
+
+  function closeSearch() {
+    setOpen(false);
+    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -129,13 +140,14 @@ export default function SiteSearch() {
       const typing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
       if ((event.key === "/" && !typing) || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
         event.preventDefault();
+        triggerRef.current = null;
         setOpen(true);
       }
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape" && open) closeSearch();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [open]);
 
   function go(href: string) {
     setOpen(false);
@@ -146,7 +158,7 @@ export default function SiteSearch() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openSearch}
         className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors lg:flex"
         style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.48)" }}
         aria-label="Buscar en Mexico Charts"
@@ -157,7 +169,7 @@ export default function SiteSearch() {
 
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openSearch}
         className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
         aria-label="Buscar"
@@ -165,7 +177,7 @@ export default function SiteSearch() {
         <Search className="h-4 w-4" />
       </button>
 
-      {open && <SearchDialog onClose={() => setOpen(false)} onNavigate={go} />}
+      {open && <SearchDialog onClose={closeSearch} onNavigate={go} />}
     </>
   );
 }
@@ -173,6 +185,8 @@ export default function SiteSearch() {
 function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate: (href: string) => void }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const titleId = "site-search-title";
+  const resultsId = "site-search-results";
   const { byKey } = useArtistMetadata();
   const normalizedQuery = norm(query.trim());
   const deepSearchEnabled = normalizedQuery.length >= 2;
@@ -320,15 +334,17 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
   }, [byKey, certificationRows, chartData, deepSearchEnabled, normalizedQuery, touringArtists]);
 
   return (
-        <div className="fixed inset-0 z-[90] px-4 pt-20" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={onClose}>
+        <div className="fixed inset-0 z-[90] px-4 pt-20" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={onClose}>
           <div
             className="mx-auto max-w-2xl overflow-hidden rounded-xl"
             style={{ background: "linear-gradient(180deg,#0b0b0b,#050505)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 28px 80px rgba(0,0,0,0.72)" }}
             onMouseDown={event => event.stopPropagation()}
           >
+            <h2 id={titleId} className="sr-only">Buscar en Mexico Charts</h2>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
               <Search className="h-4 w-4" style={{ color: G }} />
               <input
+                type="search"
                 ref={inputRef}
                 value={query}
                 onChange={event => setQuery(event.target.value)}
@@ -337,18 +353,21 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/25"
                 placeholder="Buscar artista, canción, chart, certificado, gira..."
+                aria-label="Buscar artista, canción, chart, certificado o gira"
+                aria-controls={resultsId}
               />
               <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label="Cerrar búsqueda">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="max-h-[65vh] overflow-y-auto p-2">
+            <div id={resultsId} className="max-h-[65vh] overflow-y-auto p-2" aria-live="polite">
               {results.map(result => (
                 <button
                   key={`${result.type}-${result.href}`}
                   type="button"
                   onClick={() => onNavigate(result.href)}
+                  aria-label={`${result.label}. ${result.detail}. ${result.type}`}
                   className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
                 >
                   <span className="min-w-0">

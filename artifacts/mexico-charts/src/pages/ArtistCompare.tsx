@@ -180,6 +180,7 @@ function ArtistPicker({ label, artist, artists, side, onPick }: {
                 setFocused(false);
               }}
               className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.055] px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
+              aria-label={`Seleccionar ${candidate.displayName} como ${label.toLowerCase()}`}
             >
               <span className="min-w-0">
                 <span className="block truncate text-sm font-black text-white">{candidate.displayName}</span>
@@ -435,7 +436,8 @@ export default function ArtistCompare() {
             {artistA && artistB && (
               <button type="button" onClick={copyShareUrl}
                 className="inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-colors hover:bg-white/[0.06]"
-                style={{ border: "1px solid rgba(255,255,255,0.1)", color: copied ? G : "rgba(255,255,255,0.62)" }}>
+                style={{ border: "1px solid rgba(255,255,255,0.1)", color: copied ? G : "rgba(255,255,255,0.62)" }}
+                aria-live="polite">
                 {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copiado" : "Compartir"}
               </button>
@@ -462,7 +464,8 @@ export default function ArtistCompare() {
                     <button key={pair.label} type="button"
                       onClick={() => navigate(`/compare?a=${encodeURIComponent(slugify(pair.a.displayName))}&b=${encodeURIComponent(slugify(pair.b.displayName))}`)}
                       className="rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em]"
-                      style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.48)", background: "rgba(255,255,255,0.025)" }}>
+                      style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.48)", background: "rgba(255,255,255,0.025)" }}
+                      aria-label={`Comparar ${pair.a.displayName} con ${pair.b.displayName}`}>
                       {pair.label}
                     </button>
                   ))}

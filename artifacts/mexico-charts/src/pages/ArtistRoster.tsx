@@ -277,7 +277,7 @@ function FilterDropdown({ label, value, options, onChange }: DropdownProps) {
         onChange={e => onChange(e.target.value)}
         className="appearance-none bg-white/[0.04] border border-white/[0.09] rounded-full pl-3 pr-7 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 focus:outline-none focus:border-[#39FF14]/40 cursor-pointer transition-colors hover:border-white/20"
         style={{ colorScheme: "dark" }}
-        aria-label={label}
+        aria-label={`Filtrar por ${label.toLowerCase()}`}
       >
         <option value="">{label}</option>
         {options.map(o => (
@@ -436,7 +436,7 @@ export default function ArtistRoster() {
               data-testid="roster-search"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="text-zinc-600 hover:text-zinc-300 transition-colors" aria-label="Limpiar búsqueda">
+              <button type="button" onClick={() => setSearch("")} className="text-zinc-600 hover:text-zinc-300 transition-colors" aria-label="Limpiar búsqueda">
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -496,6 +496,8 @@ export default function ArtistRoster() {
                   onClick={clearFilters}
                   className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-full transition-colors"
                   style={{ background: "rgba(57,255,20,0.1)", color: ACCENT, border: "1px solid rgba(57,255,20,0.25)" }}
+                  type="button"
+                  aria-label="Limpiar filtros de artistas"
                   data-testid="roster-clear-filters"
                 >
                   <X className="w-3 h-3" /> Limpiar
@@ -566,6 +568,7 @@ export default function ArtistRoster() {
               No encontramos artistas con esos filtros. Prueba buscando con otro nombre o cambia los filtros.
             </div>
             <button
+              type="button"
               onClick={clearFilters}
               className="text-[11px] font-black uppercase tracking-widest px-4 py-2 rounded-full transition-colors"
               style={{ background: "rgba(57,255,20,0.1)", color: ACCENT, border: "1px solid rgba(57,255,20,0.2)" }}

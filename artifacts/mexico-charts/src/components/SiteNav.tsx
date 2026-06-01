@@ -71,6 +71,7 @@ export default function SiteNav({ homeActive = false }: Props) {
           {NAV.map(item => {
             if (item.dropdown) {
               const dropdownActive = isActive(item.href, item.label);
+              const dropdownId = `desktop-nav-${item.label.toLowerCase()}`;
               return (
                 <div key={item.label} className="relative"
                   onMouseEnter={() => openDrop(item.label)} onMouseLeave={closeDrop}>
@@ -79,6 +80,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                     className="relative flex items-center gap-1 text-[11px] font-black uppercase tracking-[0.2em] cursor-pointer transition-colors"
                     aria-expanded={dropOpen === item.label}
                     aria-haspopup="true"
+                    aria-controls={dropdownId}
                     aria-label={`Abrir menú de ${item.label.toLowerCase()}`}
                     style={{ color: dropdownActive ? G : "rgba(255,255,255,0.42)", background: "none", border: "none" }}>
                     {item.label}
@@ -89,7 +91,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                   </button>
 
                   {dropOpen === item.label && (
-                    <div className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-[360px] rounded-xl overflow-hidden p-3"
+                    <div id={dropdownId} className="absolute top-[calc(100%+10px)] left-1/2 -translate-x-1/2 w-[360px] rounded-xl overflow-hidden p-3"
                       style={{ background: "linear-gradient(145deg, #090909 0%, #050505 100%)", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 18px 48px rgba(0,0,0,0.72), inset 0 1px 0 rgba(57,255,20,0.08)" }}>
                       <div className="mb-2 flex items-center justify-between px-2">
                         <span className="text-[9px] font-black uppercase tracking-[0.26em]" style={{ color: "rgba(57,255,20,0.8)" }}>
@@ -100,7 +102,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                       {item.dropdown.map(sub => {
                         const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
                         return (
-                          <Link key={sub.href} href={sub.href}>
+                          <Link key={sub.href} href={sub.href} aria-current={subActive ? "page" : undefined}>
                             <span className="mb-1 flex items-center justify-between gap-3 rounded-lg px-3 py-3 transition-colors cursor-pointer"
                               style={{
                                 color: subActive ? G : "rgba(255,255,255,0.72)",
@@ -127,7 +129,7 @@ export default function SiteNav({ homeActive = false }: Props) {
             const active = isActive(item.href, item.label);
 
             return (
-              <Link key={item.label} href={item.href}>
+              <Link key={item.label} href={item.href} aria-current={active ? "page" : undefined}>
                 <span className="relative text-[11px] font-black uppercase tracking-[0.2em] cursor-pointer transition-colors"
                   style={{ color: active ? G : "rgba(255,255,255,0.42)" }}>
                   {item.label}
@@ -185,6 +187,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                         className="flex w-full items-center justify-between border-b py-4 text-left text-[13px] font-black uppercase tracking-[0.24em]"
                         aria-expanded={mobileItemOpen}
                         aria-controls={mobilePanelId}
+                        aria-label={`${mobileItemOpen ? "Cerrar" : "Abrir"} sección ${item.label.toLowerCase()}`}
                         onClick={() => setMobileDropdownOpen(open => open === item.label ? null : item.label)}
                         style={{
                           color: dropdownActive ? G : "rgba(255,255,255,0.64)",
@@ -207,7 +210,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                           {item.dropdown.map(sub => {
                             const subActive = location === sub.href || location.startsWith(sub.href + "/") || (sub.href === "/industria" && location.startsWith("/insights/"));
                             return (
-                              <Link key={sub.href} href={sub.href}>
+                              <Link key={sub.href} href={sub.href} aria-current={subActive ? "page" : undefined}>
                                 <span className="flex items-center justify-between py-3 text-[12px] font-black uppercase tracking-[0.2em]"
                                   style={{ color: subActive ? G : "rgba(255,255,255,0.48)" }}>
                                   <span>{sub.label}</span>
@@ -224,7 +227,7 @@ export default function SiteNav({ homeActive = false }: Props) {
 
                 const active = isActive(item.href, item.label);
                 return (
-                  <Link key={item.label} href={item.href}>
+                  <Link key={item.label} href={item.href} aria-current={active ? "page" : undefined}>
                     <span className="group flex items-center justify-between border-b py-4 text-[13px] font-black uppercase tracking-[0.24em]"
                       style={{
                         color: active ? G : "rgba(255,255,255,0.64)",
