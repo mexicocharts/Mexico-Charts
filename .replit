@@ -55,5 +55,5 @@ channel = "stable-25_05"
 
 [userenv.shared]
 EXPO_PUBLIC_DOMAIN = "2c9a03d2-eafd-4979-ac97-d1ce5b78ab33-00-3j3tn0ye60cnr-hro5uy1p.riker.replit.dev"
-SPOTIFY_CLIENT_ID = "7e613a8daa834da784867057237426dc"
+SPOTIFY_CLIENT_ID = "49cdd10adb3b48f083303f28313a2de7"
 SPOTIFY_CLIENT_SECRET = "a81c0dbbcfb843ba8b32d28a855e5b19"

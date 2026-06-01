@@ -94,7 +94,7 @@ const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 const WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql";
 const ARTIST_METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
-const MIN_SPOTIFY_SEARCH_SCORE = 72;
+const MIN_SPOTIFY_SEARCH_SCORE = 40; // lowered from 72 because search endpoint returns minimal data for this app
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
 let lastWikidataRequestAt = 0;
@@ -284,7 +284,8 @@ async function spotifyFetch<T>(path: string, params: Record<string, string>): Pr
   });
 
   if (res.status === 429) {
-    const retryAfter = Math.max(1, Number(res.headers.get("retry-after") ?? "2"));
+    const retryAfter = Math.max(2, Number(res.headers.get("retry-after") ?? "3"));
+    console.warn(`  Spotify rate limited (429), waiting ${retryAfter}s before retry...`);
     await sleep(retryAfter * 1000);
     return spotifyFetch<T>(path, params);
   }
@@ -346,8 +347,9 @@ async function enrichWithSpotifySearch(artist: ArtistRow): Promise<ArtistRow> {
     q: artist.artist_name,
     limit: "5",
   });
-  const ids = [...new Set((data.artists?.items ?? []).map(item => item.id).filter(Boolean))];
-  const candidates = (await fetchArtistsByIds(ids))
+  // Use search results directly (the /artists endpoint returns 403 for this app)
+  const candidates = (data.artists?.items ?? [])
+    .filter((item): item is SpotifyArtist => Boolean(item?.id))
     .map(candidate => scoreSpotifyCandidate(artist, candidate))
     .sort((a, b) => b.score - a.score);
   const best = candidates[0];
@@ -369,11 +371,11 @@ async function loadSpotifyCareer(spotifyArtistId: string | null): Promise<Spotif
 
   const seen = new Set<string>();
   const albums: SpotifyAlbum[] = [];
-  for (let offset = 0; offset < 300; offset += 50) {
+  for (let offset = 0; offset < 300; offset += 10) {
     const page = await spotifyFetch<SpotifyAlbumsResponse>(`/artists/${spotifyArtistId}/albums`, {
       include_groups: "album,single",
       market: "MX",
-      limit: "50",
+      limit: "10",
       offset: String(offset),
     });
 
@@ -526,7 +528,7 @@ async function main() {
         mbid: artist.mbid ?? "",
       });
       console.log(`${artist.artist_key},${suggestedStage},first=${firstExternalDate ?? ""},spotify=${spotify.firstReleaseDate ?? ""},releases=${spotify.releaseCount}`);
-      await sleep(80);
+      await sleep(200);
     }
 
     console.log(`RADAR_SUMMARY total=${summary.totalAudited} qualified=${summary.qualified} new=${summary.new} emerging=${summary.emerging} review=${summary.review} established=${summary.established} legacy=${summary.legacy}`);
