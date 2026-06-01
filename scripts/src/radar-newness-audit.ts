@@ -85,10 +85,11 @@ function parseArgs() {
   }
   return {
     artistKey: args.get("artistKey")?.trim().toLowerCase(),
-    limit: Math.max(1, Math.min(Number(args.get("limit") ?? 100), 600)),
+    limit: Math.max(1, Math.min(Number(args.get("limit") ?? 600), 1000)),
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
     wikidata: args.get("wikidata") === "true",
     out: args.get("out") ?? "radar-newness-candidates.csv",
+    summaryOnly: args.get("summaryOnly") === "true",
   };
 }
 
@@ -291,6 +292,15 @@ async function main() {
     const { rows: artists } = await pool.query<ArtistRow>(query, params);
 
     const outputRows: Record<string, unknown>[] = [];
+    const summary = {
+      totalAudited: 0,
+      qualified: 0,
+      new: 0,
+      emerging: 0,
+      review: 0,
+      established: 0,
+      legacy: 0,
+    };
     console.log(`Auditing Radar newness: artists=${artists.length} wikidata=${args.wikidata}`);
     for (const artist of artists) {
       const spotify = await loadSpotifyCareer(artist.spotify_artist_id);
@@ -308,6 +318,11 @@ async function main() {
         wikidataYear: yearOf(wikidata?.inceptionDate) ?? yearOf(wikidata?.startDate),
         spotifyPopularity: artist.spotify_popularity,
       });
+      summary.totalAudited += 1;
+      if (suggestedStage === "new" || suggestedStage === "emerging") summary.qualified += 1;
+      if (suggestedStage in summary) {
+        summary[suggestedStage as keyof typeof summary] += 1;
+      }
 
       outputRows.push({
         artist_key: artist.artist_key,
@@ -332,8 +347,11 @@ async function main() {
       await sleep(80);
     }
 
-    await writeFile(args.out, `${toCsv(outputRows)}\n`, "utf8");
-    console.log(`Wrote ${outputRows.length} rows to ${args.out}`);
+    console.log(`RADAR_SUMMARY total=${summary.totalAudited} qualified=${summary.qualified} new=${summary.new} emerging=${summary.emerging} review=${summary.review} established=${summary.established} legacy=${summary.legacy}`);
+    if (!args.summaryOnly) {
+      await writeFile(args.out, `${toCsv(outputRows)}\n`, "utf8");
+      console.log(`Wrote ${outputRows.length} rows to ${args.out}`);
+    }
   } finally {
     await pool.end();
   }
