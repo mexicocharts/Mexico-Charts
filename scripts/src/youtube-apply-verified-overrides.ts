@@ -34,6 +34,13 @@ const VERIFIED_OVERRIDES = [
   { artistKey: "edicion especial", artistName: "Edición Especial", handle: "edicionespecial" },
   { artistKey: "la original banda el limon de salvador lizarraga", artistName: "La Original Banda El Limón de Salvador Lizárraga", handle: "LaOriginalBandaElLimon" },
   { artistKey: "los rehenes", artistName: "Los Rehenes", handle: "LosRehenesOficial" },
+  { artistKey: "banda el recodo de cruz lizarraga", artistName: "Banda El Recodo De Cruz Lizárraga", handle: "bandaelrecodooficial" },
+  { artistKey: "el duelo", artistName: "EL DUELO", handle: "thegroupduelo" },
+  { artistKey: "el coyote y su banda tierra santa", artistName: "El Coyote Y Su Banda Tierra Santa", handle: "ElCoyoteYBandaTVEVO" },
+  { artistKey: "industria del amor", artistName: "Industria del Amor", handle: "IndustriaDelAmorOficial" },
+  { artistKey: "javier rosas y su artilleria pesada", artistName: "Javier Rosas Y Su Artillería Pesada", handle: "JavierRosasap" },
+  { artistKey: "jose maria napoleon", artistName: "José Maria Napoleón", handle: "josenapoleonoficial" },
+  { artistKey: "tito torbellino", artistName: "Tito Torbellino", handle: "TitoTorbellinoOficial" },
 ];
 
 function parseArgs() {
