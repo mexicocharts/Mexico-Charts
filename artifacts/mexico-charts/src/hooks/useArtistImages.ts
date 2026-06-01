@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 type ArtistImageMap = Record<string, string | null>;
 
@@ -18,32 +19,34 @@ async function fetchChunk(names: string[]): Promise<ArtistImageMap> {
   }
 }
 
+async function fetchArtistImages(names: string[]): Promise<ArtistImageMap> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < names.length; i += CHUNK_SIZE) {
+    chunks.push(names.slice(i, i + CHUNK_SIZE));
+  }
+
+  const results = await Promise.all(chunks.map((chunk) => fetchChunk(chunk)));
+  const merged: ArtistImageMap = {};
+  for (const result of results) Object.assign(merged, result);
+  return merged;
+}
+
 export function useArtistImages(names: readonly string[]): ArtistImageMap {
-  const [images, setImages] = useState<ArtistImageMap>({});
-  const key = [...names].sort().join(",");
+  const uniqueNames = useMemo(
+    () => Array.from(new Set(names.map((name) => name?.trim()).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" })),
+    [names],
+  );
 
-  useEffect(() => {
-    if (!key) return;
-    let cancelled = false;
+  const { data } = useQuery({
+    queryKey: ["artist-images", CACHE_BUST, uniqueNames],
+    queryFn: () => fetchArtistImages(uniqueNames),
+    enabled: uniqueNames.length > 0,
+    staleTime: 60 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
 
-    const chunks: string[][] = [];
-    for (let i = 0; i < names.length; i += CHUNK_SIZE) {
-      chunks.push(names.slice(i, i + CHUNK_SIZE) as string[]);
-    }
-
-    // Fire all chunks in parallel; merge results as each resolves
-    Promise.all(chunks.map((chunk) => fetchChunk(chunk))).then((results) => {
-      if (cancelled) return;
-      const merged: ArtistImageMap = {};
-      for (const r of results) Object.assign(merged, r);
-      setImages(merged);
-    }).catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  return images;
+  return data ?? {};
 }
