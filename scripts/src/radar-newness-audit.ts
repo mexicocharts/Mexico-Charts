@@ -112,6 +112,8 @@ const MIN_SPOTIFY_SEARCH_SCORE = 72;
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
 let lastWikidataRequestAt = 0;
+let lastItunesRequestAt = 0;
+let itunesRateLimitHits = 0;
 
 function parseArgs() {
   const args = new Map<string, string>();
@@ -136,6 +138,16 @@ function sleep(ms: number) {
 
 function hasSpotifyCredentials() {
   return Boolean(process.env["SPOTIFY_CLIENT_ID"] && process.env["SPOTIFY_CLIENT_SECRET"]);
+}
+
+function emptyCareer(): SpotifyCareer {
+  return {
+    firstReleaseDate: null,
+    firstReleaseTitle: null,
+    firstReleaseType: null,
+    releaseCount: 0,
+    oldCatalogBefore2020: false,
+  };
 }
 
 function parseCsv(text: string): string[][] {
@@ -311,12 +323,30 @@ async function spotifyFetch<T>(path: string, params: Record<string, string>): Pr
   return res.json() as Promise<T>;
 }
 
-async function itunesFetch<T>(path: string, params: Record<string, string>): Promise<T> {
+async function itunesFetch<T>(path: string, params: Record<string, string>, attempt = 0): Promise<T | null> {
+  const waitMs = Math.max(0, 700 - (Date.now() - lastItunesRequestAt));
+  if (waitMs) await sleep(waitMs);
+  lastItunesRequestAt = Date.now();
+
   const qs = new URLSearchParams(params);
   const res = await fetch(`${ITUNES_API_BASE}${path}?${qs.toString()}`, {
     headers: { Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`iTunes ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  if (res.status === 429) {
+    itunesRateLimitHits += 1;
+    const retryAfter = Number(res.headers.get("retry-after"));
+    const delayMs = Number.isFinite(retryAfter)
+      ? Math.max(5_000, retryAfter * 1000)
+      : Math.min(45_000, 8_000 * (attempt + 1));
+    console.warn(`ITUNES_RATE_LIMIT attempt=${attempt + 1} wait=${Math.round(delayMs / 1000)}s`);
+    if (attempt >= 2) return null;
+    await sleep(delayMs);
+    return itunesFetch<T>(path, params, attempt + 1);
+  }
+  if (!res.ok) {
+    console.warn(`ITUNES_SKIP status=${res.status} body=${(await res.text()).slice(0, 120)}`);
+    return null;
+  }
   return res.json() as Promise<T>;
 }
 
@@ -405,52 +435,43 @@ function scoreItunesArtist(artistName: string, candidateName: string | undefined
 }
 
 async function loadItunesCareer(artistName: string): Promise<SpotifyCareer> {
-  const search = await itunesFetch<ItunesResponse>("/search", {
-    term: artistName,
-    media: "music",
-    entity: "musicArtist",
-    country: "MX",
-    limit: "5",
-  });
-  const bestArtist = (search.results ?? [])
-    .map(result => ({ result, score: scoreItunesArtist(artistName, result.artistName) }))
-    .filter(item => item.result.artistId && item.score >= 72)
-    .sort((a, b) => b.score - a.score)[0]?.result;
-
-  const albums = bestArtist?.artistId
-    ? (await itunesFetch<ItunesResponse>("/lookup", {
-      id: String(bestArtist.artistId),
-      entity: "album",
-      country: "MX",
-      limit: "200",
-    })).results ?? []
-    : (await itunesFetch<ItunesResponse>("/search", {
+  try {
+    const albumSearch = await itunesFetch<ItunesResponse>("/search", {
       term: artistName,
       media: "music",
       entity: "album",
       country: "MX",
       limit: "200",
-    })).results ?? [];
+    });
+    const albums = albumSearch?.results ?? [];
 
-  const dated = albums
-    .filter(item => item.wrapperType === "collection" && item.collectionName)
-    .map(item => ({ item, date: normalizeDate(item.releaseDate?.slice(0, 10)) }))
-    .filter((entry): entry is { item: ItunesResult; date: string } => Boolean(entry.date))
-    .sort((a, b) => a.date.localeCompare(b.date));
-  const first = dated[0] ?? null;
+    const dated = albums
+      .filter(item => (
+        item.wrapperType === "collection" &&
+        item.collectionName &&
+        scoreItunesArtist(artistName, item.artistName) >= 72
+      ))
+      .map(item => ({ item, date: normalizeDate(item.releaseDate?.slice(0, 10)) }))
+      .filter((entry): entry is { item: ItunesResult; date: string } => Boolean(entry.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const first = dated[0] ?? null;
 
-  return {
-    firstReleaseDate: first?.date ?? null,
-    firstReleaseTitle: first?.item.collectionName ?? null,
-    firstReleaseType: first?.item.collectionType ?? "album",
-    releaseCount: dated.length,
-    oldCatalogBefore2020: dated.some(entry => Number(entry.date.slice(0, 4)) < 2020),
-  };
+    return {
+      firstReleaseDate: first?.date ?? null,
+      firstReleaseTitle: first?.item.collectionName ?? null,
+      firstReleaseType: first?.item.collectionType ?? "album",
+      releaseCount: dated.length,
+      oldCatalogBefore2020: dated.some(entry => Number(entry.date.slice(0, 4)) < 2020),
+    };
+  } catch (error) {
+    console.warn(`ITUNES_SKIP artist=${artistName} reason=${error instanceof Error ? error.message : String(error)}`);
+    return emptyCareer();
+  }
 }
 
 async function loadSpotifyCareer(spotifyArtistId: string | null): Promise<SpotifyCareer> {
   if (!spotifyArtistId) {
-    return { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false };
+    return emptyCareer();
   }
 
   const seen = new Set<string>();
@@ -579,9 +600,9 @@ async function main() {
       const artist = await enrichWithSpotifySearch(rawArtist);
       const spotify = hasSpotifyCredentials()
         ? await loadSpotifyCareer(artist.spotify_artist_id)
-        : { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false };
+        : emptyCareer();
       const itunes = spotify.firstReleaseDate
-        ? { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false }
+        ? emptyCareer()
         : await loadItunesCareer(artist.artist_name);
       const wikidata = args.wikidata ? await loadWikidataCareer(artist.mbid) : null;
       const firstExternalDate = earliestDate([
@@ -628,10 +649,13 @@ async function main() {
         mbid: artist.mbid ?? "",
       });
       console.log(`${artist.artist_key},${suggestedStage},first=${firstExternalDate ?? ""},spotify=${spotify.firstReleaseDate ?? ""},itunes=${itunes.firstReleaseDate ?? ""},releases=${releaseCount}`);
-      await sleep(hasSpotifyCredentials() ? 80 : 120);
+      await sleep(hasSpotifyCredentials() ? 80 : 550);
     }
 
     console.log(`RADAR_SUMMARY total=${summary.totalAudited} qualified=${summary.qualified} new=${summary.new} emerging=${summary.emerging} review=${summary.review} established=${summary.established} legacy=${summary.legacy}`);
+    if (itunesRateLimitHits > 0) {
+      console.log(`RADAR_ITUNES_RATE_LIMIT hits=${itunesRateLimitHits} note=rate-limited_artists_were_left_for_review_instead_of_crashing`);
+    }
     if (!args.summaryOnly) {
       await writeFile(args.out, `${toCsv(outputRows)}\n`, "utf8");
       console.log(`Wrote ${outputRows.length} rows to ${args.out}`);
