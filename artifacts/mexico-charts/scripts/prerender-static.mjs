@@ -42,6 +42,22 @@ const routes = [
     ],
   },
   {
+    path: "/mx100",
+    title: "Mexico Charts Top 100 — MX100",
+    description:
+      "Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras.",
+    eyebrow: "MX100",
+    heading: "Mexico Charts Top 100",
+    body:
+      "El ranking editorial de Mexico Charts combina señales de streaming, YouTube México, fanbase, touring y presencia en listas para ordenar artistas de música mexicana.",
+    links: [
+      ["/mx100", "MX100"],
+      ["/artists", "Artistas"],
+      ["/charts", "Charts"],
+      ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
     path: "/artists",
     title: "Artistas de musica mexicana — Mexico Charts",
     description:
@@ -54,6 +70,36 @@ const routes = [
       ["/artists", "Artistas"],
       ["/charts", "Charts"],
       ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
+    path: "/compare",
+    title: "Comparar artistas — Mexico Charts",
+    description:
+      "Compara dos perfiles de artistas lado a lado con señales de streaming, YouTube, social, certificaciones, giras y presencia en listas.",
+    eyebrow: "Herramienta Mexico Charts",
+    heading: "Comparar artistas",
+    body:
+      "Selecciona dos artistas y compara señales editoriales de Mexico Charts: ranking, streaming, YouTube, certificaciones, touring y presencia en listas.",
+    links: [
+      ["/compare", "Comparar"],
+      ["/artists", "Artistas"],
+      ["/mx100", "MX100"],
+    ],
+  },
+  {
+    path: "/legacy-acts",
+    title: "Legacy Acts — Mexico Charts",
+    description:
+      "Ranking editorial de legacy acts de música mexicana con consumo histórico, audiencia actual, seguidores y señales de catálogo.",
+    eyebrow: "Catalogo",
+    heading: "Legacy Acts",
+    body:
+      "Una lectura editorial de carreras históricas y catálogo vigente dentro de la música mexicana, conectando consumo histórico con señales actuales.",
+    links: [
+      ["/legacy-acts", "Legacy Acts"],
+      ["/mx100", "MX100"],
+      ["/artists", "Artistas"],
     ],
   },
   {
@@ -131,6 +177,51 @@ const routes = [
       ["/touring/junior-h", "Junior H"],
       ["/touring/luis-miguel", "Luis Miguel"],
       ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
+    path: "/touring/peso-pluma",
+    title: "Peso Pluma Touring — Mexico Charts",
+    description:
+      "Perfil de touring de Peso Pluma con contexto editorial de giras, mercado en vivo y señales de música mexicana.",
+    eyebrow: "Touring",
+    heading: "Peso Pluma en vivo",
+    body:
+      "Perfil editorial de touring para Peso Pluma dentro de Mexico Charts, con contexto de fechas, mercado en vivo y señales de crecimiento.",
+    links: [
+      ["/touring", "Touring"],
+      ["/touring/junior-h", "Junior H"],
+      ["/touring/luis-miguel", "Luis Miguel"],
+    ],
+  },
+  {
+    path: "/touring/junior-h",
+    title: "Junior H Touring — Mexico Charts",
+    description:
+      "Perfil de touring de Junior H con contexto editorial de giras, fechas activas y señales del mercado en vivo.",
+    eyebrow: "Touring",
+    heading: "Junior H en vivo",
+    body:
+      "Perfil editorial de touring para Junior H dentro de Mexico Charts, con contexto de fechas, mercado en vivo y señales de la escena sierreña.",
+    links: [
+      ["/touring", "Touring"],
+      ["/touring/peso-pluma", "Peso Pluma"],
+      ["/touring/luis-miguel", "Luis Miguel"],
+    ],
+  },
+  {
+    path: "/touring/luis-miguel",
+    title: "Luis Miguel Touring — Mexico Charts",
+    description:
+      "Perfil de touring de Luis Miguel con contexto editorial de giras, mercado en vivo y datos históricos del espectáculo latino.",
+    eyebrow: "Touring",
+    heading: "Luis Miguel en vivo",
+    body:
+      "Perfil editorial de touring para Luis Miguel dentro de Mexico Charts, con contexto de giras, recintos, taquilla y mercado latino en vivo.",
+    links: [
+      ["/touring", "Touring"],
+      ["/touring/peso-pluma", "Peso Pluma"],
+      ["/touring/junior-h", "Junior H"],
     ],
   },
   {
