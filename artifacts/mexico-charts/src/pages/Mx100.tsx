@@ -5,37 +5,19 @@ import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-r
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import type { ChartArtist } from "@/types/chartData";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 
 const ACCENT = "#39FF14";
-const LIVE_TOURING_API = "https://mexicochart.com/api/touring/concerts";
 const SCORE_COMPONENTS = [
   { key: "spotify", label: "Spotify semanal" },
   { key: "youtube", label: "YouTube México" },
   { key: "fanbase", label: "Fanbase" },
   { key: "touring", label: "Giras" },
 ] as const;
-
-interface TmEvent {
-  date: string;
-  city: string;
-  state: string;
-  country: string;
-  venue: string;
-}
-
-interface ArtistTours {
-  id: string;
-  name: string;
-  events: TmEvent[];
-}
-
-interface TouringResponse {
-  artists: ArtistTours[];
-}
 
 type HubRow = Record<string, string>;
 
@@ -102,13 +84,6 @@ function rankScore(rank: number | undefined, maxRank: number, points: number): n
 
 function rankSort(rank: number | undefined): number {
   return rank ?? 9999;
-}
-
-async function fetchLiveTouring(): Promise<ArtistTours[]> {
-  const response = await fetch(LIVE_TOURING_API);
-  if (!response.ok) return [];
-  const data = (await response.json()) as TouringResponse;
-  return data.artists ?? [];
 }
 
 function buildTouringMap(artists: ArtistTours[]) {
@@ -333,12 +308,7 @@ export default function Mx100() {
   const artistsDaily = useArtistsDaily();
   const artistsWeekly = useArtistsWeekly();
   const metadata = useArtistMetadata();
-  const touring = useQuery({
-    queryKey: ["mx100", "live-touring"],
-    queryFn: fetchLiveTouring,
-    staleTime: 10 * 60 * 1000,
-    retry: 1,
-  });
+  const touring = useTouring();
   const chartsHub = useQuery<HubData>({
     queryKey: ["charts-hub"],
     queryFn: async () => {
