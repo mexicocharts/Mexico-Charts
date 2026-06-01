@@ -54,9 +54,9 @@ function formatTourDate(iso: string): string {
 }
 
 function formatShortDateEs(iso: string | null | undefined): string {
-  if (!iso) return "Sin fecha";
+  if (!iso) return "";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "short",
@@ -398,6 +398,9 @@ export default function ArtistDetail() {
   const enrichment   = useArtistEnrichment(slugAsKey);
   const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
   const officialSourceCount = [enrichment?.spotify, enrichment?.youtube, enrichment?.musicbrainz].filter(Boolean).length;
+  const spotifyUpdatedLabel = formatShortDateEs(enrichment?.spotify?.lastUpdated);
+  const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
+  const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
   const hasAudienceStats = Boolean(metaArtist && (
@@ -955,9 +958,11 @@ export default function ArtistDetail() {
                             {enrichment.spotify.followersFmt} seguidores
                           </span>
                         )}
-                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
-                          Actualizado {formatShortDateEs(enrichment.spotify.lastUpdated)}
-                        </span>
+                        {spotifyUpdatedLabel && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                            Actualizado {spotifyUpdatedLabel}
+                          </span>
+                        )}
                       </div>
                     </a>
                   )}
@@ -993,9 +998,11 @@ export default function ArtistDetail() {
                             {enrichment.youtube.viewsFmt} vistas
                           </span>
                         )}
-                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
-                          Actualizado {formatShortDateEs(enrichment.youtube.cachedAt)}
-                        </span>
+                        {youtubeUpdatedLabel && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                            Actualizado {youtubeUpdatedLabel}
+                          </span>
+                        )}
                       </div>
                     </a>
                   )}
@@ -1021,13 +1028,15 @@ export default function ArtistDetail() {
                         {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Catálogo musical"}
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
-                        <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
-                          Actualizado {formatShortDateEs(enrichment.musicbrainz.lastUpdated)}
-                        </span>
+                        {musicbrainzUpdatedLabel && (
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                            Actualizado {musicbrainzUpdatedLabel}
+                          </span>
+                        )}
                       </div>
-                      {enrichment.musicbrainz.tags.length > 0 && (
+                      {(enrichment.musicbrainz.tags ?? []).length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
-                          {enrichment.musicbrainz.tags.slice(0, 3).map(tag => (
+                          {(enrichment.musicbrainz.tags ?? []).slice(0, 3).map(tag => (
                             <span key={tag} className="rounded border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
                               {tag}
                             </span>
