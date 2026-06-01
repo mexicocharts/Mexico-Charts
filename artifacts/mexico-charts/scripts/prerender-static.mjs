@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -447,7 +448,17 @@ async function writeRoute(baseHtml, route) {
   }
 
   const routeFile = path.join(outDir, route.path.slice(1));
-  await mkdir(path.dirname(routeFile), { recursive: true });
+  const dir = path.dirname(routeFile);
+
+  // If a file exists at the directory path (Vite SPA output), remove it first
+  try {
+    const st = statSync(dir);
+    if (st.isFile()) {
+      await rm(dir, { force: true });
+    }
+  } catch { /* doesn't exist — safe to proceed */ }
+
+  await mkdir(dir, { recursive: true });
   await writeFile(routeFile, html);
 }
 
