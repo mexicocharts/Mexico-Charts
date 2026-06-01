@@ -59,6 +59,19 @@ interface SpotifyAlbumsResponse {
   next?: string | null;
 }
 
+interface ItunesResult {
+  wrapperType?: string;
+  artistId?: number;
+  artistName?: string;
+  collectionName?: string;
+  collectionType?: string;
+  releaseDate?: string;
+}
+
+interface ItunesResponse {
+  results?: ItunesResult[];
+}
+
 interface WikidataBindingValue {
   value?: string;
 }
@@ -91,6 +104,7 @@ interface WikidataCareer {
 
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
+const ITUNES_API_BASE = "https://itunes.apple.com";
 const WIKIDATA_SPARQL_URL = "https://query.wikidata.org/sparql";
 const ARTIST_METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
@@ -118,6 +132,10 @@ function parseArgs() {
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function hasSpotifyCredentials() {
+  return Boolean(process.env["SPOTIFY_CLIENT_ID"] && process.env["SPOTIFY_CLIENT_SECRET"]);
 }
 
 function parseCsv(text: string): string[][] {
@@ -293,6 +311,15 @@ async function spotifyFetch<T>(path: string, params: Record<string, string>): Pr
   return res.json() as Promise<T>;
 }
 
+async function itunesFetch<T>(path: string, params: Record<string, string>): Promise<T> {
+  const qs = new URLSearchParams(params);
+  const res = await fetch(`${ITUNES_API_BASE}${path}?${qs.toString()}`, {
+    headers: { Accept: "application/json" },
+  });
+  if (!res.ok) throw new Error(`iTunes ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  return res.json() as Promise<T>;
+}
+
 async function fetchArtistsByIds(ids: string[]): Promise<SpotifyArtist[]> {
   if (ids.length === 0) return [];
   const artists: SpotifyArtist[] = [];
@@ -341,7 +368,7 @@ function scoreSpotifyCandidate(artist: ArtistRow, candidate: SpotifyArtist) {
 }
 
 async function enrichWithSpotifySearch(artist: ArtistRow): Promise<ArtistRow> {
-  if (artist.spotify_artist_id) return artist;
+  if (artist.spotify_artist_id || !hasSpotifyCredentials()) return artist;
   const data = await spotifyFetch<SpotifySearchResponse>("/search", {
     type: "artist",
     q: artist.artist_name,
@@ -360,6 +387,64 @@ async function enrichWithSpotifySearch(artist: ArtistRow): Promise<ArtistRow> {
     spotify_followers: best.artist.followers?.total ?? null,
     spotify_popularity: best.artist.popularity,
     spotify_genres: best.artist.genres ?? [],
+  };
+}
+
+function scoreItunesArtist(artistName: string, candidateName: string | undefined) {
+  if (!candidateName) return 0;
+  const source = normalizeName(artistName);
+  const candidate = normalizeName(candidateName);
+  if (source === candidate) return 100;
+  if (compactName(source) === compactName(candidate)) return 92;
+  if (source.includes(candidate) || candidate.includes(source)) return 72;
+
+  const sourceTokens = new Set(source.split(" ").filter(Boolean));
+  const candidateTokens = new Set(candidate.split(" ").filter(Boolean));
+  const overlap = [...sourceTokens].filter(token => candidateTokens.has(token)).length;
+  return sourceTokens.size > 0 ? Math.round((overlap / sourceTokens.size) * 70) : 0;
+}
+
+async function loadItunesCareer(artistName: string): Promise<SpotifyCareer> {
+  const search = await itunesFetch<ItunesResponse>("/search", {
+    term: artistName,
+    media: "music",
+    entity: "musicArtist",
+    country: "MX",
+    limit: "5",
+  });
+  const bestArtist = (search.results ?? [])
+    .map(result => ({ result, score: scoreItunesArtist(artistName, result.artistName) }))
+    .filter(item => item.result.artistId && item.score >= 72)
+    .sort((a, b) => b.score - a.score)[0]?.result;
+
+  const albums = bestArtist?.artistId
+    ? (await itunesFetch<ItunesResponse>("/lookup", {
+      id: String(bestArtist.artistId),
+      entity: "album",
+      country: "MX",
+      limit: "200",
+    })).results ?? []
+    : (await itunesFetch<ItunesResponse>("/search", {
+      term: artistName,
+      media: "music",
+      entity: "album",
+      country: "MX",
+      limit: "200",
+    })).results ?? [];
+
+  const dated = albums
+    .filter(item => item.wrapperType === "collection" && item.collectionName)
+    .map(item => ({ item, date: normalizeDate(item.releaseDate?.slice(0, 10)) }))
+    .filter((entry): entry is { item: ItunesResult; date: string } => Boolean(entry.date))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const first = dated[0] ?? null;
+
+  return {
+    firstReleaseDate: first?.date ?? null,
+    firstReleaseTitle: first?.item.collectionName ?? null,
+    firstReleaseType: first?.item.collectionType ?? "album",
+    releaseCount: dated.length,
+    oldCatalogBefore2020: dated.some(entry => Number(entry.date.slice(0, 4)) < 2020),
   };
 }
 
@@ -487,19 +572,29 @@ async function main() {
       legacy: 0,
     };
     console.log(`Auditing Radar newness: artists=${artists.length} wikidata=${args.wikidata}`);
+    if (!hasSpotifyCredentials()) {
+      console.log("Spotify credentials not found; using Apple/iTunes public release dates for career age.");
+    }
     for (const rawArtist of artists) {
       const artist = await enrichWithSpotifySearch(rawArtist);
-      const spotify = await loadSpotifyCareer(artist.spotify_artist_id);
+      const spotify = hasSpotifyCredentials()
+        ? await loadSpotifyCareer(artist.spotify_artist_id)
+        : { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false };
+      const itunes = spotify.firstReleaseDate
+        ? { firstReleaseDate: null, firstReleaseTitle: null, firstReleaseType: null, releaseCount: 0, oldCatalogBefore2020: false }
+        : await loadItunesCareer(artist.artist_name);
       const wikidata = args.wikidata ? await loadWikidataCareer(artist.mbid) : null;
       const firstExternalDate = earliestDate([
         spotify.firstReleaseDate,
+        itunes.firstReleaseDate,
         artist.musicbrainz_begin_date,
         wikidata?.inceptionDate,
         wikidata?.startDate,
       ]);
+      const releaseCount = Math.max(spotify.releaseCount, itunes.releaseCount);
       const suggestedStage = classifyCareer({
-        firstReleaseYear: yearOf(spotify.firstReleaseDate),
-        releaseCount: spotify.releaseCount,
+        firstReleaseYear: yearOf(spotify.firstReleaseDate) ?? yearOf(itunes.firstReleaseDate),
+        releaseCount,
         musicbrainzYear: yearOf(artist.musicbrainz_begin_date),
         wikidataYear: yearOf(wikidata?.inceptionDate) ?? yearOf(wikidata?.startDate),
         spotifyPopularity: artist.spotify_popularity,
@@ -519,7 +614,10 @@ async function main() {
         spotify_first_release_title: spotify.firstReleaseTitle,
         spotify_release_type: spotify.firstReleaseType,
         spotify_release_count: spotify.releaseCount,
-        old_catalog_before_2020: spotify.oldCatalogBefore2020,
+        itunes_first_release_date: itunes.firstReleaseDate,
+        itunes_first_release_title: itunes.firstReleaseTitle,
+        itunes_release_count: itunes.releaseCount,
+        old_catalog_before_2020: spotify.oldCatalogBefore2020 || itunes.oldCatalogBefore2020,
         spotify_popularity: artist.spotify_popularity ?? "",
         spotify_followers: artist.spotify_followers ?? "",
         musicbrainz_begin_date: artist.musicbrainz_begin_date ?? "",
@@ -529,8 +627,8 @@ async function main() {
         wikidata_birth_date: wikidata?.birthDate ?? "",
         mbid: artist.mbid ?? "",
       });
-      console.log(`${artist.artist_key},${suggestedStage},first=${firstExternalDate ?? ""},spotify=${spotify.firstReleaseDate ?? ""},releases=${spotify.releaseCount}`);
-      await sleep(80);
+      console.log(`${artist.artist_key},${suggestedStage},first=${firstExternalDate ?? ""},spotify=${spotify.firstReleaseDate ?? ""},itunes=${itunes.firstReleaseDate ?? ""},releases=${releaseCount}`);
+      await sleep(hasSpotifyCredentials() ? 80 : 120);
     }
 
     console.log(`RADAR_SUMMARY total=${summary.totalAudited} qualified=${summary.qualified} new=${summary.new} emerging=${summary.emerging} review=${summary.review} established=${summary.established} legacy=${summary.legacy}`);
