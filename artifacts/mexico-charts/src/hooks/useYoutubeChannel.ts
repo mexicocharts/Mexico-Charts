@@ -13,6 +13,39 @@ export interface YoutubeChannelResult {
   dailyViews:      number | null;
   dailyViewsFmt:   string | null;
   snapshotDate:    string | null;
+  analytics: {
+    views: {
+      average7Day: number | null;
+      average7DayFmt: string | null;
+      average30Day: number | null;
+      average30DayFmt: string | null;
+      weeklyGrowth: number | null;
+      weeklyGrowthFmt: string | null;
+      monthlyGrowth: number | null;
+      monthlyGrowthFmt: string | null;
+      average7DayChangePct: number | null;
+      average30DayChangePct: number | null;
+      biggestSpike: {
+        date: string;
+        views: number | null;
+        viewsFmt: string | null;
+      } | null;
+    };
+    subscribers: {
+      dailyChange: number | null;
+      dailyChangeFmt: string | null;
+      weeklyGrowth: number | null;
+      weeklyGrowthFmt: string | null;
+      monthlyGrowth: number | null;
+      monthlyGrowthFmt: string | null;
+    };
+    momentum: {
+      trend: "rising" | "steady" | "cooling" | "new" | null;
+      score: number | null;
+      scoreFmt: string | null;
+    };
+    availableDays: number;
+  };
   history: Array<{
     date: string;
     views: number | null;

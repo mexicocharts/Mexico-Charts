@@ -106,6 +106,19 @@ function YoutubeDailySparkline({
   );
 }
 
+function formatSignedMetric(value: number | null | undefined, formatted: string | null | undefined) {
+  if (value == null || !formatted) return "—";
+  return value > 0 ? `+${formatted}` : formatted;
+}
+
+function momentumLabel(trend: "rising" | "steady" | "cooling" | "new" | null | undefined) {
+  if (trend === "rising") return "Subiendo";
+  if (trend === "cooling") return "Bajando";
+  if (trend === "new") return "Nueva señal";
+  if (trend === "steady") return "Estable";
+  return "Sin tendencia";
+}
+
 function normalizeSongMatch(value: string): string {
   return value
     .toLowerCase()
@@ -447,6 +460,7 @@ export default function ArtistDetail() {
     () => (ytChannel?.history ?? []).filter(point => point.dailyViews != null),
     [ytChannel?.history],
   );
+  const youtubeAnalytics = ytChannel?.analytics;
   const youtubeSnapshotLabel = formatShortDateEs(ytChannel?.snapshotDate);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
@@ -937,7 +951,7 @@ export default function ArtistDetail() {
                     </div>
                   )}
                 </div>
-                {youtubeDailyTrend.length >= 2 && (
+                {youtubeDailyTrend.length >= 2 && youtubeAnalytics && (
                   <div
                     className="mt-4 overflow-hidden rounded-xl p-4"
                     style={{ background: "linear-gradient(135deg, rgba(255,0,0,0.055), rgba(255,255,255,0.018))", border: "1px solid rgba(255,0,0,0.12)" }}
@@ -958,6 +972,70 @@ export default function ArtistDetail() {
                       </div>
                     </div>
                     <YoutubeDailySparkline points={youtubeDailyTrend} color="#ef4444" />
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 7 días</div>
+                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.average7DayFmt ?? "—"}</div>
+                        {youtubeAnalytics.views.average7DayChangePct != null && (
+                          <div className="mt-0.5 text-[10px] font-bold text-red-300">
+                            {youtubeAnalytics.views.average7DayChangePct > 0 ? "+" : ""}{youtubeAnalytics.views.average7DayChangePct}% vs 7 días previos
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 30 días</div>
+                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.average30DayFmt ?? "—"}</div>
+                        {youtubeAnalytics.views.average30DayChangePct != null && (
+                          <div className="mt-0.5 text-[10px] font-bold text-zinc-500">
+                            {youtubeAnalytics.views.average30DayChangePct > 0 ? "+" : ""}{youtubeAnalytics.views.average30DayChangePct}% vs 30 días previos
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Mayor pico</div>
+                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.biggestSpike?.viewsFmt ?? "—"}</div>
+                        {youtubeAnalytics.views.biggestSpike?.date && (
+                          <div className="mt-0.5 text-[10px] font-bold text-zinc-600">
+                            {formatShortDateEs(youtubeAnalytics.views.biggestSpike.date)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Momentum</div>
+                        <div className="mt-1 text-sm font-black text-white">{momentumLabel(youtubeAnalytics.momentum.trend)}</div>
+                        {youtubeAnalytics.momentum.scoreFmt && (
+                          <div className="mt-0.5 text-[10px] font-bold text-red-300">
+                            {youtubeAnalytics.momentum.scoreFmt} señal diaria
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Crecimiento semanal</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(youtubeAnalytics.views.weeklyGrowth, youtubeAnalytics.views.weeklyGrowthFmt)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Crecimiento mensual</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(youtubeAnalytics.views.monthlyGrowth, youtubeAnalytics.views.monthlyGrowthFmt)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Subs diarios</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(youtubeAnalytics.subscribers.dailyChange, youtubeAnalytics.subscribers.dailyChangeFmt)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Subs semanales</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(youtubeAnalytics.subscribers.weeklyGrowth, youtubeAnalytics.subscribers.weeklyGrowthFmt)}
+                        </div>
+                      </div>
+                    </div>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-4">
                       {youtubeDailyTrend.slice(-4).map(point => (
                         <div key={point.date} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">

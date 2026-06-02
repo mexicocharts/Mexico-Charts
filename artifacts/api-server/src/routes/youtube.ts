@@ -139,6 +139,102 @@ type YoutubeChannelHistoryPoint = {
   dailyViews: number | null;
 };
 
+function sumRecent(values: Array<number | null>, days: number): number | null {
+  const recent = values.slice(-days).filter((value): value is number => value != null);
+  if (!recent.length) return null;
+  return recent.reduce((total, value) => total + value, 0);
+}
+
+function avgRecent(values: Array<number | null>, days: number): number | null {
+  const recent = values.slice(-days).filter((value): value is number => value != null);
+  if (!recent.length) return null;
+  return Math.round(recent.reduce((total, value) => total + value, 0) / recent.length);
+}
+
+function changeBetween(history: YoutubeChannelHistoryPoint[], field: "views" | "subscribers", days: number): number | null {
+  if (history.length < 2) return null;
+  const latest = history.at(-1)?.[field];
+  if (latest == null) return null;
+  const baselineIndex = Math.max(0, history.length - 1 - days);
+  const baseline = history[baselineIndex]?.[field];
+  return baseline == null ? null : latest - baseline;
+}
+
+function percentChange(current: number | null, previous: number | null): number | null {
+  if (current == null || previous == null || previous <= 0) return null;
+  return Number((((current - previous) / previous) * 100).toFixed(1));
+}
+
+function momentumFromAverages(avg7: number | null, avg30: number | null): "rising" | "steady" | "cooling" | "new" | null {
+  if (avg7 == null) return null;
+  if (avg30 == null) return "new";
+  const pct = percentChange(avg7, avg30);
+  if (pct == null) return "steady";
+  if (pct >= 12) return "rising";
+  if (pct <= -12) return "cooling";
+  return "steady";
+}
+
+function deriveChannelMetrics(history: YoutubeChannelHistoryPoint[]) {
+  const dailyViews = history.map(point => point.dailyViews);
+  const subscriberCounts = history.map(point => point.subscribers);
+  const avg7 = avgRecent(dailyViews, 7);
+  const avg30 = avgRecent(dailyViews, 30);
+  const previous7 = avgRecent(dailyViews.slice(0, -7), 7);
+  const previous30 = avgRecent(dailyViews.slice(0, -30), 30);
+  const weeklyViewGrowth = changeBetween(history, "views", 7);
+  const monthlyViewGrowth = changeBetween(history, "views", 30);
+  const subscriberWeeklyGrowth = changeBetween(history, "subscribers", 7);
+  const subscriberMonthlyGrowth = changeBetween(history, "subscribers", 30);
+  const avg7Vs30Pct = percentChange(avg7, avg30) ?? 0;
+  const momentumScore = avg7 == null
+    ? null
+    : Math.round(avg7 * (1 + Math.max(-0.4, Math.min(0.8, avg7Vs30Pct / 100))));
+  const biggestSpike = history
+    .filter(point => point.dailyViews != null)
+    .sort((a, b) => (b.dailyViews ?? 0) - (a.dailyViews ?? 0))[0] ?? null;
+
+  const dailySubscriberChange = subscriberCounts.length >= 2
+    ? (subscriberCounts.at(-1) ?? null) != null && (subscriberCounts.at(-2) ?? null) != null
+      ? (subscriberCounts.at(-1) as number) - (subscriberCounts.at(-2) as number)
+      : null
+    : null;
+
+  return {
+    views: {
+      average7Day: avg7,
+      average7DayFmt: fmtCount(avg7),
+      average30Day: avg30,
+      average30DayFmt: fmtCount(avg30),
+      weeklyGrowth: weeklyViewGrowth,
+      weeklyGrowthFmt: fmtCount(weeklyViewGrowth),
+      monthlyGrowth: monthlyViewGrowth,
+      monthlyGrowthFmt: fmtCount(monthlyViewGrowth),
+      average7DayChangePct: percentChange(avg7, previous7),
+      average30DayChangePct: percentChange(avg30, previous30),
+      biggestSpike: biggestSpike ? {
+        date: biggestSpike.date,
+        views: biggestSpike.dailyViews,
+        viewsFmt: fmtCount(biggestSpike.dailyViews),
+      } : null,
+    },
+    subscribers: {
+      dailyChange: dailySubscriberChange,
+      dailyChangeFmt: fmtCount(dailySubscriberChange),
+      weeklyGrowth: subscriberWeeklyGrowth,
+      weeklyGrowthFmt: fmtCount(subscriberWeeklyGrowth),
+      monthlyGrowth: subscriberMonthlyGrowth,
+      monthlyGrowthFmt: fmtCount(subscriberMonthlyGrowth),
+    },
+    momentum: {
+      trend: momentumFromAverages(avg7, avg30),
+      score: momentumScore,
+      scoreFmt: fmtCount(momentumScore),
+    },
+    availableDays: dailyViews.filter(value => value != null).length,
+  };
+}
+
 async function getChannelHistory(artistKey: string): Promise<YoutubeChannelHistoryPoint[]> {
   const rows = await db
     .select()
@@ -159,6 +255,7 @@ async function getChannelHistory(artistKey: string): Promise<YoutubeChannelHisto
 async function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
   const history = await getChannelHistory(row.artistKey);
   const latest = history.at(-1) ?? null;
+  const analytics = deriveChannelMetrics(history);
   return {
     artistKey:       row.artistKey,
     channelId:       row.channelId,
@@ -175,6 +272,7 @@ async function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
     dailyViews:      latest?.dailyViews ?? null,
     dailyViewsFmt:   fmtCount(latest?.dailyViews),
     snapshotDate:    latest?.date ?? null,
+    analytics,
     history,
     channelUrl:      `https://www.youtube.com/channel/${row.channelId}`,
   };
