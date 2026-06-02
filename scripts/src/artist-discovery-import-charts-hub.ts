@@ -32,6 +32,8 @@ interface SheetConfig {
 
 interface CandidateRecord {
   id: number;
+  status?: string;
+  shouldSkip?: boolean;
 }
 
 const DEFAULT_BASE_URL = "https://mexicochart.com";
@@ -352,8 +354,48 @@ async function upsertSnapshotRow(
   );
 }
 
-async function upsertCandidate(pool: InstanceType<typeof Pool>, artistName: string): Promise<number> {
+async function upsertCandidate(
+  pool: InstanceType<typeof Pool>,
+  artistName: string,
+  source: string,
+): Promise<CandidateRecord> {
   const normalizedName = normalizeName(artistName);
+  const existing = await pool.query<{ id: number; status: string; has_source: boolean }>(
+    `
+      SELECT
+        id,
+        status,
+        EXISTS (
+          SELECT 1
+          FROM artist_candidate_events
+          WHERE candidate_id = artist_candidates.id
+            AND source = $2
+        ) AS has_source
+      FROM artist_candidates
+      WHERE normalized_name = $1
+      LIMIT 1;
+    `,
+    [normalizedName, source],
+  );
+
+  const current = existing.rows[0];
+  if (current && ["rejected", "not_mexican"].includes(current.status)) {
+    if (current.has_source) return { id: current.id, status: current.status, shouldSkip: true };
+
+    await pool.query(
+      `
+        UPDATE artist_candidates
+        SET status = 'needs_review',
+            notes = concat_ws(E'\n', notes, $2),
+            updated_at = now()
+        WHERE id = $1;
+      `,
+      [current.id, `Resurfaced after ${current.status} with a new source: ${source}`],
+    );
+
+    return { id: current.id, status: "needs_review" };
+  }
+
   const result = await pool.query<CandidateRecord>(
     `
       INSERT INTO artist_candidates (artist_name, normalized_name)
@@ -371,7 +413,7 @@ async function upsertCandidate(pool: InstanceType<typeof Pool>, artistName: stri
     [artistName, normalizedName],
   );
 
-  return result.rows[0].id;
+  return result.rows[0];
 }
 
 async function insertCandidateEvent(
@@ -581,7 +623,10 @@ async function main() {
           unknownArtistHits += 1;
           if (!options.write || !pool) continue;
 
-          const candidateId = await upsertCandidate(pool, artistName);
+          const candidate = await upsertCandidate(pool, artistName, config.source);
+          if (candidate.shouldSkip) continue;
+
+          const candidateId = candidate.id;
           touchedCandidateIds.add(candidateId);
           await insertCandidateEvent(pool, candidateId, config, options.chartDate, rank, title || artistName, {
             sheetName,

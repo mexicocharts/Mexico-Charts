@@ -14,6 +14,13 @@ type CandidateStatus =
   | "linked_existing_artist"
   | "not_mexican";
 
+type StatusFilter = CandidateStatus | "all";
+
+interface SourceCount {
+  source: string;
+  count: number;
+}
+
 interface DiscoveryCandidate {
   id: number;
   artist_name: string;
@@ -28,6 +35,10 @@ interface DiscoveryCandidate {
   matched_artist_id: string | null;
   created_at: string;
   updated_at: string;
+  top_sources?: SourceCount[];
+  positive_signal_count?: number;
+  negative_signal_count?: number;
+  needs_review_reason?: string | null;
 }
 
 interface DiscoveryEvent {
@@ -55,15 +66,19 @@ interface DiscoverySignal {
 interface CandidateListResponse {
   candidates: DiscoveryCandidate[];
   counts: Array<{ status: CandidateStatus; count: number }>;
+  sources: SourceCount[];
 }
 
 interface CandidateDetailResponse {
   candidate: DiscoveryCandidate;
   events: DiscoveryEvent[];
+  recentAppearances: DiscoveryEvent[];
   signals: DiscoverySignal[];
+  topSources: SourceCount[];
 }
 
-const statusOptions: Array<{ value: CandidateStatus; label: string }> = [
+const statusOptions: Array<{ value: StatusFilter; label: string }> = [
+  { value: "all", label: "Todos" },
   { value: "pending", label: "Pendientes" },
   { value: "likely_mexican", label: "Probables MX" },
   { value: "needs_review", label: "Revisar" },
@@ -73,7 +88,18 @@ const statusOptions: Array<{ value: CandidateStatus; label: string }> = [
   { value: "not_mexican", label: "No mexicanos" },
 ];
 
-function statusLabel(status: CandidateStatus) {
+const sortOptions = [
+  { value: "appearances", label: "Mas apariciones" },
+  { value: "first_seen", label: "Nuevo primero" },
+  { value: "last_seen", label: "Mas reciente" },
+  { value: "confidence", label: "Confianza" },
+  { value: "source_count", label: "Mas fuentes" },
+  { value: "name", label: "Nombre" },
+] as const;
+
+type SortValue = typeof sortOptions[number]["value"];
+
+function statusLabel(status: StatusFilter) {
   return statusOptions.find(option => option.value === status)?.label ?? status;
 }
 
@@ -90,10 +116,18 @@ function errorMessage(status: number) {
 export default function DiscoveryReview() {
   const [adminKey, setAdminKey] = useState(() => localStorage.getItem("mexicocharts_admin_key") ?? "");
   const [draftKey, setDraftKey] = useState(adminKey);
-  const [status, setStatus] = useState<CandidateStatus>("pending");
+  const [status, setStatus] = useState<StatusFilter>("pending");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [minAppearances, setMinAppearances] = useState("");
+  const [confidenceMin, setConfidenceMin] = useState("");
+  const [confidenceMax, setConfidenceMax] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sort, setSort] = useState<SortValue>("appearances");
   const [candidates, setCandidates] = useState<DiscoveryCandidate[]>([]);
   const [counts, setCounts] = useState<CandidateListResponse["counts"]>([]);
+  const [sources, setSources] = useState<SourceCount[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [detail, setDetail] = useState<CandidateDetailResponse | null>(null);
   const [linkArtistKey, setLinkArtistKey] = useState("");
   const [notes, setNotes] = useState("");
@@ -107,6 +141,7 @@ export default function DiscoveryReview() {
     () => candidates.find(candidate => candidate.id === selectedId) ?? detail?.candidate ?? null,
     [candidates, selectedId, detail],
   );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   function saveKey() {
     const next = draftKey.trim();
@@ -124,7 +159,9 @@ export default function DiscoveryReview() {
     setDraftKey("");
     setCandidates([]);
     setCounts([]);
+    setSources([]);
     setSelectedId(null);
+    setSelectedIds([]);
     setDetail(null);
     setError("");
   }
@@ -134,13 +171,26 @@ export default function DiscoveryReview() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/admin/discovery/candidates?status=${encodeURIComponent(nextStatus)}&limit=150&sort=confidence`, {
+      const params = new URLSearchParams({
+        limit: "150",
+        sort,
+      });
+      if (nextStatus !== "all") params.set("status", nextStatus);
+      if (sourceFilter !== "all") params.set("source", sourceFilter);
+      if (minAppearances.trim()) params.set("minAppearances", minAppearances.trim());
+      if (confidenceMin.trim()) params.set("confidenceMin", confidenceMin.trim());
+      if (confidenceMax.trim()) params.set("confidenceMax", confidenceMax.trim());
+      if (searchTerm.trim()) params.set("search", searchTerm.trim());
+
+      const res = await fetch(`/api/admin/discovery/candidates?${params.toString()}`, {
         headers: { "X-Admin-Key": key.trim() },
       });
       if (!res.ok) throw new Error(errorMessage(res.status));
       const json = await res.json() as CandidateListResponse;
       setCandidates(json.candidates);
       setCounts(json.counts);
+      setSources(json.sources ?? []);
+      setSelectedIds(prev => prev.filter(id => json.candidates.some(candidate => candidate.id === id)));
       if (!json.candidates.some(candidate => candidate.id === selectedId)) {
         setSelectedId(json.candidates[0]?.id ?? null);
       }
@@ -194,6 +244,43 @@ export default function DiscoveryReview() {
     }
   }
 
+  async function updateBulkStatus(nextStatus: "pending" | "needs_review" | "rejected") {
+    if (!selectedIds.length || !adminKey.trim()) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/discovery/candidates/bulk-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": adminKey.trim(),
+        },
+        body: JSON.stringify({ ids: selectedIds, status: nextStatus }),
+      });
+      if (!res.ok) throw new Error(errorMessage(res.status));
+      setSelectedIds([]);
+      await loadCandidates(adminKey, status);
+      if (selectedId) await loadDetail(selectedId, adminKey);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo actualizar seleccion.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function toggleCandidate(id: number) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+  }
+
+  function toggleAllVisible() {
+    const visibleIds = candidates.map(candidate => candidate.id);
+    if (visibleIds.length && visibleIds.every(id => selectedIdSet.has(id))) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+      return;
+    }
+    setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+  }
+
   async function linkExistingArtist() {
     if (!selectedCandidate || !adminKey.trim() || !linkArtistKey.trim()) return;
     setActionLoading(true);
@@ -222,7 +309,7 @@ export default function DiscoveryReview() {
 
   useEffect(() => {
     if (unlocked) void loadCandidates(adminKey, status);
-  }, [unlocked, adminKey, status]);
+  }, [unlocked, adminKey, status, sourceFilter, minAppearances, confidenceMin, confidenceMax, searchTerm, sort]);
 
   useEffect(() => {
     if (selectedId && unlocked) void loadDetail(selectedId, adminKey);
@@ -299,10 +386,12 @@ export default function DiscoveryReview() {
           </section>
         ) : (
           <>
-            <section className="flex flex-col gap-3 rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4 md:flex-row md:items-center">
+            <section className="space-y-4 rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
               <div className="flex flex-wrap gap-2">
                 {statusOptions.map(option => {
-                  const count = counts.find(item => item.status === option.value)?.count ?? 0;
+                  const count = option.value === "all"
+                    ? counts.reduce((sum, item) => sum + item.count, 0)
+                    : counts.find(item => item.status === option.value)?.count ?? 0;
                   const active = status === option.value;
                   return (
                     <button
@@ -320,15 +409,119 @@ export default function DiscoveryReview() {
                   );
                 })}
               </div>
-              <button
-                type="button"
-                onClick={() => void loadCandidates()}
-                disabled={loading}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:text-white disabled:cursor-wait disabled:opacity-60 md:ml-auto"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-                Refrescar
-              </button>
+
+              <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_repeat(5,minmax(0,1fr))_auto] md:items-end">
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Buscar</span>
+                  <input
+                    value={searchTerm}
+                    onChange={event => setSearchTerm(event.target.value)}
+                    placeholder="Nombre de artista"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Fuente</span>
+                  <select
+                    value={sourceFilter}
+                    onChange={event => setSourceFilter(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-white/10 bg-[#111] px-3 text-xs font-black uppercase tracking-[0.08em] text-zinc-300 outline-none focus:border-[#39FF14]/50"
+                  >
+                    <option value="all">Todas</option>
+                    {sources.map(source => (
+                      <option key={source.source} value={source.source}>{source.source} ({source.count})</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Min apar.</span>
+                  <input
+                    value={minAppearances}
+                    onChange={event => setMinAppearances(event.target.value)}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Conf min</span>
+                  <input
+                    value={confidenceMin}
+                    onChange={event => setConfidenceMin(event.target.value)}
+                    inputMode="numeric"
+                    placeholder="0"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Conf max</span>
+                  <input
+                    value={confidenceMax}
+                    onChange={event => setConfidenceMax(event.target.value)}
+                    inputMode="numeric"
+                    placeholder="100"
+                    className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Orden</span>
+                  <select
+                    value={sort}
+                    onChange={event => setSort(event.target.value as SortValue)}
+                    className="h-10 w-full rounded-lg border border-white/10 bg-[#111] px-3 text-xs font-black uppercase tracking-[0.08em] text-zinc-300 outline-none focus:border-[#39FF14]/50"
+                  >
+                    {sortOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void loadCandidates()}
+                  disabled={loading}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:text-white disabled:cursor-wait disabled:opacity-60"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                  Refrescar
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-4 md:flex-row md:items-center">
+                <button
+                  type="button"
+                  onClick={toggleAllVisible}
+                  className="inline-flex h-9 items-center justify-center rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:text-white"
+                >
+                  {candidates.length && candidates.every(candidate => selectedIdSet.has(candidate.id)) ? "Quitar visibles" : "Seleccionar visibles"}
+                </button>
+                <span className="text-xs font-bold text-zinc-600">{selectedIds.length} seleccionados</span>
+                <div className="flex flex-wrap gap-2 md:ml-auto">
+                  <button
+                    type="button"
+                    disabled={!selectedIds.length || actionLoading}
+                    onClick={() => void updateBulkStatus("needs_review")}
+                    className="h-9 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Marcar revisar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedIds.length || actionLoading}
+                    onClick={() => void updateBulkStatus("pending")}
+                    className="h-9 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Marcar pendiente
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!selectedIds.length || actionLoading}
+                    onClick={() => void updateBulkStatus("rejected")}
+                    className="h-9 rounded-lg border border-red-500/25 bg-red-500/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
             </section>
 
             {error && (
@@ -348,15 +541,25 @@ export default function DiscoveryReview() {
                     <div className="p-4 text-sm font-bold text-zinc-500">Cargando candidatos...</div>
                   ) : candidates.length ? (
                     candidates.map(candidate => (
-                      <button
+                      <div
                         key={candidate.id}
-                        type="button"
-                        onClick={() => setSelectedId(candidate.id)}
-                        className={`block w-full border-b border-white/[0.05] p-4 text-left hover:bg-white/[0.03] ${
+                        className={`flex gap-3 border-b border-white/[0.05] p-4 hover:bg-white/[0.03] ${
                           candidate.id === selectedId ? "bg-[#39FF14]/8" : ""
                         }`}
                       >
-                        <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedIdSet.has(candidate.id)}
+                          onChange={() => toggleCandidate(candidate.id)}
+                          className="mt-2 h-4 w-4 shrink-0 accent-[#39FF14]"
+                          aria-label={`Seleccionar ${candidate.artist_name}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(candidate.id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex items-start gap-3">
                           <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#39FF14]/25 text-xs font-black text-[#39FF14]">
                             {candidate.confidence_score}
                           </div>
@@ -368,9 +571,24 @@ export default function DiscoveryReview() {
                             <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-700">
                               {candidate.first_seen_date ?? "-"} → {candidate.last_seen_date ?? "-"}
                             </p>
+                            {candidate.top_sources?.length ? (
+                              <div className="mt-2 flex flex-wrap gap-1">
+                                {candidate.top_sources.slice(0, 3).map(source => (
+                                  <span key={source.source} className="rounded border border-white/10 px-1.5 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-zinc-500">
+                                    {source.source} · {source.count}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            {candidate.needs_review_reason ? (
+                              <p className="mt-2 text-xs font-bold leading-relaxed text-amber-200/80">
+                                {candidate.needs_review_reason}
+                              </p>
+                            ) : null}
                           </div>
-                        </div>
-                      </button>
+                          </div>
+                        </button>
+                      </div>
                     ))
                   ) : (
                     <div className="p-4 text-sm font-bold text-zinc-500">No hay candidatos en este estado.</div>
@@ -397,7 +615,7 @@ export default function DiscoveryReview() {
                           </h2>
                           <p className="mt-2 text-sm font-bold text-zinc-600">{selectedCandidate.normalized_name}</p>
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                           <div className="rounded-lg border border-white/10 p-3">
                             <p className="text-xl font-black text-white">{selectedCandidate.confidence_score}</p>
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Confianza</p>
@@ -410,19 +628,47 @@ export default function DiscoveryReview() {
                             <p className="text-xl font-black text-white">{selectedCandidate.source_count}</p>
                             <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fuentes</p>
                           </div>
+                          <div className="rounded-lg border border-white/10 p-3">
+                            <p className="text-xs font-black text-white">{selectedCandidate.first_seen_date ?? "-"}</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Primera vez</p>
+                          </div>
+                          <div className="rounded-lg border border-white/10 p-3">
+                            <p className="text-xs font-black text-white">{selectedCandidate.last_seen_date ?? "-"}</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Ultima vez</p>
+                          </div>
                         </div>
                       </div>
+                      {selectedCandidate.needs_review_reason && (
+                        <div className="mt-4 rounded-lg border border-amber-400/20 bg-amber-400/10 p-3 text-sm font-bold leading-relaxed text-amber-100">
+                          {selectedCandidate.needs_review_reason}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid gap-5 p-5 xl:grid-cols-[minmax(0,1fr)_320px]">
                       <div className="space-y-5">
                         <section>
-                          <h3 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white">Historial de apariciones</h3>
+                          <h3 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white">Fuentes principales</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {(detail?.topSources ?? selectedCandidate.top_sources ?? []).length ? (
+                              (detail?.topSources ?? selectedCandidate.top_sources ?? []).map(source => (
+                                <span key={source.source} className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">
+                                  {source.source} · {source.count}
+                                </span>
+                              ))
+                            ) : (
+                              <p className="text-sm font-bold text-zinc-500">Sin fuentes agregadas.</p>
+                            )}
+                          </div>
+                        </section>
+
+                        <section>
+                          <h3 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white">Apariciones recientes</h3>
                           <div className="overflow-hidden rounded-lg border border-white/[0.07]">
                             {detailLoading ? (
                               <div className="p-4 text-sm font-bold text-zinc-500">Cargando detalle...</div>
-                            ) : detail?.events.length ? (
-                              detail.events.map(event => (
+                            ) : (detail?.recentAppearances ?? detail?.events ?? []).length ? (
+                              (detail?.recentAppearances ?? detail?.events ?? []).map(event => (
                                 <div key={event.id} className="grid gap-2 border-b border-white/[0.05] p-3 last:border-b-0 md:grid-cols-[90px_120px_minmax(0,1fr)_70px] md:items-center">
                                   <p className="text-xs font-black text-[#39FF14]">{event.chart_date}</p>
                                   <p className="text-xs font-black uppercase tracking-[0.12em] text-zinc-400">{event.source}</p>
@@ -437,6 +683,11 @@ export default function DiscoveryReview() {
                               <div className="p-4 text-sm font-bold text-zinc-500">Sin eventos guardados.</div>
                             )}
                           </div>
+                          {detail?.events.length && detail.events.length > (detail.recentAppearances?.length ?? 0) ? (
+                            <p className="mt-2 text-xs font-bold text-zinc-600">
+                              Mostrando {detail.recentAppearances.length} recientes de {detail.events.length} eventos cargados.
+                            </p>
+                          ) : null}
                         </section>
 
                         <section>
@@ -484,6 +735,22 @@ export default function DiscoveryReview() {
                               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-300 hover:text-white disabled:opacity-60"
                             >
                               Revisar despues
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => void updateStatus("pending")}
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-300 hover:text-white disabled:opacity-60"
+                            >
+                              Pendiente
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => void updateStatus("rejected")}
+                              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-red-500/25 bg-red-500/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-red-200 hover:bg-red-500/15 disabled:opacity-60"
+                            >
+                              Rechazar
                             </button>
                             <button
                               type="button"
