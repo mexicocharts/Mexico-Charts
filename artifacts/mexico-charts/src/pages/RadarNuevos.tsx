@@ -152,21 +152,6 @@ function socialReachFromMeta(meta?: ArtistMetadata): number {
   );
 }
 
-function freshnessScore(firstSignal: string): number {
-  const year = Number(firstSignal);
-  if (year >= 2024) return 16;
-  if (year === 2023) return 13;
-  if (year === 2022) return 9;
-  return 5;
-}
-
-function catalogScore(releaseCount: number): number {
-  if (releaseCount <= 8) return 14;
-  if (releaseCount <= 20) return 11;
-  if (releaseCount <= 35) return 8;
-  return 5;
-}
-
 function buildRadar(
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
   dailyArtists: ChartArtist[],
@@ -199,13 +184,10 @@ function buildRadar(
       const socialReach = socialReachFromMeta(meta);
 
       const score = Math.round(
-        freshnessScore(candidate.firstSignal) +
-        catalogScore(candidate.releaseCount) +
-        rankScore(spotifyWeeklyRank, 100, 32) +
-        rankScore(youtubeWeeklyRank, 100, 20) +
-        scaleSqrt(youtubeWeeklyViews, maxYoutubeWeeklyViews, 16) +
-        scaleSocial(socialReach, maxSocial, 12) +
-        (candidate.confidence === "Alta" ? 6 : 3),
+        rankScore(spotifyWeeklyRank, 100, 45) +
+        rankScore(youtubeWeeklyRank, 100, 25) +
+        scaleSqrt(youtubeWeeklyViews, maxYoutubeWeeklyViews, 20) +
+        scaleSocial(socialReach, maxSocial, 10),
       );
 
       const reasons = [
@@ -453,10 +435,10 @@ export default function RadarNuevos() {
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <p className="max-w-3xl text-xs leading-5 text-zinc-500">
-              Radar no mide debut literal: mide artistas sin historial largo de hits, con catálogo todavía compacto o primer impulso reciente.
+              Radar usa elegibilidad editorial para definir el pool nuevo/emergente; el orden se determina por señales de éxito actual.
             </p>
             <div className="flex flex-wrap gap-2">
-              {["Pre-hit", "Primer impulso", "Baja huella histórica"].map((label) => (
+              {["Spotify", "YouTube", "Fanbase"].map((label) => (
                 <span
                   key={label}
                   className="border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400"
