@@ -42,9 +42,14 @@ function parseArgs() {
   }
 
   const snapshotDate = args.get("date") ?? new Date().toISOString().slice(0, 10);
+  const rawLimit = args.get("limit");
+  const limit = rawLimit == null || rawLimit === "all"
+    ? null
+    : Math.max(1, Number(rawLimit));
+
   return {
     snapshotDate,
-    limit: Math.max(1, Math.min(Number(args.get("limit") ?? 500), 500)),
+    limit,
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
     write: args.get("write") === "true",
   };
@@ -196,17 +201,20 @@ async function main() {
   try {
     await ensureTables(pool);
 
-    const channelRows = await pool.query<ChannelRow>(
-      `
+    const totalChannels = await pool.query<{ count: number }>(
+      "SELECT count(*)::int AS count FROM youtube_channels WHERE channel_id IS NOT NULL",
+    );
+    const totalLinkedChannels = totalChannels.rows[0]?.count ?? 0;
+    const channelSql = `
         SELECT artist_key, channel_id
         FROM youtube_channels
         WHERE channel_id IS NOT NULL
         ORDER BY artist_key
         OFFSET $1
-        LIMIT $2
-      `,
-      [offset, limit],
-    );
+        ${limit == null ? "" : "LIMIT $2"}
+      `;
+    const channelParams = limit == null ? [offset] : [offset, limit];
+    const channelRows = await pool.query<ChannelRow>(channelSql, channelParams);
     const channels = channelRows.rows;
 
     let fetched = 0;
@@ -214,7 +222,7 @@ async function main() {
     let missing = 0;
     let deltaTotal = 0;
 
-    console.log(`${write ? "Writing" : "Dry run"} YouTube channel snapshots: date=${snapshotDate} channels=${channels.length} offset=${offset}`);
+    console.log(`${write ? "Writing" : "Dry run"} YouTube channel snapshots: date=${snapshotDate} linked=${totalLinkedChannels} processing=${channels.length} offset=${offset} limit=${limit ?? "all"}`);
 
     for (const group of batch(channels, 50)) {
       const statsRows = await youtubeFetchChannels(group.map(channel => channel.channel_id));
@@ -245,7 +253,7 @@ async function main() {
       [snapshotDate],
     );
 
-    console.log(`Done. fetched=${fetched} saved=${saved} missing=${missing} date_rows=${snapshotCount.rows[0]?.count ?? 0} daily_views_total=${deltaTotal}`);
+    console.log(`Done. linked=${totalLinkedChannels} processing=${channels.length} fetched=${fetched} saved=${saved} missing=${missing} date_rows=${snapshotCount.rows[0]?.count ?? 0} daily_views_total=${deltaTotal}`);
   } finally {
     await pool.end();
   }
