@@ -116,14 +116,14 @@ const SHEET_CONFIG: Record<string, SheetConfig> = {
   Apple_Songs: {
     source: "Apple Music",
     chartType: "songs",
-    artistField: "Artist",
+    artistField: "Artist Names",
     titleFields: ["Song", "Title", "Name"],
     rankFields: ["Rank", "rank"],
   },
   Apple_Albums: {
     source: "Apple Music",
     chartType: "albums",
-    artistField: "Artist",
+    artistField: "Artist Names",
     titleFields: ["Album", "Title", "Name"],
     rankFields: ["Rank", "rank"],
   },
@@ -174,9 +174,20 @@ function compactName(value: string | null | undefined): string {
   return normalizeName(value).replace(/[^a-z0-9]/g, "");
 }
 
+function knownNameKeys(value: string): string[] {
+  const normalized = normalizeName(value);
+  return [
+    normalized,
+    normalized.replace(/\s+y\s+/g, " and "),
+    normalized.replace(/\s+and\s+/g, " y "),
+  ]
+    .map(item => item.replace(/[^a-z0-9]/g, ""))
+    .filter(Boolean);
+}
+
 function splitCredit(credit: string): string[] {
   return credit
-    .split(/,|&|\/|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+|\s+and\s+|\s+y\s+|\s+junto\s+a\s+/gi)
+    .split(/,|&|\/|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+|\s+junto\s+a\s+/gi)
     .map(s => s.trim())
     .filter(s => s.length > 1);
 }
@@ -248,7 +259,9 @@ async function fetchKnownArtistNames(baseUrl: string): Promise<Set<string>> {
     for (const artist of metadata.artists ?? []) {
       for (const key of ["artist_key", "artistKey", "artist_name", "artistName", "name"]) {
         const value = artist[key];
-        if (typeof value === "string" && value.trim()) known.add(compactName(value));
+        if (typeof value === "string" && value.trim()) {
+          for (const knownKey of knownNameKeys(value)) known.add(knownKey);
+        }
       }
     }
   } catch (err) {
@@ -268,7 +281,9 @@ async function fetchKnownArtistNames(baseUrl: string): Promise<Set<string>> {
   for (const row of body) {
     for (const { index } of keyIndexes) {
       const value = row[index];
-      if (value?.trim()) known.add(compactName(value));
+      if (value?.trim()) {
+        for (const knownKey of knownNameKeys(value)) known.add(knownKey);
+      }
     }
   }
 
@@ -416,6 +431,7 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
     first_seen_date: string | null;
     last_seen_date: string | null;
     signal_weight: string;
+    mexican_signal_count: string;
   }>(
     `
       WITH event_stats AS (
@@ -432,7 +448,19 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
       signal_stats AS (
         SELECT
           candidate_id,
-          COALESCE(SUM(confidence_weight), 0)::integer AS signal_weight
+          COALESCE(SUM(confidence_weight), 0)::integer AS signal_weight,
+          COUNT(*) FILTER (
+            WHERE signal_type IN (
+              'country_of_citizenship',
+              'country_of_origin',
+              'place_of_birth',
+              'musicbrainz_area',
+              'musicbrainz_begin_area',
+              'internal_metadata_match',
+              'known_mexican_collaboration'
+            )
+            AND confidence_weight >= 25
+          )::integer AS mexican_signal_count
         FROM artist_candidate_signals
         WHERE candidate_id = $1
         GROUP BY candidate_id
@@ -442,7 +470,8 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
         COALESCE(e.source_count, 0)::text AS source_count,
         e.first_seen_date,
         e.last_seen_date,
-        COALESCE(s.signal_weight, 0)::text AS signal_weight
+        COALESCE(s.signal_weight, 0)::text AS signal_weight,
+        COALESCE(s.mexican_signal_count, 0)::text AS mexican_signal_count
       FROM artist_candidates c
       LEFT JOIN event_stats e ON e.candidate_id = c.id
       LEFT JOIN signal_stats s ON s.candidate_id = c.id
@@ -457,9 +486,10 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
   const totalAppearances = Number(stats.total_appearances);
   const sourceCount = Number(stats.source_count);
   const signalWeight = Number(stats.signal_weight);
+  const mexicanSignalCount = Number(stats.mexican_signal_count);
   const confidenceScore = Math.min(100, signalWeight + Math.min(totalAppearances, 20) * 2 + sourceCount * 10);
 
-  const status = confidenceScore >= 55
+  const status = mexicanSignalCount > 0 && confidenceScore >= 55
     ? "likely_mexican"
     : confidenceScore >= 25
       ? "needs_review"
