@@ -28,6 +28,13 @@ const tools = [
     status: "Activo",
   },
   {
+    title: "Social Studio",
+    description: "Crear templates sociales editables y exportarlos como PNG.",
+    href: "/admin/social-templates",
+    icon: <Download className="h-5 w-5" />,
+    status: "Nuevo",
+  },
+  {
     title: "Touring desk",
     description: "Espacio reservado para alertas de giras y nuevos conciertos.",
     href: "/touring",

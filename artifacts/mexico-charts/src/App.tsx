@@ -71,10 +71,11 @@ function Router() {
           <Route path="/contacto" component={Contacto} />
           <Route path="/metodologia" component={Metodologia} />
           <Route path="/privacidad" component={Privacidad} />
-          <Route path="/admin" component={AdminHub} />
+          <Route path="/admin/social-templates" component={SocialTemplates} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route path="/admin/discovery-review" component={DiscoveryReview} />
+          <Route path="/admin" component={AdminHub} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
