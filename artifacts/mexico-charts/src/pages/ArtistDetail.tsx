@@ -1100,17 +1100,22 @@ export default function ArtistDetail() {
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Momentum</h2>
                     </div>
                     <div className="max-w-2xl text-sm font-bold leading-relaxed text-zinc-500">
-                      Lectura diaria de crecimiento en YouTube y Spotify.
+                      Medición diaria de crecimiento en {momentumSources.map(source => source.label).join(" y ")}.
                     </div>
                   </div>
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                    YouTube + Spotify
+                    {momentumSources.map(source => source.label).join(" + ")}
                   </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   {momentumSources.map(source => {
                     const hasTrend = source.points.length >= 2;
+                    const hasDailyValue = source.todayValue != null;
+                    const primaryLabel = hasDailyValue
+                      ? source.key === "youtube" ? "Vistas hoy" : "Streams hoy"
+                      : source.key === "youtube" ? "Vistas totales" : "Streams totales";
+                    const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
                     const latestPoints = source.points.slice(-8);
                     return (
                       <article
@@ -1142,15 +1147,21 @@ export default function ArtistDetail() {
                           <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
                             <div>
                               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
-                                {source.key === "youtube" ? "Vistas hoy" : "Streams hoy"}
+                                {primaryLabel}
                               </div>
                               <div className="mt-2 text-4xl font-black leading-none tracking-tight text-white sm:text-5xl">
-                                {source.todayValue ?? "—"}
+                                {primaryValue ?? "—"}
                               </div>
                               <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
-                                <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
-                                  {source.totalValue ?? "—"} {source.totalLabel}
-                                </span>
+                                {hasDailyValue ? (
+                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
+                                    {source.totalValue ?? "—"} {source.totalLabel}
+                                  </span>
+                                ) : (
+                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
+                                    Esperando próxima medición
+                                  </span>
+                                )}
                                 <span
                                   className="rounded-full px-2.5 py-1"
                                   style={{ background: `${source.color}12`, border: `1px solid ${source.color}24`, color: source.color }}
@@ -1221,7 +1232,7 @@ export default function ArtistDetail() {
                             <div className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5">
                               <div className="text-sm font-black uppercase tracking-[0.08em] text-white">Medición inicial</div>
                               <div className="mt-2 text-xs font-bold leading-relaxed text-zinc-500">
-                                La tendencia empieza con la próxima medición diaria.
+                                Ya tenemos el total actual. La tendencia empieza con la próxima medición diaria.
                               </div>
                               <div className="mt-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: source.color }}>
                                 {source.availableDays} {source.availableDays === 1 ? "día medido" : "días medidos"}

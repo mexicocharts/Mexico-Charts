@@ -719,9 +719,9 @@ export default function ApiCoverage() {
                 <div className="mb-5 flex flex-wrap items-center gap-3">
                   <Clock3 className="h-5 w-5 text-[#39FF14]" />
                   <div>
-                    <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Snapshots diarios</h2>
+                    <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Momentum diario</h2>
                     <p className="mt-1 text-xs font-bold text-zinc-600">
-                      Estado de hoy: {dailySnapshots.snapshotDate} · Actualizado {fmtDate(dailySnapshots.generatedAt)}
+                      Medición de hoy: {dailySnapshots.snapshotDate} · Actualizado {fmtDate(dailySnapshots.generatedAt)}
                     </p>
                   </div>
                   <button
@@ -738,7 +738,8 @@ export default function ApiCoverage() {
                   {[
                     {
                       key: "youtube",
-                      label: "YouTube canales",
+                      label: "YouTube",
+                      scope: "canales oficiales vinculados",
                       color: "#ff4444",
                       icon: <SiYoutube className="h-5 w-5" />,
                       total: dailySnapshots.youtube.total,
@@ -752,7 +753,8 @@ export default function ApiCoverage() {
                     },
                     {
                       key: "spotify",
-                      label: "Spotify Kworb",
+                      label: "Spotify",
+                      scope: "artistas Spotify con Kworb",
                       color: "#1DB954",
                       icon: <SiSpotify className="h-5 w-5" />,
                       total: dailySnapshots.spotifyKworb.total,
@@ -776,7 +778,7 @@ export default function ApiCoverage() {
                           <div>
                             <h3 className="text-sm font-black uppercase tracking-[0.1em] text-white">{card.label}</h3>
                             <p className={`mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] ${complete ? "text-[#39FF14]" : "text-amber-300"}`}>
-                              {complete ? "Completo" : `${card.missing} pendientes`}
+                              {complete ? "Completo hoy" : `${card.missing} pendientes hoy`}
                             </p>
                           </div>
                           <button
@@ -797,11 +799,11 @@ export default function ApiCoverage() {
                         <div className="mt-5 grid grid-cols-3 gap-3">
                           <div>
                             <div className="text-2xl font-black text-white">{card.dateRows}</div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Hoy</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Medidos hoy</div>
                           </div>
                           <div>
                             <div className="text-2xl font-black text-white">{card.total}</div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Total</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vinculados</div>
                           </div>
                           <div>
                             <div className="text-2xl font-black text-white">{fmtCompact(card.totalDaily)}</div>
@@ -810,7 +812,8 @@ export default function ApiCoverage() {
                         </div>
 
                         <div className="mt-4 border-t border-white/[0.06] pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
-                          Última corrida: {fmtDate(card.latestFetchedAt)}
+                          <div>{card.dateRows}/{card.total} {card.scope}</div>
+                          <div className="mt-1">Última corrida: {fmtDate(card.latestFetchedAt)}</div>
                         </div>
                       </article>
                     );
