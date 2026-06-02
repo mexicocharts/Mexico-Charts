@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, CheckSquare, Download, ExternalLink, KeyRound, Mail, RadioTower, RefreshCw } from "lucide-react";
+import { ArrowLeft, BarChart3, CheckSquare, Download, ExternalLink, KeyRound, Mail, RadioTower, RefreshCw, Search } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
@@ -18,6 +18,13 @@ const tools = [
     description: "Filtrar, copiar, aprobar o rechazar coincidencias de Spotify y MusicBrainz.",
     href: "/admin/enrichment-review",
     icon: <CheckSquare className="h-5 w-5" />,
+    status: "Activo",
+  },
+  {
+    title: "Descubrimiento",
+    description: "Revisar artistas desconocidos detectados en snapshots de charts.",
+    href: "/admin/discovery-review",
+    icon: <Search className="h-5 w-5" />,
     status: "Activo",
   },
   {
