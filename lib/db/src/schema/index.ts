@@ -28,3 +28,4 @@ export * from "./youtube_videos";
 export * from "./spotify_artists";
 export * from "./musicbrainz_artists";
 export * from "./newsletter_subscribers";
+export * from "./artist_discovery";

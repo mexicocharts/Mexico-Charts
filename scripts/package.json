@@ -16,6 +16,8 @@
     "musicbrainz-artist-backfill": "tsx ./src/musicbrainz-artist-backfill.ts",
     "musicbrainz-review-export": "tsx ./src/musicbrainz-review-export.ts",
     "musicbrainz-approve-candidates": "tsx ./src/musicbrainz-approve-candidates.ts",
+    "artist-discovery-create-tables": "tsx ./src/artist-discovery-create-tables.ts",
+    "artist-discovery-import-charts-hub": "tsx ./src/artist-discovery-import-charts-hub.ts",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

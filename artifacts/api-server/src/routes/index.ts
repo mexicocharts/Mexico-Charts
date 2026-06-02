@@ -13,6 +13,7 @@ import itunesRouter from "./itunes";
 import wikiRouter from "./wiki";
 import youtubeRouter from "./youtube";
 import newsletterRouter from "./newsletter";
+import artistDiscoveryRouter from "./artist-discovery";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(itunesRouter);
 router.use(wikiRouter);
 router.use(youtubeRouter);
 router.use(newsletterRouter);
+router.use(artistDiscoveryRouter);
 
 export default router;
