@@ -3,8 +3,17 @@ import { Link } from "wouter";
 import { ArrowLeft, CheckCircle2, Copy, Download, Loader2, RefreshCw } from "lucide-react";
 import { toPng } from "html-to-image";
 import html2canvas from "html2canvas";
+import DailyTopSongs from "@/social/templates/DailyTopSongs";
+import DailyTopArtists from "@/social/templates/DailyTopArtists";
+import WeeklyTopSongs from "@/social/templates/WeeklyTopSongs";
+import WeeklyTopAlbums from "@/social/templates/WeeklyTopAlbums";
+import ViralSongs from "@/social/templates/ViralSongs";
+import AnimatedTopArtists from "@/social/templates/AnimatedTopArtists";
+import AnimatedTopSongs from "@/social/templates/AnimatedTopSongs";
+import AnimatedTopAlbums from "@/social/templates/AnimatedTopAlbums";
 import PageSEO from "@/components/PageSEO";
 
+const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const ACCESS_CODE = (import.meta.env.VITE_SOCIAL_TEMPLATES_ACCESS_CODE as string | undefined)?.trim() ?? "";
 const ACCESS_STORAGE_KEY = "mexicocharts:social-templates-access";
 const CANVAS_W = 1080;
@@ -15,6 +24,14 @@ const BLUE = "#34b7ff";
 const GOLD = "#ffc857";
 
 type TemplateId =
+  | "daily-top-songs"
+  | "daily-top-artists"
+  | "weekly-top-songs"
+  | "weekly-top-albums"
+  | "viral-songs"
+  | "animated-top-artists"
+  | "animated-top-songs"
+  | "animated-top-albums"
   | "daily-momentum"
   | "artist-milestone"
   | "chart-top-five"
@@ -42,6 +59,7 @@ type TemplateConfig = {
   accent: string;
   defaults: Record<string, string>;
   fields: Field[];
+  Component?: React.ComponentType;
 };
 
 const todayLabel = new Intl.DateTimeFormat("es-MX", {
@@ -51,6 +69,94 @@ const todayLabel = new Intl.DateTimeFormat("es-MX", {
 }).format(new Date());
 
 const templates: TemplateConfig[] = [
+  {
+    id: "daily-top-songs",
+    name: "Top Canciones Diarias",
+    category: "Listas",
+    format: "Live list · Spotify",
+    description: "Lista diaria con covers de canciones, streams y movimiento.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: DailyTopSongs,
+  },
+  {
+    id: "daily-top-artists",
+    name: "Top Artistas Diarios",
+    category: "Listas",
+    format: "Live list · Spotify",
+    description: "Lista diaria con fotos de artistas, racha y pico.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: DailyTopArtists,
+  },
+  {
+    id: "weekly-top-songs",
+    name: "Top Canciones Semanales",
+    category: "Listas",
+    format: "Live list · Spotify",
+    description: "Lista semanal con canciones, streams y movimiento.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: WeeklyTopSongs,
+  },
+  {
+    id: "weekly-top-albums",
+    name: "Top Albumes Semanales",
+    category: "Listas",
+    format: "Live list · Apple Music",
+    description: "Lista semanal con artwork/miniaturas de albumes.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: WeeklyTopAlbums,
+  },
+  {
+    id: "viral-songs",
+    name: "Viral Mexico",
+    category: "Listas",
+    format: "Live list · Tendencias",
+    description: "Lista de canciones virales con portada y crecimiento.",
+    accent: RED,
+    defaults: {},
+    fields: [],
+    Component: ViralSongs,
+  },
+  {
+    id: "animated-top-artists",
+    name: "Top Artistas Animado",
+    category: "Listas",
+    format: "Animated list",
+    description: "Lista animada de artistas para Reels o Stories.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: AnimatedTopArtists,
+  },
+  {
+    id: "animated-top-songs",
+    name: "Top Canciones Animado",
+    category: "Listas",
+    format: "Animated list",
+    description: "Lista animada de canciones para Reels o Stories.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: AnimatedTopSongs,
+  },
+  {
+    id: "animated-top-albums",
+    name: "Top Albumes Animado",
+    category: "Listas",
+    format: "Animated list",
+    description: "Lista animada de albumes para Reels o Stories.",
+    accent: ACCENT,
+    defaults: {},
+    fields: [],
+    Component: AnimatedTopAlbums,
+  },
   {
     id: "daily-momentum",
     name: "Daily Momentum",
@@ -286,50 +392,18 @@ function downloadDataUrl(dataUrl: string, filename: string) {
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: compact ? 12 : 16 }}>
-      <div
+      <img
+        src={logoUrl}
+        alt="Mexico Charts"
+        crossOrigin="anonymous"
         style={{
-          width: compact ? 30 : 42,
           height: compact ? 30 : 42,
-          borderRadius: compact ? 8 : 10,
-          background: ACCENT,
-          color: "#050505",
-          display: "grid",
-          placeItems: "center",
-          fontSize: compact ? 15 : 20,
-          fontWeight: 1000,
-          letterSpacing: "-0.08em",
+          width: "auto",
+          maxWidth: compact ? 150 : 210,
+          objectFit: "contain",
+          display: "block",
         }}
-      >
-        MX
-      </div>
-      <div>
-        <div
-          style={{
-            color: "#fff",
-            fontSize: compact ? 14 : 18,
-            fontWeight: 1000,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            lineHeight: 1,
-          }}
-        >
-          Mexico Charts
-        </div>
-        {!compact && (
-          <div
-            style={{
-              color: "rgba(255,255,255,0.42)",
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              marginTop: 6,
-            }}
-          >
-            Music data intelligence
-          </div>
-        )}
-      </div>
+      />
     </div>
   );
 }
@@ -507,6 +581,11 @@ function RankedRows({ rows, accent }: { rows: string[]; accent: string }) {
 }
 
 function TemplateArt({ config, values }: { config: TemplateConfig; values: Record<string, string> }) {
+  if (config.Component) {
+    const Component = config.Component;
+    return <Component />;
+  }
+
   const lines = splitLines(values.rows ?? values.bullets ?? "");
 
   if (config.id === "daily-momentum") {
@@ -648,8 +727,40 @@ function TemplateArt({ config, values }: { config: TemplateConfig; values: Recor
   );
 }
 
+async function waitForExportReady(node: HTMLElement, timeoutMs = 7000) {
+  const started = Date.now();
+  while (node.querySelector("[data-export-loading='true']") && Date.now() - started < timeoutMs) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+}
+
+async function waitForImages(node: HTMLElement, timeoutMs = 2500) {
+  const images = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
+  if (!images.length) return;
+
+  await Promise.race([
+    Promise.allSettled(
+      images.map(async (image) => {
+        if (image.complete && image.naturalWidth > 0) return;
+        if (typeof image.decode === "function") {
+          await image.decode().catch(() => undefined);
+          return;
+        }
+        await new Promise<void>((resolve) => {
+          image.onload = () => resolve();
+          image.onerror = () => resolve();
+        });
+      }),
+    ),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
+}
+
 async function exportNode(node: HTMLElement, filename: string) {
   await document.fonts.ready;
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  await waitForExportReady(node);
+  await waitForImages(node);
   await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
   try {
@@ -732,9 +843,9 @@ export default function SocialTemplates() {
   }
 
   async function copyTemplateText() {
-    const text = selected.fields
-      .map((field) => `${field.label}: ${values[field.key] ?? ""}`)
-      .join("\n");
+    const text = selected.fields.length
+      ? selected.fields.map((field) => `${field.label}: ${values[field.key] ?? ""}`).join("\n")
+      : `${selected.name}\n${selected.description}`;
     await navigator.clipboard.writeText(text);
     setExportStatus("Texto copiado.");
   }
@@ -861,7 +972,7 @@ export default function SocialTemplates() {
               Social media templates
             </h1>
             <p style={{ margin: "18px 0 0", maxWidth: 740, color: "rgba(255,255,255,0.52)", fontSize: 16, lineHeight: 1.55 }}>
-              Eight clean Mexico Charts templates built for reliable PNG export. Edit the copy, export at 1080x1350, post.
+              Listas con artwork, templates editoriales y cards de momentum built for reliable PNG export. Edit the copy when available, export at 1080x1350, post.
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -962,33 +1073,49 @@ export default function SocialTemplates() {
           </section>
 
           <aside style={panelStyle}>
-            <div style={panelTitleStyle}>Edit copy</div>
+            <div style={panelTitleStyle}>{selected.fields.length ? "Edit copy" : "Live chart data"}</div>
             <div style={{ color: "rgba(255,255,255,0.42)", fontSize: 13, lineHeight: 1.45, marginBottom: 18 }}>
               {selected.description}
             </div>
-            <div style={{ display: "grid", gap: 14 }}>
-              {selected.fields.map((field) => (
-                <label key={field.key} style={{ display: "grid", gap: 7 }}>
-                  <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, fontWeight: 1000, letterSpacing: "0.16em", textTransform: "uppercase" }}>
-                    {field.label}
-                  </span>
-                  {field.type === "textarea" ? (
-                    <textarea
-                      value={values[field.key] ?? ""}
-                      onChange={(event) => updateValue(field.key, event.target.value)}
-                      rows={field.key === "rows" || field.key === "bullets" ? 6 : 3}
-                      style={inputStyle}
-                    />
-                  ) : (
-                    <input
-                      value={values[field.key] ?? ""}
-                      onChange={(event) => updateValue(field.key, event.target.value)}
-                      style={inputStyle}
-                    />
-                  )}
-                </label>
-              ))}
-            </div>
+            {selected.fields.length ? (
+              <div style={{ display: "grid", gap: 14 }}>
+                {selected.fields.map((field) => (
+                  <label key={field.key} style={{ display: "grid", gap: 7 }}>
+                    <span style={{ color: "rgba(255,255,255,0.42)", fontSize: 10, fontWeight: 1000, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+                      {field.label}
+                    </span>
+                    {field.type === "textarea" ? (
+                      <textarea
+                        value={values[field.key] ?? ""}
+                        onChange={(event) => updateValue(field.key, event.target.value)}
+                        rows={field.key === "rows" || field.key === "bullets" ? 6 : 3}
+                        style={inputStyle}
+                      />
+                    ) : (
+                      <input
+                        value={values[field.key] ?? ""}
+                        onChange={(event) => updateValue(field.key, event.target.value)}
+                        style={inputStyle}
+                      />
+                    )}
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.035)",
+                  padding: 14,
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: 13,
+                  fontWeight: 750,
+                  lineHeight: 1.5,
+                }}
+              >
+                This template pulls live chart data and artwork from Mexico Charts. Use Export PNG once the preview has loaded.
+              </div>
+            )}
           </aside>
         </section>
       </main>
@@ -1002,7 +1129,6 @@ export default function SocialTemplates() {
           width: CANVAS_W,
           height: CANVAS_H,
           pointerEvents: "none",
-          opacity: 0,
           zIndex: -1,
         }}
       >
