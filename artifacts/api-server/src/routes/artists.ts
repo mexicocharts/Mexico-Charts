@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   deezerTrackCovers,
   musicbrainzArtistCandidates,
@@ -10,6 +10,8 @@ import {
 } from "@workspace/db/schema";
 import { asc, eq, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { runDailySpotifyKworbSnapshots } from "../lib/spotify-kworb-snapshot-scheduler";
+import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 
 const router = Router();
 
@@ -636,6 +638,101 @@ router.get("/admin/artists/api-coverage", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[artists] api coverage unavailable");
     res.status(500).json({ error: "API coverage unavailable" });
+  }
+});
+
+router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const snapshotDate = (req.query["date"] as string | undefined) ?? new Date().toISOString().slice(0, 10);
+
+  try {
+    const [youtubeRows, spotifyRows] = await Promise.all([
+      pool.query<{
+        total: number;
+        date_rows: number;
+        latest_fetched_at: string | null;
+        total_daily_views: string | number | null;
+      }>(
+        `
+          SELECT
+            (SELECT count(*)::int FROM youtube_channels WHERE channel_id IS NOT NULL) AS total,
+            (SELECT count(*)::int FROM youtube_channel_daily_snapshots WHERE snapshot_date = $1) AS date_rows,
+            (SELECT max(fetched_at)::text FROM youtube_channel_daily_snapshots WHERE snapshot_date = $1) AS latest_fetched_at,
+            (SELECT COALESCE(sum(daily_view_delta), 0) FROM youtube_channel_daily_snapshots WHERE snapshot_date = $1) AS total_daily_views
+        `,
+        [snapshotDate],
+      ),
+      pool.query<{
+        total: number;
+        date_rows: number;
+        latest_fetched_at: string | null;
+        total_daily_streams: string | number | null;
+      }>(
+        `
+          SELECT
+            (
+              SELECT count(*)::int
+              FROM kworb_coverage c
+              LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
+              WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
+                AND COALESCE(c.has_spotify, false) = true
+            ) AS total,
+            (SELECT count(*)::int FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS date_rows,
+            (SELECT max(fetched_at)::text FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS latest_fetched_at,
+            (SELECT COALESCE(sum(daily_streams), 0) FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS total_daily_streams
+        `,
+        [snapshotDate],
+      ),
+    ]);
+
+    const youtube = youtubeRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_views: 0 };
+    const spotify = spotifyRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_streams: 0 };
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      snapshotDate,
+      generatedAt: new Date().toISOString(),
+      youtube: {
+        total: Number(youtube.total ?? 0),
+        dateRows: Number(youtube.date_rows ?? 0),
+        missing: Math.max(0, Number(youtube.total ?? 0) - Number(youtube.date_rows ?? 0)),
+        latestFetchedAt: youtube.latest_fetched_at,
+        totalDailyViews: Number(youtube.total_daily_views ?? 0),
+      },
+      spotifyKworb: {
+        total: Number(spotify.total ?? 0),
+        dateRows: Number(spotify.date_rows ?? 0),
+        missing: Math.max(0, Number(spotify.total ?? 0) - Number(spotify.date_rows ?? 0)),
+        latestFetchedAt: spotify.latest_fetched_at,
+        totalDailyStreams: Number(spotify.total_daily_streams ?? 0),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] daily snapshot status unavailable");
+    res.status(500).json({ error: "Daily snapshot status unavailable" });
+  }
+});
+
+router.post("/admin/artists/daily-snapshots/run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const provider = (req.query["provider"] as string | undefined)?.trim().toLowerCase();
+
+  try {
+    if (provider === "youtube") {
+      res.json({ provider, result: await runDailyYoutubeChannelSnapshots("admin-coverage-run-now") });
+      return;
+    }
+    if (provider === "spotify" || provider === "spotify-kworb") {
+      res.json({ provider: "spotifyKworb", result: await runDailySpotifyKworbSnapshots("admin-coverage-run-now") });
+      return;
+    }
+
+    res.status(400).json({ error: "provider must be youtube or spotify" });
+  } catch (err) {
+    logger.error({ err, provider }, "[artists] daily snapshot run failed");
+    res.status(500).json({ error: "Daily snapshot run failed" });
   }
 });
 

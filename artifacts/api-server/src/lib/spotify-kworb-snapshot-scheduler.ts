@@ -25,6 +25,19 @@ const CHECK_MS = 60 * 60 * 1000;
 let schedulerStarted = false;
 let schedulerTimer: ReturnType<typeof setInterval> | null = null;
 
+export interface SpotifyKworbSnapshotRunSummary {
+  status: "complete" | "already_complete" | "locked" | "failed";
+  snapshotDate: string;
+  reason: string;
+  artists: number;
+  fetched: number;
+  saved: number;
+  missing: number;
+  dateRows: number;
+  dailyStreamsTotal: number;
+  error?: string;
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -157,7 +170,7 @@ async function saveSnapshot(
   );
 }
 
-async function shouldRunToday(client: PgClient, snapshotDate: string) {
+async function snapshotCounts(client: PgClient, snapshotDate: string) {
   const counts = await client.query<{ artists: number; snapshots: number }>(
     `
       SELECT
@@ -172,26 +185,48 @@ async function shouldRunToday(client: PgClient, snapshotDate: string) {
     `,
     [snapshotDate],
   );
-  const row = counts.rows[0];
-  if (!row || row.artists <= 0) return false;
-  return row.snapshots < row.artists;
+  return {
+    artists: counts.rows[0]?.artists ?? 0,
+    snapshots: counts.rows[0]?.snapshots ?? 0,
+  };
 }
 
-async function runDailySpotifyKworbSnapshots(reason: string) {
+export async function runDailySpotifyKworbSnapshots(reason: string): Promise<SpotifyKworbSnapshotRunSummary> {
   const snapshotDate = todayIso();
   const client = await pool.connect();
   try {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) {
       logger.info({ snapshotDate, reason }, "[spotify-kworb:snapshots] another worker owns snapshot lock");
-      return;
+      return {
+        status: "locked",
+        snapshotDate,
+        reason,
+        artists: 0,
+        fetched: 0,
+        saved: 0,
+        missing: 0,
+        dateRows: 0,
+        dailyStreamsTotal: 0,
+      };
     }
 
     try {
       await ensureSnapshotTable(client);
-      if (!(await shouldRunToday(client, snapshotDate))) {
+      const before = await snapshotCounts(client, snapshotDate);
+      if (before.artists <= 0 || before.snapshots >= before.artists) {
         logger.info({ snapshotDate, reason }, "[spotify-kworb:snapshots] already complete for today");
-        return;
+        return {
+          status: "already_complete",
+          snapshotDate,
+          reason,
+          artists: before.artists,
+          fetched: 0,
+          saved: 0,
+          missing: 0,
+          dateRows: before.snapshots,
+          dailyStreamsTotal: 0,
+        };
       }
 
       const artistRows = await client.query<ArtistRow>(`
@@ -229,11 +264,35 @@ async function runDailySpotifyKworbSnapshots(reason: string) {
         { snapshotDate, reason, artists: artistRows.rows.length, fetched, saved, missing, dailyStreamsTotal },
         "[spotify-kworb:snapshots] daily snapshots complete",
       );
+      const after = await snapshotCounts(client, snapshotDate);
+      return {
+        status: "complete",
+        snapshotDate,
+        reason,
+        artists: artistRows.rows.length,
+        fetched,
+        saved,
+        missing,
+        dateRows: after.snapshots,
+        dailyStreamsTotal,
+      };
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
     logger.error({ err, snapshotDate, reason }, "[spotify-kworb:snapshots] daily snapshot job failed");
+    return {
+      status: "failed",
+      snapshotDate,
+      reason,
+      artists: 0,
+      fetched: 0,
+      saved: 0,
+      missing: 0,
+      dateRows: 0,
+      dailyStreamsTotal: 0,
+      error: err instanceof Error ? err.message : String(err),
+    };
   } finally {
     client.release();
   }

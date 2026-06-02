@@ -104,6 +104,25 @@ interface TouringCoverage {
   oldestFetchAt: string | null;
 }
 
+interface DailySnapshotStatus {
+  snapshotDate: string;
+  generatedAt: string;
+  youtube: {
+    total: number;
+    dateRows: number;
+    missing: number;
+    latestFetchedAt: string | null;
+    totalDailyViews: number;
+  };
+  spotifyKworb: {
+    total: number;
+    dateRows: number;
+    missing: number;
+    latestFetchedAt: string | null;
+    totalDailyStreams: number;
+  };
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "Sin datos";
   return new Intl.DateTimeFormat("es-MX", {
@@ -227,11 +246,14 @@ export default function ApiCoverage() {
   const [coverage, setCoverage] = useState<CoverageResponse | null>(null);
   const [kworb, setKworb] = useState<KworbStats | null>(null);
   const [touring, setTouring] = useState<TouringCoverage | null>(null);
+  const [dailySnapshots, setDailySnapshots] = useState<DailySnapshotStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
+  const [runningYoutubeSnapshots, setRunningYoutubeSnapshots] = useState(false);
+  const [runningSpotifySnapshots, setRunningSpotifySnapshots] = useState(false);
   const [syncingKworb, setSyncingKworb] = useState(false);
   const [runningKworb, setRunningKworb] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
@@ -289,17 +311,20 @@ export default function ApiCoverage() {
       if (!coverageRes.ok) throw new Error(coverageRes.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cobertura.");
       setCoverage(await coverageRes.json());
 
-      const [kworbRes, touringRes] = await Promise.all([
+      const [kworbRes, touringRes, dailySnapshotRes] = await Promise.all([
         fetch("/api/kworb/admin/stats", { headers: { "X-Admin-Key": savedKey } }),
         fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": savedKey } }),
+        fetch("/api/admin/artists/daily-snapshots/status", { headers: { "X-Admin-Key": savedKey } }),
       ]);
       setKworb(kworbRes.ok ? await kworbRes.json() : null);
       setTouring(touringRes.ok ? await touringRes.json() : null);
+      setDailySnapshots(dailySnapshotRes.ok ? await dailySnapshotRes.json() : null);
     } catch (err) {
       setError((err as Error).message);
       setCoverage(null);
       setKworb(null);
       setTouring(null);
+      setDailySnapshots(null);
     } finally {
       setLoading(false);
     }
@@ -313,6 +338,7 @@ export default function ApiCoverage() {
       setCoverage(null);
       setKworb(null);
       setTouring(null);
+      setDailySnapshots(null);
       setError(null);
       return;
     }
@@ -375,6 +401,43 @@ export default function ApiCoverage() {
       setError((err as Error).message);
     } finally {
       setRefreshingYoutube(false);
+    }
+  }
+
+  async function runDailySnapshot(provider: "youtube" | "spotify") {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+
+    const setRunning = provider === "youtube" ? setRunningYoutubeSnapshots : setRunningSpotifySnapshots;
+    setRunning(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/artists/daily-snapshots/run?provider=${provider}`, {
+        method: "POST",
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
+      if (!res.ok) throw new Error(provider === "youtube" ? "No se pudo correr YouTube diario." : "No se pudo correr Spotify Kworb diario.");
+      const data = await res.json() as {
+        result?: {
+          status?: string;
+          channels?: number;
+          artists?: number;
+          saved?: number;
+          dateRows?: number;
+          missing?: number;
+        };
+      };
+      const result = data.result;
+      const label = provider === "youtube" ? "YouTube" : "Spotify Kworb";
+      setActionMessage(`${label}: ${result?.status ?? "ok"} · ${result?.dateRows ?? result?.saved ?? 0}/${result?.channels ?? result?.artists ?? 0} snapshots hoy.`);
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRunning(false);
     }
   }
 
@@ -650,6 +713,111 @@ export default function ApiCoverage() {
                 <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">Actualizado</div>
               </div>
             </section>
+
+            {dailySnapshots && (
+              <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
+                <div className="mb-5 flex flex-wrap items-center gap-3">
+                  <Clock3 className="h-5 w-5 text-[#39FF14]" />
+                  <div>
+                    <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">Snapshots diarios</h2>
+                    <p className="mt-1 text-xs font-bold text-zinc-600">
+                      Estado de hoy: {dailySnapshots.snapshotDate} · Actualizado {fmtDate(dailySnapshots.generatedAt)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void loadDashboard(adminKey)}
+                    className="ml-auto inline-flex h-9 items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 hover:border-[#39FF14]/30 hover:text-[#39FF14]"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                    Refrescar
+                  </button>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {[
+                    {
+                      key: "youtube",
+                      label: "YouTube canales",
+                      color: "#ff4444",
+                      icon: <SiYoutube className="h-5 w-5" />,
+                      total: dailySnapshots.youtube.total,
+                      dateRows: dailySnapshots.youtube.dateRows,
+                      missing: dailySnapshots.youtube.missing,
+                      latestFetchedAt: dailySnapshots.youtube.latestFetchedAt,
+                      totalDaily: dailySnapshots.youtube.totalDailyViews,
+                      totalLabel: "views diarias",
+                      running: runningYoutubeSnapshots,
+                      run: () => void runDailySnapshot("youtube"),
+                    },
+                    {
+                      key: "spotify",
+                      label: "Spotify Kworb",
+                      color: "#1DB954",
+                      icon: <SiSpotify className="h-5 w-5" />,
+                      total: dailySnapshots.spotifyKworb.total,
+                      dateRows: dailySnapshots.spotifyKworb.dateRows,
+                      missing: dailySnapshots.spotifyKworb.missing,
+                      latestFetchedAt: dailySnapshots.spotifyKworb.latestFetchedAt,
+                      totalDaily: dailySnapshots.spotifyKworb.totalDailyStreams,
+                      totalLabel: "streams diarios",
+                      running: runningSpotifySnapshots,
+                      run: () => void runDailySnapshot("spotify"),
+                    },
+                  ].map(card => {
+                    const complete = card.total > 0 && card.dateRows >= card.total;
+                    const pct = card.total > 0 ? Math.min(100, Math.round((card.dateRows / card.total) * 100)) : 0;
+                    return (
+                      <article key={card.key} className="rounded-lg border border-white/[0.07] bg-black/20 p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04]" style={{ color: card.color }}>
+                            {card.icon}
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-black uppercase tracking-[0.1em] text-white">{card.label}</h3>
+                            <p className={`mt-0.5 text-[10px] font-black uppercase tracking-[0.16em] ${complete ? "text-[#39FF14]" : "text-amber-300"}`}>
+                              {complete ? "Completo" : `${card.missing} pendientes`}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={card.run}
+                            disabled={card.running}
+                            className="ml-auto inline-flex h-9 items-center gap-2 rounded-lg border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14] hover:bg-[#39FF14]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <RefreshCw className={`h-3.5 w-3.5 ${card.running ? "animate-spin" : ""}`} />
+                            Run now
+                          </button>
+                        </div>
+
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: card.color }} />
+                        </div>
+
+                        <div className="mt-5 grid grid-cols-3 gap-3">
+                          <div>
+                            <div className="text-2xl font-black text-white">{card.dateRows}</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Hoy</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-black text-white">{card.total}</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Total</div>
+                          </div>
+                          <div>
+                            <div className="text-2xl font-black text-white">{fmtCompact(card.totalDaily)}</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">{card.totalLabel}</div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 border-t border-white/[0.06] pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+                          Última corrida: {fmtDate(card.latestFetchedAt)}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
