@@ -23,6 +23,7 @@ export * from "./kworb_snapshots";
 export * from "./kworb_jobs";
 export * from "./deezer_track_covers";
 export * from "./youtube_channels";
+export * from "./youtube_channel_daily_snapshots";
 export * from "./youtube_channel_candidates";
 export * from "./youtube_videos";
 export * from "./spotify_artists";

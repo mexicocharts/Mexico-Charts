@@ -64,6 +64,48 @@ function formatShortDateEs(iso: string | null | undefined): string {
   }).format(date);
 }
 
+function YoutubeDailySparkline({
+  points,
+  color,
+}: {
+  points: Array<{ date: string; dailyViews: number | null }>;
+  color: string;
+}) {
+  const values = points.map(point => point.dailyViews ?? 0);
+  const max = Math.max(...values, 1);
+  const width = 300;
+  const height = 72;
+  const path = values.map((value, index) => {
+    const x = values.length <= 1 ? 0 : (index / (values.length - 1)) * width;
+    const y = height - (value / max) * (height - 8) - 4;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full overflow-visible" role="img" aria-label="Tendencia diaria de vistas del canal de YouTube">
+      <defs>
+        <linearGradient id="youtubeDailyTrendFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polyline
+        points={`0,${height} ${path} ${width},${height}`}
+        fill="url(#youtubeDailyTrendFill)"
+        stroke="none"
+      />
+      <polyline
+        points={path}
+        fill="none"
+        stroke={color}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="3"
+      />
+    </svg>
+  );
+}
+
 function normalizeSongMatch(value: string): string {
   return value
     .toLowerCase()
@@ -401,6 +443,11 @@ export default function ArtistDetail() {
   const spotifyUpdatedLabel = formatShortDateEs(enrichment?.spotify?.lastUpdated);
   const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
+  const youtubeDailyTrend = useMemo(
+    () => (ytChannel?.history ?? []).filter(point => point.dailyViews != null),
+    [ytChannel?.history],
+  );
+  const youtubeSnapshotLabel = formatShortDateEs(ytChannel?.snapshotDate);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
   const hasAudienceStats = Boolean(metaArtist && (
@@ -412,6 +459,7 @@ export default function ArtistDetail() {
     metaArtist.deezerFans > 0 ||
     ytChannel?.subscribersFmt ||
     ytChannel?.viewsFmt ||
+    ytChannel?.dailyViewsFmt ||
     ytChannel?.videoCount != null
   ));
 
@@ -860,6 +908,13 @@ export default function ArtistDetail() {
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   ) : null}
+                  {ytChannel?.dailyViewsFmt && (
+                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.08)", border: "1px solid rgba(255,0,0,0.20)" }}>
+                      <SiYoutube className="w-4 h-4 text-red-500" />
+                      <div className="text-xl font-black text-white leading-none">{ytChannel.dailyViewsFmt}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas diarias del canal</div>
+                    </div>
+                  )}
                   {ytChannel?.viewsFmt && (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
@@ -882,6 +937,39 @@ export default function ArtistDetail() {
                     </div>
                   )}
                 </div>
+                {youtubeDailyTrend.length >= 2 && (
+                  <div
+                    className="mt-4 overflow-hidden rounded-xl p-4"
+                    style={{ background: "linear-gradient(135deg, rgba(255,0,0,0.055), rgba(255,255,255,0.018))", border: "1px solid rgba(255,0,0,0.12)" }}
+                    data-testid="youtube-channel-daily-trend"
+                  >
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-400">
+                          <SiYoutube className="h-3.5 w-3.5" />
+                          Canal oficial YouTube
+                        </div>
+                        <div className="mt-1 text-sm font-black uppercase tracking-[0.08em] text-white">
+                          Tendencia diaria de vistas
+                        </div>
+                      </div>
+                      <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-700">
+                        {youtubeDailyTrend.length} capturas{youtubeSnapshotLabel ? ` · ${youtubeSnapshotLabel}` : ""}
+                      </div>
+                    </div>
+                    <YoutubeDailySparkline points={youtubeDailyTrend} color="#ef4444" />
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-4">
+                      {youtubeDailyTrend.slice(-4).map(point => (
+                        <div key={point.date} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                          <div className="text-zinc-700">{formatShortDateEs(point.date)}</div>
+                          <div className="mt-1 text-xs font-black text-zinc-300">
+                            {(point.dailyViews ?? 0).toLocaleString("es-MX")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {metaArtist.label && (
                   <div className="mt-4 pt-4 border-t border-white/[0.05] flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-zinc-600">
                     <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>

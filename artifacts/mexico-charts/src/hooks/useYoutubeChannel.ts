@@ -10,6 +10,16 @@ export interface YoutubeChannelResult {
   customUrl:       string | null;
   subscribersFmt:  string | null;
   viewsFmt:        string | null;
+  dailyViews:      number | null;
+  dailyViewsFmt:   string | null;
+  snapshotDate:    string | null;
+  history: Array<{
+    date: string;
+    views: number | null;
+    subscribers: number | null;
+    videos: number | null;
+    dailyViews: number | null;
+  }>;
   channelUrl:      string;
 }
 

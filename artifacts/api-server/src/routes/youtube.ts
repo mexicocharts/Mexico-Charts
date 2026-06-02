@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { youtubeChannels, youtubeVideos } from "@workspace/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { youtubeChannelDailySnapshots, youtubeChannels, youtubeVideos } from "@workspace/db/schema";
+import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -131,7 +131,34 @@ function channelToRow(artistKey: string, ch: YtChannel) {
   };
 }
 
-function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
+type YoutubeChannelHistoryPoint = {
+  date: string;
+  views: number | null;
+  subscribers: number | null;
+  videos: number | null;
+  dailyViews: number | null;
+};
+
+async function getChannelHistory(artistKey: string): Promise<YoutubeChannelHistoryPoint[]> {
+  const rows = await db
+    .select()
+    .from(youtubeChannelDailySnapshots)
+    .where(eq(youtubeChannelDailySnapshots.artistKey, artistKey))
+    .orderBy(desc(youtubeChannelDailySnapshots.snapshotDate))
+    .limit(30);
+
+  return rows.reverse().map(row => ({
+    date: row.snapshotDate,
+    views: row.viewCount,
+    subscribers: row.subscriberCount,
+    videos: row.videoCount,
+    dailyViews: row.dailyViewDelta,
+  }));
+}
+
+async function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
+  const history = await getChannelHistory(row.artistKey);
+  const latest = history.at(-1) ?? null;
   return {
     artistKey:       row.artistKey,
     channelId:       row.channelId,
@@ -145,6 +172,10 @@ function channelDbToResponse(row: typeof youtubeChannels.$inferSelect) {
     cachedAt:        row.cachedAt.toISOString(),
     subscribersFmt:  fmtCount(row.subscriberCount),
     viewsFmt:        fmtCount(row.viewCount),
+    dailyViews:      latest?.dailyViews ?? null,
+    dailyViewsFmt:   fmtCount(latest?.dailyViews),
+    snapshotDate:    latest?.date ?? null,
+    history,
     channelUrl:      `https://www.youtube.com/channel/${row.channelId}`,
   };
 }
@@ -237,7 +268,7 @@ router.get("/providers/youtube/channel", async (req, res) => {
   const stale = Date.now() - row.cachedAt.getTime() > CHANNEL_TTL_MS;
   if (!stale) {
     res.setHeader("X-Cache", "HIT");
-    res.json(channelDbToResponse(row));
+    res.json(await channelDbToResponse(row));
     return;
   }
 
@@ -249,7 +280,7 @@ router.get("/providers/youtube/channel", async (req, res) => {
       await db.update(youtubeChannels).set(updated).where(eq(youtubeChannels.artistKey, artistKey));
       const [fresh] = await db.select().from(youtubeChannels).where(eq(youtubeChannels.artistKey, artistKey));
       res.setHeader("X-Cache", "REFRESHED");
-      res.json(channelDbToResponse(fresh!));
+      res.json(await channelDbToResponse(fresh!));
       logger.info({ artistKey, channelId: row.channelId }, "[youtube] channel stats refreshed");
       return;
     }
@@ -258,7 +289,7 @@ router.get("/providers/youtube/channel", async (req, res) => {
   }
 
   res.setHeader("X-Cache", "STALE");
-  res.json(channelDbToResponse(row));
+  res.json(await channelDbToResponse(row));
 });
 
 // GET /api/providers/youtube/video?videoId=abc123
@@ -426,7 +457,7 @@ router.post("/admin/youtube/link/channel", async (req, res) => {
 
     const [saved] = await db.select().from(youtubeChannels).where(eq(youtubeChannels.artistKey, key));
     logger.info({ artistKey: key, channelId: cid, title: ch.snippet.title }, "[youtube] channel linked");
-    res.json(channelDbToResponse(saved!));
+    res.json(await channelDbToResponse(saved!));
   } catch (err) {
     logger.error({ err: (err as Error).message, artistKey: key, channelId: cid }, "[youtube] link channel failed");
     res.status(502).json({ error: (err as Error).message });
@@ -465,7 +496,7 @@ router.post("/admin/youtube/link/video", async (req, res) => {
 router.get("/admin/youtube/channels", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const rows = await db.select().from(youtubeChannels).orderBy(youtubeChannels.linkedAt);
-  res.json({ channels: rows.map(channelDbToResponse) });
+  res.json({ channels: await Promise.all(rows.map(channelDbToResponse)) });
 });
 
 // GET /api/admin/youtube/videos — list all linked videos
