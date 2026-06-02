@@ -992,7 +992,7 @@ export default function ArtistDetail() {
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia y seguidores</h2>
+                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia y alcance</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                   {metaArtist.spotifyListeners > 0 && (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
@@ -1035,13 +1035,6 @@ export default function ArtistDetail() {
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   ) : null}
-                  {ytChannel?.dailyViewsFmt && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.08)", border: "1px solid rgba(255,0,0,0.20)" }}>
-                      <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="text-xl font-black text-white leading-none">{ytChannel.dailyViewsFmt}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas diarias del canal</div>
-                    </div>
-                  )}
                   {ytChannel?.viewsFmt && (
                     <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
@@ -1427,7 +1420,7 @@ export default function ArtistDetail() {
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <span style={{ color: artist.accent }}><Music className="w-4 h-4" /></span>
-                    <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Canciones más escuchadas</h2>
+                    <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Activos principales en Spotify</h2>
                   </div>
                   {kworbStats?.spotify && (
                     <div className="hidden text-[9px] uppercase tracking-widest text-zinc-700 font-bold sm:block">
@@ -1501,7 +1494,7 @@ export default function ArtistDetail() {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            KWORB — LIFETIME STREAMS HERO
+            KWORB — CATALOG STRENGTH
         ══════════════════════════════════════════════════════════ */}
         {(kworbStats?.spotify || kworbStats?.youtube) && (
           <motion.section
@@ -1518,13 +1511,20 @@ export default function ArtistDetail() {
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}40, transparent)` }} />
               <div className="relative z-10">
-                <div className="flex items-center gap-3 mb-6">
-                  <Play className="w-4 h-4" style={{ color: artist.accent }} />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Streams históricos</h2>
-                  <div className="ml-auto flex flex-col items-end gap-0.5">
-                    <span className="text-[9px] uppercase tracking-widest text-zinc-700 font-bold">Spotify · YouTube</span>
+                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
+                  <div className="flex items-center gap-3">
+                    <Play className="w-4 h-4" style={{ color: artist.accent }} />
+                    <div>
+                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuerza de catálogo</h2>
+                      <p className="mt-1 max-w-xl text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                        Escala acumulada del repertorio. El movimiento diario vive en Momentum.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-0.5 sm:ml-auto sm:items-end">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Spotify · YouTube</span>
                     {lastUpdatedLabel && (
-                      <span className="text-[9px] text-zinc-600 font-medium" data-testid="kworb-last-updated">
+                      <span className="text-[9px] font-medium text-zinc-600" data-testid="kworb-last-updated">
                         Actualizado {lastUpdatedLabel}
                       </span>
                     )}
@@ -1556,15 +1556,15 @@ export default function ArtistDetail() {
                         >
                           {kworbStats.spotify.totalStreamsFmt}
                         </div>
-                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">streams de por vida</div>
+                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">streams acumulados</div>
                         <div className="mt-5 grid grid-cols-2 gap-2">
-                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Diario</div>
-                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.spotify.dailyStreamsFmt}</div>
-                          </div>
                           <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
                             <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
                             <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.spotify.trackCount}</div>
+                          </div>
+                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canción líder</div>
+                            <div className="mt-1 truncate text-sm font-black text-zinc-300">{topTracks[0]?.streams ?? "—"}</div>
                           </div>
                         </div>
                       </div>
@@ -1593,10 +1593,14 @@ export default function ArtistDetail() {
                           {kworbStats.youtube.totalViewsFmt}
                         </div>
                         <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">vistas totales</div>
-                        <div className="mt-5 grid grid-cols-1 gap-2">
+                        <div className="mt-5 grid grid-cols-2 gap-2">
                           <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Promedio diario</div>
-                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.youtube.dailyAvgFmt}</div>
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Videos</div>
+                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos.length}</div>
+                          </div>
+                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Video líder</div>
+                            <div className="mt-1 truncate text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos[0]?.viewsFmt ?? "—"}</div>
                           </div>
                         </div>
                       </div>
@@ -1830,8 +1834,8 @@ export default function ArtistDetail() {
               <div className="relative z-10">
                 <div className="mb-5 flex items-center gap-3">
                   <SiYoutube className="w-4 h-4 text-red-500" />
-                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Top videos en YouTube</h2>
-                  <div className="ml-auto hidden text-[9px] font-bold uppercase tracking-widest text-zinc-700 sm:block">Vistas históricas</div>
+                  <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Activos principales en YouTube</h2>
+                  <div className="ml-auto hidden text-[9px] font-bold uppercase tracking-widest text-zinc-700 sm:block">Catálogo</div>
                 </div>
 
                 {kworbStats.youtube.topVideos[0] && (
@@ -1881,10 +1885,6 @@ export default function ArtistDetail() {
                         <div className="text-xl font-black leading-none text-red-400">{kworbStats.youtube.topVideos[0].viewsFmt}</div>
                         <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas</div>
                       </div>
-                      <div>
-                        <div className="text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos[0].dailyFmt}</div>
-                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">por día</div>
-                      </div>
                     </div>
                   </a>
                 )}
@@ -1927,7 +1927,7 @@ export default function ArtistDetail() {
                       </div>
                       <div className="col-start-2 min-w-0 text-left sm:col-start-auto sm:shrink-0 sm:text-right">
                         <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
-                        <div className="text-[10px] text-zinc-700">{v.dailyFmt}/día</div>
+                        <div className="text-[10px] text-zinc-700">vistas</div>
                       </div>
                     </motion.a>
                   ))}
