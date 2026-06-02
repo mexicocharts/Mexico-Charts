@@ -535,7 +535,7 @@ export default function ArtistDetail() {
       sources.push({
         key: "youtube",
         label: "YouTube",
-        kicker: "Canal oficial",
+        kicker: "YouTube oficial",
         color: "#ef4444",
         icon: <SiYoutube className="h-5 w-5" />,
         todayValue: ytChannel.dailyViewsFmt,
@@ -563,7 +563,7 @@ export default function ArtistDetail() {
       sources.push({
         key: "spotify",
         label: "Spotify",
-        kicker: "Kworb diario",
+        kicker: "Spotify",
         color: "#1DB954",
         icon: <SiSpotify className="h-5 w-5" />,
         todayValue: kworbStats.spotify.dailyStreamsFmt,
@@ -1100,11 +1100,11 @@ export default function ArtistDetail() {
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Momentum</h2>
                     </div>
                     <div className="max-w-2xl text-sm font-bold leading-relaxed text-zinc-500">
-                      Lectura diaria de crecimiento por fuente, basada en capturas automáticas.
+                      Lectura diaria de crecimiento en YouTube y Spotify.
                     </div>
                   </div>
                   <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                    {momentumSources.length} fuentes activas
+                    YouTube + Spotify
                   </div>
                 </div>
 
@@ -1134,7 +1134,7 @@ export default function ArtistDetail() {
                               <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-white">{source.label}</h3>
                             </div>
                             <div className="ml-auto text-right">
-                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última captura</div>
+                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última medición</div>
                               <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{source.snapshotLabel || "—"}</div>
                             </div>
                           </div>
@@ -1192,7 +1192,7 @@ export default function ArtistDetail() {
                             <>
                               <div className="mb-2 flex items-center justify-between gap-3">
                                 <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">
-                                  Últimas {source.points.length} capturas
+                                  Últimos {source.points.length} días
                                 </div>
                                 <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
                                   Pico: <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
@@ -1219,12 +1219,12 @@ export default function ArtistDetail() {
                             </>
                           ) : (
                             <div className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5">
-                              <div className="text-sm font-black uppercase tracking-[0.08em] text-white">Baseline guardado</div>
+                              <div className="text-sm font-black uppercase tracking-[0.08em] text-white">Medición inicial</div>
                               <div className="mt-2 text-xs font-bold leading-relaxed text-zinc-500">
-                                La tendencia empieza cuando llegue la siguiente captura diaria.
+                                La tendencia empieza con la próxima medición diaria.
                               </div>
                               <div className="mt-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: source.color }}>
-                                {source.availableDays} captura disponible
+                                {source.availableDays} {source.availableDays === 1 ? "día medido" : "días medidos"}
                               </div>
                             </div>
                           )}
@@ -1328,7 +1328,7 @@ export default function ArtistDetail() {
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
                         <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-red-400" />
                       </div>
-                      <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "Canal oficial"}</div>
+                      <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "YouTube oficial"}</div>
                       <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
                         Canal enlazado
                       </div>
