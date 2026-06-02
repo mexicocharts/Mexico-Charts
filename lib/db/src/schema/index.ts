@@ -27,6 +27,7 @@ export * from "./youtube_channel_daily_snapshots";
 export * from "./youtube_channel_candidates";
 export * from "./youtube_videos";
 export * from "./spotify_artists";
+export * from "./spotify_kworb_daily_snapshots";
 export * from "./musicbrainz_artists";
 export * from "./newsletter_subscribers";
 export * from "./artist_discovery";

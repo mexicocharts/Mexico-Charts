@@ -43,6 +43,32 @@ export interface KworbSpotifyStats {
   dailyStreamsFmt: string;
   trackCount: number;
   topTracks: KworbTrack[];
+  history?: Array<{
+    date: string;
+    totalStreams: number | null;
+    dailyStreams: number | null;
+  }>;
+  analytics?: {
+    streams: {
+      average7Day: number | null;
+      average7DayFmt: string | null;
+      average30Day: number | null;
+      average30DayFmt: string | null;
+      average7DayChangePct: number | null;
+      average30DayChangePct: number | null;
+      weeklyGrowth: number | null;
+      weeklyGrowthFmt: string | null;
+      monthlyGrowth: number | null;
+      monthlyGrowthFmt: string | null;
+      biggestSpike: { date: string; streams: number | null; streamsFmt: string | null } | null;
+    };
+    momentum: {
+      trend: "rising" | "steady" | "cooling" | "new" | null;
+      score: number | null;
+      scoreFmt: string | null;
+    };
+    availableDays: number;
+  } | null;
 }
 
 export interface KworbYouTubeStats {

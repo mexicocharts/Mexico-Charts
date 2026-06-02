@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pool, deezerTrackCovers, kworbCoverage, kworbSnapshots } from "@workspace/db";
+import { db, pool, deezerTrackCovers, kworbCoverage, kworbSnapshots, spotifyKworbDailySnapshots } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
@@ -373,6 +373,8 @@ interface KworbStats {
     dailyStreamsFmt: string;
     trackCount: number;
     topTracks: TrackEntry[];
+    history?: SpotifyKworbHistoryPoint[];
+    analytics?: SpotifyKworbAnalytics | null;
   } | null;
   youtube: {
     totalViews: number;
@@ -382,6 +384,34 @@ interface KworbStats {
     topVideos: VideoEntry[];
   } | null;
   chartPositions: ChartPosition[] | null;
+}
+
+interface SpotifyKworbHistoryPoint {
+  date: string;
+  totalStreams: number | null;
+  dailyStreams: number | null;
+}
+
+interface SpotifyKworbAnalytics {
+  streams: {
+    average7Day: number | null;
+    average7DayFmt: string | null;
+    average30Day: number | null;
+    average30DayFmt: string | null;
+    average7DayChangePct: number | null;
+    average30DayChangePct: number | null;
+    weeklyGrowth: number | null;
+    weeklyGrowthFmt: string | null;
+    monthlyGrowth: number | null;
+    monthlyGrowthFmt: string | null;
+    biggestSpike: { date: string; streams: number | null; streamsFmt: string | null } | null;
+  };
+  momentum: {
+    trend: "rising" | "steady" | "cooling" | "new" | null;
+    score: number | null;
+    scoreFmt: string | null;
+  };
+  availableDays: number;
 }
 
 // Raw postgres row shape for jobs (snake_case from pg driver)
@@ -407,6 +437,81 @@ function fmtNum(n: number): string {
   if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000)         return `${Math.round(n / 1_000)}K`;
   return String(n);
+}
+
+function fmtNullableNum(n: number | null | undefined): string | null {
+  if (n == null) return null;
+  return fmtNum(Math.abs(n));
+}
+
+function avgRecent(values: Array<number | null>, size: number): number | null {
+  const recent = values.slice(-size).filter((value): value is number => value != null);
+  if (!recent.length) return null;
+  return Math.round(recent.reduce((sum, value) => sum + value, 0) / recent.length);
+}
+
+function percentChange(current: number | null, previous: number | null): number | null {
+  if (current == null || previous == null || previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+function growthBetween(values: Array<number | null>, distance: number): number | null {
+  if (values.length <= distance) return null;
+  const latest = values[values.length - 1];
+  const previous = values[values.length - 1 - distance];
+  if (latest == null || previous == null) return null;
+  return latest - previous;
+}
+
+function deriveSpotifyKworbAnalytics(history: SpotifyKworbHistoryPoint[]): SpotifyKworbAnalytics | null {
+  if (!history.length) return null;
+  const dailyStreams = history.map(point => point.dailyStreams);
+  const totalStreams = history.map(point => point.totalStreams);
+  const avg7 = avgRecent(dailyStreams, 7);
+  const avg30 = avgRecent(dailyStreams, 30);
+  const previous7 = avgRecent(dailyStreams.slice(0, -7), 7);
+  const previous30 = avgRecent(dailyStreams.slice(0, -30), 30);
+  const biggestSpike = history
+    .filter(point => point.dailyStreams != null)
+    .sort((a, b) => (b.dailyStreams ?? 0) - (a.dailyStreams ?? 0))[0] ?? null;
+
+  const weeklyGrowth = growthBetween(totalStreams, 7);
+  const monthlyGrowth = growthBetween(totalStreams, 30);
+  const avg7ChangePct = percentChange(avg7, previous7);
+
+  let trend: SpotifyKworbAnalytics["momentum"]["trend"] = null;
+  if (dailyStreams.filter(value => value != null).length < 3) trend = "new";
+  else if ((avg7ChangePct ?? 0) >= 8 || (weeklyGrowth ?? 0) > 0) trend = "rising";
+  else if ((avg7ChangePct ?? 0) <= -8) trend = "cooling";
+  else trend = "steady";
+
+  const score = avg7 == null ? null : Math.round(avg7 * (1 + Math.max(-25, Math.min(25, avg7ChangePct ?? 0)) / 100));
+
+  return {
+    streams: {
+      average7Day: avg7,
+      average7DayFmt: fmtNullableNum(avg7),
+      average30Day: avg30,
+      average30DayFmt: fmtNullableNum(avg30),
+      average7DayChangePct: avg7ChangePct,
+      average30DayChangePct: percentChange(avg30, previous30),
+      weeklyGrowth,
+      weeklyGrowthFmt: fmtNullableNum(weeklyGrowth),
+      monthlyGrowth,
+      monthlyGrowthFmt: fmtNullableNum(monthlyGrowth),
+      biggestSpike: biggestSpike ? {
+        date: biggestSpike.date,
+        streams: biggestSpike.dailyStreams,
+        streamsFmt: fmtNullableNum(biggestSpike.dailyStreams),
+      } : null,
+    },
+    momentum: {
+      trend,
+      score,
+      scoreFmt: fmtNullableNum(score),
+    },
+    availableDays: dailyStreams.filter(value => value != null).length,
+  };
 }
 
 /* ══ HTML helpers ═════════════════════════════════════════════════════════ */
@@ -1461,9 +1566,29 @@ router.get("/kworb/artist-stats", async (req, res) => {
   };
 
   if (stats.spotify) {
+    const historyRows = await db
+      .select({
+        snapshotDate: spotifyKworbDailySnapshots.snapshotDate,
+        totalStreams: spotifyKworbDailySnapshots.totalStreams,
+        dailyStreams: spotifyKworbDailySnapshots.dailyStreams,
+      })
+      .from(spotifyKworbDailySnapshots)
+      .where(eq(spotifyKworbDailySnapshots.artistKey, slug));
+
+    const spotifyHistory = historyRows
+      .map(row => ({
+        date: row.snapshotDate,
+        totalStreams: row.totalStreams,
+        dailyStreams: row.dailyStreams,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-30);
+
     stats.spotify = {
       ...stats.spotify,
       topTracks: await enrichTracksWithDeezerCovers(slug, cov?.artistName ?? name, stats.spotify.topTracks, true),
+      history: spotifyHistory,
+      analytics: deriveSpotifyKworbAnalytics(spotifyHistory),
     };
   }
   stats.chartPositions = await enrichChartPositionsWithDeezerCovers(slug, cov?.artistName ?? name, stats.chartPositions, true);

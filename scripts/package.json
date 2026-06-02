@@ -9,6 +9,7 @@
     "touring-briefing": "tsx ./src/touring-briefing.ts",
     "youtube-channel-backfill": "tsx ./src/youtube-channel-backfill.ts",
     "youtube-channel-daily-snapshots": "tsx ./src/youtube-channel-daily-snapshots.ts --write=true",
+    "spotify-kworb-daily-snapshots": "tsx ./src/spotify-kworb-daily-snapshots.ts --write=true",
     "youtube-channel-candidates": "tsx ./src/youtube-channel-candidates.ts",
     "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
     "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",

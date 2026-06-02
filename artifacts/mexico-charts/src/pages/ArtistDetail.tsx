@@ -67,11 +67,13 @@ function formatShortDateEs(iso: string | null | undefined): string {
 function YoutubeDailySparkline({
   points,
   color,
+  ariaLabel = "Tendencia diaria de vistas del canal de YouTube",
 }: {
-  points: Array<{ date: string; dailyViews: number | null }>;
+  points: Array<{ date: string; dailyViews?: number | null; dailyStreams?: number | null }>;
   color: string;
+  ariaLabel?: string;
 }) {
-  const values = points.map(point => point.dailyViews ?? 0);
+  const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? 0);
   const max = Math.max(...values, 1);
   const width = 300;
   const height = 72;
@@ -82,7 +84,7 @@ function YoutubeDailySparkline({
   }).join(" ");
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full overflow-visible" role="img" aria-label="Tendencia diaria de vistas del canal de YouTube">
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full overflow-visible" role="img" aria-label={ariaLabel}>
       <defs>
         <linearGradient id="youtubeDailyTrendFill" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.28" />
@@ -484,6 +486,11 @@ export default function ArtistDetail() {
 
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
+  const spotifyKworbDailyTrend = useMemo(
+    () => (kworbStats?.spotify?.history ?? []).filter(point => point.dailyStreams != null),
+    [kworbStats?.spotify?.history],
+  );
+  const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
 
   /* ── Kworb refresh status (last scheduler run) ── */
   const { data: refreshStatus } = useRefreshStatus();
@@ -1413,6 +1420,89 @@ export default function ArtistDetail() {
                     </div>
                   )}
                 </div>
+                {spotifyKworbDailyTrend.length >= 2 && spotifyKworbAnalytics && (
+                  <div
+                    className="mt-4 overflow-hidden rounded-xl p-4"
+                    style={{ background: "linear-gradient(135deg, rgba(29,185,84,0.06), rgba(255,255,255,0.018))", border: "1px solid rgba(29,185,84,0.13)" }}
+                    data-testid="spotify-kworb-daily-trend"
+                  >
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#1DB954]">
+                          <SiSpotify className="h-3.5 w-3.5" />
+                          Spotify · Kworb
+                        </div>
+                        <div className="mt-1 text-sm font-black uppercase tracking-[0.08em] text-white">
+                          Tendencia diaria de streams
+                        </div>
+                      </div>
+                      <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-700">
+                        {spotifyKworbDailyTrend.length} capturas
+                      </div>
+                    </div>
+                    <YoutubeDailySparkline points={spotifyKworbDailyTrend} color="#1DB954" ariaLabel="Tendencia diaria de streams de Spotify por Kworb" />
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 7 días</div>
+                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.average7DayFmt ?? "—"}</div>
+                        {spotifyKworbAnalytics.streams.average7DayChangePct != null && (
+                          <div className="mt-0.5 text-[10px] font-bold text-[#1DB954]">
+                            {spotifyKworbAnalytics.streams.average7DayChangePct > 0 ? "+" : ""}{spotifyKworbAnalytics.streams.average7DayChangePct}% vs 7 días previos
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 30 días</div>
+                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.average30DayFmt ?? "—"}</div>
+                        {spotifyKworbAnalytics.streams.average30DayChangePct != null && (
+                          <div className="mt-0.5 text-[10px] font-bold text-zinc-500">
+                            {spotifyKworbAnalytics.streams.average30DayChangePct > 0 ? "+" : ""}{spotifyKworbAnalytics.streams.average30DayChangePct}% vs 30 días previos
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Mayor pico</div>
+                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.biggestSpike?.streamsFmt ?? "—"}</div>
+                        {spotifyKworbAnalytics.streams.biggestSpike?.date && (
+                          <div className="mt-0.5 text-[10px] font-bold text-zinc-600">
+                            {formatShortDateEs(spotifyKworbAnalytics.streams.biggestSpike.date)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
+                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Momentum</div>
+                        <div className="mt-1 text-sm font-black text-white">{momentumLabel(spotifyKworbAnalytics.momentum.trend)}</div>
+                        {spotifyKworbAnalytics.momentum.scoreFmt && (
+                          <div className="mt-0.5 text-[10px] font-bold text-[#1DB954]">
+                            {spotifyKworbAnalytics.momentum.scoreFmt} señal diaria
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-2 grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Crecimiento semanal</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(spotifyKworbAnalytics.streams.weeklyGrowth, spotifyKworbAnalytics.streams.weeklyGrowthFmt)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                        <div className="text-zinc-700">Crecimiento mensual</div>
+                        <div className="mt-1 text-xs font-black text-zinc-300">
+                          {formatSignedMetric(spotifyKworbAnalytics.streams.monthlyGrowth, spotifyKworbAnalytics.streams.monthlyGrowthFmt)}
+                        </div>
+                      </div>
+                      {spotifyKworbDailyTrend.slice(-2).map(point => (
+                        <div key={point.date} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
+                          <div className="text-zinc-700">{formatShortDateEs(point.date)}</div>
+                          <div className="mt-1 text-xs font-black text-zinc-300">
+                            {(point.dailyStreams ?? 0).toLocaleString("es-MX")}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </motion.section>
