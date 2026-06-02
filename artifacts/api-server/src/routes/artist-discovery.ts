@@ -14,6 +14,9 @@ const VALID_STATUSES = new Set([
 ]);
 
 const BULK_STATUSES = new Set(["pending", "needs_review", "rejected"]);
+const APPROVAL_STATUSES = new Set(["approved", "linked_existing_artist"]);
+
+let approvalTablesReady: Promise<void> | null = null;
 
 const ADMIN_KEY = () => (
   process.env["NEWSLETTER_ADMIN_KEY"] ||
@@ -49,6 +52,79 @@ function asOptionalNumber(value: unknown, min: number, max: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   return Math.max(min, Math.min(Math.floor(parsed), max));
+}
+
+function normalizeName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/\by\b/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function artistKeyFromName(value: string) {
+  return normalizeName(value);
+}
+
+function appendNote(existing: string | null | undefined, note: string | null | undefined) {
+  const cleanExisting = existing?.trim() ?? "";
+  const cleanNote = note?.trim() ?? "";
+  if (!cleanNote) return cleanExisting || null;
+  if (!cleanExisting) return cleanNote;
+  return `${cleanExisting}\n${cleanNote}`;
+}
+
+function approvalStamp(action: string, artistKey: string) {
+  return `${new Date().toISOString()} - ${action}: ${artistKey}`;
+}
+
+function ensureApprovalTables() {
+  approvalTablesReady ??= (async () => {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS official_artists (
+        artist_key text PRIMARY KEY,
+        artist_name text NOT NULL,
+        normalized_name text NOT NULL,
+        source text NOT NULL DEFAULT 'manual_discovery_review',
+        discovery_candidate_id integer REFERENCES artist_candidates(id) ON DELETE SET NULL,
+        notes text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS official_artists_normalized_name_unique
+      ON official_artists (normalized_name);
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS official_artists_discovery_candidate_idx
+      ON official_artists (discovery_candidate_id);
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS artist_candidate_audit_entries (
+        id serial PRIMARY KEY,
+        candidate_id integer NOT NULL REFERENCES artist_candidates(id) ON DELETE CASCADE,
+        action text NOT NULL,
+        artist_key text,
+        previous_status text,
+        next_status text,
+        note text,
+        actor text NOT NULL DEFAULT 'admin',
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS artist_candidate_audit_entries_candidate_idx
+      ON artist_candidate_audit_entries (candidate_id, created_at DESC);
+    `);
+  })();
+
+  return approvalTablesReady;
 }
 
 function sortClause(value: unknown) {
@@ -226,13 +302,14 @@ router.get("/admin/discovery/candidates/:id", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
+    await ensureApprovalTables();
     const id = Number(req.params["id"]);
     if (!Number.isFinite(id)) {
       res.status(400).json({ error: "Invalid candidate id" });
       return;
     }
 
-    const [candidate, events, signals, topSources] = await Promise.all([
+    const [candidate, events, signals, topSources, auditEntries] = await Promise.all([
       pool.query(
         `
           SELECT
@@ -284,6 +361,16 @@ router.get("/admin/discovery/candidates/:id", async (req, res) => {
         `,
         [id],
       ),
+      pool.query(
+        `
+          SELECT *
+          FROM artist_candidate_audit_entries
+          WHERE candidate_id = $1
+          ORDER BY created_at DESC, id DESC
+          LIMIT 100;
+        `,
+        [id],
+      ),
     ]);
 
     if (!candidate.rows[0]) {
@@ -292,6 +379,17 @@ router.get("/admin/discovery/candidates/:id", async (req, res) => {
     }
 
     const candidateRow = candidate.rows[0] as Parameters<typeof needsReviewReason>[0];
+    const officialArtist = candidate.rows[0].matched_artist_id
+      ? await pool.query(
+        `
+          SELECT *
+          FROM official_artists
+          WHERE artist_key = $1;
+        `,
+        [candidate.rows[0].matched_artist_id],
+      )
+      : { rows: [] };
+
     res.json({
       candidate: {
         ...candidate.rows[0],
@@ -301,6 +399,8 @@ router.get("/admin/discovery/candidates/:id", async (req, res) => {
       recentAppearances: events.rows.slice(0, 15),
       signals: signals.rows,
       topSources: topSources.rows,
+      auditEntries: auditEntries.rows,
+      officialArtist: officialArtist.rows[0] ?? null,
     });
   } catch (err) {
     res.status(500).json({ error: "Could not load discovery candidate", detail: String(err) });
@@ -352,6 +452,10 @@ router.post("/admin/discovery/candidates/:id/status", async (req, res) => {
       res.status(400).json({ error: "Invalid candidate id or status" });
       return;
     }
+    if (APPROVAL_STATUSES.has(status)) {
+      res.status(400).json({ error: "Use the approval or link endpoint for approved candidates" });
+      return;
+    }
 
     const result = await pool.query(
       `
@@ -376,12 +480,160 @@ router.post("/admin/discovery/candidates/:id/status", async (req, res) => {
   }
 });
 
+router.post("/admin/discovery/candidates/:id/approve", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  try {
+    await ensureApprovalTables();
+    const id = Number(req.params["id"]);
+    const requestedArtistKey = String(req.body?.artistKey ?? "").trim().toLowerCase();
+    const requestedArtistName = String(req.body?.artistName ?? "").trim();
+    const notes = typeof req.body?.notes === "string" ? req.body.notes.trim() : null;
+
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid candidate id" });
+      return;
+    }
+
+    const candidateResult = await pool.query<{
+      id: number;
+      artist_name: string;
+      normalized_name: string;
+      status: string;
+      notes: string | null;
+    }>(
+      `
+        SELECT id, artist_name, normalized_name, status, notes
+        FROM artist_candidates
+        WHERE id = $1;
+      `,
+      [id],
+    );
+    const candidate = candidateResult.rows[0];
+    if (!candidate) {
+      res.status(404).json({ error: "Candidate not found" });
+      return;
+    }
+    if (candidate.status === "approved" || candidate.status === "linked_existing_artist") {
+      res.status(409).json({ error: "Candidate is already approved or linked" });
+      return;
+    }
+
+    const artistName = requestedArtistName || candidate.artist_name;
+    const artistKey = requestedArtistKey || artistKeyFromName(artistName);
+    const normalizedName = normalizeName(artistName);
+    if (!artistKey || !artistName || !normalizedName) {
+      res.status(400).json({ error: "artistKey or artistName is required" });
+      return;
+    }
+
+    const existingOfficial = await pool.query<{
+      artist_key: string;
+      artist_name: string;
+      normalized_name: string;
+      discovery_candidate_id: number | null;
+    }>(
+      `
+        SELECT artist_key, artist_name, normalized_name, discovery_candidate_id
+        FROM official_artists
+        WHERE artist_key = $1 OR normalized_name = $2
+        LIMIT 1;
+      `,
+      [artistKey, normalizedName],
+    );
+    const official = existingOfficial.rows[0];
+    if (official && official.discovery_candidate_id !== id) {
+      res.status(409).json({
+        error: "Official artist already exists. Link this candidate to the existing artist instead.",
+        officialArtist: official,
+      });
+      return;
+    }
+
+    const approvalText = appendNote(notes || candidate.notes, approvalStamp("approved_created_artist", artistKey));
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const officialResult = await client.query(
+        `
+          INSERT INTO official_artists (
+            artist_key,
+            artist_name,
+            normalized_name,
+            source,
+            discovery_candidate_id,
+            notes
+          )
+          VALUES ($1, $2, $3, 'manual_discovery_review', $4, $5)
+          ON CONFLICT (artist_key)
+          DO UPDATE SET
+            artist_name = EXCLUDED.artist_name,
+            normalized_name = EXCLUDED.normalized_name,
+            discovery_candidate_id = EXCLUDED.discovery_candidate_id,
+            notes = COALESCE(EXCLUDED.notes, official_artists.notes),
+            updated_at = now()
+          RETURNING *;
+        `,
+        [artistKey, artistName, normalizedName, id, approvalText],
+      );
+      const candidateUpdate = await client.query(
+        `
+          UPDATE artist_candidates
+          SET status = 'approved',
+              matched_artist_id = $2,
+              notes = $3,
+              updated_at = now()
+          WHERE id = $1
+          RETURNING *;
+        `,
+        [id, artistKey, approvalText],
+      );
+      await client.query(
+        `
+          INSERT INTO artist_candidate_audit_entries (
+            candidate_id,
+            action,
+            artist_key,
+            previous_status,
+            next_status,
+            note,
+            actor,
+            metadata
+          )
+          VALUES ($1, 'approved_created_artist', $2, $3, 'approved', $4, 'admin', $5::jsonb);
+        `,
+        [
+          id,
+          artistKey,
+          candidate.status,
+          approvalText,
+          JSON.stringify({ artistName, normalizedName, mode: "create_official_artist" }),
+        ],
+      );
+      await client.query("COMMIT");
+      res.json({
+        candidate: candidateUpdate.rows[0],
+        officialArtist: officialResult.rows[0],
+      });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    res.status(500).json({ error: "Could not approve discovery candidate", detail: String(err) });
+  }
+});
+
 router.post("/admin/discovery/candidates/:id/link-existing", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   try {
+    await ensureApprovalTables();
     const id = Number(req.params["id"]);
     const artistKey = String(req.body?.artistKey ?? req.body?.matchedArtistId ?? "").trim().toLowerCase();
+    const artistName = String(req.body?.artistName ?? "").trim();
     const notes = typeof req.body?.notes === "string" ? req.body.notes.trim() : null;
 
     if (!Number.isFinite(id) || !artistKey) {
@@ -389,25 +641,93 @@ router.post("/admin/discovery/candidates/:id/link-existing", async (req, res) =>
       return;
     }
 
-    const result = await pool.query(
+    const candidateResult = await pool.query<{
+      id: number;
+      artist_name: string;
+      normalized_name: string;
+      status: string;
+      notes: string | null;
+    }>(
       `
-        UPDATE artist_candidates
-        SET status = 'linked_existing_artist',
-            matched_artist_id = $2,
-            notes = COALESCE($3, notes),
-            updated_at = now()
-        WHERE id = $1
-        RETURNING *;
+        SELECT id, artist_name, normalized_name, status, notes
+        FROM artist_candidates
+        WHERE id = $1;
       `,
-      [id, artistKey, notes],
+      [id],
     );
-
-    if (!result.rows[0]) {
+    const candidate = candidateResult.rows[0];
+    if (!candidate) {
       res.status(404).json({ error: "Candidate not found" });
       return;
     }
 
-    res.json({ candidate: result.rows[0] });
+    const officialName = artistName || candidate.artist_name;
+    const linkText = appendNote(notes || candidate.notes, approvalStamp("linked_existing_artist", artistKey));
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const officialResult = await client.query(
+        `
+          INSERT INTO official_artists (
+            artist_key,
+            artist_name,
+            normalized_name,
+            source,
+            discovery_candidate_id,
+            notes
+          )
+          VALUES ($1, $2, $3, 'linked_existing_artist', $4, $5)
+          ON CONFLICT (artist_key)
+          DO UPDATE SET
+            discovery_candidate_id = COALESCE(official_artists.discovery_candidate_id, EXCLUDED.discovery_candidate_id),
+            notes = COALESCE(EXCLUDED.notes, official_artists.notes),
+            updated_at = now()
+          RETURNING *;
+        `,
+        [artistKey, officialName, normalizeName(officialName), id, linkText],
+      );
+      const result = await client.query(
+        `
+          UPDATE artist_candidates
+          SET status = 'linked_existing_artist',
+              matched_artist_id = $2,
+              notes = $3,
+              updated_at = now()
+          WHERE id = $1
+          RETURNING *;
+        `,
+        [id, artistKey, linkText],
+      );
+      await client.query(
+        `
+          INSERT INTO artist_candidate_audit_entries (
+            candidate_id,
+            action,
+            artist_key,
+            previous_status,
+            next_status,
+            note,
+            actor,
+            metadata
+          )
+          VALUES ($1, 'linked_existing_artist', $2, $3, 'linked_existing_artist', $4, 'admin', $5::jsonb);
+        `,
+        [
+          id,
+          artistKey,
+          candidate.status,
+          linkText,
+          JSON.stringify({ artistName: officialName, mode: "link_existing_artist" }),
+        ],
+      );
+      await client.query("COMMIT");
+      res.json({ candidate: result.rows[0], officialArtist: officialResult.rows[0] });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     res.status(500).json({ error: "Could not link discovery candidate", detail: String(err) });
   }

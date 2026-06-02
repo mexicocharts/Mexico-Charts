@@ -63,6 +63,29 @@ interface DiscoverySignal {
   created_at: string;
 }
 
+interface OfficialArtist {
+  artist_key: string;
+  artist_name: string;
+  normalized_name: string;
+  source: string;
+  discovery_candidate_id: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CandidateAuditEntry {
+  id: number;
+  action: string;
+  artist_key: string | null;
+  previous_status: string | null;
+  next_status: string | null;
+  note: string | null;
+  actor: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
 interface CandidateListResponse {
   candidates: DiscoveryCandidate[];
   counts: Array<{ status: CandidateStatus; count: number }>;
@@ -75,6 +98,8 @@ interface CandidateDetailResponse {
   recentAppearances: DiscoveryEvent[];
   signals: DiscoverySignal[];
   topSources: SourceCount[];
+  auditEntries: CandidateAuditEntry[];
+  officialArtist: OfficialArtist | null;
 }
 
 const statusOptions: Array<{ value: StatusFilter; label: string }> = [
@@ -107,9 +132,22 @@ function formatChartType(value: string) {
   return value.replace(/_/g, " ");
 }
 
+function artistKeyFromName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/\by\b/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 function errorMessage(status: number) {
   if (status === 401 || status === 403) return "Clave de admin invalida.";
   if (status === 404) return "No se encontro el candidato.";
+  if (status === 409) return "Ese artista ya existe. Vincula el candidato al artist_key existente.";
   return "No se pudo cargar descubrimiento.";
 }
 
@@ -129,6 +167,7 @@ export default function DiscoveryReview() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [detail, setDetail] = useState<CandidateDetailResponse | null>(null);
+  const [approvalArtistKey, setApprovalArtistKey] = useState("");
   const [linkArtistKey, setLinkArtistKey] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -212,6 +251,7 @@ export default function DiscoveryReview() {
       if (!res.ok) throw new Error(errorMessage(res.status));
       const json = await res.json() as CandidateDetailResponse;
       setDetail(json);
+      setApprovalArtistKey(json.candidate.matched_artist_id ?? artistKeyFromName(json.candidate.artist_name));
       setLinkArtistKey(json.candidate.matched_artist_id ?? "");
       setNotes(json.candidate.notes ?? "");
     } catch (err) {
@@ -239,6 +279,33 @@ export default function DiscoveryReview() {
       await loadDetail(selectedCandidate.id, adminKey);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo actualizar estado.");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function approveCandidate() {
+    if (!selectedCandidate || !adminKey.trim() || !approvalArtistKey.trim()) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/discovery/candidates/${selectedCandidate.id}/approve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Admin-Key": adminKey.trim(),
+        },
+        body: JSON.stringify({
+          artistKey: approvalArtistKey.trim(),
+          artistName: selectedCandidate.artist_name,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(errorMessage(res.status));
+      await loadCandidates(adminKey, status);
+      await loadDetail(selectedCandidate.id, adminKey);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo aprobar candidato.");
     } finally {
       setActionLoading(false);
     }
@@ -294,6 +361,7 @@ export default function DiscoveryReview() {
         },
         body: JSON.stringify({
           artistKey: linkArtistKey.trim(),
+          artistName: selectedCandidate.artist_name,
           notes: notes.trim() || undefined,
         }),
       });
@@ -707,11 +775,58 @@ export default function DiscoveryReview() {
                             )}
                           </div>
                         </section>
+
+                        <section>
+                          <h3 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white">Historial de decision</h3>
+                          {detail?.officialArtist ? (
+                            <div className="mb-3 rounded-lg border border-[#39FF14]/20 bg-[#39FF14]/8 p-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Artista oficial</p>
+                              <p className="mt-1 text-sm font-black text-white">{detail.officialArtist.artist_name}</p>
+                              <p className="mt-1 text-xs font-bold text-zinc-500">{detail.officialArtist.artist_key} · {detail.officialArtist.source}</p>
+                            </div>
+                          ) : null}
+                          <div className="overflow-hidden rounded-lg border border-white/[0.07]">
+                            {detail?.auditEntries.length ? (
+                              detail.auditEntries.map(entry => (
+                                <div key={entry.id} className="border-b border-white/[0.05] p-3 last:border-b-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-xs font-black uppercase tracking-[0.12em] text-white">{entry.action.replace(/_/g, " ")}</p>
+                                    {entry.artist_key ? (
+                                      <span className="rounded border border-[#39FF14]/25 px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[#39FF14]">
+                                        {entry.artist_key}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                                    {entry.previous_status ?? "-"} → {entry.next_status ?? "-"} · {new Date(entry.created_at).toLocaleString("es-MX")}
+                                  </p>
+                                  {entry.note ? (
+                                    <p className="mt-2 text-xs font-bold leading-relaxed text-zinc-400">{entry.note}</p>
+                                  ) : null}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-4 text-sm font-bold text-zinc-500">Sin historial de decision todavia.</div>
+                            )}
+                          </div>
+                        </section>
                       </div>
 
                       <aside className="space-y-4">
                         <section className="rounded-lg border border-white/[0.07] p-4">
                           <h3 className="text-xs font-black uppercase tracking-[0.16em] text-white">Decision</h3>
+                          <label className="mt-3 block">
+                            <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Nuevo artist_key oficial</span>
+                            <input
+                              value={approvalArtistKey}
+                              onChange={event => setApprovalArtistKey(event.target.value)}
+                              placeholder="artist_key"
+                              className="h-10 w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm font-bold text-white outline-none placeholder:text-zinc-700 focus:border-[#39FF14]/50"
+                            />
+                          </label>
+                          <p className="mt-2 text-xs font-bold leading-relaxed text-zinc-600">
+                            Aprobar crea un registro oficial interno y conserva todo el historial del candidato.
+                          </p>
                           <textarea
                             value={notes}
                             onChange={event => setNotes(event.target.value)}
@@ -721,12 +836,12 @@ export default function DiscoveryReview() {
                           <div className="mt-3 grid gap-2">
                             <button
                               type="button"
-                              disabled={actionLoading}
-                              onClick={() => void updateStatus("approved")}
+                              disabled={actionLoading || !approvalArtistKey.trim()}
+                              onClick={() => void approveCandidate()}
                               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#39FF14]/35 bg-[#39FF14]/10 px-3 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14] hover:bg-[#39FF14]/16 disabled:opacity-60"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              Aprobar
+                              Aprobar y crear
                             </button>
                             <button
                               type="button"

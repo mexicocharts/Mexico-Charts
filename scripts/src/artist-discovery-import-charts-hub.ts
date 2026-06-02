@@ -292,6 +292,29 @@ async function fetchKnownArtistNames(baseUrl: string): Promise<Set<string>> {
   return known;
 }
 
+async function fetchOfficialArtistNames(pool: InstanceType<typeof Pool>): Promise<Set<string>> {
+  try {
+    const rows = await pool.query<{ artist_key: string; artist_name: string; normalized_name: string }>(
+      `
+        SELECT artist_key, artist_name, normalized_name
+        FROM official_artists;
+      `,
+    );
+    const known = new Set<string>();
+    for (const row of rows.rows) {
+      for (const value of [row.artist_key, row.artist_name, row.normalized_name]) {
+        if (value?.trim()) {
+          for (const key of knownNameKeys(value)) known.add(key);
+        }
+      }
+    }
+    return known;
+  } catch (err) {
+    if (String(err).includes("official_artists")) return new Set();
+    throw err;
+  }
+}
+
 async function upsertSnapshot(
   pool: InstanceType<typeof Pool>,
   config: SheetConfig,
@@ -379,6 +402,10 @@ async function upsertCandidate(
   );
 
   const current = existing.rows[0];
+  if (current && ["approved", "linked_existing_artist"].includes(current.status)) {
+    return { id: current.id, status: current.status, shouldSkip: true };
+  }
+
   if (current && ["rejected", "not_mexican"].includes(current.status)) {
     if (current.has_source) return { id: current.id, status: current.status, shouldSkip: true };
 
@@ -577,6 +604,11 @@ async function main() {
   ]);
 
   const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
+  if (pool) {
+    const officialArtistNames = await fetchOfficialArtistNames(pool);
+    for (const key of officialArtistNames) knownArtistNames.add(key);
+  }
+
   const touchedCandidateIds = new Set<number>();
   let snapshotCount = 0;
   let rowCount = 0;

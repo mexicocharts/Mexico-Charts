@@ -73,6 +73,24 @@ export const artistCandidates = pgTable(
   }),
 );
 
+export const officialArtists = pgTable(
+  "official_artists",
+  {
+    artistKey: text("artist_key").primaryKey(),
+    artistName: text("artist_name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    source: text("source").notNull().default("manual_discovery_review"),
+    discoveryCandidateId: integer("discovery_candidate_id").references(() => artistCandidates.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  table => ({
+    normalizedUnique: uniqueIndex("official_artists_normalized_name_unique").on(table.normalizedName),
+    candidateIdx: index("official_artists_discovery_candidate_idx").on(table.discoveryCandidateId),
+  }),
+);
+
 export const artistCandidateEvents = pgTable(
   "artist_candidate_events",
   {
@@ -121,8 +139,29 @@ export const artistCandidateSignals = pgTable(
   }),
 );
 
+export const artistCandidateAuditEntries = pgTable(
+  "artist_candidate_audit_entries",
+  {
+    id: serial("id").primaryKey(),
+    candidateId: integer("candidate_id").notNull().references(() => artistCandidates.id, { onDelete: "cascade" }),
+    action: text("action").notNull(),
+    artistKey: text("artist_key"),
+    previousStatus: text("previous_status"),
+    nextStatus: text("next_status"),
+    note: text("note"),
+    actor: text("actor").notNull().default("admin"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  table => ({
+    candidateIdx: index("artist_candidate_audit_entries_candidate_idx").on(table.candidateId, table.createdAt),
+  }),
+);
+
 export type ChartSnapshot = typeof chartSnapshots.$inferSelect;
 export type ChartSnapshotRow = typeof chartSnapshotRows.$inferSelect;
 export type ArtistCandidate = typeof artistCandidates.$inferSelect;
 export type ArtistCandidateEvent = typeof artistCandidateEvents.$inferSelect;
 export type ArtistCandidateSignal = typeof artistCandidateSignals.$inferSelect;
+export type OfficialArtist = typeof officialArtists.$inferSelect;
+export type ArtistCandidateAuditEntry = typeof artistCandidateAuditEntries.$inferSelect;

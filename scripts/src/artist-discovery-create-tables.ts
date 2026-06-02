@@ -93,6 +93,49 @@ async function main() {
     `);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS official_artists (
+        artist_key text PRIMARY KEY,
+        artist_name text NOT NULL,
+        normalized_name text NOT NULL,
+        source text NOT NULL DEFAULT 'manual_discovery_review',
+        discovery_candidate_id integer REFERENCES artist_candidates(id) ON DELETE SET NULL,
+        notes text,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS official_artists_normalized_name_unique
+      ON official_artists (normalized_name);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS official_artists_discovery_candidate_idx
+      ON official_artists (discovery_candidate_id);
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS artist_candidate_audit_entries (
+        id serial PRIMARY KEY,
+        candidate_id integer NOT NULL REFERENCES artist_candidates(id) ON DELETE CASCADE,
+        action text NOT NULL,
+        artist_key text,
+        previous_status text,
+        next_status text,
+        note text,
+        actor text NOT NULL DEFAULT 'admin',
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        created_at timestamptz NOT NULL DEFAULT now()
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS artist_candidate_audit_entries_candidate_idx
+      ON artist_candidate_audit_entries (candidate_id, created_at DESC);
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS artist_candidate_events (
         id serial PRIMARY KEY,
         candidate_id integer NOT NULL REFERENCES artist_candidates(id) ON DELETE CASCADE,
@@ -147,7 +190,9 @@ async function main() {
           'chart_snapshot_rows',
           'artist_candidates',
           'artist_candidate_events',
-          'artist_candidate_signals'
+          'artist_candidate_signals',
+          'artist_candidate_audit_entries',
+          'official_artists'
         )
       ORDER BY table_name;
     `);
