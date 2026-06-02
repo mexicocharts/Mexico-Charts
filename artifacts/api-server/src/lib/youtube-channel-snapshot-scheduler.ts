@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { finishDailySnapshotRunLog, startDailySnapshotRunLog } from "./daily-snapshot-run-log";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -220,9 +221,10 @@ async function snapshotCounts(client: PgClient, snapshotDate: string) {
 
 export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<YoutubeChannelSnapshotRunSummary> {
   const snapshotDate = todayIso();
+  const runLogId = await startDailySnapshotRunLog({ provider: "youtube", snapshotDate, reason });
   if (!process.env["YOUTUBE_API_KEY"]) {
     logger.warn("[youtube:snapshots] skipping daily channel snapshots; missing YOUTUBE_API_KEY");
-    return {
+    const summary = {
       status: "skipped",
       snapshotDate,
       reason,
@@ -233,7 +235,18 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
       dateRows: 0,
       dailyViewsTotal: 0,
       error: "Missing YOUTUBE_API_KEY.",
-    };
+    } satisfies YoutubeChannelSnapshotRunSummary;
+    await finishDailySnapshotRunLog(runLogId, {
+      status: summary.status,
+      expectedCount: summary.channels,
+      fetchedCount: summary.fetched,
+      savedCount: summary.saved,
+      missingCount: summary.missing,
+      dateRows: summary.dateRows,
+      totalDailyValue: summary.dailyViewsTotal,
+      error: summary.error,
+    });
+    return summary;
   }
 
   const client = await pool.connect();
@@ -241,7 +254,7 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) {
       logger.info({ snapshotDate, reason }, "[youtube:snapshots] another worker owns snapshot lock");
-      return {
+      const summary = {
         status: "locked",
         snapshotDate,
         reason,
@@ -251,7 +264,17 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
         missing: 0,
         dateRows: 0,
         dailyViewsTotal: 0,
-      };
+      } satisfies YoutubeChannelSnapshotRunSummary;
+      await finishDailySnapshotRunLog(runLogId, {
+        status: summary.status,
+        expectedCount: summary.channels,
+        fetchedCount: summary.fetched,
+        savedCount: summary.saved,
+        missingCount: summary.missing,
+        dateRows: summary.dateRows,
+        totalDailyValue: summary.dailyViewsTotal,
+      });
+      return summary;
     }
 
     try {
@@ -259,7 +282,7 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
       const before = await snapshotCounts(client, snapshotDate);
       if (before.channels <= 0 || before.snapshots >= before.channels) {
         logger.info({ snapshotDate, reason }, "[youtube:snapshots] already complete for today");
-        return {
+        const summary = {
           status: "already_complete",
           snapshotDate,
           reason,
@@ -269,7 +292,17 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
           missing: 0,
           dateRows: before.snapshots,
           dailyViewsTotal: 0,
-        };
+        } satisfies YoutubeChannelSnapshotRunSummary;
+        await finishDailySnapshotRunLog(runLogId, {
+          status: summary.status,
+          expectedCount: summary.channels,
+          fetchedCount: summary.fetched,
+          savedCount: summary.saved,
+          missingCount: summary.missing,
+          dateRows: summary.dateRows,
+          totalDailyValue: summary.dailyViewsTotal,
+        });
+        return summary;
       }
 
       const channelRows = await client.query<ChannelRow>(`
@@ -307,7 +340,7 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
         "[youtube:snapshots] daily channel snapshots complete",
       );
       const after = await snapshotCounts(client, snapshotDate);
-      return {
+      const summary = {
         status: "complete",
         snapshotDate,
         reason,
@@ -317,13 +350,23 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
         missing,
         dateRows: after.snapshots,
         dailyViewsTotal,
-      };
+      } satisfies YoutubeChannelSnapshotRunSummary;
+      await finishDailySnapshotRunLog(runLogId, {
+        status: summary.status,
+        expectedCount: summary.channels,
+        fetchedCount: summary.fetched,
+        savedCount: summary.saved,
+        missingCount: summary.missing,
+        dateRows: summary.dateRows,
+        totalDailyValue: summary.dailyViewsTotal,
+      });
+      return summary;
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
     logger.error({ err, snapshotDate, reason }, "[youtube:snapshots] daily channel snapshot job failed");
-    return {
+    const summary = {
       status: "failed",
       snapshotDate,
       reason,
@@ -334,7 +377,18 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
       dateRows: 0,
       dailyViewsTotal: 0,
       error: err instanceof Error ? err.message : String(err),
-    };
+    } satisfies YoutubeChannelSnapshotRunSummary;
+    await finishDailySnapshotRunLog(runLogId, {
+      status: summary.status,
+      expectedCount: summary.channels,
+      fetchedCount: summary.fetched,
+      savedCount: summary.saved,
+      missingCount: summary.missing,
+      dateRows: summary.dateRows,
+      totalDailyValue: summary.dailyViewsTotal,
+      error: summary.error,
+    });
+    return summary;
   } finally {
     client.release();
   }

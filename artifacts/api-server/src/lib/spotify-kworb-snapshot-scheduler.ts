@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { finishDailySnapshotRunLog, startDailySnapshotRunLog } from "./daily-snapshot-run-log";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -193,12 +194,13 @@ async function snapshotCounts(client: PgClient, snapshotDate: string) {
 
 export async function runDailySpotifyKworbSnapshots(reason: string): Promise<SpotifyKworbSnapshotRunSummary> {
   const snapshotDate = todayIso();
+  const runLogId = await startDailySnapshotRunLog({ provider: "spotify", snapshotDate, reason });
   const client = await pool.connect();
   try {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) {
       logger.info({ snapshotDate, reason }, "[spotify-kworb:snapshots] another worker owns snapshot lock");
-      return {
+      const summary = {
         status: "locked",
         snapshotDate,
         reason,
@@ -208,7 +210,17 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
         missing: 0,
         dateRows: 0,
         dailyStreamsTotal: 0,
-      };
+      } satisfies SpotifyKworbSnapshotRunSummary;
+      await finishDailySnapshotRunLog(runLogId, {
+        status: summary.status,
+        expectedCount: summary.artists,
+        fetchedCount: summary.fetched,
+        savedCount: summary.saved,
+        missingCount: summary.missing,
+        dateRows: summary.dateRows,
+        totalDailyValue: summary.dailyStreamsTotal,
+      });
+      return summary;
     }
 
     try {
@@ -216,7 +228,7 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
       const before = await snapshotCounts(client, snapshotDate);
       if (before.artists <= 0 || before.snapshots >= before.artists) {
         logger.info({ snapshotDate, reason }, "[spotify-kworb:snapshots] already complete for today");
-        return {
+        const summary = {
           status: "already_complete",
           snapshotDate,
           reason,
@@ -226,7 +238,17 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
           missing: 0,
           dateRows: before.snapshots,
           dailyStreamsTotal: 0,
-        };
+        } satisfies SpotifyKworbSnapshotRunSummary;
+        await finishDailySnapshotRunLog(runLogId, {
+          status: summary.status,
+          expectedCount: summary.artists,
+          fetchedCount: summary.fetched,
+          savedCount: summary.saved,
+          missingCount: summary.missing,
+          dateRows: summary.dateRows,
+          totalDailyValue: summary.dailyStreamsTotal,
+        });
+        return summary;
       }
 
       const artistRows = await client.query<ArtistRow>(`
@@ -265,7 +287,7 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
         "[spotify-kworb:snapshots] daily snapshots complete",
       );
       const after = await snapshotCounts(client, snapshotDate);
-      return {
+      const summary = {
         status: "complete",
         snapshotDate,
         reason,
@@ -275,13 +297,23 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
         missing,
         dateRows: after.snapshots,
         dailyStreamsTotal,
-      };
+      } satisfies SpotifyKworbSnapshotRunSummary;
+      await finishDailySnapshotRunLog(runLogId, {
+        status: summary.status,
+        expectedCount: summary.artists,
+        fetchedCount: summary.fetched,
+        savedCount: summary.saved,
+        missingCount: summary.missing,
+        dateRows: summary.dateRows,
+        totalDailyValue: summary.dailyStreamsTotal,
+      });
+      return summary;
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
     logger.error({ err, snapshotDate, reason }, "[spotify-kworb:snapshots] daily snapshot job failed");
-    return {
+    const summary = {
       status: "failed",
       snapshotDate,
       reason,
@@ -292,7 +324,18 @@ export async function runDailySpotifyKworbSnapshots(reason: string): Promise<Spo
       dateRows: 0,
       dailyStreamsTotal: 0,
       error: err instanceof Error ? err.message : String(err),
-    };
+    } satisfies SpotifyKworbSnapshotRunSummary;
+    await finishDailySnapshotRunLog(runLogId, {
+      status: summary.status,
+      expectedCount: summary.artists,
+      fetchedCount: summary.fetched,
+      savedCount: summary.saved,
+      missingCount: summary.missing,
+      dateRows: summary.dateRows,
+      totalDailyValue: summary.dailyStreamsTotal,
+      error: summary.error,
+    });
+    return summary;
   } finally {
     client.release();
   }

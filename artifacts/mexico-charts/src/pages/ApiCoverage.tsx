@@ -121,6 +121,22 @@ interface DailySnapshotStatus {
     latestFetchedAt: string | null;
     totalDailyStreams: number;
   };
+  recentRuns?: Array<{
+    id: number;
+    provider: "youtube" | "spotify" | string;
+    snapshotDate: string;
+    reason: string;
+    status: string;
+    expectedCount: number;
+    fetchedCount: number;
+    savedCount: number;
+    missingCount: number;
+    dateRows: number;
+    totalDailyValue: number;
+    error: string | null;
+    startedAt: string;
+    finishedAt: string | null;
+  }>;
 }
 
 function fmtDate(iso: string | null): string {
@@ -146,6 +162,13 @@ function fmtCompact(value: string | number | null | undefined): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
   return String(n);
+}
+
+function snapshotRunStatusTone(status: string) {
+  if (status === "complete" || status === "already_complete") return "border-[#39FF14]/20 bg-[#39FF14]/[0.06] text-[#39FF14]";
+  if (status === "failed") return "border-red-400/20 bg-red-500/[0.08] text-red-300";
+  if (status === "running" || status === "locked") return "border-amber-300/20 bg-amber-300/[0.08] text-amber-200";
+  return "border-white/10 bg-white/[0.04] text-zinc-400";
 }
 
 function providerMeta(provider: ProviderKey) {
@@ -818,6 +841,59 @@ export default function ApiCoverage() {
                       </article>
                     );
                   })}
+                </div>
+
+                <div className="mt-5 rounded-lg border border-white/[0.06] bg-black/20 p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-xs font-black uppercase tracking-[0.14em] text-white">Últimas corridas</h3>
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
+                      YouTube + Spotify
+                    </span>
+                  </div>
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    {(dailySnapshots.recentRuns ?? []).length > 0 ? (
+                      (dailySnapshots.recentRuns ?? []).slice(0, 8).map(run => {
+                        const providerLabel = run.provider === "youtube" ? "YouTube" : "Spotify";
+                        const valueLabel = run.provider === "youtube" ? "views" : "streams";
+                        return (
+                          <div key={run.id} className="rounded border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black uppercase tracking-[0.12em] text-zinc-200">{providerLabel}</span>
+                              <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${snapshotRunStatusTone(run.status)}`}>
+                                {run.status}
+                              </span>
+                              <span className="ml-auto text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                {fmtDate(run.startedAt)}
+                              </span>
+                            </div>
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] font-black uppercase tracking-[0.12em]">
+                              <div>
+                                <div className="text-sm text-white">{run.savedCount}/{run.expectedCount}</div>
+                                <div className="text-zinc-700">Guardados</div>
+                              </div>
+                              <div>
+                                <div className="text-sm text-white">{run.missingCount}</div>
+                                <div className="text-zinc-700">Faltantes</div>
+                              </div>
+                              <div>
+                                <div className="text-sm text-white">{fmtCompact(run.totalDailyValue)}</div>
+                                <div className="text-zinc-700">{valueLabel}</div>
+                              </div>
+                            </div>
+                            {run.error && (
+                              <div className="mt-2 truncate rounded border border-red-400/10 bg-red-500/[0.04] px-2 py-1 text-[10px] font-bold text-red-200">
+                                {run.error}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="rounded border border-white/[0.05] px-3 py-3 text-xs font-bold text-zinc-600 lg:col-span-2">
+                        Sin corridas registradas todavía.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </section>
             )}

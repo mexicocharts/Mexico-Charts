@@ -10,6 +10,7 @@ import {
 } from "@workspace/db/schema";
 import { asc, eq, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { ensureDailySnapshotRunLogTable } from "../lib/daily-snapshot-run-log";
 import { runDailySpotifyKworbSnapshots } from "../lib/spotify-kworb-snapshot-scheduler";
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 
@@ -647,7 +648,8 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
   const snapshotDate = (req.query["date"] as string | undefined) ?? new Date().toISOString().slice(0, 10);
 
   try {
-    const [youtubeRows, spotifyRows] = await Promise.all([
+    await ensureDailySnapshotRunLogTable();
+    const [youtubeRows, spotifyRows, runRows] = await Promise.all([
       pool.query<{
         total: number;
         date_rows: number;
@@ -684,6 +686,41 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
         `,
         [snapshotDate],
       ),
+      pool.query<{
+        id: number;
+        provider: string;
+        snapshot_date: string;
+        reason: string;
+        status: string;
+        expected_count: number;
+        fetched_count: number;
+        saved_count: number;
+        missing_count: number;
+        date_rows: number;
+        total_daily_value: string | number;
+        error: string | null;
+        started_at: string;
+        finished_at: string | null;
+      }>(`
+        SELECT
+          id,
+          provider,
+          snapshot_date,
+          reason,
+          status,
+          expected_count,
+          fetched_count,
+          saved_count,
+          missing_count,
+          date_rows,
+          total_daily_value,
+          error,
+          started_at::text,
+          finished_at::text
+        FROM daily_snapshot_run_logs
+        ORDER BY started_at DESC
+        LIMIT 14
+      `),
     ]);
 
     const youtube = youtubeRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_views: 0 };
@@ -707,6 +744,22 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
         latestFetchedAt: spotify.latest_fetched_at,
         totalDailyStreams: Number(spotify.total_daily_streams ?? 0),
       },
+      recentRuns: runRows.rows.map(row => ({
+        id: row.id,
+        provider: row.provider,
+        snapshotDate: row.snapshot_date,
+        reason: row.reason,
+        status: row.status,
+        expectedCount: Number(row.expected_count ?? 0),
+        fetchedCount: Number(row.fetched_count ?? 0),
+        savedCount: Number(row.saved_count ?? 0),
+        missingCount: Number(row.missing_count ?? 0),
+        dateRows: Number(row.date_rows ?? 0),
+        totalDailyValue: Number(row.total_daily_value ?? 0),
+        error: row.error,
+        startedAt: row.started_at,
+        finishedAt: row.finished_at,
+      })),
     });
   } catch (err) {
     logger.error({ err }, "[artists] daily snapshot status unavailable");
