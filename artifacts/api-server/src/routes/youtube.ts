@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { youtubeChannelDailySnapshots, youtubeChannels, youtubeVideos } from "@workspace/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 
 const router = Router();
 
@@ -672,6 +673,20 @@ router.get("/admin/youtube/coverage", async (req, res) => {
     logger.error({ err: (err as Error).message }, "[youtube:coverage] failed");
     res.status(500).json({ error: (err as Error).message });
   }
+});
+
+// POST /api/admin/youtube/channel-snapshots/run
+// Forces today's official-channel snapshot job in the current environment.
+router.post("/admin/youtube/channel-snapshots/run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+
+  const summary = await runDailyYoutubeChannelSnapshots("admin-run-now");
+  if (summary.status === "failed" || summary.status === "skipped") {
+    res.status(500).json(summary);
+    return;
+  }
+
+  res.json(summary);
 });
 
 // POST /api/admin/youtube/refresh-channels?limit=100&staleDays=7&dryRun=false

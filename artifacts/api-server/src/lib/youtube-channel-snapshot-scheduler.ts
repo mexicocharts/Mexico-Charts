@@ -36,6 +36,19 @@ const CHECK_MS = 60 * 60 * 1000;
 let schedulerStarted = false;
 let schedulerTimer: ReturnType<typeof setInterval> | null = null;
 
+export interface YoutubeChannelSnapshotRunSummary {
+  status: "complete" | "already_complete" | "locked" | "skipped" | "failed";
+  snapshotDate: string;
+  reason: string;
+  channels: number;
+  fetched: number;
+  saved: number;
+  missing: number;
+  dateRows: number;
+  dailyViewsTotal: number;
+  error?: string;
+}
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -190,7 +203,7 @@ async function saveSnapshot(client: PgClient, channel: ChannelRow, stats: Snapsh
   return dailyDelta;
 }
 
-async function shouldRunToday(client: PgClient, snapshotDate: string) {
+async function snapshotCounts(client: PgClient, snapshotDate: string) {
   const counts = await client.query<{ channels: number; snapshots: number }>(
     `
       SELECT
@@ -199,31 +212,64 @@ async function shouldRunToday(client: PgClient, snapshotDate: string) {
     `,
     [snapshotDate],
   );
-  const row = counts.rows[0];
-  if (!row || row.channels <= 0) return false;
-  return row.snapshots < row.channels;
+  return {
+    channels: counts.rows[0]?.channels ?? 0,
+    snapshots: counts.rows[0]?.snapshots ?? 0,
+  };
 }
 
-async function runDailyYoutubeChannelSnapshots(reason: string) {
+export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<YoutubeChannelSnapshotRunSummary> {
+  const snapshotDate = todayIso();
   if (!process.env["YOUTUBE_API_KEY"]) {
     logger.warn("[youtube:snapshots] skipping daily channel snapshots; missing YOUTUBE_API_KEY");
-    return;
+    return {
+      status: "skipped",
+      snapshotDate,
+      reason,
+      channels: 0,
+      fetched: 0,
+      saved: 0,
+      missing: 0,
+      dateRows: 0,
+      dailyViewsTotal: 0,
+      error: "Missing YOUTUBE_API_KEY.",
+    };
   }
 
-  const snapshotDate = todayIso();
   const client = await pool.connect();
   try {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) {
       logger.info({ snapshotDate, reason }, "[youtube:snapshots] another worker owns snapshot lock");
-      return;
+      return {
+        status: "locked",
+        snapshotDate,
+        reason,
+        channels: 0,
+        fetched: 0,
+        saved: 0,
+        missing: 0,
+        dateRows: 0,
+        dailyViewsTotal: 0,
+      };
     }
 
     try {
       await ensureSnapshotTable(client);
-      if (!(await shouldRunToday(client, snapshotDate))) {
+      const before = await snapshotCounts(client, snapshotDate);
+      if (before.channels <= 0 || before.snapshots >= before.channels) {
         logger.info({ snapshotDate, reason }, "[youtube:snapshots] already complete for today");
-        return;
+        return {
+          status: "already_complete",
+          snapshotDate,
+          reason,
+          channels: before.channels,
+          fetched: 0,
+          saved: 0,
+          missing: 0,
+          dateRows: before.snapshots,
+          dailyViewsTotal: 0,
+        };
       }
 
       const channelRows = await client.query<ChannelRow>(`
@@ -260,11 +306,35 @@ async function runDailyYoutubeChannelSnapshots(reason: string) {
         { snapshotDate, reason, channels: channelRows.rows.length, fetched, saved, missing, dailyViewsTotal },
         "[youtube:snapshots] daily channel snapshots complete",
       );
+      const after = await snapshotCounts(client, snapshotDate);
+      return {
+        status: "complete",
+        snapshotDate,
+        reason,
+        channels: channelRows.rows.length,
+        fetched,
+        saved,
+        missing,
+        dateRows: after.snapshots,
+        dailyViewsTotal,
+      };
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
     logger.error({ err, snapshotDate, reason }, "[youtube:snapshots] daily channel snapshot job failed");
+    return {
+      status: "failed",
+      snapshotDate,
+      reason,
+      channels: 0,
+      fetched: 0,
+      saved: 0,
+      missing: 0,
+      dateRows: 0,
+      dailyViewsTotal: 0,
+      error: err instanceof Error ? err.message : String(err),
+    };
   } finally {
     client.release();
   }
