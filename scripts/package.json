@@ -18,6 +18,8 @@
     "musicbrainz-approve-candidates": "tsx ./src/musicbrainz-approve-candidates.ts",
     "artist-discovery-create-tables": "tsx ./src/artist-discovery-create-tables.ts",
     "artist-discovery-import-charts-hub": "tsx ./src/artist-discovery-import-charts-hub.ts",
+    "artist-discovery-daily": "tsx ./src/artist-discovery-daily.ts",
+    "artist-discovery-reverify": "tsx ./src/artist-discovery-reverify-candidates.ts",
     "artist-discovery-verify": "tsx ./src/artist-discovery-verify.ts",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"

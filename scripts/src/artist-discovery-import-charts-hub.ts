@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { ensureArtistDiscoveryTables } from "./artist-discovery-create-tables";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -165,7 +166,11 @@ function normalizeName(value: string | null | undefined): string {
   return (value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/['’`´]/g, "")
     .replace(/&/g, " and ")
+    .replace(/\b(e|y)\b/gi, " and ")
+    .replace(/\b(con|feat|ft|featuring|colabora(?:ndo)?\s+con|junto\s+a)\b/gi, " ")
+    .replace(/\b(banda|grupo|los|las)\s+/gi, "$1 ")
     .replace(/[^a-zA-Z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -178,10 +183,16 @@ function compactName(value: string | null | undefined): string {
 
 function knownNameKeys(value: string): string[] {
   const normalized = normalizeName(value);
+  const withoutCommonPrefixes = normalized
+    .replace(/^banda\s+/, "")
+    .replace(/^grupo\s+/, "")
+    .replace(/^los\s+/, "")
+    .replace(/^las\s+/, "");
   return [
     normalized,
     normalized.replace(/\s+y\s+/g, " and "),
     normalized.replace(/\s+and\s+/g, " y "),
+    withoutCommonPrefixes,
   ]
     .map(item => item.replace(/[^a-z0-9]/g, ""))
     .filter(Boolean);
@@ -189,7 +200,7 @@ function knownNameKeys(value: string): string[] {
 
 function splitCredit(credit: string): string[] {
   return credit
-    .split(/,|&|\/|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+|\s+junto\s+a\s+/gi)
+    .split(/,|&|\/|\s+feat\.?\s+|\s+ft\.?\s+|\s+featuring\s+|\s+con\s+|\s+x\s+|\s+junto\s+a\s+/gi)
     .map(s => s.trim())
     .filter(s => s.length > 1);
 }
@@ -383,6 +394,7 @@ async function upsertCandidate(
   source: string,
 ): Promise<CandidateRecord> {
   const normalizedName = normalizeName(artistName);
+  const aliasKeys = knownNameKeys(artistName);
   const existing = await pool.query<{ id: number; status: string; has_source: boolean }>(
     `
       SELECT
@@ -396,9 +408,15 @@ async function upsertCandidate(
         ) AS has_source
       FROM artist_candidates
       WHERE normalized_name = $1
+         OR id IN (
+          SELECT candidate_id
+          FROM artist_candidate_signals
+          WHERE signal_type = 'alias'
+            AND lower(regexp_replace(value, '[^a-zA-Z0-9]+', '', 'g')) = ANY($3::text[])
+        )
       LIMIT 1;
     `,
-    [normalizedName, source],
+    [normalizedName, source, aliasKeys],
   );
 
   const current = existing.rows[0];
@@ -501,6 +519,7 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
     last_seen_date: string | null;
     signal_weight: string;
     mexican_signal_count: string;
+    identity_signal_count: string;
   }>(
     `
       WITH event_stats AS (
@@ -529,7 +548,11 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
               'known_mexican_collaboration'
             )
             AND confidence_weight >= 25
-          )::integer AS mexican_signal_count
+          )::integer AS mexican_signal_count,
+          COUNT(*) FILTER (
+            WHERE signal_type IN ('external_id', 'alias')
+            AND confidence_weight > 0
+          )::integer AS identity_signal_count
         FROM artist_candidate_signals
         WHERE candidate_id = $1
         GROUP BY candidate_id
@@ -540,7 +563,8 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
         e.first_seen_date,
         e.last_seen_date,
         COALESCE(s.signal_weight, 0)::text AS signal_weight,
-        COALESCE(s.mexican_signal_count, 0)::text AS mexican_signal_count
+        COALESCE(s.mexican_signal_count, 0)::text AS mexican_signal_count,
+        COALESCE(s.identity_signal_count, 0)::text AS identity_signal_count
       FROM artist_candidates c
       LEFT JOIN event_stats e ON e.candidate_id = c.id
       LEFT JOIN signal_stats s ON s.candidate_id = c.id
@@ -556,7 +580,8 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
   const sourceCount = Number(stats.source_count);
   const signalWeight = Number(stats.signal_weight);
   const mexicanSignalCount = Number(stats.mexican_signal_count);
-  const confidenceScore = Math.min(100, signalWeight + Math.min(totalAppearances, 20) * 2 + sourceCount * 10);
+  const identitySignalCount = Number(stats.identity_signal_count);
+  const confidenceScore = Math.min(100, signalWeight + Math.min(totalAppearances, 20) * 2 + sourceCount * 10 + Math.min(identitySignalCount, 4) * 3);
 
   const status = mexicanSignalCount > 0 && confidenceScore >= 55
     ? "likely_mexican"
@@ -593,8 +618,7 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
   );
 }
 
-async function main() {
-  const options = parseArgs();
+export async function runArtistDiscoveryImport(options = parseArgs()) {
   const databaseUrl = process.env["DATABASE_URL"];
   if (options.write && !databaseUrl) throw new Error("Missing DATABASE_URL.");
 
@@ -605,6 +629,7 @@ async function main() {
 
   const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
   if (pool) {
+    await ensureArtistDiscoveryTables(pool);
     const officialArtistNames = await fetchOfficialArtistNames(pool);
     for (const key of officialArtistNames) knownArtistNames.add(key);
   }
@@ -690,9 +715,11 @@ async function main() {
   }
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  runArtistDiscoveryImport().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
 export {};

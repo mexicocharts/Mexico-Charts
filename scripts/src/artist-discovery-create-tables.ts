@@ -8,12 +8,11 @@ const { Pool } = require("../../lib/db/node_modules/pg") as {
   };
 };
 
-async function main() {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+type PoolLike = {
+  query: (sql: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
+};
 
-  const pool = new Pool({ connectionString: databaseUrl });
-  try {
+export async function ensureArtistDiscoveryTables(pool: PoolLike) {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS chart_snapshots (
         id serial PRIMARY KEY,
@@ -198,14 +197,25 @@ async function main() {
     `);
 
     console.log(`Artist discovery tables ready: ${tables.rows.map(row => (row as { table_name: string }).table_name).join(", ")}`);
+}
+
+async function main() {
+  const databaseUrl = process.env["DATABASE_URL"];
+  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+
+  const pool = new Pool({ connectionString: databaseUrl });
+  try {
+    await ensureArtistDiscoveryTables(pool);
   } finally {
     await pool.end();
   }
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
 export {};
