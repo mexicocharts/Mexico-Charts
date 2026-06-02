@@ -43,7 +43,6 @@ const RADAR_CANDIDATES: RadarCandidateConfig[] = [
   { name: "Jorsshh", stage: "Emergente", firstSignal: "2022", releaseCount: 8, confidence: "Media", note: "descubrimiento" },
   { name: "Moy Bobadilla", stage: "Nuevo", firstSignal: "2024", releaseCount: 4, confidence: "Alta", note: "catálogo inicial" },
   { name: "Panter Bélico", stage: "Solo breakout", firstSignal: "2023", releaseCount: 37, confidence: "Media", note: "carrera solista" },
-  { name: "El De Las R's", stage: "Emergente", firstSignal: "2023", releaseCount: 10, confidence: "Media", note: "señal temprana" },
   { name: "Régulo Molina", stage: "Nuevo", firstSignal: "2024", releaseCount: 5, confidence: "Alta", note: "radar nuevos" },
   { name: "Alan Arrieta", stage: "Nuevo", firstSignal: "2024", releaseCount: 5, confidence: "Alta", note: "catálogo inicial" },
   { name: "Kevin AMF", stage: "Emergente", firstSignal: "2023", releaseCount: 26, confidence: "Alta", note: "primer gran impulso" },
