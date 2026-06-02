@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
 import { motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
@@ -67,16 +67,19 @@ function formatShortDateEs(iso: string | null | undefined): string {
 function YoutubeDailySparkline({
   points,
   color,
+  gradientId,
   ariaLabel = "Tendencia diaria de vistas del canal de YouTube",
 }: {
   points: Array<{ date: string; dailyViews?: number | null; dailyStreams?: number | null }>;
   color: string;
+  gradientId?: string;
   ariaLabel?: string;
 }) {
   const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? 0);
   const max = Math.max(...values, 1);
   const width = 300;
   const height = 72;
+  const fillId = gradientId ?? `trendFill-${color.replace(/[^a-z0-9]/gi, "")}`;
   const path = values.map((value, index) => {
     const x = values.length <= 1 ? 0 : (index / (values.length - 1)) * width;
     const y = height - (value / max) * (height - 8) - 4;
@@ -86,14 +89,14 @@ function YoutubeDailySparkline({
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full overflow-visible" role="img" aria-label={ariaLabel}>
       <defs>
-        <linearGradient id="youtubeDailyTrendFill" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.28" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polyline
         points={`0,${height} ${path} ${width},${height}`}
-        fill="url(#youtubeDailyTrendFill)"
+        fill={`url(#${fillId})`}
         stroke="none"
       />
       <polyline
@@ -106,6 +109,16 @@ function YoutubeDailySparkline({
       />
     </svg>
   );
+}
+
+function metricTone(value: number | null | undefined) {
+  if (value == null || value === 0) return "text-zinc-500";
+  return value > 0 ? "text-[#39FF14]" : "text-red-300";
+}
+
+function pctLabel(value: number | null | undefined) {
+  if (value == null) return "—";
+  return `${value > 0 ? "+" : ""}${value}%`;
 }
 
 function formatSignedMetric(value: number | null | undefined, formatted: string | null | undefined) {
@@ -491,6 +504,99 @@ export default function ArtistDetail() {
     [kworbStats?.spotify?.history],
   );
   const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
+  const momentumSources = useMemo(() => {
+    const sources: Array<{
+      key: "youtube" | "spotify";
+      label: string;
+      kicker: string;
+      color: string;
+      icon: ReactNode;
+      todayValue: string | null;
+      totalValue: string | null;
+      totalLabel: string;
+      points: Array<{ date: string; dailyViews?: number | null; dailyStreams?: number | null }>;
+      availableDays: number;
+      snapshotLabel: string;
+      average7: string | null;
+      average30: string | null;
+      average7Pct: number | null;
+      average30Pct: number | null;
+      weeklyGrowth: number | null;
+      weeklyGrowthFmt: string | null;
+      monthlyGrowth: number | null;
+      monthlyGrowthFmt: string | null;
+      biggestSpikeValue: string | null;
+      biggestSpikeDate: string | null;
+      trend: "rising" | "steady" | "cooling" | "new" | null | undefined;
+      scoreFmt: string | null | undefined;
+    }> = [];
+
+    if (ytChannel) {
+      sources.push({
+        key: "youtube",
+        label: "YouTube",
+        kicker: "Canal oficial",
+        color: "#ef4444",
+        icon: <SiYoutube className="h-5 w-5" />,
+        todayValue: ytChannel.dailyViewsFmt,
+        totalValue: ytChannel.viewsFmt,
+        totalLabel: "vistas totales",
+        points: youtubeDailyTrend,
+        availableDays: youtubeAnalytics?.availableDays ?? youtubeDailyTrend.length,
+        snapshotLabel: youtubeSnapshotLabel,
+        average7: youtubeAnalytics?.views.average7DayFmt ?? null,
+        average30: youtubeAnalytics?.views.average30DayFmt ?? null,
+        average7Pct: youtubeAnalytics?.views.average7DayChangePct ?? null,
+        average30Pct: youtubeAnalytics?.views.average30DayChangePct ?? null,
+        weeklyGrowth: youtubeAnalytics?.views.weeklyGrowth ?? null,
+        weeklyGrowthFmt: youtubeAnalytics?.views.weeklyGrowthFmt ?? null,
+        monthlyGrowth: youtubeAnalytics?.views.monthlyGrowth ?? null,
+        monthlyGrowthFmt: youtubeAnalytics?.views.monthlyGrowthFmt ?? null,
+        biggestSpikeValue: youtubeAnalytics?.views.biggestSpike?.viewsFmt ?? null,
+        biggestSpikeDate: youtubeAnalytics?.views.biggestSpike?.date ?? null,
+        trend: youtubeAnalytics?.momentum.trend,
+        scoreFmt: youtubeAnalytics?.momentum.scoreFmt,
+      });
+    }
+
+    if (kworbStats?.spotify) {
+      sources.push({
+        key: "spotify",
+        label: "Spotify",
+        kicker: "Kworb diario",
+        color: "#1DB954",
+        icon: <SiSpotify className="h-5 w-5" />,
+        todayValue: kworbStats.spotify.dailyStreamsFmt,
+        totalValue: kworbStats.spotify.totalStreamsFmt,
+        totalLabel: "streams totales",
+        points: spotifyKworbDailyTrend,
+        availableDays: spotifyKworbAnalytics?.availableDays ?? spotifyKworbDailyTrend.length,
+        snapshotLabel: formatShortDateEs(spotifyKworbDailyTrend.at(-1)?.date),
+        average7: spotifyKworbAnalytics?.streams.average7DayFmt ?? null,
+        average30: spotifyKworbAnalytics?.streams.average30DayFmt ?? null,
+        average7Pct: spotifyKworbAnalytics?.streams.average7DayChangePct ?? null,
+        average30Pct: spotifyKworbAnalytics?.streams.average30DayChangePct ?? null,
+        weeklyGrowth: spotifyKworbAnalytics?.streams.weeklyGrowth ?? null,
+        weeklyGrowthFmt: spotifyKworbAnalytics?.streams.weeklyGrowthFmt ?? null,
+        monthlyGrowth: spotifyKworbAnalytics?.streams.monthlyGrowth ?? null,
+        monthlyGrowthFmt: spotifyKworbAnalytics?.streams.monthlyGrowthFmt ?? null,
+        biggestSpikeValue: spotifyKworbAnalytics?.streams.biggestSpike?.streamsFmt ?? null,
+        biggestSpikeDate: spotifyKworbAnalytics?.streams.biggestSpike?.date ?? null,
+        trend: spotifyKworbAnalytics?.momentum.trend,
+        scoreFmt: spotifyKworbAnalytics?.momentum.scoreFmt,
+      });
+    }
+
+    return sources;
+  }, [
+    kworbStats?.spotify,
+    spotifyKworbAnalytics,
+    spotifyKworbDailyTrend,
+    ytChannel,
+    youtubeAnalytics,
+    youtubeDailyTrend,
+    youtubeSnapshotLabel,
+  ]);
 
   /* ── Kworb refresh status (last scheduler run) ── */
   const { data: refreshStatus } = useRefreshStatus();
@@ -958,109 +1064,175 @@ export default function ArtistDetail() {
                     </div>
                   )}
                 </div>
-                {youtubeDailyTrend.length >= 2 && youtubeAnalytics && (
-                  <div
-                    className="mt-4 overflow-hidden rounded-xl p-4"
-                    style={{ background: "linear-gradient(135deg, rgba(255,0,0,0.055), rgba(255,255,255,0.018))", border: "1px solid rgba(255,0,0,0.12)" }}
-                    data-testid="youtube-channel-daily-trend"
-                  >
-                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-400">
-                          <SiYoutube className="h-3.5 w-3.5" />
-                          Canal oficial YouTube
-                        </div>
-                        <div className="mt-1 text-sm font-black uppercase tracking-[0.08em] text-white">
-                          Tendencia diaria de vistas
-                        </div>
-                      </div>
-                      <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-700">
-                        {youtubeDailyTrend.length} capturas{youtubeSnapshotLabel ? ` · ${youtubeSnapshotLabel}` : ""}
-                      </div>
-                    </div>
-                    <YoutubeDailySparkline points={youtubeDailyTrend} color="#ef4444" />
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 7 días</div>
-                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.average7DayFmt ?? "—"}</div>
-                        {youtubeAnalytics.views.average7DayChangePct != null && (
-                          <div className="mt-0.5 text-[10px] font-bold text-red-300">
-                            {youtubeAnalytics.views.average7DayChangePct > 0 ? "+" : ""}{youtubeAnalytics.views.average7DayChangePct}% vs 7 días previos
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 30 días</div>
-                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.average30DayFmt ?? "—"}</div>
-                        {youtubeAnalytics.views.average30DayChangePct != null && (
-                          <div className="mt-0.5 text-[10px] font-bold text-zinc-500">
-                            {youtubeAnalytics.views.average30DayChangePct > 0 ? "+" : ""}{youtubeAnalytics.views.average30DayChangePct}% vs 30 días previos
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Mayor pico</div>
-                        <div className="mt-1 text-sm font-black text-white">{youtubeAnalytics.views.biggestSpike?.viewsFmt ?? "—"}</div>
-                        {youtubeAnalytics.views.biggestSpike?.date && (
-                          <div className="mt-0.5 text-[10px] font-bold text-zinc-600">
-                            {formatShortDateEs(youtubeAnalytics.views.biggestSpike.date)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Momentum</div>
-                        <div className="mt-1 text-sm font-black text-white">{momentumLabel(youtubeAnalytics.momentum.trend)}</div>
-                        {youtubeAnalytics.momentum.scoreFmt && (
-                          <div className="mt-0.5 text-[10px] font-bold text-red-300">
-                            {youtubeAnalytics.momentum.scoreFmt} señal diaria
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Crecimiento semanal</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(youtubeAnalytics.views.weeklyGrowth, youtubeAnalytics.views.weeklyGrowthFmt)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Crecimiento mensual</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(youtubeAnalytics.views.monthlyGrowth, youtubeAnalytics.views.monthlyGrowthFmt)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Subs diarios</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(youtubeAnalytics.subscribers.dailyChange, youtubeAnalytics.subscribers.dailyChangeFmt)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Subs semanales</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(youtubeAnalytics.subscribers.weeklyGrowth, youtubeAnalytics.subscribers.weeklyGrowthFmt)}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-4">
-                      {youtubeDailyTrend.slice(-4).map(point => (
-                        <div key={point.date} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                          <div className="text-zinc-700">{formatShortDateEs(point.date)}</div>
-                          <div className="mt-1 text-xs font-black text-zinc-300">
-                            {(point.dailyViews ?? 0).toLocaleString("es-MX")}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {metaArtist.label && (
                   <div className="mt-4 pt-4 border-t border-white/[0.05] flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-zinc-600">
                     <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>
                     {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
                   </div>
                 )}
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {momentumSources.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-artist-momentum"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              style={{
+                background: "linear-gradient(160deg,#101010 0%,#090909 58%,#050505 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow: "0 8px 48px rgba(0,0,0,0.68), inset 0 1px 0 rgba(255,255,255,0.05)",
+              }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="relative z-10">
+                <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" style={{ color: artist.accent }} />
+                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Momentum</h2>
+                    </div>
+                    <div className="max-w-2xl text-sm font-bold leading-relaxed text-zinc-500">
+                      Lectura diaria de crecimiento por fuente, basada en capturas automáticas.
+                    </div>
+                  </div>
+                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                    {momentumSources.length} fuentes activas
+                  </div>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  {momentumSources.map(source => {
+                    const hasTrend = source.points.length >= 2;
+                    const latestPoints = source.points.slice(-8);
+                    return (
+                      <article
+                        key={source.key}
+                        className="overflow-hidden rounded-2xl border bg-black/20"
+                        style={{ borderColor: `${source.color}28` }}
+                        data-testid={`momentum-${source.key}`}
+                      >
+                        <div className="p-4 sm:p-5">
+                          <div className="mb-5 flex items-start gap-3">
+                            <div
+                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                              style={{ background: `${source.color}12`, color: source.color, border: `1px solid ${source.color}24` }}
+                            >
+                              {source.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: source.color }}>
+                                {source.kicker}
+                              </div>
+                              <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-white">{source.label}</h3>
+                            </div>
+                            <div className="ml-auto text-right">
+                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última captura</div>
+                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{source.snapshotLabel || "—"}</div>
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
+                            <div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
+                                {source.key === "youtube" ? "Vistas hoy" : "Streams hoy"}
+                              </div>
+                              <div className="mt-2 text-4xl font-black leading-none tracking-tight text-white sm:text-5xl">
+                                {source.todayValue ?? "—"}
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
+                                <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
+                                  {source.totalValue ?? "—"} {source.totalLabel}
+                                </span>
+                                <span
+                                  className="rounded-full px-2.5 py-1"
+                                  style={{ background: `${source.color}12`, border: `1px solid ${source.color}24`, color: source.color }}
+                                >
+                                  {momentumLabel(source.trend)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 7 días</div>
+                                <div className="mt-1 text-sm font-black text-white">{source.average7 ?? "—"}</div>
+                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average7Pct)}`}>{pctLabel(source.average7Pct)}</div>
+                              </div>
+                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 30 días</div>
+                                <div className="mt-1 text-sm font-black text-white">{source.average30 ?? "—"}</div>
+                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average30Pct)}`}>{pctLabel(source.average30Pct)}</div>
+                              </div>
+                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Semana</div>
+                                <div className={`mt-1 text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
+                                  {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
+                                </div>
+                              </div>
+                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Mes</div>
+                                <div className={`mt-1 text-sm font-black ${metricTone(source.monthlyGrowth)}`}>
+                                  {formatSignedMetric(source.monthlyGrowth, source.monthlyGrowthFmt)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-white/[0.06] bg-white/[0.018] px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+                          {hasTrend ? (
+                            <>
+                              <div className="mb-2 flex items-center justify-between gap-3">
+                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">
+                                  Últimas {source.points.length} capturas
+                                </div>
+                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+                                  Pico: <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
+                                  {source.biggestSpikeDate ? ` · ${formatShortDateEs(source.biggestSpikeDate)}` : ""}
+                                </div>
+                              </div>
+                              <YoutubeDailySparkline
+                                points={source.points}
+                                color={source.color}
+                                gradientId={`momentum-${source.key}-fill`}
+                                ariaLabel={`Tendencia diaria de ${source.label}`}
+                              />
+                              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {latestPoints.slice(-4).map(point => {
+                                  const value = source.key === "youtube" ? point.dailyViews : point.dailyStreams;
+                                  return (
+                                    <div key={`${source.key}-${point.date}`} className="rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2">
+                                      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatShortDateEs(point.date)}</div>
+                                      <div className="mt-1 text-xs font-black text-zinc-300">{(value ?? 0).toLocaleString("es-MX")}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5">
+                              <div className="text-sm font-black uppercase tracking-[0.08em] text-white">Baseline guardado</div>
+                              <div className="mt-2 text-xs font-bold leading-relaxed text-zinc-500">
+                                La tendencia empieza cuando llegue la siguiente captura diaria.
+                              </div>
+                              <div className="mt-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: source.color }}>
+                                {source.availableDays} captura disponible
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </motion.section>
@@ -1420,89 +1592,6 @@ export default function ArtistDetail() {
                     </div>
                   )}
                 </div>
-                {spotifyKworbDailyTrend.length >= 2 && spotifyKworbAnalytics && (
-                  <div
-                    className="mt-4 overflow-hidden rounded-xl p-4"
-                    style={{ background: "linear-gradient(135deg, rgba(29,185,84,0.06), rgba(255,255,255,0.018))", border: "1px solid rgba(29,185,84,0.13)" }}
-                    data-testid="spotify-kworb-daily-trend"
-                  >
-                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#1DB954]">
-                          <SiSpotify className="h-3.5 w-3.5" />
-                          Spotify · Kworb
-                        </div>
-                        <div className="mt-1 text-sm font-black uppercase tracking-[0.08em] text-white">
-                          Tendencia diaria de streams
-                        </div>
-                      </div>
-                      <div className="text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-700">
-                        {spotifyKworbDailyTrend.length} capturas
-                      </div>
-                    </div>
-                    <YoutubeDailySparkline points={spotifyKworbDailyTrend} color="#1DB954" ariaLabel="Tendencia diaria de streams de Spotify por Kworb" />
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 7 días</div>
-                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.average7DayFmt ?? "—"}</div>
-                        {spotifyKworbAnalytics.streams.average7DayChangePct != null && (
-                          <div className="mt-0.5 text-[10px] font-bold text-[#1DB954]">
-                            {spotifyKworbAnalytics.streams.average7DayChangePct > 0 ? "+" : ""}{spotifyKworbAnalytics.streams.average7DayChangePct}% vs 7 días previos
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Promedio 30 días</div>
-                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.average30DayFmt ?? "—"}</div>
-                        {spotifyKworbAnalytics.streams.average30DayChangePct != null && (
-                          <div className="mt-0.5 text-[10px] font-bold text-zinc-500">
-                            {spotifyKworbAnalytics.streams.average30DayChangePct > 0 ? "+" : ""}{spotifyKworbAnalytics.streams.average30DayChangePct}% vs 30 días previos
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Mayor pico</div>
-                        <div className="mt-1 text-sm font-black text-white">{spotifyKworbAnalytics.streams.biggestSpike?.streamsFmt ?? "—"}</div>
-                        {spotifyKworbAnalytics.streams.biggestSpike?.date && (
-                          <div className="mt-0.5 text-[10px] font-bold text-zinc-600">
-                            {formatShortDateEs(spotifyKworbAnalytics.streams.biggestSpike.date)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2.5">
-                        <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Momentum</div>
-                        <div className="mt-1 text-sm font-black text-white">{momentumLabel(spotifyKworbAnalytics.momentum.trend)}</div>
-                        {spotifyKworbAnalytics.momentum.scoreFmt && (
-                          <div className="mt-0.5 text-[10px] font-bold text-[#1DB954]">
-                            {spotifyKworbAnalytics.momentum.scoreFmt} señal diaria
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="mt-2 grid gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600 sm:grid-cols-2 lg:grid-cols-4">
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Crecimiento semanal</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(spotifyKworbAnalytics.streams.weeklyGrowth, spotifyKworbAnalytics.streams.weeklyGrowthFmt)}
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                        <div className="text-zinc-700">Crecimiento mensual</div>
-                        <div className="mt-1 text-xs font-black text-zinc-300">
-                          {formatSignedMetric(spotifyKworbAnalytics.streams.monthlyGrowth, spotifyKworbAnalytics.streams.monthlyGrowthFmt)}
-                        </div>
-                      </div>
-                      {spotifyKworbDailyTrend.slice(-2).map(point => (
-                        <div key={point.date} className="rounded-lg border border-white/[0.06] bg-black/20 px-2.5 py-2">
-                          <div className="text-zinc-700">{formatShortDateEs(point.date)}</div>
-                          <div className="mt-1 text-xs font-black text-zinc-300">
-                            {(point.dailyStreams ?? 0).toLocaleString("es-MX")}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </motion.section>
