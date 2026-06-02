@@ -683,7 +683,7 @@ export default function ArtistDetail() {
         className="sticky top-0 z-50 border-b border-white/[0.06]"
         style={{ background: "rgba(5,5,5,0.92)", backdropFilter: "blur(20px) saturate(180%)" }}
       >
-        <div className="max-w-[1200px] mx-auto px-6 h-14 flex items-center gap-4">
+        <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
           <Link href="/" className="flex-shrink-0" data-testid="link-logo">
             <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
           </Link>
@@ -698,14 +698,14 @@ export default function ArtistDetail() {
             <ArrowLeft className="w-3.5 h-3.5" />
             Volver
           </button>
-          <span className="min-w-0 truncate text-[11px] uppercase tracking-widest text-zinc-700">/ {artist.name}</span>
+          <span className="min-w-0 truncate text-[10px] uppercase tracking-widest text-zinc-700 sm:text-[11px]">/ {artist.name}</span>
         </div>
       </nav>
 
       {/* ══════════════════════════════════════════════════════════
           HERO
       ══════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden" style={{ minHeight: 420 }} data-testid="artist-hero">
+      <section className="relative overflow-hidden" style={{ minHeight: "min(680px, calc(100svh - 56px))" }} data-testid="artist-hero">
         <div className="absolute inset-0" style={{ background: "#050505" }} />
 
         {!reduced && (
@@ -720,7 +720,7 @@ export default function ArtistDetail() {
         {/* Photo */}
         {photo && (
           <div
-            className="pointer-events-none absolute bottom-0 right-0 top-0 w-full opacity-45 sm:w-1/2 sm:opacity-100 md:w-2/5"
+            className="pointer-events-none absolute bottom-0 right-[-18%] top-0 w-[92%] opacity-34 sm:right-0 sm:w-1/2 sm:opacity-100 md:w-2/5"
             style={{
               backgroundImage: `url(${photo})`,
               backgroundSize: "cover",
@@ -732,8 +732,8 @@ export default function ArtistDetail() {
           />
         )}
 
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to right, rgba(5,5,5,0.95) 0%, rgba(5,5,5,0.6) 45%, rgba(5,5,5,0.2) 72%, transparent 88%)" }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, rgba(5,5,5,0.4) 0%, transparent 30%, rgba(5,5,5,0.5) 70%, #050505 100%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to right, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.78) 42%, rgba(5,5,5,0.38) 72%, transparent 92%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(to bottom, rgba(5,5,5,0.58) 0%, rgba(5,5,5,0.1) 32%, rgba(5,5,5,0.68) 74%, #050505 100%)" }} />
         <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{ backgroundImage: NOISE_SVG, backgroundSize: "128px" }} />
 
         {/* Rank watermark */}
@@ -743,20 +743,20 @@ export default function ArtistDetail() {
           </div>
         )}
 
-        <div className="relative max-w-[1200px] mx-auto px-6 pt-14 pb-14">
+        <div className="relative mx-auto max-w-[1200px] px-4 pb-10 pt-10 sm:px-6 sm:pb-14 sm:pt-14">
           <motion.div
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="text-[10px] font-black uppercase tracking-[0.32em] mb-3" style={{ color: artist.accent }}>
+            <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
               {artist.rank > 0 ? `#${artist.rank} En México` : "Artista"}
-              <span className="mx-3 opacity-40">·</span>
+              <span className="opacity-40">·</span>
               {artist.genre}
             </div>
             <h1
-              className="font-black uppercase leading-[0.88] tracking-tight text-white mb-3"
-              style={{ fontSize: "clamp(2.4rem, 8vw, 6rem)", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
+              className="mb-3 max-w-[11ch] break-words font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
+              style={{ fontSize: "clamp(2.25rem, 17vw, 6rem)", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
             >
               {artist.name}
             </h1>
@@ -840,7 +840,7 @@ export default function ArtistDetail() {
                 </span>
               )}
             </div>
-            <p className="text-sm text-zinc-500 leading-relaxed max-w-xl">
+            <p className="max-w-xl text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
               {wikiBio?.bio ?? artist.bio}
             </p>
             {wikiBio?.pageUrl && (
@@ -866,7 +866,7 @@ export default function ArtistDetail() {
                   return (
                     <div
                       key={source.key}
-                      className="relative overflow-hidden rounded-xl p-4"
+                      className="relative overflow-hidden rounded-xl p-3.5 sm:p-4"
                       style={{
                         background: `linear-gradient(135deg, ${source.color}16, rgba(255,255,255,0.035))`,
                         border: `1px solid ${source.color}24`,
@@ -881,7 +881,7 @@ export default function ArtistDetail() {
                             {source.icon}
                             {source.label}
                           </div>
-                          <div className="mt-2 text-2xl font-black leading-none text-white">
+                          <div className="mt-2 break-words text-[clamp(1.25rem,8vw,1.5rem)] font-black leading-none text-white">
                             {primaryValue ?? "—"}
                           </div>
                           <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">
@@ -908,7 +908,7 @@ export default function ArtistDetail() {
                 href={nextTourEvent.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-5 flex w-full max-w-xl items-center gap-3 rounded-xl p-4 transition-all duration-200"
+                className="mt-5 flex w-full max-w-xl items-center gap-3 rounded-xl p-3.5 transition-all duration-200 sm:p-4"
                 style={{
                   background: "linear-gradient(135deg, rgba(57,255,20,0.08), rgba(255,255,255,0.025))",
                   border: "1px solid rgba(57,255,20,0.22)",
@@ -925,7 +925,7 @@ export default function ArtistDetail() {
                   <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: artist.accent }}>
                     Próximo show
                   </div>
-                  <div className="mt-1 truncate text-sm font-black uppercase tracking-[0.06em] text-white">
+                  <div className="mt-1 text-sm font-black uppercase tracking-[0.06em] text-white sm:truncate">
                     {formatTourDate(nextTourEvent.date)} · {nextTourEvent.city}{nextTourEvent.state ? `, ${nextTourEvent.state}` : ""}
                   </div>
                   <div className="mt-0.5 truncate text-xs font-medium text-zinc-500">
@@ -941,7 +941,7 @@ export default function ArtistDetail() {
             {touringProfileSlug && (
               <Link href={`/touring/${touringProfileSlug}`}>
                 <span
-                  className="mt-3 flex w-full max-w-xl items-center gap-3 rounded-xl p-4 transition-all duration-200 hover:border-white/20"
+                  className="mt-3 flex w-full max-w-xl items-center gap-3 rounded-xl p-3.5 transition-all duration-200 hover:border-white/20 sm:p-4"
                   style={{
                     background: "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(57,255,20,0.035))",
                     border: "1px solid rgba(255,255,255,0.10)",
@@ -973,13 +973,13 @@ export default function ArtistDetail() {
             )}
 
             {(enrichment?.spotify?.url || itunesData?.appleUrl) && (
-              <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                 {enrichment?.spotify?.url && (
                   <a
                     href={enrichment.spotify.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
                     style={{
                       background: "rgba(29,185,84,0.08)",
                       border: "1px solid rgba(29,185,84,0.28)",
@@ -996,7 +996,7 @@ export default function ArtistDetail() {
                     href={itunesData.appleUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition-all duration-200"
                     style={{
                       background: "rgba(57,255,20,0.08)",
                       border: "1px solid rgba(57,255,20,0.28)",
@@ -1040,78 +1040,78 @@ export default function ArtistDetail() {
             data-testid="section-social-stats"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-6"
               style={{ background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500 mb-5">Audiencia y alcance</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500 sm:mb-5 sm:text-xs sm:tracking-[0.25em]">Audiencia y alcance</h2>
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
                   {metaArtist.spotifyListeners > 0 && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.spotifyListenersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.spotifyListenersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Oyentes mensuales</div>
                     </div>
                   )}
                   {metaArtist.spotifyFollowers > 0 && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.spotifyFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.spotifyFollowersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Spotify</div>
                     </div>
                   )}
                   {metaArtist.instagramFollowers > 0 && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
                       <SiInstagram className="w-4 h-4 text-pink-500" />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.instagramFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.instagramFollowersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Instagram</div>
                     </div>
                   )}
                   {metaArtist.tiktokFollowers > 0 && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiTiktok className="w-4 h-4 text-zinc-300" />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.tiktokFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.tiktokFollowersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
                   {ytChannel?.subscribersFmt ? (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="text-xl font-black text-white leading-none">{ytChannel.subscribersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.subscribersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   ) : metaArtist.youtubeSubscribers > 0 ? (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.youtubeSubscribersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.youtubeSubscribersFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   ) : null}
                   {ytChannel?.viewsFmt && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="text-xl font-black text-white leading-none">{ytChannel.viewsFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.viewsFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
                     </div>
                   )}
                   {ytChannel?.videoCount != null && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(255,0,0,0.03)", border: "1px solid rgba(255,0,0,0.08)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.03)", border: "1px solid rgba(255,0,0,0.08)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="text-xl font-black text-white leading-none">{ytChannel.videoCount.toLocaleString("es-MX")}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.videoCount.toLocaleString("es-MX")}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Videos en canal</div>
                     </div>
                   )}
                   {metaArtist.deezerFans > 0 && (
-                    <div className="flex flex-col gap-1.5 rounded-xl p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
                       <Music className="w-4 h-4" style={{ color: "#A238FF" }} />
-                      <div className="text-xl font-black text-white leading-none">{metaArtist.deezerFansFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.deezerFansFmt}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Fans Deezer</div>
                     </div>
                   )}
                 </div>
                 {metaArtist.label && (
-                  <div className="mt-4 pt-4 border-t border-white/[0.05] flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-zinc-600">
+                  <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
                     <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>
                     {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
                   </div>
@@ -1130,7 +1130,7 @@ export default function ArtistDetail() {
             data-testid="section-artist-momentum"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-6"
               style={{
                 background: "linear-gradient(160deg,#101010 0%,#090909 58%,#050505 100%)",
                 border: "1px solid rgba(255,255,255,0.08)",
@@ -1139,17 +1139,17 @@ export default function ArtistDetail() {
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="mb-5 flex flex-col gap-3 sm:mb-6 lg:flex-row lg:items-end lg:justify-between">
                   <div>
                     <div className="mb-2 flex items-center gap-2">
                       <TrendingUp className="h-4 w-4" style={{ color: artist.accent }} />
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Momentum</h2>
                     </div>
-                    <div className="max-w-2xl text-sm font-bold leading-relaxed text-zinc-500">
+                    <div className="max-w-2xl text-xs font-bold leading-relaxed text-zinc-500 sm:text-sm">
                       Medición diaria de crecimiento en {momentumSources.map(source => source.label).join(" y ")}.
                     </div>
                   </div>
-                  <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                  <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:tracking-[0.16em]">
                     {momentumSources.map(source => source.label).join(" + ")}
                   </div>
                 </div>
@@ -1166,28 +1166,28 @@ export default function ArtistDetail() {
                     return (
                       <article
                         key={source.key}
-                        className="overflow-hidden rounded-2xl border bg-black/20"
+	                        className="overflow-hidden rounded-2xl border bg-black/20"
                         style={{ borderColor: `${source.color}28` }}
                         data-testid={`momentum-${source.key}`}
                       >
-                        <div className="p-4 sm:p-5">
-                          <div className="mb-5 flex items-start gap-3">
-                            <div
-                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                              style={{ background: `${source.color}12`, color: source.color, border: `1px solid ${source.color}24` }}
+	                        <div className="p-3.5 sm:p-5">
+	                          <div className="mb-5 grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:flex sm:items-start">
+	                            <div
+	                              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+	                              style={{ background: `${source.color}12`, color: source.color, border: `1px solid ${source.color}24` }}
                             >
                               {source.icon}
                             </div>
-                            <div className="min-w-0">
-                              <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: source.color }}>
-                                {source.kicker}
-                              </div>
-                              <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-white">{source.label}</h3>
-                            </div>
-                            <div className="ml-auto text-right">
-                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última medición</div>
-                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{source.snapshotLabel || "—"}</div>
-                            </div>
+	                            <div className="min-w-0">
+	                              <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: source.color }}>
+	                                {source.kicker}
+	                              </div>
+	                              <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-white">{source.label}</h3>
+	                            </div>
+	                            <div className="col-span-2 rounded-xl border border-white/[0.055] bg-white/[0.018] px-3 py-2 text-left sm:col-span-1 sm:ml-auto sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
+	                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última medición</div>
+	                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{source.snapshotLabel || "—"}</div>
+	                            </div>
                           </div>
 
                           <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
@@ -1195,10 +1195,10 @@ export default function ArtistDetail() {
                               <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
                                 {primaryLabel}
                               </div>
-                              <div className="mt-2 text-4xl font-black leading-none tracking-tight text-white sm:text-5xl">
-                                {primaryValue ?? "—"}
-                              </div>
-                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.14em]">
+	                              <div className="mt-2 break-words text-[clamp(2rem,12vw,3rem)] font-black leading-none tracking-tight text-white sm:text-5xl">
+	                                {primaryValue ?? "—"}
+	                              </div>
+	                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-[0.12em] sm:text-[10px] sm:tracking-[0.14em]">
                                 {hasDailyValue ? (
                                   <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
                                     {source.totalValue ?? "—"} {source.totalLabel}
@@ -1217,44 +1217,44 @@ export default function ArtistDetail() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 7 días</div>
-                                <div className="mt-1 text-sm font-black text-white">{source.average7 ?? "—"}</div>
-                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average7Pct)}`}>{pctLabel(source.average7Pct)}</div>
-                              </div>
-                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 30 días</div>
-                                <div className="mt-1 text-sm font-black text-white">{source.average30 ?? "—"}</div>
-                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average30Pct)}`}>{pctLabel(source.average30Pct)}</div>
-                              </div>
-                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Semana</div>
-                                <div className={`mt-1 text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
-                                  {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
-                                </div>
-                              </div>
-                              <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Mes</div>
-                                <div className={`mt-1 text-sm font-black ${metricTone(source.monthlyGrowth)}`}>
-                                  {formatSignedMetric(source.monthlyGrowth, source.monthlyGrowthFmt)}
-                                </div>
-                              </div>
+	                            <div className="grid grid-cols-2 gap-2">
+	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 7 días</div>
+	                                <div className="mt-1 break-words text-sm font-black text-white">{source.average7 ?? "—"}</div>
+	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average7Pct)}`}>{pctLabel(source.average7Pct)}</div>
+	                              </div>
+	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 30 días</div>
+	                                <div className="mt-1 break-words text-sm font-black text-white">{source.average30 ?? "—"}</div>
+	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average30Pct)}`}>{pctLabel(source.average30Pct)}</div>
+	                              </div>
+	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Semana</div>
+	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
+	                                  {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
+	                                </div>
+	                              </div>
+	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Mes</div>
+	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(source.monthlyGrowth)}`}>
+	                                  {formatSignedMetric(source.monthlyGrowth, source.monthlyGrowthFmt)}
+	                                </div>
+	                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="border-t border-white/[0.06] bg-white/[0.018] px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+	                        <div className="border-t border-white/[0.06] bg-white/[0.018] px-3.5 pb-4 pt-3 sm:px-5 sm:pb-5">
                           {hasTrend ? (
                             <>
-                              <div className="mb-2 flex items-center justify-between gap-3">
-                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">
-                                  Últimos {source.points.length} días
-                                </div>
-                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
-                                  Pico: <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
-                                  {source.biggestSpikeDate ? ` · ${formatShortDateEs(source.biggestSpikeDate)}` : ""}
-                                </div>
+	                              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">
+	                                  Últimos {source.points.length} días
+	                                </div>
+	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600 sm:text-right">
+	                                  Pico: <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
+	                                  {source.biggestSpikeDate ? ` · ${formatShortDateEs(source.biggestSpikeDate)}` : ""}
+	                                </div>
                               </div>
                               <YoutubeDailySparkline
                                 points={source.points}
@@ -1266,10 +1266,10 @@ export default function ArtistDetail() {
                                 {latestPoints.slice(-4).map(point => {
                                   const value = source.key === "youtube" ? point.dailyViews : point.dailyStreams;
                                   return (
-                                    <div key={`${source.key}-${point.date}`} className="rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2">
-                                      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatShortDateEs(point.date)}</div>
-                                      <div className="mt-1 text-xs font-black text-zinc-300">{(value ?? 0).toLocaleString("es-MX")}</div>
-                                    </div>
+	                                    <div key={`${source.key}-${point.date}`} className="min-w-0 rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2">
+	                                      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatShortDateEs(point.date)}</div>
+	                                      <div className="mt-1 break-words text-xs font-black text-zinc-300">{(value ?? 0).toLocaleString("es-MX")}</div>
+	                                    </div>
                                   );
                                 })}
                               </div>
@@ -1306,7 +1306,7 @@ export default function ArtistDetail() {
             data-testid="section-verified-links"
           >
             <div
-              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              className="relative overflow-hidden rounded-2xl p-4 sm:p-6"
               style={{ background: "linear-gradient(160deg,#101010 0%,#080808 58%,#050505 100%)", border: "1px solid rgba(57,255,20,0.14)", boxShadow: "0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06)" }}
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
@@ -1564,17 +1564,17 @@ export default function ArtistDetail() {
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}40, transparent)` }} />
               <div className="relative z-10">
-                <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
-                  <div className="flex items-center gap-3">
-                    <Play className="w-4 h-4" style={{ color: artist.accent }} />
-                    <div>
-                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuerza de catálogo</h2>
-                      <p className="mt-1 max-w-xl text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start">
+                  <div className="flex items-start gap-3">
+                    <Play className="mt-0.5 h-4 w-4 shrink-0" style={{ color: artist.accent }} />
+                    <div className="min-w-0">
+                      <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400 sm:text-xs sm:tracking-[0.25em]">Fuerza de catálogo</h2>
+                      <p className="mt-1 max-w-xl text-[10px] font-bold uppercase leading-relaxed tracking-[0.1em] text-zinc-700 sm:text-[11px] sm:tracking-[0.12em]">
                         Escala acumulada del repertorio. El movimiento diario vive en Momentum.
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-0.5 sm:ml-auto sm:items-end">
+                  <div className="flex flex-col gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 sm:ml-auto sm:items-end sm:border-0 sm:bg-transparent sm:p-0">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Spotify · YouTube</span>
                     {lastUpdatedLabel && (
                       <span className="text-[9px] font-medium text-zinc-600" data-testid="kworb-last-updated">
@@ -1586,7 +1586,7 @@ export default function ArtistDetail() {
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {kworbStats.spotify && (
                     <div
-                      className="relative overflow-hidden rounded-xl p-4 sm:p-5"
+	                      className="relative min-w-0 overflow-hidden rounded-xl p-3.5 sm:p-5"
                       style={{
                         background: "linear-gradient(145deg, rgba(29,185,84,0.10), rgba(255,255,255,0.025))",
                         border: "1px solid rgba(29,185,84,0.18)",
@@ -1603,21 +1603,21 @@ export default function ArtistDetail() {
                             <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">streams acumulados</div>
                           </div>
                         </div>
-                        <div
-                          className="text-4xl font-black leading-none tracking-tight sm:text-5xl"
+	                        <div
+	                          className="break-words text-[clamp(2rem,12vw,3rem)] font-black leading-none tracking-tight sm:text-5xl"
                           style={{ color: artist.accent, textShadow: `0 0 40px ${artist.accent}30` }}
                         >
                           {kworbStats.spotify.totalStreamsFmt}
                         </div>
                         <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">streams acumulados</div>
                         <div className="mt-5 grid grid-cols-2 gap-2">
-                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
-                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.spotify.trackCount}</div>
-                          </div>
-                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canción líder</div>
-                            <div className="mt-1 truncate text-sm font-black text-zinc-300">{topTracks[0]?.streams ?? "—"}</div>
+	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
+	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
+	                            <div className="mt-1 break-words text-sm font-black text-zinc-300">{kworbStats.spotify.trackCount}</div>
+	                          </div>
+	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
+	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canción líder</div>
+	                            <div className="mt-1 truncate text-sm font-black text-zinc-300">{topTracks[0]?.streams ?? "—"}</div>
                           </div>
                         </div>
                       </div>
@@ -1625,7 +1625,7 @@ export default function ArtistDetail() {
                   )}
                   {kworbStats.youtube && (
                     <div
-                      className="relative overflow-hidden rounded-xl p-4 sm:p-5"
+	                      className="relative min-w-0 overflow-hidden rounded-xl p-3.5 sm:p-5"
                       style={{
                         background: "linear-gradient(145deg, rgba(239,68,68,0.10), rgba(255,255,255,0.025))",
                         border: "1px solid rgba(239,68,68,0.18)",
@@ -1642,16 +1642,16 @@ export default function ArtistDetail() {
                             <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas acumuladas</div>
                           </div>
                         </div>
-                        <div className="text-4xl font-black leading-none tracking-tight text-red-400 sm:text-5xl">
-                          {kworbStats.youtube.totalViewsFmt}
-                        </div>
+	                        <div className="break-words text-[clamp(2rem,12vw,3rem)] font-black leading-none tracking-tight text-red-400 sm:text-5xl">
+	                          {kworbStats.youtube.totalViewsFmt}
+	                        </div>
                         <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">vistas totales</div>
                         <div className="mt-5 grid grid-cols-2 gap-2">
-                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Videos</div>
-                            <div className="mt-1 text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos.length}</div>
-                          </div>
-                          <div className="rounded-lg border border-white/[0.06] bg-black/20 p-3">
+	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
+	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Videos</div>
+	                            <div className="mt-1 break-words text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos.length}</div>
+	                          </div>
+	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
                             <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Video líder</div>
                             <div className="mt-1 truncate text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos[0]?.viewsFmt ?? "—"}</div>
                           </div>
@@ -2001,17 +2001,17 @@ export default function ArtistDetail() {
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             data-testid="section-tours"
           >
-            <div className="flex items-center gap-3 mb-4">
-              <MapPin className="w-4 h-4" style={{ color: artist.accent }} />
-              <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Giras & Touring</h2>
+            <div className="mb-4 flex items-center gap-3">
+              <MapPin className="h-4 w-4 shrink-0" style={{ color: artist.accent }} />
+              <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400 sm:text-xs sm:tracking-[0.25em]">Giras & Touring</h2>
               <div className="flex-1 h-px ml-2" style={{ background: "rgba(255,255,255,0.07)" }} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
               {artist.tours.map((t, i) => (
                 <motion.div
                   key={i}
                   whileHover={reduced ? {} : { scale: 1.02, y: -2, transition: { duration: 0.22 } }}
-                  className="relative overflow-hidden rounded-xl p-5 cursor-pointer"
+                  className="relative cursor-pointer overflow-hidden rounded-xl p-4 sm:p-5"
                   style={{
                     background: "linear-gradient(160deg, #0d0d0d 0%, #090909 100%)",
                     border: `1px solid ${artist.accent}1e`,
@@ -2020,20 +2020,20 @@ export default function ArtistDetail() {
                 >
                   <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
                   <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full" style={{ background: artist.accent, boxShadow: `0 0 8px ${artist.accent}` }} />
-                  <div className="relative z-10 pl-3">
-                    <div className="text-[10px] uppercase tracking-[0.22em] font-bold mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>{t.dates}</div>
-                    <div className="font-black text-lg uppercase text-white leading-tight">{t.name}</div>
-                    <div className="flex items-center gap-4 mt-3">
-                      <div>
-                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Recaudación est.</div>
-                        <div className="text-sm font-black" style={{ color: artist.accent }}>{t.gross}</div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Ciudades</div>
-                        <div className="text-sm font-black text-white">{t.cities}</div>
-                      </div>
-                    </div>
-                  </div>
+	                  <div className="relative z-10 pl-3">
+	                    <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.22em]" style={{ color: "rgba(255,255,255,0.4)" }}>{t.dates}</div>
+	                    <div className="text-base font-black uppercase leading-tight text-white sm:text-lg">{t.name}</div>
+	                    <div className="mt-3 grid grid-cols-2 gap-3">
+	                      <div className="min-w-0">
+	                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Recaudación est.</div>
+	                        <div className="break-words text-sm font-black" style={{ color: artist.accent }}>{t.gross}</div>
+	                      </div>
+	                      <div className="min-w-0">
+	                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Ciudades</div>
+	                        <div className="break-words text-sm font-black text-white">{t.cities}</div>
+	                      </div>
+	                    </div>
+	                  </div>
                 </motion.div>
               ))}
             </div>

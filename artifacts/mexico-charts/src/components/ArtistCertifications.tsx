@@ -67,10 +67,10 @@ function StatCard({ label, value, certKey: ck }: { label: string; value: string 
   const base = import.meta.env.BASE_URL;
   return (
     <div
-      className="rounded-xl px-3 py-2.5 flex flex-col gap-0.5"
+      className="flex min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2.5"
       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
     >
-      <div className="flex items-center gap-1 mb-0.5">
+      <div className="mb-0.5 flex min-w-0 items-center gap-1">
         {ck && (
           <img
             src={`${base}${CERT_IMAGES[ck]}`}
@@ -82,9 +82,9 @@ function StatCard({ label, value, certKey: ck }: { label: string; value: string 
             style={{ objectFit: "contain", display: "block" }}
           />
         )}
-        <div className="text-[9px] uppercase tracking-[0.2em] font-bold text-zinc-600">{label}</div>
+        <div className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-600 sm:tracking-[0.2em]">{label}</div>
       </div>
-      <div className="text-sm font-black leading-none" style={{ color: ck ? G : "rgba(255,255,255,0.88)" }}>
+      <div className="break-words text-sm font-black leading-none" style={{ color: ck ? G : "rgba(255,255,255,0.88)" }}>
         {value}
       </div>
     </div>
@@ -150,22 +150,22 @@ export default function ArtistCertifications({ artistName }: Props) {
         <div className="absolute inset-0 opacity-[0.018] pointer-events-none rounded-2xl" style={{ backgroundImage: NOISE, backgroundSize: "96px" }} />
 
         {/* ── Header ── */}
-        <div className="relative z-10 flex items-center gap-3 px-6 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="relative z-10 flex flex-col gap-3 px-4 pb-4 pt-5 sm:flex-row sm:items-center sm:px-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           <CertImage cert={highestKey} size={22} />
-          <div>
-            <h2 className="text-xs font-black uppercase tracking-[0.24em] text-zinc-300">Certificaciones en México</h2>
-            <p className="text-[9px] text-zinc-600 uppercase tracking-[0.18em] font-bold mt-0.5">
+          <div className="min-w-0">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-300 sm:text-xs sm:tracking-[0.24em]">Certificaciones en México</h2>
+            <p className="mt-0.5 text-[9px] font-bold uppercase leading-relaxed tracking-[0.14em] text-zinc-600 sm:tracking-[0.18em]">
               Certificaciones otorgadas en México atribuidas a AMPROFON
             </p>
           </div>
-          <div className="ml-auto text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Fuente: AMPROFON</div>
+          <div className="w-fit rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700 sm:ml-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">Fuente: AMPROFON</div>
         </div>
 
         {/* ── Best cert + stats ── */}
-        <div className="relative z-10 flex flex-wrap items-start gap-4 px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div className="relative z-10 flex flex-col items-stretch gap-4 px-4 py-5 sm:flex-row sm:items-start sm:px-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           {/* Highest cert badge — image + count */}
           <div
-            className="flex flex-col items-center justify-center w-[80px] h-[80px] rounded-xl flex-shrink-0 text-center gap-1"
+            className="flex h-[76px] w-full flex-row items-center justify-center gap-3 rounded-xl text-center sm:h-[80px] sm:w-[80px] sm:flex-col sm:gap-1"
             style={{ background: `${G}08`, border: `1px solid ${G}22` }}
           >
             <CertImage cert={highestKey} size={38} />
@@ -173,7 +173,7 @@ export default function ArtistCertifications({ artistName }: Props) {
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 flex-1 min-w-0">
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
             {stats.map(s => (
               <StatCard key={s.label} label={s.label} value={s.value} certKey={(s as { certKey?: "DIAMANTE" | "PLATINO" | "ORO" }).certKey} />
             ))}
@@ -221,20 +221,24 @@ export default function ArtistCertifications({ artistName }: Props) {
         </div>
 
         {/* ── Cards — mobile ── */}
-        <div className="relative z-10 md:hidden flex flex-col">
+        <div className="relative z-10 flex flex-col md:hidden">
           {matched.slice(0, 10).map((row, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 px-4 py-3"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 px-4 py-3"
               style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.04)" : undefined }}
             >
-              <div className="flex-1 min-w-0">
+              <div className="min-w-0">
                 <div className="text-sm font-medium text-zinc-300 truncate">{row.titulo}</div>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-[9px] text-zinc-600 uppercase tracking-wider font-bold">{row.formato}</span>
-                  <span className="text-zinc-800">·</span>
                   <span className="text-[9px] text-zinc-600">{fmtDate(row.fechaISO)}</span>
                 </div>
+                {row.nivel && (
+                  <div className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: G }}>
+                    {row.nivel}
+                  </div>
+                )}
               </div>
               <CertBadge cert={row.certificacion} />
             </div>
