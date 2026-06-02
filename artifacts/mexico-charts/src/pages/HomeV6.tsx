@@ -26,11 +26,11 @@ const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='h
 /* ─── DEFAULT DATA (shown while sheets aren't configured yet) ─── */
 
 const DEFAULT_HERO_ARTISTS = [
-  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", countries:"60+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", countries:"45+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", countries:"38+ PAÍSES", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", countries:"32+ PAÍSES", tag:"REGIONAL MEXICANO" },
-  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", countries:"28+ PAÍSES", tag:"REGIONAL MEXICANO" },
+  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", tag:"REGIONAL MEXICANO" },
+  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", tag:"REGIONAL MEXICANO" },
 ];
 
 const RANK_ACCENTS_HOME = [
@@ -300,7 +300,6 @@ export default function HomeV6() {
             line2,
             listeners: a.listeners,
             growth: a.growth,
-            countries: a.countriesRaw > 0 ? `${a.countriesRaw}+ PAÍSES` : "—",
             tag: a.genre.toUpperCase(),
           };
         });
@@ -632,9 +631,6 @@ export default function HomeV6() {
               </h1>
               <p className="text-sm text-white/55 uppercase tracking-[0.18em] mb-6 font-medium">
                 {hero.listeners} OYENTES
-                {hero.countries && hero.countries !== "—" && (
-                  <><span className="mx-3 opacity-40">·</span>{hero.countries}</>
-                )}
                 {hero.growth && hero.growth !== "—" && (
                   <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} esta semana</span></>
                 )}
@@ -691,10 +687,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","LISTAS SEMANALES"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","60+ PAÍSES","LISTAS SEMANALES"].map((s,i)=>(
+            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>

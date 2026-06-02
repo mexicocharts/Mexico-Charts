@@ -566,7 +566,7 @@ export default function LuisMiguelProfile() {
                   tickets: "2.86M",
                   peak: true,
                   note: "Fuente directa: encabezado del reporte Pollstar 2023–2026 · valores exactos",
-                  markets: "20+ países · 4 continentes",
+                  markets: "México · EUA · Latinoamérica · Europa",
                 },
               ].map((leg, i) => (
                 <motion.div key={leg.era}

@@ -114,7 +114,7 @@ const TEMPLATES: TemplateConfig[] = [
       milestoneValue: "10B",
       milestoneLabel: "Streams en Spotify",
       headline: "supera los 10 mil millones\nde streams en Spotify",
-      supportingStat: "Primer artista regional mexicano en alcanzar este hito · 38 países en el Top 50",
+      supportingStat: "Primer artista regional mexicano en alcanzar este hito · Datos verificados por plataforma",
       source: "Spotify",
       date: "Mayo 2026",
     },

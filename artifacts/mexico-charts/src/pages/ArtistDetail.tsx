@@ -172,7 +172,6 @@ interface ArtistData {
   listeners: string;
   listenersRaw: number;
   growth: string;
-  countries: string;
   origin: string;
   accent: string;
   bio: string;
@@ -198,10 +197,9 @@ const ARTISTS: Record<string, ArtistData> = {
     listeners: "32.4M",
     listenersRaw: 32.4,
     growth: "+18%",
-    countries: "60+",
     origin: "Guadalajara, Jalisco",
     accent: "#39FF14",
-    bio: "Hassan Emilio Kabande Laija, conocido como Peso Pluma, es el artista mexicano más escuchado del mundo. Con su fusión de corridos tumbados y pop urbano ha conquistado más de 60 países y se posicionó como el primer mexicano en encabezar el Global 200 de Billboard.",
+    bio: "Hassan Emilio Kabande Laija, conocido como Peso Pluma, es el artista mexicano más escuchado del mundo. Con su fusión de corridos tumbados y pop urbano se posicionó como el primer mexicano en encabezar el Global 200 de Billboard.",
     platformStreams: [
       { platform: "Spotify", streams: "18.4M", streamsNum: 18.4, color: "#1DB954", icon: "spotify" },
       { platform: "YouTube", streams: "8.2M",  streamsNum: 8.2,  color: "#FF0000", icon: "youtube" },
@@ -231,7 +229,6 @@ const ARTISTS: Record<string, ArtistData> = {
     listeners: "12.4M",
     listenersRaw: 12.4,
     growth: "+31%",
-    countries: "45+",
     origin: "San Bernardino, California",
     accent: "rgba(57,255,20,0.85)",
     bio: "Fuerza Regida es el grupo que más rápido ha crecido en el género de corridos tumbados. Con su sonido crudo y letras directas, han conquistado ambos lados de la frontera y se han convertido en referente del movimiento.",
@@ -264,7 +261,6 @@ const ARTISTS: Record<string, ArtistData> = {
     listeners: "11.7M",
     listenersRaw: 11.7,
     growth: "+22%",
-    countries: "38+",
     origin: "Hermosillo, Sonora",
     accent: "rgba(57,255,20,0.72)",
     bio: "Natanael Cano es considerado el pionero del corrido tumbado moderno. Desde Hermosillo, Sonora, fusionó las tradiciones del corrido norteño con el trap y el urbano para crear un sonido que definió una generación entera.",
@@ -297,7 +293,6 @@ const ARTISTS: Record<string, ArtistData> = {
     listeners: "9.8M",
     listenersRaw: 9.8,
     growth: "+15%",
-    countries: "32+",
     origin: "Guanajuato, México",
     accent: "rgba(255,255,255,0.7)",
     bio: "Junior H es uno de los artistas más versátiles del movimiento regional mexicano. Su habilidad para mezclar emociones crudas con beats modernos lo han convertido en favorito de millones de fans en México y Estados Unidos.",
@@ -330,7 +325,6 @@ const ARTISTS: Record<string, ArtistData> = {
     listeners: "7.1M",
     listenersRaw: 7.1,
     growth: "+28%",
-    countries: "28+",
     origin: "Hermosillo, Sonora",
     accent: "rgba(255,255,255,0.55)",
     bio: "Carin León ha redefinido lo que significa ser un artista regional mexicano global. Con una voz inconfundible y una presencia escénica poderosa, ha llevado la música de Sonora a los escenarios más grandes del mundo.",
@@ -367,7 +361,6 @@ function buildFallback(name: string): ArtistData {
     listeners: "—",
     listenersRaw: 0,
     growth: "—",
-    countries: "—",
     origin: "México",
     accent: "#39FF14",
     bio: `${name} es un artista del movimiento musical mexicano que ha ganado reconocimiento internacional con su sonido único.`,
@@ -426,7 +419,7 @@ export default function ArtistDetail() {
   const artist: ArtistData = useMemo(() => {
     // 1. Start from base
     let merged: ArtistData = baseArtist;
-    // 2. Overlay Spotify chart stats (rank, growth, genre, countries, accent)
+    // 2. Overlay Spotify chart stats (rank, growth, genre, accent)
     if (sheetArtist) {
       merged = {
         ...merged,
@@ -437,7 +430,6 @@ export default function ArtistDetail() {
         growth: sheetArtist.growth,
         genre: sheetArtist.genre || merged.genre,
         subgenre: sheetArtist.subgenre || merged.subgenre,
-        countries: sheetArtist.countriesRaw > 0 ? `${sheetArtist.countriesRaw}+` : merged.countries,
         accent: sheetArtist.accent,
       };
     }
@@ -488,7 +480,6 @@ export default function ArtistDetail() {
     metaArtist.deezerFans > 0 ||
     ytChannel?.subscribersFmt ||
     ytChannel?.viewsFmt ||
-    ytChannel?.dailyViewsFmt ||
     ytChannel?.videoCount != null
   ));
 
@@ -714,7 +705,7 @@ export default function ArtistDetail() {
       {/* ══════════════════════════════════════════════════════════
           HERO
       ══════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden" style={{ minHeight: 340 }} data-testid="artist-hero">
+      <section className="relative overflow-hidden" style={{ minHeight: 420 }} data-testid="artist-hero">
         <div className="absolute inset-0" style={{ background: "#050505" }} />
 
         {!reduced && (
@@ -729,13 +720,13 @@ export default function ArtistDetail() {
         {/* Photo */}
         {photo && (
           <div
-            className="absolute right-0 top-0 bottom-0 w-1/2 md:w-2/5 pointer-events-none"
+            className="pointer-events-none absolute bottom-0 right-0 top-0 w-full opacity-45 sm:w-1/2 sm:opacity-100 md:w-2/5"
             style={{
               backgroundImage: `url(${photo})`,
               backgroundSize: "cover",
               backgroundPosition: "center top",
-              maskImage: "linear-gradient(to right, transparent 0%, black 40%)",
-              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 40%)",
+              maskImage: "linear-gradient(to right, transparent 0%, black 48%)",
+              WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 48%)",
               filter: "saturate(0.55) contrast(1.1) brightness(0.78)",
             }}
           />
@@ -752,7 +743,7 @@ export default function ArtistDetail() {
           </div>
         )}
 
-        <div className="relative max-w-[1200px] mx-auto px-6 pt-14 pb-12">
+        <div className="relative max-w-[1200px] mx-auto px-6 pt-14 pb-14">
           <motion.div
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
@@ -829,13 +820,26 @@ export default function ArtistDetail() {
                 )}
               </div>
             )}
-            <p className="text-xs sm:text-sm text-white/50 uppercase tracking-[0.16em] sm:tracking-[0.18em] mb-4 font-medium flex flex-wrap gap-x-4 gap-y-1">
-              <span className="flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" style={{ color: artist.accent }} />{artist.origin}</span>
-              <span>{artist.listeners} OYENTES</span>
-              {artist.spotifyFollowers && <span>{artist.spotifyFollowers} SEGUIDORES</span>}
-              <span className="flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" style={{ color: artist.accent }} /><span style={{ color: artist.accent }}>{artist.growth} esta semana</span></span>
-              <span>{artist.countries} PAÍSES</span>
-            </p>
+            <div className="mb-5 flex max-w-3xl flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
+                <Globe className="h-3.5 w-3.5" style={{ color: artist.accent }} />
+                {artist.origin}
+              </span>
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
+                {artist.listeners} oyentes
+              </span>
+              {artist.spotifyFollowers && (
+                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
+                  {artist.spotifyFollowers} seguidores
+                </span>
+              )}
+              {artist.growth && artist.growth !== "—" && (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]" style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}24`, color: artist.accent }}>
+                  <TrendingUp className="h-3.5 w-3.5" />
+                  {artist.growth} esta semana
+                </span>
+              )}
+            </div>
             <p className="text-sm text-zinc-500 leading-relaxed max-w-xl">
               {wikiBio?.bio ?? artist.bio}
             </p>
@@ -848,6 +852,55 @@ export default function ArtistDetail() {
               >
                 Fuente: Wikipedia
               </a>
+            )}
+
+            {momentumSources.length > 0 && (
+              <div
+                className="mt-6 grid max-w-3xl gap-2 sm:grid-cols-2"
+                data-testid="artist-hero-momentum"
+              >
+                {momentumSources.slice(0, 2).map(source => {
+                  const hasDailyValue = source.todayValue != null;
+                  const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
+                  const primaryLabel = hasDailyValue ? "hoy" : source.totalLabel;
+                  return (
+                    <div
+                      key={source.key}
+                      className="relative overflow-hidden rounded-xl p-4"
+                      style={{
+                        background: `linear-gradient(135deg, ${source.color}16, rgba(255,255,255,0.035))`,
+                        border: `1px solid ${source.color}24`,
+                        boxShadow: "0 16px 48px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.08)",
+                        backdropFilter: "blur(16px) saturate(150%)",
+                      }}
+                    >
+                      <div className="absolute -right-8 -top-10 h-24 w-24 rounded-full blur-3xl" style={{ background: `${source.color}18` }} />
+                      <div className="relative flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: source.color }}>
+                            {source.icon}
+                            {source.label}
+                          </div>
+                          <div className="mt-2 text-2xl font-black leading-none text-white">
+                            {primaryValue ?? "—"}
+                          </div>
+                          <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                            {primaryLabel}
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className={`text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
+                            {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
+                          </div>
+                          <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">
+                            7 días
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             {nextTourEvent && (
