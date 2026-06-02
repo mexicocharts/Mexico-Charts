@@ -10,12 +10,15 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `pnpm run build` — typecheck + build all packages in the Replit/Linux environment.
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec.
 - `pnpm --filter @workspace/db run push` — push DB schema changes in development.
+- YouTube artist profile channel snapshots run automatically from the API server once per UTC day after `YOUTUBE_CHANNEL_SNAPSHOT_HOUR_UTC` (default `9`). The manual backfill command is `pnpm --filter @workspace/scripts run youtube-channel-daily-snapshots`.
 
 ## Required Environment
 
 - `DATABASE_URL` — PostgreSQL connection string.
 - `YOUTUBE_API_KEY` — YouTube Data API access for provider/admin routes.
 - `YOUTUBE_ADMIN_KEY` — admin key for protected YouTube linking/backfill operations.
+- `YOUTUBE_CHANNEL_SNAPSHOT_AUTOMATION` — optional; set to `false` to disable automatic daily official-channel snapshots.
+- `YOUTUBE_CHANNEL_SNAPSHOT_HOUR_UTC` — optional; UTC hour for daily channel snapshot automation, default `9`.
 - Spotify credentials used by the Replit Spotify integration/API routes.
 - `VITE_SITE_URL` — public site origin used for canonical/Open Graph URLs.
 - `VITE_SOCIAL_TEMPLATES_ACCESS_CODE` — private access code for `/social-templates`.
