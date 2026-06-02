@@ -113,6 +113,8 @@ interface DailySnapshotStatus {
     missing: number;
     latestFetchedAt: string | null;
     totalDailyViews: number;
+    missingPreview?: MomentumMissingRow[];
+    missingReasonCounts?: Record<string, number>;
   };
   spotifyKworb: {
     total: number;
@@ -120,6 +122,8 @@ interface DailySnapshotStatus {
     missing: number;
     latestFetchedAt: string | null;
     totalDailyStreams: number;
+    missingPreview?: MomentumMissingRow[];
+    missingReasonCounts?: Record<string, number>;
   };
   recentRuns?: Array<{
     id: number;
@@ -137,6 +141,16 @@ interface DailySnapshotStatus {
     startedAt: string;
     finishedAt: string | null;
   }>;
+}
+
+interface MomentumMissingRow {
+  artistKey: string;
+  artistName: string;
+  linkedId: string | null;
+  linkedLabel: string | null;
+  lastSnapshotDate: string | null;
+  lastFetchedAt: string | null;
+  reason: string;
 }
 
 function fmtDate(iso: string | null): string {
@@ -169,6 +183,12 @@ function snapshotRunStatusTone(status: string) {
   if (status === "failed") return "border-red-400/20 bg-red-500/[0.08] text-red-300";
   if (status === "running" || status === "locked") return "border-amber-300/20 bg-amber-300/[0.08] text-amber-200";
   return "border-white/10 bg-white/[0.04] text-zinc-400";
+}
+
+function momentumReasonLabel(reason: string) {
+  if (reason === "never_measured") return "Nunca medido";
+  if (reason === "not_measured_today") return "Pendiente hoy";
+  return "Revisar";
 }
 
 function providerMeta(provider: ProviderKey) {
@@ -281,6 +301,7 @@ export default function ApiCoverage() {
   const [runningKworb, setRunningKworb] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
   const [expandedReview, setExpandedReview] = useState<Record<string, boolean>>({});
+  const [expandedMomentumMissing, setExpandedMomentumMissing] = useState<Record<string, boolean>>({});
   const [missingSearch, setMissingSearch] = useState("");
 
   const providerEntries = useMemo(() => {
@@ -568,6 +589,23 @@ export default function ApiCoverage() {
     }
   }
 
+  async function copyMomentumMissing(provider: string, rows: MomentumMissingRow[]) {
+    const text = rows
+      .map(row => `${row.artistName} (${row.artistKey}) — ${momentumReasonLabel(row.reason)} — last=${row.lastSnapshotDate ?? "never"} — id=${row.linkedId ?? "missing"}`)
+      .join("\n");
+    if (!text) {
+      setActionMessage(`No hay pendientes de ${provider} para copiar.`);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setActionMessage(`Pendientes de ${provider} copiados.`);
+    } catch {
+      setActionMessage(`Pendientes de ${provider} listos para copiar manualmente.`);
+    }
+  }
+
   async function copyAllMissingArtists() {
     const blocks = visibleProviderEntries
       .filter(([, provider]) => provider.missingPreview.length > 0)
@@ -771,6 +809,8 @@ export default function ApiCoverage() {
                       latestFetchedAt: dailySnapshots.youtube.latestFetchedAt,
                       totalDaily: dailySnapshots.youtube.totalDailyViews,
                       totalLabel: "views diarias",
+                      missingPreview: dailySnapshots.youtube.missingPreview ?? [],
+                      missingReasonCounts: dailySnapshots.youtube.missingReasonCounts ?? {},
                       running: runningYoutubeSnapshots,
                       run: () => void runDailySnapshot("youtube"),
                     },
@@ -786,6 +826,8 @@ export default function ApiCoverage() {
                       latestFetchedAt: dailySnapshots.spotifyKworb.latestFetchedAt,
                       totalDaily: dailySnapshots.spotifyKworb.totalDailyStreams,
                       totalLabel: "streams diarios",
+                      missingPreview: dailySnapshots.spotifyKworb.missingPreview ?? [],
+                      missingReasonCounts: dailySnapshots.spotifyKworb.missingReasonCounts ?? {},
                       running: runningSpotifySnapshots,
                       run: () => void runDailySnapshot("spotify"),
                     },
@@ -838,6 +880,63 @@ export default function ApiCoverage() {
                           <div>{card.dateRows}/{card.total} {card.scope}</div>
                           <div className="mt-1">Última corrida: {fmtDate(card.latestFetchedAt)}</div>
                         </div>
+
+                        {card.missing > 0 && (
+                          <div className="mt-3 rounded-lg border border-white/[0.055] bg-white/[0.018] p-3">
+                            <div className="mb-3 flex flex-wrap items-center gap-2">
+                              {Object.entries(card.missingReasonCounts).map(([reason, count]) => (
+                                <span key={reason} className="rounded-full border border-amber-300/15 bg-amber-300/[0.06] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-amber-200">
+                                  {momentumReasonLabel(reason)}: {count}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedMomentumMissing(prev => ({ ...prev, [card.key]: !prev[card.key] }))}
+                                className="inline-flex items-center gap-2 rounded border border-white/10 bg-black/20 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 hover:border-amber-300/25 hover:text-amber-200"
+                              >
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expandedMomentumMissing[card.key] ? "rotate-180" : ""}`} />
+                                Ver pendientes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void copyMomentumMissing(card.label, card.missingPreview)}
+                                className="inline-flex items-center gap-2 rounded border border-white/10 bg-black/20 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 hover:border-[#39FF14]/25 hover:text-[#39FF14]"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                Copiar
+                              </button>
+                            </div>
+
+                            {expandedMomentumMissing[card.key] && (
+                              <div className="mt-3 max-h-72 overflow-auto rounded border border-white/[0.05] bg-black/20">
+                                {card.missingPreview.length > 0 ? (
+                                  card.missingPreview.map(row => (
+                                    <div key={`${card.key}-${row.artistKey}`} className="grid gap-2 border-b border-white/[0.04] px-3 py-2 last:border-b-0 sm:grid-cols-[1fr_auto]">
+                                      <div className="min-w-0">
+                                        <div className="truncate text-xs font-black text-zinc-200">{row.artistName}</div>
+                                        <div className="mt-0.5 truncate text-[10px] font-bold text-zinc-700">
+                                          {row.artistKey} · {row.linkedLabel ?? card.label} · {row.linkedId ?? "sin ID"}
+                                        </div>
+                                      </div>
+                                      <div className="text-left sm:text-right">
+                                        <div className="text-[10px] font-black uppercase tracking-[0.12em] text-amber-200">{momentumReasonLabel(row.reason)}</div>
+                                        <div className="mt-0.5 text-[10px] font-bold text-zinc-700">
+                                          Último: {row.lastSnapshotDate ?? "nunca"}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="px-3 py-3 text-xs font-bold text-zinc-600">
+                                    Sin detalle disponible todavía.
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </article>
                     );
                   })}

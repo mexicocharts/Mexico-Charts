@@ -320,6 +320,21 @@ function fmtCount(n: number | null | undefined): string | null {
   return String(n);
 }
 
+async function safeArtistNameMap(): Promise<Map<string, string>> {
+  try {
+    const rows = await fetchMetadata();
+    const entries: Array<[string, string]> = [];
+    for (const row of rows) {
+      const key = normalizeArtistKey(row.artist_key);
+      const name = row.artist_name?.trim();
+      if (key && name) entries.push([key, name]);
+    }
+    return new Map(entries);
+  } catch {
+    return new Map();
+  }
+}
+
 type SpotifyCandidate = {
   spotifyArtistId?: string;
   spotifyName?: string;
@@ -646,10 +661,12 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   const snapshotDate = (req.query["date"] as string | undefined) ?? new Date().toISOString().slice(0, 10);
+  const maxDetails = Math.min(parseInt((req.query["details"] as string | undefined) ?? "80", 10), 300);
 
   try {
     await ensureDailySnapshotRunLogTable();
-    const [youtubeRows, spotifyRows, runRows] = await Promise.all([
+    const [artistNames, youtubeRows, spotifyRows, youtubeMissingRows, spotifyMissingRows, runRows] = await Promise.all([
+      safeArtistNameMap(),
       pool.query<{
         total: number;
         date_rows: number;
@@ -685,6 +702,84 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
             (SELECT COALESCE(sum(daily_streams), 0) FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS total_daily_streams
         `,
         [snapshotDate],
+      ),
+      pool.query<{
+        artist_key: string;
+        channel_id: string;
+        title: string | null;
+        cached_at: string | null;
+        last_snapshot_date: string | null;
+        last_fetched_at: string | null;
+        reason_bucket: string;
+      }>(
+        `
+          SELECT
+            yc.artist_key,
+            yc.channel_id,
+            yc.title,
+            yc.cached_at::text,
+            latest.snapshot_date AS last_snapshot_date,
+            latest.fetched_at::text AS last_fetched_at,
+            CASE
+              WHEN latest.snapshot_date IS NULL THEN 'never_measured'
+              ELSE 'not_measured_today'
+            END AS reason_bucket
+          FROM youtube_channels yc
+          LEFT JOIN youtube_channel_daily_snapshots today
+            ON today.artist_key = yc.artist_key
+           AND today.snapshot_date = $1
+          LEFT JOIN LATERAL (
+            SELECT snapshot_date, fetched_at
+            FROM youtube_channel_daily_snapshots ys
+            WHERE ys.artist_key = yc.artist_key
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+          ) latest ON true
+          WHERE yc.channel_id IS NOT NULL
+            AND today.id IS NULL
+          ORDER BY latest.snapshot_date ASC NULLS FIRST, yc.artist_key ASC
+          LIMIT $2
+        `,
+        [snapshotDate, maxDetails],
+      ),
+      pool.query<{
+        artist_key: string;
+        artist_name: string | null;
+        spotify_artist_id: string | null;
+        last_snapshot_date: string | null;
+        last_fetched_at: string | null;
+        reason_bucket: string;
+      }>(
+        `
+          SELECT
+            c.artist_key,
+            c.artist_name,
+            COALESCE(c.spotify_id, s.spotify_artist_id) AS spotify_artist_id,
+            latest.snapshot_date AS last_snapshot_date,
+            latest.fetched_at::text AS last_fetched_at,
+            CASE
+              WHEN latest.snapshot_date IS NULL THEN 'never_measured'
+              ELSE 'not_measured_today'
+            END AS reason_bucket
+          FROM kworb_coverage c
+          LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
+          LEFT JOIN spotify_kworb_daily_snapshots today
+            ON today.artist_key = c.artist_key
+           AND today.snapshot_date = $1
+          LEFT JOIN LATERAL (
+            SELECT snapshot_date, fetched_at
+            FROM spotify_kworb_daily_snapshots ss
+            WHERE ss.artist_key = c.artist_key
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+          ) latest ON true
+          WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
+            AND COALESCE(c.has_spotify, false) = true
+            AND today.id IS NULL
+          ORDER BY latest.snapshot_date ASC NULLS FIRST, c.artist_key ASC
+          LIMIT $2
+        `,
+        [snapshotDate, maxDetails],
       ),
       pool.query<{
         id: number;
@@ -725,6 +820,10 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
 
     const youtube = youtubeRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_views: 0 };
     const spotify = spotifyRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_streams: 0 };
+    const reasonCounts = (rows: Array<{ reason_bucket: string }>) => rows.reduce<Record<string, number>>((counts, row) => {
+      counts[row.reason_bucket] = (counts[row.reason_bucket] ?? 0) + 1;
+      return counts;
+    }, {});
 
     res.setHeader("Cache-Control", "no-store");
     res.json({
@@ -736,6 +835,16 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
         missing: Math.max(0, Number(youtube.total ?? 0) - Number(youtube.date_rows ?? 0)),
         latestFetchedAt: youtube.latest_fetched_at,
         totalDailyViews: Number(youtube.total_daily_views ?? 0),
+        missingPreview: youtubeMissingRows.rows.map(row => ({
+          artistKey: row.artist_key,
+          artistName: artistNames.get(normalizeArtistKey(row.artist_key)) ?? row.artist_key,
+          linkedId: row.channel_id,
+          linkedLabel: row.title,
+          lastSnapshotDate: row.last_snapshot_date,
+          lastFetchedAt: row.last_fetched_at,
+          reason: row.reason_bucket,
+        })),
+        missingReasonCounts: reasonCounts(youtubeMissingRows.rows),
       },
       spotifyKworb: {
         total: Number(spotify.total ?? 0),
@@ -743,6 +852,16 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
         missing: Math.max(0, Number(spotify.total ?? 0) - Number(spotify.date_rows ?? 0)),
         latestFetchedAt: spotify.latest_fetched_at,
         totalDailyStreams: Number(spotify.total_daily_streams ?? 0),
+        missingPreview: spotifyMissingRows.rows.map(row => ({
+          artistKey: row.artist_key,
+          artistName: row.artist_name ?? artistNames.get(normalizeArtistKey(row.artist_key)) ?? row.artist_key,
+          linkedId: row.spotify_artist_id,
+          linkedLabel: "Spotify",
+          lastSnapshotDate: row.last_snapshot_date,
+          lastFetchedAt: row.last_fetched_at,
+          reason: row.reason_bucket,
+        })),
+        missingReasonCounts: reasonCounts(spotifyMissingRows.rows),
       },
       recentRuns: runRows.rows.map(row => ({
         id: row.id,
