@@ -80,20 +80,26 @@ export default function WeeklyTopAlbums() {
           <div key={a.rank} style={{
             display: "flex",
             alignItems: "center",
-            padding: "18px 64px",
-            gap: 24,
-            borderBottom: "1px solid rgba(255,255,255,0.04)",
+            padding: "18px 20px",
+            margin: "10px 46px",
+            gap: 22,
+            border: a.rank <= 3 ? `1px solid ${ACCENT}24` : "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 16,
             background: a.rank === 1
-              ? `linear-gradient(90deg, ${ACCENT}0a 0%, transparent 70%)`
-              : "transparent",
+              ? `linear-gradient(90deg, ${ACCENT}18 0%, rgba(255,255,255,0.06) 46%, rgba(255,255,255,0.025) 100%)`
+              : "rgba(255,255,255,0.035)",
             position: "relative",
+            boxShadow: a.rank <= 3
+              ? `0 18px 42px rgba(0,0,0,0.34), inset 0 0 32px ${ACCENT}06`
+              : "0 12px 28px rgba(0,0,0,0.22)",
           }}>
             {a.rank === 1 && (
               <div style={{
                 position: "absolute", left: 0, top: 0, bottom: 0,
-                width: 3,
-                background: `linear-gradient(to bottom, transparent, ${ACCENT}, transparent)`,
-                boxShadow: `2px 0 20px ${ACCENT}50`,
+                width: 5,
+                borderRadius: "16px 0 0 16px",
+                background: `linear-gradient(to bottom, ${ACCENT}30, ${ACCENT}, ${ACCENT}30)`,
+                boxShadow: `3px 0 22px ${ACCENT}55`,
               }} />
             )}
             <AlbumFrame

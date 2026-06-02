@@ -31,7 +31,8 @@ export function TemplateCanvas({
       style={{
         width: W,
         height: H,
-        background: BG,
+        background:
+          "linear-gradient(180deg, #050505 0%, #090909 44%, #050505 100%)",
         position: "relative",
         overflow: "hidden",
         fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
@@ -41,6 +42,17 @@ export function TemplateCanvas({
         ...style,
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            `linear-gradient(135deg, ${ACCENT}09 0%, transparent 28%, rgba(255,255,255,0.04) 58%, transparent 82%), ` +
+            "linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px)",
+          backgroundSize: "auto, 44px 44px",
+          pointerEvents: "none",
+        }}
+      />
       {/* Cinematic grain texture — stronger for premium feel */}
       <div
         style={{
@@ -205,7 +217,7 @@ export function LogoBar({
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: compact ? "32px 64px 24px" : "44px 64px 36px",
+        padding: compact ? "30px 64px 22px" : "42px 64px 32px",
         flexShrink: 0,
         position: "relative",
         zIndex: 2,
@@ -215,17 +227,25 @@ export function LogoBar({
         src={LOGO_URL}
         alt="Mexico Charts"
         crossOrigin="anonymous"
-        style={{ height: compact ? 32 : 40, objectFit: "contain", opacity: 0.95 }}
+        style={{ height: compact ? 34 : 44, objectFit: "contain", opacity: 0.98 }}
       />
       {(date || source) && (
-        <div style={{ textAlign: "right" }}>
+        <div
+          style={{
+            textAlign: "right",
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.035)",
+            padding: "10px 14px",
+            minWidth: 184,
+          }}
+        >
           {date && (
             <div
               style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "rgba(255,255,255,0.32)",
-                letterSpacing: "0.14em",
+                fontSize: 15,
+                fontWeight: 900,
+                color: "rgba(255,255,255,0.58)",
+                letterSpacing: "0.12em",
                 textTransform: "uppercase",
               }}
             >
@@ -235,8 +255,9 @@ export function LogoBar({
           {source && (
             <div
               style={{
-                fontSize: 15,
-                color: "rgba(255,255,255,0.18)",
+                fontSize: 12,
+                fontWeight: 800,
+                color: "rgba(255,255,255,0.28)",
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
                 marginTop: 4,
@@ -256,7 +277,7 @@ export function SectionLabel({ children, color = ACCENT }: { children: React.Rea
   return (
     <div
       style={{
-        fontSize: 19,
+        fontSize: 18,
         fontWeight: 900,
         textTransform: "uppercase",
         letterSpacing: "0.32em",
@@ -369,7 +390,8 @@ export function ChartRow({
   showMeta?: boolean;
 }) {
   const isTop3 = row.rank <= 3;
-  const rowH = compact ? 74 : 86;
+  const rowH = compact ? 78 : 92;
+  const imageSize = compact ? 54 : 64;
 
   return (
     <div
@@ -377,37 +399,43 @@ export function ChartRow({
         display: "flex",
         alignItems: "center",
         height: rowH,
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
-        gap: 18,
+        gap: 16,
         background: isTop3
-          ? `linear-gradient(90deg, ${accent}0d 0%, transparent 80%)`
-          : "transparent",
-        padding: "0 64px",
+          ? `linear-gradient(90deg, ${accent}18 0%, rgba(255,255,255,0.06) 42%, rgba(255,255,255,0.025) 100%)`
+          : "rgba(255,255,255,0.035)",
+        border: isTop3 ? `1px solid ${accent}24` : "1px solid rgba(255,255,255,0.07)",
+        borderRadius: 14,
+        margin: "7px 46px",
+        padding: "0 18px",
         position: "relative",
         zIndex: 2,
+        boxShadow: isTop3
+          ? `0 18px 42px rgba(0,0,0,0.34), inset 0 0 32px ${accent}06`
+          : "0 12px 28px rgba(0,0,0,0.22)",
       }}
     >
       {/* Left accent for #1 */}
       {row.rank === 1 && (
         <div style={{
           position: "absolute", left: 0, top: 0, bottom: 0,
-          width: 3,
-          background: `linear-gradient(to bottom, transparent, ${accent}, transparent)`,
-          boxShadow: `2px 0 16px ${accent}50`,
+          width: 5,
+          borderRadius: "14px 0 0 14px",
+          background: `linear-gradient(to bottom, ${accent}30, ${accent}, ${accent}30)`,
+          boxShadow: `3px 0 22px ${accent}55`,
         }} />
       )}
 
       {/* Rank number */}
       <div
         style={{
-          width: 56,
-          fontSize: isTop3 ? 34 : 24,
+          width: 58,
+          fontSize: isTop3 ? 38 : 26,
           fontWeight: 900,
-          color: isTop3 ? accent : "rgba(255,255,255,0.18)",
+          color: isTop3 ? accent : "rgba(255,255,255,0.26)",
           flexShrink: 0,
           letterSpacing: "-0.03em",
           lineHeight: 1,
-          textShadow: isTop3 ? `0 0 20px ${accent}40` : "none",
+          textShadow: isTop3 ? `0 0 24px ${accent}55` : "none",
         }}
       >
         {String(row.rank).padStart(2, "0")}
@@ -418,20 +446,21 @@ export function ChartRow({
       {/* Thumbnail — only rendered when imageUrl is explicitly set */}
       {"imageUrl" in row && (
         <div style={{
-          width: compact ? 44 : 52,
-          height: compact ? 44 : 52,
+          width: imageSize,
+          height: imageSize,
           flexShrink: 0,
-          borderRadius: row.roundImage ? "50%" : 8,
+          borderRadius: row.roundImage ? "50%" : 12,
           overflow: "hidden",
           background: `linear-gradient(135deg, #1e1e1e, #0c0c0c)`,
-          border: "1px solid rgba(255,255,255,0.07)",
+          border: `1px solid ${isTop3 ? `${accent}45` : "rgba(255,255,255,0.11)"}`,
+          boxShadow: isTop3 ? `0 0 28px ${accent}18` : "0 12px 22px rgba(0,0,0,0.28)",
         }}>
           {row.imageUrl ? (
             <img
               src={row.imageUrl}
               alt=""
               crossOrigin="anonymous"
-              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.95) contrast(1.08)" }}
             />
           ) : (
             <div style={{
@@ -449,9 +478,9 @@ export function ChartRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: compact ? 22 : 26,
-            fontWeight: isTop3 ? 800 : 700,
-            color: isTop3 ? "#fff" : "rgba(255,255,255,0.8)",
+            fontSize: compact ? 24 : 28,
+            fontWeight: isTop3 ? 900 : 800,
+            color: isTop3 ? "#fff" : "rgba(255,255,255,0.86)",
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
@@ -472,8 +501,8 @@ export function ChartRow({
           {row.subtitle && (
             <div
               style={{
-                fontSize: compact ? 16 : 18,
-                color: "rgba(255,255,255,0.26)",
+                fontSize: compact ? 15 : 17,
+                color: "rgba(255,255,255,0.38)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -500,9 +529,9 @@ export function ChartRow({
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div
             style={{
-              fontSize: compact ? 20 : 23,
+              fontSize: compact ? 22 : 26,
               fontWeight: 900,
-              color: isTop3 ? accent : "rgba(255,255,255,0.38)",
+              color: isTop3 ? accent : "rgba(255,255,255,0.56)",
               letterSpacing: "-0.02em",
               textShadow: isTop3 ? `0 0 24px ${accent}45` : "none",
             }}
@@ -513,7 +542,7 @@ export function ChartRow({
             <div
               style={{
                 fontSize: 12,
-                color: "rgba(255,255,255,0.15)",
+                color: "rgba(255,255,255,0.25)",
                 letterSpacing: "0.1em",
                 textTransform: "uppercase",
                 marginTop: 2,
@@ -555,17 +584,19 @@ export function PlatformBadge({
   return (
     <div
       style={{
-        padding: "9px 24px",
-        borderRadius: 40,
-        fontSize: 17,
-        fontWeight: 800,
-        letterSpacing: "0.07em",
+        padding: "10px 20px",
+        borderRadius: 8,
+        fontSize: 15,
+        fontWeight: 900,
+        letterSpacing: "0.08em",
         textTransform: "uppercase",
-        border: `1.5px solid ${active ? color + "80" : "rgba(255,255,255,0.07)"}`,
+        border: `1px solid ${active ? color + "70" : "rgba(255,255,255,0.08)"}`,
         color: active ? color : "rgba(255,255,255,0.16)",
-        background: active ? `${color}10` : "transparent",
+        background: active
+          ? `linear-gradient(180deg, ${color}18, ${color}08)`
+          : "rgba(255,255,255,0.025)",
         whiteSpace: "nowrap",
-        boxShadow: active ? `0 0 16px ${color}15` : "none",
+        boxShadow: active ? `0 0 22px ${color}18, inset 0 0 24px ${color}07` : "none",
         position: "relative",
         zIndex: 2,
       }}
@@ -595,11 +626,11 @@ export function AlbumFrame({
         style={{
           width: size,
           height: size,
-          borderRadius: round ? "50%" : 14,
+          borderRadius: round ? "50%" : 16,
           background: `linear-gradient(135deg, #1e1e1e, #0c0c0c)`,
-          border: `1px solid rgba(255,255,255,0.08)`,
+          border: `1px solid ${rank && rank <= 3 ? `${accent}48` : "rgba(255,255,255,0.1)"}`,
           overflow: "hidden",
-          boxShadow: `0 20px 64px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04), 0 0 48px ${accent}18`,
+          boxShadow: `0 22px 64px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.04), 0 0 52px ${accent}${rank && rank <= 3 ? "28" : "14"}`,
         }}
       >
         {src ? (
@@ -611,7 +642,7 @@ export function AlbumFrame({
               width: "100%",
               height: "100%",
               objectFit: "cover",
-              filter: "saturate(0.8) contrast(1.06) brightness(0.9)",
+              filter: "saturate(0.96) contrast(1.08) brightness(0.94)",
             }}
           />
         ) : (
@@ -633,14 +664,14 @@ export function AlbumFrame({
         <div
           style={{
             position: "absolute",
-            top: -10,
-            left: -10,
-            width: 40,
-            height: 40,
-            borderRadius: "50%",
+            top: -11,
+            left: -11,
+            width: 44,
+            height: 44,
+            borderRadius: 12,
             background: accent,
             color: "#000",
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: 900,
             display: "flex",
             alignItems: "center",
