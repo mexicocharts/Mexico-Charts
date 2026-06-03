@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { artistProfileRoutes } from "./artist-profile-routes.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -117,8 +118,11 @@ const sitemapRoutes = new Set(
 );
 
 const prerenderRoutes = new Set(
-  [...prerenderSource.matchAll(/path:\s*"([^"]+)"/g)]
-    .map((match) => normalizeRoute(match[1]))
+  [
+    ...[...prerenderSource.matchAll(/path:\s*"([^"]+)"/g)].map((match) => match[1]),
+    ...artistProfileRoutes.map((route) => route.path),
+  ]
+    .map((route) => normalizeRoute(route))
     .filter(Boolean),
 );
 

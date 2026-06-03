@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { artistProfileRoutes } from "./artist-profile-routes.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -317,34 +318,6 @@ const routes = [
   },
 ];
 
-const artistProfileRoutes = [
-  { path: "/artist/peso-pluma", name: "Peso Pluma", context: "corridos tumbados, streaming global, YouTube, Spotify, charts y momentum diario" },
-  { path: "/artist/fuerza-regida", name: "Fuerza Regida", context: "corridos tumbados, streaming, YouTube, Spotify, charts, touring y catálogo" },
-  { path: "/artist/junior-h", name: "Junior H", context: "corridos tumbados, regional mexicano, streaming, YouTube, Spotify y touring" },
-  { path: "/artist/natanael-cano", name: "Natanael Cano", context: "corridos tumbados, streaming, YouTube, Spotify, charts y datos históricos" },
-  { path: "/artist/carin-leon", name: "Carin León", context: "regional mexicano, Spotify, YouTube, touring, certificaciones y charts" },
-  { path: "/artist/bad-bunny", name: "Bad Bunny", context: "charts en México, streaming, YouTube, Spotify y presencia en listas" },
-  { path: "/artist/grupo-frontera", name: "Grupo Frontera", context: "regional mexicano, streaming, YouTube, Spotify, charts y touring" },
-  { path: "/artist/tito-double-p", name: "Tito Double P", context: "corridos tumbados, streaming diario, YouTube, Spotify y momentum" },
-  { path: "/artist/neton-vega", name: "Neton Vega", context: "corridos tumbados, streaming diario, YouTube, Spotify y breakout" },
-  { path: "/artist/victor-mendivil", name: "Victor Mendivil", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
-  { path: "/artist/grupo-firme", name: "Grupo Firme", context: "regional mexicano, YouTube, Spotify, touring, charts y catálogo" },
-  { path: "/artist/luis-miguel", name: "Luis Miguel", context: "catálogo, touring, streaming, YouTube, Spotify y legado en México" },
-  { path: "/artist/los-angeles-azules", name: "Los Angeles Azules", context: "catálogo, cumbia, streaming, YouTube, Spotify y charts" },
-  { path: "/artist/vicente-fernandez", name: "Vicente Fernández", context: "catálogo histórico, regional mexicano, YouTube, Spotify y legado" },
-  { path: "/artist/la-arrolladora-banda-el-limon-de-rene-camacho", name: "La Arrolladora Banda El Limón De Rene Camacho", context: "banda sinaloense, catálogo, streaming, YouTube y charts" },
-  { path: "/artist/bts", name: "BTS", context: "charts en México, Spotify, YouTube y presencia histórica en listas" },
-  { path: "/artist/shakira", name: "Shakira", context: "charts en México, streaming, YouTube, Spotify y catálogo latino" },
-  { path: "/artist/karol-g", name: "Karol G", context: "charts en México, streaming, YouTube, Spotify y catálogo latino" },
-  { path: "/artist/gabito-ballesteros", name: "Gabito Ballesteros", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
-  { path: "/artist/oscar-maydon", name: "Oscar Maydon", context: "corridos tumbados, streaming, YouTube, Spotify y momentum" },
-  { path: "/artist/xavi", name: "Xavi", context: "corridos tumbados, streaming, YouTube, Spotify y breakout" },
-  { path: "/artist/eladio-carrion", name: "Eladio Carrión", context: "charts en México, streaming, YouTube, Spotify y colaboraciones" },
-  { path: "/artist/calle-24", name: "Calle 24", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
-  { path: "/artist/herencia-de-grandes", name: "Herencia De Grandes", context: "regional mexicano, streaming, YouTube, Spotify y charts" },
-  { path: "/artist/lenin-ramirez", name: "Lenin Ramírez", context: "regional mexicano, streaming, YouTube, Spotify y charts" },
-];
-
 routes.push(
   ...artistProfileRoutes.map((artist) => ({
     path: artist.path,
@@ -508,18 +481,19 @@ async function writeRoute(baseHtml, route) {
     return;
   }
 
-  const routeFile = path.join(outDir, route.path.slice(1));
-  const dir = path.dirname(routeFile);
+  const routeDir = path.join(outDir, route.path.slice(1));
+  const routeFile = path.join(routeDir, "index.html");
 
-  // If a file exists at the directory path (Vite SPA output), remove it first
+  // If a stale extensionless file exists at the clean route path, remove it
+  // before creating the directory-backed route shell.
   try {
-    const st = statSync(dir);
+    const st = statSync(routeDir);
     if (st.isFile()) {
-      await rm(dir, { force: true });
+      await rm(routeDir, { force: true });
     }
   } catch { /* doesn't exist — safe to proceed */ }
 
-  await mkdir(dir, { recursive: true });
+  await mkdir(routeDir, { recursive: true });
   await writeFile(routeFile, html);
 }
 
