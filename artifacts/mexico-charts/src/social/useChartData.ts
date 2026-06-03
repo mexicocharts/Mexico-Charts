@@ -110,3 +110,19 @@ export function proxyImageUrl(url: string | null | undefined): string | null | u
   if (url.startsWith("/") || !url.includes("://")) return url;
   return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 }
+
+export function suppressDuplicateImages(urls: Array<string | null | undefined>) {
+  const usable = urls.filter((url): url is string => Boolean(url));
+  if (usable.length < 2) return urls;
+  const unique = new Set(usable);
+  if (unique.size > 1) return urls;
+  return urls.map(() => null);
+}
+
+export function imageFromRow(row: Row, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key]?.trim();
+    if (value) return value;
+  }
+  return null;
+}

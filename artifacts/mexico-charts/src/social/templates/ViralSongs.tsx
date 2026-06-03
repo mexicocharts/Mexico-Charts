@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma", stat: "↑840%",  isNew: true  },
@@ -24,6 +24,12 @@ export default function ViralSongs() {
   const artistNames = viralRows.map(r => primaryArtist(r["artist_names"] ?? ""));
   const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
   const exportLoading = viralRows.length > 0 && (imagesFetching || images === undefined);
+  const imageUrls = suppressDuplicateImages(
+    viralRows.map(r => proxyImageUrl(
+      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "thumbnail", "artwork_url", "album_image_url"]) ??
+      artistImageUrl(images, primaryArtist(r["artist_names"] ?? ""))
+    ))
+  );
 
   const rows: ChartRowData[] = viralRows.length > 0
     ? viralRows.map((r, i) => ({
@@ -32,7 +38,8 @@ export default function ViralSongs() {
         subtitle: r["artist_names"] ?? "",
         stat: r["days_on_chart"] ? `${r["days_on_chart"]}d` : undefined,
         movement: 0,
-        imageUrl: proxyImageUrl(artistImageUrl(images, primaryArtist(r["artist_names"] ?? ""))),
+        imageUrl: imageUrls[i],
+        imageFallbackLabel: r["track_name"] ?? "",
         roundImage: true,
       }))
     : FALLBACK;
@@ -54,17 +61,6 @@ export default function ViralSongs() {
         filter: "blur(80px)",
         pointerEvents: "none",
       }} />
-      {[...Array(7)].map((_, i) => (
-        <div key={i} style={{
-          position: "absolute",
-          top: `${6 + i * 9}%`,
-          left: 0, right: 0,
-          height: i % 2 === 0 ? 1.5 : 1,
-          background: `linear-gradient(to right, transparent 5%, ${ACCENT}${["12","0a","07","05","07","0a","0d"][i]}, transparent 95%)`,
-          pointerEvents: "none",
-        }} />
-      ))}
-
       <LogoBar date={hub ? new Date(hub.lastUpdated).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" }) : "13 Mayo 2026"} />
       <AccentLine color={ACCENT} opacity={0.9} />
 

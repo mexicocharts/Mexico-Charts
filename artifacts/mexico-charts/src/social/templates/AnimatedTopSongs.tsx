@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -51,18 +51,19 @@ export default function AnimatedTopSongs() {
   const { phase, cycle } = useAnimLoop();
 
   const entries = data?.entries?.slice(0, 10) ?? [];
+  const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(e.coverUrl)));
 
   const rows = useMemo((): SongRow[] => entries.length > 0
-    ? entries.map(e => ({
+    ? entries.map((e, i) => ({
         rank: e.pos,
         title: e.title,
         subtitle: [e.artist, ...e.features].join(" · "),
-        imageUrl: proxyImageUrl(e.coverUrl) ?? null,
+        imageUrl: imageUrls[i] ?? null,
         ...parseMovement(e.posChange),
       }))
     : FALLBACK_ROWS,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [data]);
+  [data, imageUrls.join("|")]);
 
   const rawStreams = useMemo(() => entries.length > 0
     ? entries.map(e => parseInt(e.streams.replace(/[^0-9]/g, ""), 10) || 0)
@@ -207,7 +208,9 @@ export default function AnimatedTopSongs() {
                       width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center",
                       background: `radial-gradient(circle at 40% 35%, ${ACCENT}15, #0d0d0d)`,
                     }}>
-                      <span style={{ fontSize: 18, color: ACCENT, opacity: 0.3 }}>♪</span>
+                      <span style={{ fontSize: 15, color: ACCENT, opacity: 0.82, fontWeight: 900 }}>
+                        {row.title.split(/\s+/).map(part => part[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
+                      </span>
                     </div>
                   )}
                 </div>

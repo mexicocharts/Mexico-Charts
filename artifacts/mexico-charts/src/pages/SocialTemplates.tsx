@@ -767,7 +767,7 @@ async function exportNode(node: HTMLElement, filename: string) {
     const dataUrl = await toPng(node, {
       width: CANVAS_W,
       height: CANVAS_H,
-      pixelRatio: 1,
+      pixelRatio: 2,
       backgroundColor: "#050505",
       cacheBust: true,
       skipFonts: false,
@@ -781,7 +781,7 @@ async function exportNode(node: HTMLElement, filename: string) {
       width: CANVAS_W,
       height: CANVAS_H,
       backgroundColor: "#050505",
-      scale: 1,
+      scale: 2,
       useCORS: true,
       logging: false,
     });

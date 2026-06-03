@@ -47,9 +47,7 @@ export function TemplateCanvas({
           position: "absolute",
           inset: 0,
           background:
-            `linear-gradient(135deg, ${ACCENT}09 0%, transparent 28%, rgba(255,255,255,0.04) 58%, transparent 82%), ` +
-            "linear-gradient(90deg, rgba(255,255,255,0.035) 0 1px, transparent 1px)",
-          backgroundSize: "auto, 44px 44px",
+            `linear-gradient(135deg, ${ACCENT}08 0%, transparent 30%, rgba(255,255,255,0.035) 62%, transparent 86%)`,
           pointerEvents: "none",
         }}
       />
@@ -375,7 +373,18 @@ export interface ChartRowData {
   peak?: number;
   weeks?: number;
   imageUrl?: string | null;
+  imageFallbackLabel?: string;
   roundImage?: boolean;
+}
+
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .map(part => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "MC";
 }
 
 export function ChartRow({
@@ -466,9 +475,11 @@ export function ChartRow({
             <div style={{
               width: "100%", height: "100%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: `radial-gradient(circle at 40% 35%, ${accent}15, #0d0d0d)`,
+              background: `linear-gradient(135deg, ${accent}24, #111 56%, #050505)`,
             }}>
-              <span style={{ fontSize: compact ? 18 : 22, color: accent, opacity: 0.3 }}>♪</span>
+              <span style={{ fontSize: compact ? 16 : 19, color: accent, opacity: 0.82, fontWeight: 900, letterSpacing: "0.02em" }}>
+                {initials(row.imageFallbackLabel ?? row.title)}
+              </span>
             </div>
           )}
         </div>
@@ -613,12 +624,14 @@ export function AlbumFrame({
   size = 168,
   accent = ACCENT,
   round = false,
+  fallbackLabel,
 }: {
   src?: string;
   rank?: number;
   size?: number;
   accent?: string;
   round?: boolean;
+  fallbackLabel?: string;
 }) {
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
@@ -656,7 +669,9 @@ export function AlbumFrame({
               justifyContent: "center",
             }}
           >
-            <span style={{ fontSize: size * 0.35, color: accent, opacity: 0.3 }}>♪</span>
+            <span style={{ fontSize: size * 0.16, color: accent, opacity: 0.82, fontWeight: 900, letterSpacing: "0.02em" }}>
+              {initials(fallbackLabel ?? "")}
+            </span>
           </div>
         )}
       </div>

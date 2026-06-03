@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams, proxyImageUrl, artistImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -52,6 +52,12 @@ export default function AnimatedTopAlbums() {
   const { phase, cycle } = useAnimLoop();
 
   const isLive = hubRows.length > 0;
+  const imageUrls = suppressDuplicateImages(
+    hubRows.map(r => proxyImageUrl(
+      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"]) ??
+      artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))
+    ))
+  );
 
   const albums: AlbumEntry[] = useMemo(() => isLive
     ? hubRows.map((r, i) => {
@@ -62,12 +68,12 @@ export default function AnimatedTopAlbums() {
           artist: r["Artist Names"] ?? "",
           rawStat: weeks,
           statLabel: weeks === 1 ? "semana" : "semanas",
-          imageUrl: proxyImageUrl(artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))),
+          imageUrl: imageUrls[i],
         };
       })
     : FALLBACK,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [hub, images]);
+  [hub, images, imageUrls.join("|")]);
 
   const rawStats = useMemo(() => albums.map(a => a.rawStat), [albums]);
   const counterActive = phase === "stagger" || phase === "hold";
@@ -164,6 +170,7 @@ export default function AnimatedTopAlbums() {
                   accent={ACCENT}
                   src={a.imageUrl ?? undefined}
                   round={isLive}
+                  fallbackLabel={a.title}
                 />
               </div>
 

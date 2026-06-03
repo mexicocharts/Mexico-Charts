@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, proxyImageUrl, parseMovement, artistImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, proxyImageUrl, parseMovement, artistImageUrl, suppressDuplicateImages } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Peso Pluma",     subtitle: "Racha en chart",  movement: 0  },
@@ -24,6 +24,9 @@ export default function DailyTopArtists() {
   const artistNames = hubRows.map(r => r["Artist"] ?? "");
   const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
   const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const imageUrls = suppressDuplicateImages(
+    hubRows.map(r => proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")))
+  );
 
   const rows: ChartRowData[] = hubRows.length > 0
     ? hubRows.map((r, i) => ({
@@ -33,7 +36,8 @@ export default function DailyTopArtists() {
         stat: r["Peak"] ? `#${r["Peak"]}` : undefined,
         statLabel: r["Peak"] ? "Pico" : undefined,
         ...parseMovement(r["Movement"] ?? "="),
-        imageUrl: proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")),
+        imageUrl: imageUrls[i],
+        imageFallbackLabel: r["Artist"] ?? "",
         roundImage: true,
       }))
     : FALLBACK;

@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Ella Baila Sola",      subtitle: "Peso Pluma · Eslabon Armado",  stat: "3.2M",  movement: 0  },
@@ -20,14 +20,18 @@ const FALLBACK: ChartRowData[] = [
 
 export default function DailyTopSongs() {
   const { data } = useSpotifyChart("daily");
+  const imageUrls = suppressDuplicateImages(
+    data?.entries?.slice(0, 10).map(e => proxyImageUrl(e.coverUrl)) ?? []
+  );
 
-  const rows: ChartRowData[] = data?.entries?.slice(0, 10).map(e => ({
+  const rows: ChartRowData[] = data?.entries?.slice(0, 10).map((e, i) => ({
     rank: e.pos,
     title: e.title,
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: proxyImageUrl(e.coverUrl),
+    imageUrl: imageUrls[i],
+    imageFallbackLabel: e.title,
   })) ?? FALLBACK;
 
   return (

@@ -2,7 +2,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
 
 interface AlbumEntry {
   rank: number;
@@ -30,13 +30,19 @@ export default function WeeklyTopAlbums() {
   const artistNames = hubRows.map(r => primaryArtist(r["Artist Names"] ?? ""));
   const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
   const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const imageUrls = suppressDuplicateImages(
+    hubRows.map(r => proxyImageUrl(
+      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"]) ??
+      artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))
+    ))
+  );
 
   const albums: AlbumEntry[] = hubRows.length > 0
     ? hubRows.map((r, i) => ({
         rank: i + 1,
         title: r["Title"] ?? "",
         artist: r["Artist Names"] ?? "",
-        imageUrl: proxyImageUrl(artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))),
+        imageUrl: imageUrls[i],
       }))
     : FALLBACK;
 
@@ -108,6 +114,7 @@ export default function WeeklyTopAlbums() {
               accent={ACCENT}
               src={a.imageUrl ?? undefined}
               round={isLive}
+              fallbackLabel={a.title}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{

@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages } from "../useChartData";
 
 const FALLBACK_TOP3: ChartRowData[] = [
   { rank: 1, title: "Ella Baila Sola", subtitle: "Peso Pluma · Eslabon Armado", stat: "21.4M", movement: 0,  peak: 1, weeks: 12 },
@@ -22,14 +22,18 @@ const FALLBACK_REST: ChartRowData[] = [
 
 export default function WeeklyTopSongs() {
   const { data } = useSpotifyChart("weekly");
+  const imageUrls = suppressDuplicateImages(
+    data?.entries?.slice(0, 10).map(e => proxyImageUrl(e.coverUrl)) ?? []
+  );
 
-  const allRows: ChartRowData[] = data?.entries?.slice(0, 10).map(e => ({
+  const allRows: ChartRowData[] = data?.entries?.slice(0, 10).map((e, i) => ({
     rank: e.pos,
     title: e.title,
     subtitle: [e.artist, ...e.features].join(" · "),
     stat: fmtStreams(e.streams),
     ...parseMovement(e.posChange),
-    imageUrl: proxyImageUrl(e.coverUrl),
+    imageUrl: imageUrls[i],
+    imageFallbackLabel: e.title,
   })) ?? [];
 
   const top3 = allRows.length > 0 ? allRows.slice(0, 3) : FALLBACK_TOP3;
@@ -113,7 +117,9 @@ export default function WeeklyTopSongs() {
                 <img src={s.imageUrl} alt="" crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", filter: "saturate(0.85) contrast(1.05)" }} />
               ) : (
                 <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: `radial-gradient(circle at 40% 35%, ${ACCENT}15,#0d0d0d)` }}>
-                  <span style={{ fontSize: 22, color: ACCENT, opacity: 0.3 }}>♪</span>
+                  <span style={{ fontSize: 16, color: ACCENT, opacity: 0.82, fontWeight: 900 }}>
+                    {(s.imageFallbackLabel ?? s.title).split(/\s+/).map(part => part[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
+                  </span>
                 </div>
               )}
             </div>

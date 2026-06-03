@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams, proxyImageUrl, artistImageUrl } from "../useChartData";
+import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams, proxyImageUrl, artistImageUrl, suppressDuplicateImages } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -27,6 +27,8 @@ interface ArtistRow {
   title: string;
   subtitle: string;
   rawStreams: number;
+  statText?: string;
+  statLabel?: string;
   movement?: number;
   isNew?: boolean;
   imageUrl?: string | null;
@@ -53,20 +55,29 @@ export default function AnimatedTopArtists() {
   const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
   const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
   const { phase, cycle } = useAnimLoop();
+  const imageUrls = suppressDuplicateImages(
+    hubRows.map(r => proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")))
+  );
 
   const rows: ArtistRow[] = useMemo(() => hubRows.length > 0
-    ? hubRows.map((r, i) => ({
-        rank: i + 1,
-        title: r["Artist"] ?? "",
-        subtitle: r["Streak"] ? `${r["Streak"]} días en chart` : "",
-        rawStreams: parseInt((r["Streams"] ?? r["Daily Streams"] ?? "0").replace(/[^0-9]/g, ""), 10) || 0,
-        ...parseMovement(r["Movement"] ?? "="),
-        imageUrl: proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")),
-        roundImage: true,
-      }))
+    ? hubRows.map((r, i) => {
+        const streamValue = parseInt((r["Streams"] ?? r["Daily Streams"] ?? "0").replace(/[^0-9]/g, ""), 10) || 0;
+        const peak = r["Peak"]?.replace(/^#/, "").trim();
+        return {
+          rank: i + 1,
+          title: r["Artist"] ?? "",
+          subtitle: r["Streak"] ? `${r["Streak"]} días en chart` : "",
+          rawStreams: streamValue || parseInt(peak ?? "0", 10) || 0,
+          statText: streamValue ? undefined : peak ? `#${peak}` : "—",
+          statLabel: streamValue ? "streams" : "pico",
+          ...parseMovement(r["Movement"] ?? "="),
+          imageUrl: imageUrls[i],
+          roundImage: true,
+        };
+      })
     : FALLBACK,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [hub, images]);
+  [hub, images, imageUrls.join("|")]);
 
   const rawStreams = useMemo(() => rows.map(r => r.rawStreams), [rows]);
   const counterActive = phase === "stagger" || phase === "hold";
@@ -133,7 +144,7 @@ export default function AnimatedTopArtists() {
             <div style={{ width: 44 }} />
             <div style={{ width: 44 }} />
             <div style={{ flex: 1, fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Artista · Racha</div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Streams</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(255,255,255,0.16)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Dato</div>
           </div>
           <AccentLine opacity={0.1} />
         </div>
@@ -201,7 +212,9 @@ export default function AnimatedTopArtists() {
                       width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center",
                       background: `radial-gradient(circle at 40% 35%, ${ACCENT}15, #0d0d0d)`,
                     }}>
-                      <span style={{ fontSize: 18, color: ACCENT, opacity: 0.3 }}>♪</span>
+                      <span style={{ fontSize: 15, color: ACCENT, opacity: 0.82, fontWeight: 900 }}>
+                        {row.title.split(/\s+/).map(part => part[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -224,10 +237,10 @@ export default function AnimatedTopArtists() {
                     letterSpacing: "-0.02em",
                     textShadow: isTop3 ? `0 0 24px ${ACCENT}45` : "none",
                   }}>
-                    {fmtStreams(String(animCounts[i] ?? 0))}
+                    {row.statText ?? fmtStreams(String(animCounts[i] ?? 0))}
                   </div>
                   <div style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>
-                    streams
+                    {row.statLabel ?? "streams"}
                   </div>
                 </div>
               </div>
