@@ -727,14 +727,14 @@ function TemplateArt({ config, values }: { config: TemplateConfig; values: Recor
   );
 }
 
-async function waitForExportReady(node: HTMLElement, timeoutMs = 7000) {
+async function waitForExportReady(node: HTMLElement, timeoutMs = 30000) {
   const started = Date.now();
   while (node.querySelector("[data-export-loading='true']") && Date.now() - started < timeoutMs) {
     await new Promise((resolve) => setTimeout(resolve, 150));
   }
 }
 
-async function waitForImages(node: HTMLElement, timeoutMs = 2500) {
+async function waitForImages(node: HTMLElement, timeoutMs = 10000) {
   const images = Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
   if (!images.length) return;
 

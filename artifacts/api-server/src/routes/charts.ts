@@ -124,6 +124,11 @@ function localSocialArtworkUrl(templateKey: string, type: SocialArtworkType, ent
   return `/api/charts/social-artwork-image?${params.toString()}`;
 }
 
+function socialArtworkDataUrl(image: { data: Buffer; contentType: string | null | undefined }): string {
+  const contentType = image.contentType || "image/jpeg";
+  return `data:${contentType};base64,${image.data.toString("base64")}`;
+}
+
 async function downloadSocialArtworkImage(url: string): Promise<{ data: Buffer; contentType: string } | null> {
   let parsed: URL;
   try {
@@ -495,7 +500,10 @@ router.post("/charts/social-artwork", async (req, res) => {
         resultEntityKeys[resultKey] = entry.key;
         const cachedRow = cached.get(entry.key);
         if (cachedRow?.image_data) {
-          results[resultKey] = localSocialArtworkUrl(templateKey, type, entry.key);
+          results[resultKey] = socialArtworkDataUrl({
+            data: cachedRow.image_data,
+            contentType: cachedRow.image_content_type,
+          });
           sourceUrlsByResult[resultKey] = cachedRow.image_url;
           return false;
         }
@@ -535,7 +543,7 @@ router.post("/charts/social-artwork", async (req, res) => {
         continue;
       }
 
-      results[resultKey] = localSocialArtworkUrl(templateKey, type, item.entry.key);
+      results[resultKey] = socialArtworkDataUrl(item.image);
       sourceUrlsByResult[resultKey] = artwork.url;
       await pool.query(
         `

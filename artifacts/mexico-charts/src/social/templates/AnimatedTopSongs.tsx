@@ -58,7 +58,7 @@ export default function AnimatedTopSongs() {
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "animated-top-songs");
   const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
-  const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(e.coverUrl ?? artwork?.[e.trackId])));
+  const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(artwork?.[e.trackId] ?? e.coverUrl)));
 
   const rows = useMemo((): SongRow[] => entries.length > 0
     ? entries.map((e, i) => ({

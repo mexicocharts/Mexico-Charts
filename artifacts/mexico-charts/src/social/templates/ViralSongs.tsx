@@ -31,8 +31,8 @@ export default function ViralSongs() {
   const exportLoading = viralRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
     viralRows.map((r, i) => proxyImageUrl(
-      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "thumbnail", "artwork_url", "album_image_url"]) ??
-      artwork?.[rowId(r, i)]
+      artwork?.[rowId(r, i)] ??
+      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "thumbnail", "artwork_url", "album_image_url"])
     ))
   );
 

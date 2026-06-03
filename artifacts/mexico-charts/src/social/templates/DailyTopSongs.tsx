@@ -29,7 +29,7 @@ export default function DailyTopSongs() {
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "daily-top-songs");
   const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
-    entries.map(e => proxyImageUrl(e.coverUrl ?? artwork?.[e.trackId]))
+    entries.map(e => proxyImageUrl(artwork?.[e.trackId] ?? e.coverUrl))
   );
 
   const rows: ChartRowData[] = entries.length > 0

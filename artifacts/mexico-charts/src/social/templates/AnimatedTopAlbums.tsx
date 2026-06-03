@@ -58,8 +58,8 @@ export default function AnimatedTopAlbums() {
   const isLive = hubRows.length > 0;
   const imageUrls = suppressDuplicateImages(
     hubRows.map((r, i) => proxyImageUrl(
-      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"]) ??
-      artwork?.[r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`]
+      artwork?.[r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`] ??
+      imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"])
     ))
   );
 
