@@ -23,6 +23,7 @@
     "artist-discovery-daily": "tsx ./src/artist-discovery-daily.ts",
     "artist-discovery-reverify": "tsx ./src/artist-discovery-reverify-candidates.ts",
     "artist-discovery-verify": "tsx ./src/artist-discovery-verify.ts",
+    "social-template-artwork-create-table": "tsx ./src/social-template-artwork-create-table.ts",
     "hello": "tsx ./src/hello.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
