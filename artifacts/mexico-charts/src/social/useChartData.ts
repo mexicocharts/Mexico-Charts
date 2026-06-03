@@ -71,16 +71,16 @@ export interface ArtworkLookupItem {
   artist: string;
 }
 
-export function useSocialArtwork(type: "track" | "album", items: ArtworkLookupItem[]) {
+export function useSocialArtwork(type: "track" | "album" | "artist", items: ArtworkLookupItem[], templateKey = `social-${type}`) {
   const key = items.map(item => `${item.id}:${item.artist}:${item.title}`).join("|");
   return useQuery<Record<string, string | null>>({
-    queryKey: ["social-artwork", type, key],
+    queryKey: ["social-artwork", type, templateKey, key],
     queryFn: async () => {
       if (!items.length) return {};
       const r = await fetch("/api/charts/social-artwork", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, items }),
+        body: JSON.stringify({ templateKey, type, items }),
       });
       if (!r.ok) return {};
       const data = await r.json() as { results?: Record<string, string | null> };

@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, parseMovement, fmtStreams, proxyImageUrl, artistImageUrl, suppressDuplicateImages } from "../useChartData";
+import { useChartsHub, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -51,12 +51,16 @@ const FALLBACK: ArtistRow[] = [
 export default function AnimatedTopArtists() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Spotify_Artists_Daily?.rows?.slice(0, 10) ?? [];
-  const artistNames = hubRows.map(r => r["Artist"] ?? "");
-  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
-  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const artworkItems = hubRows.map((r, i) => ({
+    id: r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`,
+    title: r["Artist"] ?? "",
+    artist: r["Artist"] ?? "",
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("artist", artworkItems, "animated-top-artists");
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const { phase, cycle } = useAnimLoop();
   const imageUrls = suppressDuplicateImages(
-    hubRows.map(r => proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")))
+    hubRows.map((r, i) => proxyImageUrl(artwork?.[r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`]))
   );
 
   const rows: ArtistRow[] = useMemo(() => hubRows.length > 0
@@ -77,7 +81,7 @@ export default function AnimatedTopArtists() {
       })
     : FALLBACK,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [hub, images, imageUrls.join("|")]);
+  [hub, artwork, imageUrls.join("|")]);
 
   const rawStreams = useMemo(() => rows.map(r => r.rawStreams), [rows]);
   const counterActive = phase === "stagger" || phase === "hold";

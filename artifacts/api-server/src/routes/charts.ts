@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { pool } from "@workspace/db";
 
 const router = Router();
 
@@ -93,11 +94,58 @@ async function fetchCoverViaDeezer(artist: string, title: string): Promise<strin
   }
 }
 
-async function fetchAlbumCoverViaItunes(artist: string, album: string): Promise<string | null> {
-  const term = `${artist} ${album}`.trim();
+type ArtworkSource = "deezer" | "itunes";
+type SocialArtworkType = "track" | "album" | "artist";
+interface ArtworkResolution {
+  url: string;
+  source: ArtworkSource;
+}
+
+function artistMatchScore(expected: string, found: string): number {
+  const expectedNorm = normalizeForMatch(expected);
+  const foundNorm = normalizeForMatch(found);
+  if (!expectedNorm || !foundNorm) return 0;
+  if (expectedNorm === foundNorm) return 100;
+  if (foundNorm.includes(expectedNorm) || expectedNorm.includes(foundNorm)) return 82;
+  const tokens = expectedNorm.split(" ").filter(token => token.length > 1);
+  if (!tokens.length) return 0;
+  const matched = tokens.filter(token => foundNorm.includes(token)).length;
+  return Math.round((matched / tokens.length) * 70);
+}
+
+async function fetchArtistImageViaDeezer(artist: string): Promise<string | null> {
+  if (!artist.trim()) return null;
+  try {
+    const url = `https://api.deezer.com/search/artist?q=${encodeURIComponent(artist)}&limit=8`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!resp.ok) return null;
+    const data = await resp.json() as {
+      data?: Array<{ name?: string; picture_xl?: string; picture_big?: string; picture_medium?: string }>;
+    };
+    const candidates = (data.data ?? [])
+      .map(item => ({
+        item,
+        url: item.picture_xl || item.picture_big || item.picture_medium || null,
+        score: artistMatchScore(artist, item.name ?? ""),
+      }))
+      .filter(candidate => candidate.url && !candidate.url.includes("/noimage/"))
+      .sort((a, b) => b.score - a.score);
+    const hit = candidates.find(candidate => candidate.score >= 82);
+    return hit?.url ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchItunesArtwork(
+  artist: string,
+  title: string,
+  entity: "song" | "album",
+): Promise<string | null> {
+  const term = `${artist} ${title}`.trim();
   if (!term) return null;
   try {
-    const url = `https://itunes.apple.com/search?country=mx&media=music&entity=album&limit=8&term=${encodeURIComponent(term)}`;
+    const url = `https://itunes.apple.com/search?country=mx&media=music&entity=${entity}&limit=8&term=${encodeURIComponent(term)}`;
     const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!resp.ok) return null;
     const data = await resp.json() as {
@@ -110,7 +158,7 @@ async function fetchAlbumCoverViaItunes(artist: string, album: string): Promise<
     const candidates = (data.results ?? [])
       .map(item => ({
         item,
-        score: matchScore(artist, album, item.artistName ?? "", item.collectionName ?? ""),
+        score: matchScore(artist, title, item.artistName ?? "", item.collectionName ?? ""),
       }))
       .filter(candidate => candidate.item.artworkUrl100)
       .sort((a, b) => b.score - a.score);
@@ -119,6 +167,28 @@ async function fetchAlbumCoverViaItunes(artist: string, album: string): Promise<
   } catch {
     return null;
   }
+}
+
+async function resolveTrackArtwork(artist: string, title: string): Promise<ArtworkResolution | null> {
+  const deezer = await fetchCoverViaDeezer(artist, title);
+  if (deezer) return { url: deezer, source: "deezer" };
+  const itunes = await fetchItunesArtwork(artist, title, "song");
+  if (itunes) return { url: itunes, source: "itunes" };
+  return null;
+}
+
+async function resolveAlbumArtwork(artist: string, title: string): Promise<ArtworkResolution | null> {
+  const itunes = await fetchItunesArtwork(artist, title, "album");
+  if (itunes) return { url: itunes, source: "itunes" };
+  const deezer = await fetchCoverViaDeezer(artist, title);
+  if (deezer) return { url: deezer, source: "deezer" };
+  return null;
+}
+
+async function resolveArtistArtwork(artist: string): Promise<ArtworkResolution | null> {
+  const deezer = await fetchArtistImageViaDeezer(artist);
+  if (deezer) return { url: deezer, source: "deezer" };
+  return null;
 }
 
 /* ── Enrich entries that don't yet have a cover (background job) ─────────── */
@@ -263,34 +333,135 @@ router.get("/charts/mx-spotify", async (req, res) => {
   }
 });
 
+async function ensureSocialArtworkTable(): Promise<void> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS social_template_artwork (
+      template_key text NOT NULL,
+      entity_type text NOT NULL,
+      entity_key text NOT NULL,
+      display_title text NOT NULL,
+      display_artist text DEFAULT '' NOT NULL,
+      image_url text NOT NULL,
+      source text NOT NULL,
+      first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+      last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+      updated_at timestamp with time zone DEFAULT now() NOT NULL,
+      PRIMARY KEY (template_key, entity_type, entity_key)
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS social_template_artwork_entity_idx ON social_template_artwork (entity_type, entity_key);`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS social_template_artwork_seen_idx ON social_template_artwork (template_key, last_seen_at);`);
+}
+
+function socialArtworkKey(value: string): string {
+  return normalizeForMatch(value).replace(/\s+/g, "-") || "unknown";
+}
+
+function requestEntityKey(item: { id?: string; title?: string; artist?: string }, type: string): string {
+  if (item.id?.trim()) return socialArtworkKey(item.id);
+  return socialArtworkKey(`${type}:${item.artist ?? ""}:${item.title ?? ""}`);
+}
+
 router.post("/charts/social-artwork", async (req, res) => {
   const body = req.body as {
-    type?: "track" | "album";
+    templateKey?: string;
+    type?: SocialArtworkType;
     items?: Array<{ id?: string; title?: string; artist?: string }>;
   };
-  const type = body.type === "album" ? "album" : "track";
+  const type: SocialArtworkType = body.type === "album" ? "album" : body.type === "artist" ? "artist" : "track";
+  const templateKey = socialArtworkKey(body.templateKey || `social-${type}`);
   const items = Array.isArray(body.items) ? body.items.slice(0, 20) : [];
 
   try {
-    const results: Record<string, string | null> = {};
-    for (let i = 0; i < items.length; i += 4) {
-      const batch = items.slice(i, i + 4);
+    await ensureSocialArtworkTable();
+
+    const keys = items.map(item => requestEntityKey(item, type));
+    const cache = keys.length
+      ? await pool.query<{ entity_key: string; image_url: string }>(
+          `
+          SELECT entity_key, image_url
+          FROM social_template_artwork
+          WHERE template_key = $1
+            AND entity_type = $2
+            AND entity_key = ANY($3::text[])
+          `,
+          [templateKey, type, keys],
+        )
+      : { rows: [] };
+    const cached = new Map(cache.rows.map(row => [row.entity_key, row.image_url]));
+    const results: Record<string, string | null> = Object.fromEntries(items.map(item => [item.id || `${item.artist ?? ""}::${item.title ?? ""}`, null]));
+    const pending = items
+      .map((item, index) => ({ item, index, key: keys[index] }))
+      .filter(entry => {
+        const cachedUrl = cached.get(entry.key);
+        if (cachedUrl) {
+          results[entry.item.id || `${entry.item.artist ?? ""}::${entry.item.title ?? ""}`] = cachedUrl;
+          return false;
+        }
+        return true;
+      });
+
+    const resolved: Array<{ entry: typeof pending[number]; artwork: ArtworkResolution | null }> = [];
+    for (let i = 0; i < pending.length; i += 4) {
+      const batch = pending.slice(i, i + 4);
       const found = await Promise.all(batch.map(async item => {
-        const id = item.id || `${item.artist ?? ""}::${item.title ?? ""}`;
-        const artist = item.artist?.trim() ?? "";
-        const title = item.title?.trim() ?? "";
-        if (!artist || !title) return { id, url: null };
+        const artist = item.item.artist?.trim() ?? "";
+        const title = item.item.title?.trim() ?? "";
+        if (!artist || (type !== "artist" && !title)) return { entry: item, artwork: null };
         const url = type === "album"
-          ? await fetchAlbumCoverViaItunes(artist, title)
-          : await fetchCoverViaDeezer(artist, title);
-        return { id, url };
+          ? await resolveAlbumArtwork(artist, title)
+          : type === "artist"
+            ? await resolveArtistArtwork(artist)
+            : await resolveTrackArtwork(artist, title);
+        return { entry: item, artwork: url };
       }));
-      for (const item of found) results[item.id] = item.url;
-      if (i + 4 < items.length) await new Promise(r => setTimeout(r, 250));
+      resolved.push(...found);
+      if (i + 4 < pending.length) await new Promise(r => setTimeout(r, 250));
+    }
+
+    const urlCounts = new Map<string, number>();
+    for (const item of resolved) {
+      if (item.artwork?.url) urlCounts.set(item.artwork.url, (urlCounts.get(item.artwork.url) ?? 0) + 1);
+    }
+
+    for (const item of resolved) {
+      const resultKey = item.entry.item.id || `${item.entry.item.artist ?? ""}::${item.entry.item.title ?? ""}`;
+      const artwork = item.artwork;
+      if (!artwork?.url || (urlCounts.get(artwork.url) ?? 0) > 1) {
+        results[resultKey] = null;
+        continue;
+      }
+
+      results[resultKey] = artwork.url;
+      await pool.query(
+        `
+        INSERT INTO social_template_artwork (
+          template_key, entity_type, entity_key, display_title, display_artist, image_url, source
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (template_key, entity_type, entity_key)
+        DO UPDATE SET
+          display_title = EXCLUDED.display_title,
+          display_artist = EXCLUDED.display_artist,
+          image_url = EXCLUDED.image_url,
+          source = EXCLUDED.source,
+          last_seen_at = now(),
+          updated_at = now()
+        `,
+        [
+          templateKey,
+          type,
+          item.entry.key,
+          item.entry.item.title ?? "",
+          item.entry.item.artist ?? "",
+          artwork.url,
+          artwork.source,
+        ],
+      );
     }
 
     res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-    res.json({ type, results });
+    res.json({ templateKey, type, cached: cached.size, resolved: resolved.length, results });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch social artwork", detail: String(err) });
   }

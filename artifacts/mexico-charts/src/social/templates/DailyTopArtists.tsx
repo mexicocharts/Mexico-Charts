@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, proxyImageUrl, parseMovement, artistImageUrl, suppressDuplicateImages } from "../useChartData";
+import { useChartsHub, proxyImageUrl, parseMovement, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Peso Pluma",     subtitle: "Racha en chart",  movement: 0  },
@@ -21,11 +21,15 @@ const FALLBACK: ChartRowData[] = [
 export default function DailyTopArtists() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Spotify_Artists_Daily?.rows?.slice(0, 10) ?? [];
-  const artistNames = hubRows.map(r => r["Artist"] ?? "");
-  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
-  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const artworkItems = hubRows.map((r, i) => ({
+    id: r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`,
+    title: r["Artist"] ?? "",
+    artist: r["Artist"] ?? "",
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("artist", artworkItems, "daily-top-artists");
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
-    hubRows.map(r => proxyImageUrl(artistImageUrl(images, r["Artist"] ?? "")))
+    hubRows.map((r, i) => proxyImageUrl(artwork?.[r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`]))
   );
 
   const rows: ChartRowData[] = hubRows.length > 0
