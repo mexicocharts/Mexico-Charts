@@ -317,6 +317,51 @@ const routes = [
   },
 ];
 
+const artistProfileRoutes = [
+  { path: "/artist/peso-pluma", name: "Peso Pluma", context: "corridos tumbados, streaming global, YouTube, Spotify, charts y momentum diario" },
+  { path: "/artist/fuerza-regida", name: "Fuerza Regida", context: "corridos tumbados, streaming, YouTube, Spotify, charts, touring y catálogo" },
+  { path: "/artist/junior-h", name: "Junior H", context: "corridos tumbados, regional mexicano, streaming, YouTube, Spotify y touring" },
+  { path: "/artist/natanael-cano", name: "Natanael Cano", context: "corridos tumbados, streaming, YouTube, Spotify, charts y datos históricos" },
+  { path: "/artist/carin-leon", name: "Carin León", context: "regional mexicano, Spotify, YouTube, touring, certificaciones y charts" },
+  { path: "/artist/bad-bunny", name: "Bad Bunny", context: "charts en México, streaming, YouTube, Spotify y presencia en listas" },
+  { path: "/artist/grupo-frontera", name: "Grupo Frontera", context: "regional mexicano, streaming, YouTube, Spotify, charts y touring" },
+  { path: "/artist/tito-double-p", name: "Tito Double P", context: "corridos tumbados, streaming diario, YouTube, Spotify y momentum" },
+  { path: "/artist/neton-vega", name: "Neton Vega", context: "corridos tumbados, streaming diario, YouTube, Spotify y breakout" },
+  { path: "/artist/victor-mendivil", name: "Victor Mendivil", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
+  { path: "/artist/grupo-firme", name: "Grupo Firme", context: "regional mexicano, YouTube, Spotify, touring, charts y catálogo" },
+  { path: "/artist/luis-miguel", name: "Luis Miguel", context: "catálogo, touring, streaming, YouTube, Spotify y legado en México" },
+  { path: "/artist/los-angeles-azules", name: "Los Angeles Azules", context: "catálogo, cumbia, streaming, YouTube, Spotify y charts" },
+  { path: "/artist/vicente-fernandez", name: "Vicente Fernández", context: "catálogo histórico, regional mexicano, YouTube, Spotify y legado" },
+  { path: "/artist/la-arrolladora-banda-el-limon-de-rene-camacho", name: "La Arrolladora Banda El Limón De Rene Camacho", context: "banda sinaloense, catálogo, streaming, YouTube y charts" },
+  { path: "/artist/bts", name: "BTS", context: "charts en México, Spotify, YouTube y presencia histórica en listas" },
+  { path: "/artist/shakira", name: "Shakira", context: "charts en México, streaming, YouTube, Spotify y catálogo latino" },
+  { path: "/artist/karol-g", name: "Karol G", context: "charts en México, streaming, YouTube, Spotify y catálogo latino" },
+  { path: "/artist/gabito-ballesteros", name: "Gabito Ballesteros", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
+  { path: "/artist/oscar-maydon", name: "Oscar Maydon", context: "corridos tumbados, streaming, YouTube, Spotify y momentum" },
+  { path: "/artist/xavi", name: "Xavi", context: "corridos tumbados, streaming, YouTube, Spotify y breakout" },
+  { path: "/artist/eladio-carrion", name: "Eladio Carrión", context: "charts en México, streaming, YouTube, Spotify y colaboraciones" },
+  { path: "/artist/calle-24", name: "Calle 24", context: "corridos tumbados, streaming, YouTube, Spotify y charts" },
+  { path: "/artist/herencia-de-grandes", name: "Herencia De Grandes", context: "regional mexicano, streaming, YouTube, Spotify y charts" },
+  { path: "/artist/lenin-ramirez", name: "Lenin Ramírez", context: "regional mexicano, streaming, YouTube, Spotify y charts" },
+];
+
+routes.push(
+  ...artistProfileRoutes.map((artist) => ({
+    path: artist.path,
+    title: `${artist.name} — Perfil de artista | Mexico Charts`,
+    description: `${artist.name}: perfil de artista con ${artist.context}. Datos organizados por Mexico Charts.`,
+    eyebrow: "Perfil de artista",
+    heading: artist.name,
+    body: `Perfil de ${artist.name} en Mexico Charts con estadísticas de streaming, YouTube, Spotify, charts, señales de momentum, certificaciones y contexto editorial cuando hay datos disponibles.`,
+    links: [
+      ["/artists", "Artistas"],
+      ["/charts", "Charts"],
+      ["/mx100", "MX100"],
+      ["/metodologia", "Metodologia"],
+    ],
+  })),
+);
+
 function escapeHtml(value) {
   return value
     .replaceAll("&", "&amp;")
