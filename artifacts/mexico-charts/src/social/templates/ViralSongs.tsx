@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
+import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma", stat: "↑840%",  isNew: true  },
@@ -21,13 +21,18 @@ const FALLBACK: ChartRowData[] = [
 export default function ViralSongs() {
   const { data: hub } = useChartsHub();
   const viralRows = hub?.sheets?.Spotify_Viral_Daily?.rows?.slice(0, 10) ?? [];
-  const artistNames = viralRows.map(r => primaryArtist(r["artist_names"] ?? ""));
-  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
-  const exportLoading = viralRows.length > 0 && (imagesFetching || images === undefined);
+  const rowId = (r: Record<string, string>, i: number) => r["track_id"] || `${i}-${r["artist_names"]}-${r["track_name"]}`;
+  const artworkItems = viralRows.map((r, i) => ({
+    id: r["track_id"] || `${i}-${r["artist_names"]}-${r["track_name"]}`,
+    title: r["track_name"] ?? "",
+    artist: r["artist_names"] ?? "",
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems);
+  const exportLoading = viralRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
-    viralRows.map(r => proxyImageUrl(
+    viralRows.map((r, i) => proxyImageUrl(
       imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "thumbnail", "artwork_url", "album_image_url"]) ??
-      artistImageUrl(images, primaryArtist(r["artist_names"] ?? ""))
+      artwork?.[rowId(r, i)]
     ))
   );
 
@@ -40,7 +45,7 @@ export default function ViralSongs() {
         movement: 0,
         imageUrl: imageUrls[i],
         imageFallbackLabel: r["track_name"] ?? "",
-        roundImage: true,
+        roundImage: false,
       }))
     : FALLBACK;
 

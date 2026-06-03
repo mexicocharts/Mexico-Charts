@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 
 const FALLBACK_TOP3: ChartRowData[] = [
   { rank: 1, title: "Ella Baila Sola", subtitle: "Peso Pluma · Eslabon Armado", stat: "21.4M", movement: 0,  peak: 1, weeks: 12 },
@@ -22,11 +22,19 @@ const FALLBACK_REST: ChartRowData[] = [
 
 export default function WeeklyTopSongs() {
   const { data } = useSpotifyChart("weekly");
+  const entries = data?.entries?.slice(0, 10) ?? [];
+  const artworkItems = entries.map(e => ({
+    id: e.trackId,
+    title: e.title,
+    artist: [e.artist, ...e.features].join(" "),
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems);
+  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
-    data?.entries?.slice(0, 10).map(e => proxyImageUrl(e.coverUrl)) ?? []
+    entries.map(e => proxyImageUrl(e.coverUrl ?? artwork?.[e.trackId]))
   );
 
-  const allRows: ChartRowData[] = data?.entries?.slice(0, 10).map((e, i) => ({
+  const allRows: ChartRowData[] = entries.map((e, i) => ({
     rank: e.pos,
     title: e.title,
     subtitle: [e.artist, ...e.features].join(" · "),
@@ -34,7 +42,7 @@ export default function WeeklyTopSongs() {
     ...parseMovement(e.posChange),
     imageUrl: imageUrls[i],
     imageFallbackLabel: e.title,
-  })) ?? [];
+  }));
 
   const top3 = allRows.length > 0 ? allRows.slice(0, 3) : FALLBACK_TOP3;
   const rest  = allRows.length > 0 ? allRows.slice(3, 10) : FALLBACK_REST;
@@ -44,7 +52,7 @@ export default function WeeklyTopSongs() {
     : "Semana del 13 Mayo";
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <div style={{
         position: "absolute", top: 0, left: 0, right: 0, height: 700,
         background: `radial-gradient(ellipse 85% 100% at 50% -10%, ${ACCENT}12 0%, ${ACCENT}06 45%, transparent 70%)`,

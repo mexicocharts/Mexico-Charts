@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, fmtStreams, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
+import { useChartsHub, fmtStreams, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -46,16 +46,20 @@ const FALLBACK: AlbumEntry[] = [
 export default function AnimatedTopAlbums() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Apple_Albums?.rows?.slice(0, 5) ?? [];
-  const artistNames = hubRows.map(r => primaryArtist(r["Artist Names"] ?? ""));
-  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
-  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const artworkItems = hubRows.map((r, i) => ({
+    id: r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`,
+    title: r["Title"] ?? "",
+    artist: r["Artist Names"] ?? "",
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems);
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const { phase, cycle } = useAnimLoop();
 
   const isLive = hubRows.length > 0;
   const imageUrls = suppressDuplicateImages(
-    hubRows.map(r => proxyImageUrl(
+    hubRows.map((r, i) => proxyImageUrl(
       imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"]) ??
-      artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))
+      artwork?.[r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`]
     ))
   );
 
@@ -73,7 +77,7 @@ export default function AnimatedTopAlbums() {
       })
     : FALLBACK,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  [hub, images, imageUrls.join("|")]);
+  [hub, artwork, imageUrls.join("|")]);
 
   const rawStats = useMemo(() => albums.map(a => a.rawStat), [albums]);
   const counterActive = phase === "stagger" || phase === "hold";
@@ -169,7 +173,7 @@ export default function AnimatedTopAlbums() {
                   rank={a.rank}
                   accent={ACCENT}
                   src={a.imageUrl ?? undefined}
-                  round={isLive}
+                  round={false}
                   fallbackLabel={a.title}
                 />
               </div>

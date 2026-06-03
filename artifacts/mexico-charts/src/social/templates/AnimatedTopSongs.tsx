@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -51,7 +51,14 @@ export default function AnimatedTopSongs() {
   const { phase, cycle } = useAnimLoop();
 
   const entries = data?.entries?.slice(0, 10) ?? [];
-  const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(e.coverUrl)));
+  const artworkItems = entries.map(e => ({
+    id: e.trackId,
+    title: e.title,
+    artist: [e.artist, ...e.features].join(" "),
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems);
+  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
+  const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(e.coverUrl ?? artwork?.[e.trackId])));
 
   const rows = useMemo((): SongRow[] => entries.length > 0
     ? entries.map((e, i) => ({
@@ -84,7 +91,7 @@ export default function AnimatedTopSongs() {
   const rowVisible   = phase !== "intro";
 
   return (
-    <TemplateCanvas>
+    <TemplateCanvas exportLoading={exportLoading}>
       <style>{ANIM_CSS}</style>
 
       <div style={{

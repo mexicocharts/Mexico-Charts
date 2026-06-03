@@ -65,6 +65,33 @@ export function useArtistImageMap(names: string[]) {
   });
 }
 
+export interface ArtworkLookupItem {
+  id: string;
+  title: string;
+  artist: string;
+}
+
+export function useSocialArtwork(type: "track" | "album", items: ArtworkLookupItem[]) {
+  const key = items.map(item => `${item.id}:${item.artist}:${item.title}`).join("|");
+  return useQuery<Record<string, string | null>>({
+    queryKey: ["social-artwork", type, key],
+    queryFn: async () => {
+      if (!items.length) return {};
+      const r = await fetch("/api/charts/social-artwork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, items }),
+      });
+      if (!r.ok) return {};
+      const data = await r.json() as { results?: Record<string, string | null> };
+      return data.results ?? {};
+    },
+    staleTime: 24 * 60 * 60 * 1000,
+    enabled: items.length > 0,
+    retry: 1,
+  });
+}
+
 export function parseMovement(posChange: string): { movement?: number; isNew?: boolean } {
   if (posChange === "NEW") return { isNew: true };
   if (posChange === "=" || posChange === "") return { movement: 0 };

@@ -68,6 +68,29 @@ function cleanNameForSearch(name: string): string {
     .trim();
 }
 
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function artistMatchScore(expected: string, found: string): number {
+  const expectedNorm = normalizeForMatch(cleanNameForSearch(expected));
+  const foundNorm = normalizeForMatch(found);
+  if (!expectedNorm || !foundNorm) return 0;
+  if (expectedNorm === foundNorm) return 100;
+  if (foundNorm.includes(expectedNorm) || expectedNorm.includes(foundNorm)) return 82;
+
+  const expectedTokens = expectedNorm.split(" ").filter(token => token.length > 1);
+  if (!expectedTokens.length) return 0;
+  const matchedTokens = expectedTokens.filter(token => foundNorm.includes(token)).length;
+  return Math.round((matchedTokens / expectedTokens.length) * 70);
+}
+
 /* ── Try one Deezer search query, return best image URL or null ── */
 async function deezerSearch(
   query: string,
@@ -83,9 +106,13 @@ async function deezerSearch(
     const items = data.data ?? [];
     if (!items.length) return null;
 
-    const needle = (preferExact ?? query).toLowerCase();
-    const exact = items.find((a) => a.name.toLowerCase() === needle);
-    const best = exact ?? items[0];
+    const expected = preferExact ?? query;
+    const ranked = items
+      .map(item => ({ item, score: artistMatchScore(expected, item.name) }))
+      .filter(candidate => candidate.score >= 70)
+      .sort((a, b) => b.score - a.score);
+    const best = ranked[0]?.item;
+    if (!best) return null;
 
     const img = best.picture_xl || best.picture_medium || null;
     if (!img || img.includes("/artist//") || img.includes("/noimage/")) return null;
@@ -263,6 +290,17 @@ router.get("/spotify/artist-images", async (req, res) => {
     );
     for (const { name, url } of fetched) {
       results[name] = url;
+    }
+  }
+
+  const urlCounts = new Map<string, number>();
+  for (const url of Object.values(results)) {
+    if (url) urlCounts.set(url, (urlCounts.get(url) ?? 0) + 1);
+  }
+  for (const name of Object.keys(results)) {
+    const url = results[name];
+    if (url && (urlCounts.get(url) ?? 0) > 1) {
+      results[name] = null;
     }
   }
 

@@ -2,7 +2,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, useArtistImageMap, primaryArtist, proxyImageUrl, artistImageUrl, imageFromRow, suppressDuplicateImages } from "../useChartData";
+import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
 
 interface AlbumEntry {
   rank: number;
@@ -27,13 +27,17 @@ const FALLBACK: AlbumEntry[] = [
 export default function WeeklyTopAlbums() {
   const { data: hub } = useChartsHub();
   const hubRows = hub?.sheets?.Apple_Albums?.rows?.slice(0, 5) ?? [];
-  const artistNames = hubRows.map(r => primaryArtist(r["Artist Names"] ?? ""));
-  const { data: images, isFetching: imagesFetching } = useArtistImageMap(artistNames);
-  const exportLoading = hubRows.length > 0 && (imagesFetching || images === undefined);
+  const artworkItems = hubRows.map((r, i) => ({
+    id: r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`,
+    title: r["Title"] ?? "",
+    artist: r["Artist Names"] ?? "",
+  }));
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems);
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
-    hubRows.map(r => proxyImageUrl(
+    hubRows.map((r, i) => proxyImageUrl(
       imageFromRow(r, ["cover_url", "Cover URL", "image_url", "Image URL", "artwork_url", "album_image_url"]) ??
-      artistImageUrl(images, primaryArtist(r["Artist Names"] ?? ""))
+      artwork?.[r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`]
     ))
   );
 
@@ -113,7 +117,7 @@ export default function WeeklyTopAlbums() {
               rank={a.rank}
               accent={ACCENT}
               src={a.imageUrl ?? undefined}
-              round={isLive}
+              round={false}
               fallbackLabel={a.title}
             />
             <div style={{ flex: 1, minWidth: 0 }}>

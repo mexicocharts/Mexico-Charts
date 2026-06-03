@@ -15,6 +15,42 @@ function cleanCoverQuery(value: string): string {
     .trim();
 }
 
+function normalizeForMatch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function matchScore(expectedArtist: string, expectedTitle: string, foundArtist: string, foundTitle: string): number {
+  const artist = normalizeForMatch(expectedArtist);
+  const title = normalizeForMatch(cleanCoverQuery(expectedTitle));
+  const foundArtistNorm = normalizeForMatch(foundArtist);
+  const foundTitleNorm = normalizeForMatch(cleanCoverQuery(foundTitle));
+
+  let score = 0;
+  if (foundArtistNorm === artist) score += 55;
+  else if (foundArtistNorm.includes(artist) || artist.includes(foundArtistNorm)) score += 34;
+  else {
+    const artistTokens = artist.split(" ").filter(Boolean);
+    const matchedTokens = artistTokens.filter(token => foundArtistNorm.includes(token));
+    score += Math.min(24, matchedTokens.length * 8);
+  }
+
+  if (foundTitleNorm === title) score += 55;
+  else if (foundTitleNorm.includes(title) || title.includes(foundTitleNorm)) score += 36;
+  else {
+    const titleTokens = title.split(" ").filter(token => token.length > 2);
+    const matchedTokens = titleTokens.filter(token => foundTitleNorm.includes(token));
+    score += Math.min(30, matchedTokens.length * 10);
+  }
+
+  return score;
+}
+
 async function fetchCoverViaDeezer(artist: string, title: string): Promise<string | null> {
   const queries = [
     `${artist} ${title}`,
@@ -30,16 +66,56 @@ async function fetchCoverViaDeezer(artist: string, title: string): Promise<strin
       });
       if (!resp.ok) continue;
       const data = await resp.json() as {
-        data?: Array<{ album: { cover?: string; cover_medium?: string; cover_big?: string; cover_xl?: string } }>;
+        data?: Array<{
+          title?: string;
+          artist?: { name?: string };
+          album: { cover?: string; cover_medium?: string; cover_big?: string; cover_xl?: string };
+        }>;
       };
-      const hit = data.data?.find(item => {
-        const url = item.album.cover_xl || item.album.cover_big || item.album.cover_medium || item.album.cover;
-        return !!url && !url.includes("/noimage/");
-      });
-      const url = hit?.album.cover_xl || hit?.album.cover_big || hit?.album.cover_medium || hit?.album.cover;
+      const candidates = (data.data ?? [])
+        .map(item => {
+          const url = item.album.cover_xl || item.album.cover_big || item.album.cover_medium || item.album.cover;
+          return {
+            item,
+            url,
+            score: matchScore(artist, title, item.artist?.name ?? "", item.title ?? ""),
+          };
+        })
+        .filter(candidate => candidate.url && !candidate.url.includes("/noimage/"))
+        .sort((a, b) => b.score - a.score);
+      const hit = candidates.find(candidate => candidate.score >= 45);
+      const url = hit?.url;
       if (url) return url;
     }
     return null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchAlbumCoverViaItunes(artist: string, album: string): Promise<string | null> {
+  const term = `${artist} ${album}`.trim();
+  if (!term) return null;
+  try {
+    const url = `https://itunes.apple.com/search?country=mx&media=music&entity=album&limit=8&term=${encodeURIComponent(term)}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!resp.ok) return null;
+    const data = await resp.json() as {
+      results?: Array<{
+        artistName?: string;
+        collectionName?: string;
+        artworkUrl100?: string;
+      }>;
+    };
+    const candidates = (data.results ?? [])
+      .map(item => ({
+        item,
+        score: matchScore(artist, album, item.artistName ?? "", item.collectionName ?? ""),
+      }))
+      .filter(candidate => candidate.item.artworkUrl100)
+      .sort((a, b) => b.score - a.score);
+    const hit = candidates.find(candidate => candidate.score >= 50);
+    return hit?.item.artworkUrl100?.replace(/100x100bb\./, "1200x1200bb.") ?? null;
   } catch {
     return null;
   }
@@ -184,6 +260,39 @@ router.get("/charts/mx-spotify", async (req, res) => {
     res.json({ period, fetchedAt: new Date(cached.fetchedAt).toISOString(), entries });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch chart data", detail: String(err) });
+  }
+});
+
+router.post("/charts/social-artwork", async (req, res) => {
+  const body = req.body as {
+    type?: "track" | "album";
+    items?: Array<{ id?: string; title?: string; artist?: string }>;
+  };
+  const type = body.type === "album" ? "album" : "track";
+  const items = Array.isArray(body.items) ? body.items.slice(0, 20) : [];
+
+  try {
+    const results: Record<string, string | null> = {};
+    for (let i = 0; i < items.length; i += 4) {
+      const batch = items.slice(i, i + 4);
+      const found = await Promise.all(batch.map(async item => {
+        const id = item.id || `${item.artist ?? ""}::${item.title ?? ""}`;
+        const artist = item.artist?.trim() ?? "";
+        const title = item.title?.trim() ?? "";
+        if (!artist || !title) return { id, url: null };
+        const url = type === "album"
+          ? await fetchAlbumCoverViaItunes(artist, title)
+          : await fetchCoverViaDeezer(artist, title);
+        return { id, url };
+      }));
+      for (const item of found) results[item.id] = item.url;
+      if (i + 4 < items.length) await new Promise(r => setTimeout(r, 250));
+    }
+
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.json({ type, results });
+  } catch (err) {
+    res.status(502).json({ error: "Failed to fetch social artwork", detail: String(err) });
   }
 });
 
