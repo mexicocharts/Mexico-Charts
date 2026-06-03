@@ -475,9 +475,9 @@ export function ChartRow({
             <div style={{
               width: "100%", height: "100%",
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: `linear-gradient(135deg, ${accent}24, #111 56%, #050505)`,
+              background: `radial-gradient(circle at 35% 25%, ${accent}32, transparent 42%), linear-gradient(135deg, ${accent}20, #151515 58%, #050505)`,
             }}>
-              <span style={{ fontSize: compact ? 16 : 19, color: accent, opacity: 0.82, fontWeight: 900, letterSpacing: "0.02em" }}>
+              <span style={{ fontSize: compact ? 16 : 19, color: accent, opacity: 1, fontWeight: 900, letterSpacing: "0.02em", textShadow: `0 0 18px ${accent}55` }}>
                 {initials(row.imageFallbackLabel ?? row.title)}
               </span>
             </div>
@@ -663,13 +663,13 @@ export function AlbumFrame({
             style={{
               width: "100%",
               height: "100%",
-              background: `radial-gradient(circle at 40% 35%, ${accent}18, #0d0d0d)`,
+              background: `radial-gradient(circle at 38% 28%, ${accent}32, transparent 44%), linear-gradient(135deg, ${accent}16, #151515 58%, #050505)`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <span style={{ fontSize: size * 0.16, color: accent, opacity: 0.82, fontWeight: 900, letterSpacing: "0.02em" }}>
+            <span style={{ fontSize: size * 0.16, color: accent, opacity: 1, fontWeight: 900, letterSpacing: "0.02em", textShadow: `0 0 ${Math.round(size * 0.12)}px ${accent}55` }}>
               {initials(fallbackLabel ?? "")}
             </span>
           </div>

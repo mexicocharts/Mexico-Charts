@@ -141,9 +141,9 @@ export function proxyImageUrl(url: string | null | undefined): string | null | u
 export function suppressDuplicateImages(urls: Array<string | null | undefined>) {
   const usable = urls.filter((url): url is string => Boolean(url));
   if (usable.length < 2) return urls;
-  const unique = new Set(usable);
-  if (unique.size > 1) return urls;
-  return urls.map(() => null);
+  const counts = new Map<string, number>();
+  for (const url of usable) counts.set(url, (counts.get(url) ?? 0) + 1);
+  return urls.map(url => (url && (counts.get(url) ?? 0) > 1 ? null : url));
 }
 
 export function imageFromRow(row: Row, keys: string[]) {

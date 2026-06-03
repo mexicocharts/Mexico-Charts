@@ -151,6 +151,7 @@ async function fetchItunesArtwork(
     const data = await resp.json() as {
       results?: Array<{
         artistName?: string;
+        trackName?: string;
         collectionName?: string;
         artworkUrl100?: string;
       }>;
@@ -158,7 +159,7 @@ async function fetchItunesArtwork(
     const candidates = (data.results ?? [])
       .map(item => ({
         item,
-        score: matchScore(artist, title, item.artistName ?? "", item.collectionName ?? ""),
+        score: matchScore(artist, title, item.artistName ?? "", item.collectionName ?? item.trackName ?? ""),
       }))
       .filter(candidate => candidate.item.artworkUrl100)
       .sort((a, b) => b.score - a.score);
@@ -390,12 +391,15 @@ router.post("/charts/social-artwork", async (req, res) => {
       : { rows: [] };
     const cached = new Map(cache.rows.map(row => [row.entity_key, row.image_url]));
     const results: Record<string, string | null> = Object.fromEntries(items.map(item => [item.id || `${item.artist ?? ""}::${item.title ?? ""}`, null]));
+    const resultEntityKeys: Record<string, string> = {};
     const pending = items
       .map((item, index) => ({ item, index, key: keys[index] }))
       .filter(entry => {
+        const resultKey = entry.item.id || `${entry.item.artist ?? ""}::${entry.item.title ?? ""}`;
+        resultEntityKeys[resultKey] = entry.key;
         const cachedUrl = cached.get(entry.key);
         if (cachedUrl) {
-          results[entry.item.id || `${entry.item.artist ?? ""}::${entry.item.title ?? ""}`] = cachedUrl;
+          results[resultKey] = cachedUrl;
           return false;
         }
         return true;
@@ -426,6 +430,7 @@ router.post("/charts/social-artwork", async (req, res) => {
 
     for (const item of resolved) {
       const resultKey = item.entry.item.id || `${item.entry.item.artist ?? ""}::${item.entry.item.title ?? ""}`;
+      resultEntityKeys[resultKey] = item.entry.key;
       const artwork = item.artwork;
       if (!artwork?.url || (urlCounts.get(artwork.url) ?? 0) > 1) {
         results[resultKey] = null;
@@ -460,8 +465,43 @@ router.post("/charts/social-artwork", async (req, res) => {
       );
     }
 
+    const finalUrlCounts = new Map<string, number>();
+    for (const url of Object.values(results)) {
+      if (url) finalUrlCounts.set(url, (finalUrlCounts.get(url) ?? 0) + 1);
+    }
+    const duplicateEntityKeys = Object.entries(results)
+      .filter(([, url]) => url && (finalUrlCounts.get(url) ?? 0) > 1)
+      .map(([resultKey]) => resultEntityKeys[resultKey])
+      .filter((key): key is string => Boolean(key));
+
+    for (const resultKey of Object.keys(results)) {
+      const url = results[resultKey];
+      if (url && (finalUrlCounts.get(url) ?? 0) > 1) {
+        results[resultKey] = null;
+      }
+    }
+
+    if (duplicateEntityKeys.length) {
+      await pool.query(
+        `
+        DELETE FROM social_template_artwork
+        WHERE template_key = $1
+          AND entity_type = $2
+          AND entity_key = ANY($3::text[])
+        `,
+        [templateKey, type, duplicateEntityKeys],
+      );
+    }
+
     res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
-    res.json({ templateKey, type, cached: cached.size, resolved: resolved.length, results });
+    res.json({
+      templateKey,
+      type,
+      cached: cached.size,
+      resolved: resolved.length,
+      blockedDuplicates: duplicateEntityKeys.length,
+      results,
+    });
   } catch (err) {
     res.status(502).json({ error: "Failed to fetch social artwork", detail: String(err) });
   }
