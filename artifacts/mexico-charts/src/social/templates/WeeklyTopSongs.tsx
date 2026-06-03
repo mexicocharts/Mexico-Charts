@@ -28,7 +28,7 @@ export default function WeeklyTopSongs() {
     title: e.title,
     artist: [e.artist, ...e.features].join(" "),
   }));
-  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems);
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "weekly-top-songs");
   const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
     entries.map(e => proxyImageUrl(e.coverUrl ?? artwork?.[e.trackId]))

@@ -27,7 +27,7 @@ export default function ViralSongs() {
     title: r["track_name"] ?? "",
     artist: r["artist_names"] ?? "",
   }));
-  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems);
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "viral-songs");
   const exportLoading = viralRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
     viralRows.map((r, i) => proxyImageUrl(

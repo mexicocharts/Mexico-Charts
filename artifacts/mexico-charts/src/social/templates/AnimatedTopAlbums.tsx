@@ -51,7 +51,7 @@ export default function AnimatedTopAlbums() {
     title: r["Title"] ?? "",
     artist: r["Artist Names"] ?? "",
   }));
-  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems);
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems, "animated-top-albums");
   const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const { phase, cycle } = useAnimLoop();
 

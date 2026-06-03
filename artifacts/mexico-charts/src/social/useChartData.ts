@@ -74,7 +74,7 @@ export interface ArtworkLookupItem {
 export function useSocialArtwork(type: "track" | "album" | "artist", items: ArtworkLookupItem[], templateKey = `social-${type}`) {
   const key = items.map(item => `${item.id}:${item.artist}:${item.title}`).join("|");
   return useQuery<Record<string, string | null>>({
-    queryKey: ["social-artwork", type, templateKey, key],
+    queryKey: ["social-artwork-v4", type, templateKey, key],
     queryFn: async () => {
       if (!items.length) return {};
       const r = await fetch("/api/charts/social-artwork", {
@@ -86,7 +86,7 @@ export function useSocialArtwork(type: "track" | "album" | "artist", items: Artw
       const data = await r.json() as { results?: Record<string, string | null> };
       return data.results ?? {};
     },
-    staleTime: 24 * 60 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     enabled: items.length > 0,
     retry: 1,
   });

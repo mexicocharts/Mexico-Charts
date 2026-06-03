@@ -101,6 +101,60 @@ interface ArtworkResolution {
   source: ArtworkSource;
 }
 
+const SOCIAL_ARTWORK_ALLOWED_DOMAINS = new Set([
+  "cdn-images.dzcdn.net",
+  "cdns-images.dzcdn.net",
+  "e-cdns-images.dzcdn.net",
+  "is1-ssl.mzstatic.com",
+  "is2-ssl.mzstatic.com",
+  "is3-ssl.mzstatic.com",
+  "is4-ssl.mzstatic.com",
+  "is5-ssl.mzstatic.com",
+  "a5.mzstatic.com",
+]);
+
+const SOCIAL_ARTWORK_MAX_BYTES = 8 * 1024 * 1024;
+
+function localSocialArtworkUrl(templateKey: string, type: SocialArtworkType, entityKey: string): string {
+  const params = new URLSearchParams({
+    templateKey,
+    type,
+    entityKey,
+  });
+  return `/api/charts/social-artwork-image?${params.toString()}`;
+}
+
+async function downloadSocialArtworkImage(url: string): Promise<{ data: Buffer; contentType: string } | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (!SOCIAL_ARTWORK_ALLOWED_DOMAINS.has(parsed.hostname)) return null;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; MexicoCharts/1.0; +https://mexicochart.com)",
+        "Accept": "image/webp,image/jpeg,image/png,image/*",
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    if (!contentType.startsWith("image/")) return null;
+    const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength <= 0 || arrayBuffer.byteLength > SOCIAL_ARTWORK_MAX_BYTES) return null;
+    return {
+      data: Buffer.from(arrayBuffer),
+      contentType,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function artistMatchScore(expected: string, found: string): number {
   const expectedNorm = normalizeForMatch(expected);
   const foundNorm = normalizeForMatch(found);
@@ -343,6 +397,8 @@ async function ensureSocialArtworkTable(): Promise<void> {
       display_title text NOT NULL,
       display_artist text DEFAULT '' NOT NULL,
       image_url text NOT NULL,
+      image_data bytea,
+      image_content_type text,
       source text NOT NULL,
       first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
       last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -350,6 +406,8 @@ async function ensureSocialArtworkTable(): Promise<void> {
       PRIMARY KEY (template_key, entity_type, entity_key)
     );
   `);
+  await pool.query(`ALTER TABLE social_template_artwork ADD COLUMN IF NOT EXISTS image_data bytea;`);
+  await pool.query(`ALTER TABLE social_template_artwork ADD COLUMN IF NOT EXISTS image_content_type text;`);
   await pool.query(`CREATE INDEX IF NOT EXISTS social_template_artwork_entity_idx ON social_template_artwork (entity_type, entity_key);`);
   await pool.query(`CREATE INDEX IF NOT EXISTS social_template_artwork_seen_idx ON social_template_artwork (template_key, last_seen_at);`);
 }
@@ -362,6 +420,43 @@ function requestEntityKey(item: { id?: string; title?: string; artist?: string }
   if (item.id?.trim()) return socialArtworkKey(item.id);
   return socialArtworkKey(`${type}:${item.artist ?? ""}:${item.title ?? ""}`);
 }
+
+router.get("/charts/social-artwork-image", async (req, res) => {
+  const templateKey = socialArtworkKey(String(req.query["templateKey"] || ""));
+  const type: SocialArtworkType = req.query["type"] === "album" ? "album" : req.query["type"] === "artist" ? "artist" : "track";
+  const entityKey = socialArtworkKey(String(req.query["entityKey"] || ""));
+
+  if (!templateKey || !entityKey) {
+    res.status(400).json({ error: "templateKey and entityKey are required" });
+    return;
+  }
+
+  try {
+    await ensureSocialArtworkTable();
+    const cached = await pool.query<{ image_data: Buffer | null; image_content_type: string | null }>(
+      `
+      SELECT image_data, image_content_type
+      FROM social_template_artwork
+      WHERE template_key = $1
+        AND entity_type = $2
+        AND entity_key = $3
+        AND image_data IS NOT NULL
+      `,
+      [templateKey, type, entityKey],
+    );
+    const row = cached.rows[0];
+    if (!row?.image_data) {
+      res.status(404).json({ error: "artwork image not cached" });
+      return;
+    }
+    res.setHeader("Content-Type", row.image_content_type || "image/jpeg");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(row.image_data);
+  } catch (err) {
+    res.status(502).json({ error: "Failed to serve social artwork image", detail: String(err) });
+  }
+});
 
 router.post("/charts/social-artwork", async (req, res) => {
   const body = req.body as {
@@ -378,9 +473,9 @@ router.post("/charts/social-artwork", async (req, res) => {
 
     const keys = items.map(item => requestEntityKey(item, type));
     const cache = keys.length
-      ? await pool.query<{ entity_key: string; image_url: string }>(
+      ? await pool.query<{ entity_key: string; image_url: string; image_data: Buffer | null; image_content_type: string | null; source: string }>(
           `
-          SELECT entity_key, image_url
+          SELECT entity_key, image_url, image_data, image_content_type, source
           FROM social_template_artwork
           WHERE template_key = $1
             AND entity_type = $2
@@ -389,35 +484,38 @@ router.post("/charts/social-artwork", async (req, res) => {
           [templateKey, type, keys],
         )
       : { rows: [] };
-    const cached = new Map(cache.rows.map(row => [row.entity_key, row.image_url]));
+    const cached = new Map(cache.rows.map(row => [row.entity_key, row]));
     const results: Record<string, string | null> = Object.fromEntries(items.map(item => [item.id || `${item.artist ?? ""}::${item.title ?? ""}`, null]));
     const resultEntityKeys: Record<string, string> = {};
+    const sourceUrlsByResult: Record<string, string> = {};
     const pending = items
       .map((item, index) => ({ item, index, key: keys[index] }))
       .filter(entry => {
         const resultKey = entry.item.id || `${entry.item.artist ?? ""}::${entry.item.title ?? ""}`;
         resultEntityKeys[resultKey] = entry.key;
-        const cachedUrl = cached.get(entry.key);
-        if (cachedUrl) {
-          results[resultKey] = cachedUrl;
+        const cachedRow = cached.get(entry.key);
+        if (cachedRow?.image_data) {
+          results[resultKey] = localSocialArtworkUrl(templateKey, type, entry.key);
+          sourceUrlsByResult[resultKey] = cachedRow.image_url;
           return false;
         }
         return true;
       });
 
-    const resolved: Array<{ entry: typeof pending[number]; artwork: ArtworkResolution | null }> = [];
+    const resolved: Array<{ entry: typeof pending[number]; artwork: ArtworkResolution | null; image: { data: Buffer; contentType: string } | null }> = [];
     for (let i = 0; i < pending.length; i += 4) {
       const batch = pending.slice(i, i + 4);
       const found = await Promise.all(batch.map(async item => {
         const artist = item.item.artist?.trim() ?? "";
         const title = item.item.title?.trim() ?? "";
-        if (!artist || (type !== "artist" && !title)) return { entry: item, artwork: null };
-        const url = type === "album"
+        if (!artist || (type !== "artist" && !title)) return { entry: item, artwork: null, image: null };
+        const artwork = type === "album"
           ? await resolveAlbumArtwork(artist, title)
           : type === "artist"
             ? await resolveArtistArtwork(artist)
             : await resolveTrackArtwork(artist, title);
-        return { entry: item, artwork: url };
+        const image = artwork?.url ? await downloadSocialArtworkImage(artwork.url) : null;
+        return { entry: item, artwork, image };
       }));
       resolved.push(...found);
       if (i + 4 < pending.length) await new Promise(r => setTimeout(r, 250));
@@ -432,23 +530,26 @@ router.post("/charts/social-artwork", async (req, res) => {
       const resultKey = item.entry.item.id || `${item.entry.item.artist ?? ""}::${item.entry.item.title ?? ""}`;
       resultEntityKeys[resultKey] = item.entry.key;
       const artwork = item.artwork;
-      if (!artwork?.url || (urlCounts.get(artwork.url) ?? 0) > 1) {
+      if (!artwork?.url || !item.image || (urlCounts.get(artwork.url) ?? 0) > 1) {
         results[resultKey] = null;
         continue;
       }
 
-      results[resultKey] = artwork.url;
+      results[resultKey] = localSocialArtworkUrl(templateKey, type, item.entry.key);
+      sourceUrlsByResult[resultKey] = artwork.url;
       await pool.query(
         `
         INSERT INTO social_template_artwork (
-          template_key, entity_type, entity_key, display_title, display_artist, image_url, source
+          template_key, entity_type, entity_key, display_title, display_artist, image_url, image_data, image_content_type, source
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (template_key, entity_type, entity_key)
         DO UPDATE SET
           display_title = EXCLUDED.display_title,
           display_artist = EXCLUDED.display_artist,
           image_url = EXCLUDED.image_url,
+          image_data = EXCLUDED.image_data,
+          image_content_type = EXCLUDED.image_content_type,
           source = EXCLUDED.source,
           last_seen_at = now(),
           updated_at = now()
@@ -460,23 +561,25 @@ router.post("/charts/social-artwork", async (req, res) => {
           item.entry.item.title ?? "",
           item.entry.item.artist ?? "",
           artwork.url,
+          item.image.data,
+          item.image.contentType,
           artwork.source,
         ],
       );
     }
 
-    const finalUrlCounts = new Map<string, number>();
-    for (const url of Object.values(results)) {
-      if (url) finalUrlCounts.set(url, (finalUrlCounts.get(url) ?? 0) + 1);
+    const finalSourceUrlCounts = new Map<string, number>();
+    for (const url of Object.values(sourceUrlsByResult)) {
+      if (url) finalSourceUrlCounts.set(url, (finalSourceUrlCounts.get(url) ?? 0) + 1);
     }
     const duplicateEntityKeys = Object.entries(results)
-      .filter(([, url]) => url && (finalUrlCounts.get(url) ?? 0) > 1)
+      .filter(([resultKey, url]) => url && (finalSourceUrlCounts.get(sourceUrlsByResult[resultKey]) ?? 0) > 1)
       .map(([resultKey]) => resultEntityKeys[resultKey])
       .filter((key): key is string => Boolean(key));
 
     for (const resultKey of Object.keys(results)) {
       const url = results[resultKey];
-      if (url && (finalUrlCounts.get(url) ?? 0) > 1) {
+      if (url && (finalSourceUrlCounts.get(sourceUrlsByResult[resultKey]) ?? 0) > 1) {
         results[resultKey] = null;
       }
     }

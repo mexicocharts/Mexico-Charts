@@ -32,7 +32,7 @@ export default function WeeklyTopAlbums() {
     title: r["Title"] ?? "",
     artist: r["Artist Names"] ?? "",
   }));
-  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems);
+  const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems, "weekly-top-albums");
   const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
   const imageUrls = suppressDuplicateImages(
     hubRows.map((r, i) => proxyImageUrl(

@@ -1,4 +1,10 @@
-import { index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { customType, index, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 export const socialTemplateArtwork = pgTable("social_template_artwork", {
   templateKey: text("template_key").notNull(),
@@ -7,6 +13,8 @@ export const socialTemplateArtwork = pgTable("social_template_artwork", {
   displayTitle: text("display_title").notNull(),
   displayArtist: text("display_artist").notNull().default(""),
   imageUrl: text("image_url").notNull(),
+  imageData: bytea("image_data"),
+  imageContentType: text("image_content_type"),
   source: text("source").notNull(),
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
