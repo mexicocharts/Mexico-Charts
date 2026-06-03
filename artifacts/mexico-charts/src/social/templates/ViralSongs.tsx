@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "El Azul",            subtitle: "Fuerza Regida · Peso Pluma", stat: "↑840%",  isNew: true  },
@@ -28,7 +28,8 @@ export default function ViralSongs() {
     artist: r["artist_names"] ?? "",
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "viral-songs");
-  const exportLoading = viralRows.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = viralRows.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const imageUrls = suppressDuplicateImages(
     viralRows.map((r, i) => proxyImageUrl(
       artwork?.[rowId(r, i)] ??

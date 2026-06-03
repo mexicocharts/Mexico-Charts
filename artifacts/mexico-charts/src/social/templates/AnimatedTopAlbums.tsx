@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, fmtStreams, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useChartsHub, fmtStreams, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -52,7 +52,8 @@ export default function AnimatedTopAlbums() {
     artist: r["Artist Names"] ?? "",
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems, "animated-top-albums");
-  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const { phase, cycle } = useAnimLoop();
 
   const isLive = hubRows.length > 0;

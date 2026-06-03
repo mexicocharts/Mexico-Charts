@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -57,7 +57,8 @@ export default function AnimatedTopSongs() {
     artist: [e.artist, ...e.features].join(" "),
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "animated-top-songs");
-  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const imageUrls = suppressDuplicateImages(entries.map(e => proxyImageUrl(artwork?.[e.trackId] ?? e.coverUrl)));
 
   const rows = useMemo((): SongRow[] => entries.length > 0

@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useSpotifyChart, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 
 const FALLBACK_TOP3: ChartRowData[] = [
   { rank: 1, title: "Ella Baila Sola", subtitle: "Peso Pluma · Eslabon Armado", stat: "21.4M", movement: 0,  peak: 1, weeks: 12 },
@@ -29,7 +29,8 @@ export default function WeeklyTopSongs() {
     artist: [e.artist, ...e.features].join(" "),
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("track", artworkItems, "weekly-top-songs");
-  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = entries.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const imageUrls = suppressDuplicateImages(
     entries.map(e => proxyImageUrl(artwork?.[e.trackId] ?? e.coverUrl))
   );

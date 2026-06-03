@@ -71,6 +71,13 @@ export interface ArtworkLookupItem {
   artist: string;
 }
 
+export function artworkCoverage(items: ArtworkLookupItem[], artwork: Record<string, string | null> | undefined) {
+  const total = items.length;
+  if (!total || !artwork) return { total, resolved: 0, complete: total === 0 };
+  const resolved = items.reduce((count, item) => count + (artwork[item.id] ? 1 : 0), 0);
+  return { total, resolved, complete: resolved >= total };
+}
+
 export function useSocialArtwork(type: "track" | "album" | "artist", items: ArtworkLookupItem[], templateKey = `social-${type}`) {
   const key = items.map(item => `${item.id}:${item.artist}:${item.title}`).join("|");
   return useQuery<Record<string, string | null>>({
@@ -89,6 +96,11 @@ export function useSocialArtwork(type: "track" | "album" | "artist", items: Artw
     staleTime: 5 * 60 * 1000,
     enabled: items.length > 0,
     retry: 1,
+    refetchInterval: (query) => {
+      const current = query.state.data as Record<string, string | null> | undefined;
+      if (!items.length || !current) return false;
+      return artworkCoverage(items, current).complete ? false : 2000;
+    },
   });
 }
 

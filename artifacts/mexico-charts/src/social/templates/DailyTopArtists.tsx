@@ -3,7 +3,7 @@ import {
   SectionLabel, PlatformBadge, ACCENT,
 } from "../components";
 import type { ChartRowData } from "../components";
-import { useChartsHub, proxyImageUrl, parseMovement, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useChartsHub, proxyImageUrl, parseMovement, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 
 const FALLBACK: ChartRowData[] = [
   { rank: 1,  title: "Peso Pluma",     subtitle: "Racha en chart",  movement: 0  },
@@ -27,7 +27,8 @@ export default function DailyTopArtists() {
     artist: r["Artist"] ?? "",
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("artist", artworkItems, "daily-top-artists");
-  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const imageUrls = suppressDuplicateImages(
     hubRows.map((r, i) => proxyImageUrl(artwork?.[r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`]))
   );

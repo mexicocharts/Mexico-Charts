@@ -3,7 +3,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, PlatformBadge, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useChartsHub, parseMovement, fmtStreams, proxyImageUrl, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 import { useAnimLoop, useStreamCounters } from "../useAnimLoop";
 
 const ANIM_CSS = `
@@ -57,7 +57,8 @@ export default function AnimatedTopArtists() {
     artist: r["Artist"] ?? "",
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("artist", artworkItems, "animated-top-artists");
-  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const { phase, cycle } = useAnimLoop();
   const imageUrls = suppressDuplicateImages(
     hubRows.map((r, i) => proxyImageUrl(artwork?.[r["Artist ID"] || r["artist_id"] || `${i}-${r["Artist"]}`]))

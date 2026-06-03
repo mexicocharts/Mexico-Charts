@@ -2,7 +2,7 @@ import {
   TemplateCanvas, LogoBar, AccentLine, CTAFooter,
   SectionLabel, AlbumFrame, MovementBadge, ACCENT,
 } from "../components";
-import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork } from "../useChartData";
+import { useChartsHub, proxyImageUrl, imageFromRow, suppressDuplicateImages, useSocialArtwork, artworkCoverage } from "../useChartData";
 
 interface AlbumEntry {
   rank: number;
@@ -33,7 +33,8 @@ export default function WeeklyTopAlbums() {
     artist: r["Artist Names"] ?? "",
   }));
   const { data: artwork, isFetching: artworkFetching } = useSocialArtwork("album", artworkItems, "weekly-top-albums");
-  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined);
+  const artworkReady = artworkCoverage(artworkItems, artwork).complete;
+  const exportLoading = hubRows.length > 0 && (artworkFetching || artwork === undefined || !artworkReady);
   const imageUrls = suppressDuplicateImages(
     hubRows.map((r, i) => proxyImageUrl(
       artwork?.[r["Album ID"] || r["id"] || `${i}-${r["Artist Names"]}-${r["Title"]}`] ??
