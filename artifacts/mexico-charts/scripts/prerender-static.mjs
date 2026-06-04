@@ -481,20 +481,34 @@ async function writeRoute(baseHtml, route) {
     return;
   }
 
-  const routeDir = path.join(outDir, route.path.slice(1));
-  const routeFile = path.join(routeDir, "index.html");
+  const cleanRoutePath = path.join(outDir, route.path.slice(1));
+  const hasChildRoutes = routes.some(
+    (candidate) => candidate.path !== route.path && candidate.path.startsWith(`${route.path}/`),
+  );
 
-  // If a stale extensionless file exists at the clean route path, remove it
-  // before creating the directory-backed route shell.
+  if (hasChildRoutes) {
+    // Parent routes such as /touring need a directory so child routes can exist.
+    try {
+      const st = statSync(cleanRoutePath);
+      if (st.isFile()) {
+        await rm(cleanRoutePath, { force: true });
+      }
+    } catch { /* doesn't exist — safe to proceed */ }
+
+    await mkdir(cleanRoutePath, { recursive: true });
+    await writeFile(path.join(cleanRoutePath, "index.html"), html);
+    return;
+  }
+
+  await mkdir(path.dirname(cleanRoutePath), { recursive: true });
   try {
-    const st = statSync(routeDir);
-    if (st.isFile()) {
-      await rm(routeDir, { force: true });
+    const st = statSync(cleanRoutePath);
+    if (st.isDirectory()) {
+      await rm(cleanRoutePath, { recursive: true, force: true });
     }
   } catch { /* doesn't exist — safe to proceed */ }
 
-  await mkdir(routeDir, { recursive: true });
-  await writeFile(routeFile, html);
+  await writeFile(cleanRoutePath, html);
 }
 
 const baseHtml = await readFile(baseHtmlPath, "utf8");
