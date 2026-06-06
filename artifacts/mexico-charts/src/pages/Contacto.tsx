@@ -50,12 +50,28 @@ const INTENTS = [
 ] as const;
 
 export default function Contacto() {
+  const contactJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    name: "Contacto — Mexico Charts",
+    url: `${SITE_URL}/contacto`,
+    description: "Contacto de Mexico Charts para colaboraciones, correcciones de datos, prensa, propuestas editoriales y oportunidades relacionadas con música mexicana.",
+    inLanguage: "es-MX",
+    publisher: {
+      "@type": "Organization",
+      name: "Mexico Charts",
+      url: SITE_URL,
+      email: CONTACT_EMAIL,
+    },
+  };
+
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Contacto — Mexico Charts"
         description="Contacto de Mexico Charts para colaboraciones, correcciones de datos, prensa, propuestas editoriales y oportunidades relacionadas con música mexicana."
         path="/contacto"
+        jsonLd={contactJsonLd}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />

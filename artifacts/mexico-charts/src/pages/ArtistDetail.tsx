@@ -463,12 +463,6 @@ export default function ArtistDetail() {
   const spotifyUpdatedLabel = formatShortDateEs(enrichment?.spotify?.lastUpdated);
   const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
-  const youtubeDailyTrend = useMemo(
-    () => (ytChannel?.history ?? []).filter(point => point.dailyViews != null),
-    [ytChannel?.history],
-  );
-  const youtubeAnalytics = ytChannel?.analytics;
-  const youtubeSnapshotLabel = formatShortDateEs(ytChannel?.snapshotDate);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
   const hasAudienceStats = Boolean(metaArtist && (
@@ -495,6 +489,11 @@ export default function ArtistDetail() {
     [kworbStats?.spotify?.history],
   );
   const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
+  const youtubeKworbDailyTrend = useMemo(
+    () => (kworbStats?.youtube?.history ?? []).filter(point => point.dailyViews != null),
+    [kworbStats?.youtube?.history],
+  );
+  const youtubeKworbAnalytics = kworbStats?.youtube?.analytics;
   const momentumSources = useMemo(() => {
     const sources: Array<{
       key: "youtube" | "spotify";
@@ -522,31 +521,31 @@ export default function ArtistDetail() {
       scoreFmt: string | null | undefined;
     }> = [];
 
-    if (ytChannel) {
+    if (kworbStats?.youtube) {
       sources.push({
         key: "youtube",
         label: "YouTube",
-        kicker: "YouTube oficial",
+        kicker: "YouTube diario",
         color: "#ef4444",
         icon: <SiYoutube className="h-5 w-5" />,
-        todayValue: ytChannel.dailyViewsFmt,
-        totalValue: ytChannel.viewsFmt,
+        todayValue: kworbStats.youtube.dailyAvgFmt,
+        totalValue: kworbStats.youtube.totalViewsFmt,
         totalLabel: "vistas totales",
-        points: youtubeDailyTrend,
-        availableDays: youtubeAnalytics?.availableDays ?? youtubeDailyTrend.length,
-        snapshotLabel: youtubeSnapshotLabel,
-        average7: youtubeAnalytics?.views.average7DayFmt ?? null,
-        average30: youtubeAnalytics?.views.average30DayFmt ?? null,
-        average7Pct: youtubeAnalytics?.views.average7DayChangePct ?? null,
-        average30Pct: youtubeAnalytics?.views.average30DayChangePct ?? null,
-        weeklyGrowth: youtubeAnalytics?.views.weeklyGrowth ?? null,
-        weeklyGrowthFmt: youtubeAnalytics?.views.weeklyGrowthFmt ?? null,
-        monthlyGrowth: youtubeAnalytics?.views.monthlyGrowth ?? null,
-        monthlyGrowthFmt: youtubeAnalytics?.views.monthlyGrowthFmt ?? null,
-        biggestSpikeValue: youtubeAnalytics?.views.biggestSpike?.viewsFmt ?? null,
-        biggestSpikeDate: youtubeAnalytics?.views.biggestSpike?.date ?? null,
-        trend: youtubeAnalytics?.momentum.trend,
-        scoreFmt: youtubeAnalytics?.momentum.scoreFmt,
+        points: youtubeKworbDailyTrend,
+        availableDays: youtubeKworbAnalytics?.availableDays ?? youtubeKworbDailyTrend.length,
+        snapshotLabel: formatShortDateEs(youtubeKworbDailyTrend.at(-1)?.date),
+        average7: youtubeKworbAnalytics?.views.average7DayFmt ?? null,
+        average30: youtubeKworbAnalytics?.views.average30DayFmt ?? null,
+        average7Pct: youtubeKworbAnalytics?.views.average7DayChangePct ?? null,
+        average30Pct: youtubeKworbAnalytics?.views.average30DayChangePct ?? null,
+        weeklyGrowth: youtubeKworbAnalytics?.views.weeklyGrowth ?? null,
+        weeklyGrowthFmt: youtubeKworbAnalytics?.views.weeklyGrowthFmt ?? null,
+        monthlyGrowth: youtubeKworbAnalytics?.views.monthlyGrowth ?? null,
+        monthlyGrowthFmt: youtubeKworbAnalytics?.views.monthlyGrowthFmt ?? null,
+        biggestSpikeValue: youtubeKworbAnalytics?.views.biggestSpike?.viewsFmt ?? null,
+        biggestSpikeDate: youtubeKworbAnalytics?.views.biggestSpike?.date ?? null,
+        trend: youtubeKworbAnalytics?.momentum.trend,
+        scoreFmt: youtubeKworbAnalytics?.momentum.scoreFmt,
       });
     }
 
@@ -581,12 +580,11 @@ export default function ArtistDetail() {
     return sources;
   }, [
     kworbStats?.spotify,
+    kworbStats?.youtube,
     spotifyKworbAnalytics,
     spotifyKworbDailyTrend,
-    ytChannel,
-    youtubeAnalytics,
-    youtubeDailyTrend,
-    youtubeSnapshotLabel,
+    youtubeKworbAnalytics,
+    youtubeKworbDailyTrend,
   ]);
 
   /* ── Kworb refresh status (last scheduler run) ── */

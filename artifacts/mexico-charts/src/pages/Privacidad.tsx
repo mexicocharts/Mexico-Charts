@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { BarChart3, ChevronRight, Cookie, ExternalLink, Home, Mail, Megaphone, MousePointer2, ShieldCheck, UserRound } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
-import { CONTACT_EMAIL, SITE_DOMAIN } from "@/config/brand";
+import { CONTACT_EMAIL, SITE_DOMAIN, SITE_URL } from "@/config/brand";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -41,12 +41,33 @@ const PRIVACY_ITEMS = [
 ] as const;
 
 export default function Privacidad() {
+  const privacyJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: "Privacidad — Mexico Charts",
+    url: `${SITE_URL}/privacidad`,
+    description: "Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com.",
+    inLanguage: "es-MX",
+    isPartOf: {
+      "@type": "WebSite",
+      name: "Mexico Charts",
+      url: SITE_URL,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Mexico Charts",
+      url: SITE_URL,
+      email: CONTACT_EMAIL,
+    },
+  };
+
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Privacidad — Mexico Charts"
         description="Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com."
         path="/privacidad"
+        jsonLd={privacyJsonLd}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />

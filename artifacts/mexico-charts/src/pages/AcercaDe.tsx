@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { BarChart3, ChevronRight, Disc3, Globe2, Home, Landmark, Radio, ShieldCheck, Sparkles, Users } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { SITE_URL } from "@/config/brand";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -32,12 +33,33 @@ const COVERAGE = [
 ] as const;
 
 export default function AcercaDe() {
+  const aboutJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "AboutPage",
+    name: "Acerca de Mexico Charts",
+    url: `${SITE_URL}/acerca-de`,
+    description: "Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras.",
+    inLanguage: "es-MX",
+    publisher: {
+      "@type": "Organization",
+      name: "Mexico Charts",
+      url: SITE_URL,
+    },
+    mainEntity: {
+      "@type": "Organization",
+      name: "Mexico Charts",
+      url: SITE_URL,
+      description: "Plataforma independiente de datos, cultura e impacto de la música mexicana.",
+    },
+  };
+
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
         title="Acerca de Mexico Charts — Datos y cultura de la música mexicana"
         description="Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras."
         path="/acerca-de"
+        jsonLd={aboutJsonLd}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />

@@ -276,9 +276,9 @@ const routes = [
   },
   {
     path: "/acerca-de",
-    title: "Acerca de Mexico Charts",
+    title: "Acerca de Mexico Charts — Datos y cultura de la música mexicana",
     description:
-      "Mexico Charts es una plataforma independiente de datos sobre música mexicana, charts, artistas, streaming, industria, certificaciones y touring.",
+      "Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras.",
     eyebrow: "Acerca de",
     heading: "Mexico Charts",
     body:

@@ -1,5 +1,13 @@
 import { Router } from "express";
-import { db, pool, deezerTrackCovers, kworbCoverage, kworbSnapshots, spotifyKworbDailySnapshots } from "@workspace/db";
+import {
+  db,
+  pool,
+  deezerTrackCovers,
+  kworbCoverage,
+  kworbSnapshots,
+  spotifyKworbDailySnapshots,
+  youtubeKworbDailySnapshots,
+} from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 
 const router = Router();
@@ -382,6 +390,8 @@ interface KworbStats {
     dailyAvg: number;
     dailyAvgFmt: string;
     topVideos: VideoEntry[];
+    history?: YoutubeKworbHistoryPoint[];
+    analytics?: YoutubeKworbAnalytics | null;
   } | null;
   chartPositions: ChartPosition[] | null;
 }
@@ -405,6 +415,34 @@ interface SpotifyKworbAnalytics {
     monthlyGrowth: number | null;
     monthlyGrowthFmt: string | null;
     biggestSpike: { date: string; streams: number | null; streamsFmt: string | null } | null;
+  };
+  momentum: {
+    trend: "rising" | "steady" | "cooling" | "new" | null;
+    score: number | null;
+    scoreFmt: string | null;
+  };
+  availableDays: number;
+}
+
+interface YoutubeKworbHistoryPoint {
+  date: string;
+  totalViews: number | null;
+  dailyViews: number | null;
+}
+
+interface YoutubeKworbAnalytics {
+  views: {
+    average7Day: number | null;
+    average7DayFmt: string | null;
+    average30Day: number | null;
+    average30DayFmt: string | null;
+    average7DayChangePct: number | null;
+    average30DayChangePct: number | null;
+    weeklyGrowth: number | null;
+    weeklyGrowthFmt: string | null;
+    monthlyGrowth: number | null;
+    monthlyGrowthFmt: string | null;
+    biggestSpike: { date: string; views: number | null; viewsFmt: string | null } | null;
   };
   momentum: {
     trend: "rising" | "steady" | "cooling" | "new" | null;
@@ -511,6 +549,57 @@ function deriveSpotifyKworbAnalytics(history: SpotifyKworbHistoryPoint[]): Spoti
       scoreFmt: fmtNullableNum(score),
     },
     availableDays: dailyStreams.filter(value => value != null).length,
+  };
+}
+
+function deriveYoutubeKworbAnalytics(history: YoutubeKworbHistoryPoint[]): YoutubeKworbAnalytics | null {
+  if (!history.length) return null;
+  const dailyViews = history.map(point => point.dailyViews);
+  const totalViews = history.map(point => point.totalViews);
+  const avg7 = avgRecent(dailyViews, 7);
+  const avg30 = avgRecent(dailyViews, 30);
+  const previous7 = avgRecent(dailyViews.slice(0, -7), 7);
+  const previous30 = avgRecent(dailyViews.slice(0, -30), 30);
+  const biggestSpike = history
+    .filter(point => point.dailyViews != null)
+    .sort((a, b) => (b.dailyViews ?? 0) - (a.dailyViews ?? 0))[0] ?? null;
+
+  const weeklyGrowth = growthBetween(totalViews, 7);
+  const monthlyGrowth = growthBetween(totalViews, 30);
+  const avg7ChangePct = percentChange(avg7, previous7);
+
+  let trend: YoutubeKworbAnalytics["momentum"]["trend"] = null;
+  if (dailyViews.filter(value => value != null).length < 3) trend = "new";
+  else if ((avg7ChangePct ?? 0) >= 8 || (weeklyGrowth ?? 0) > 0) trend = "rising";
+  else if ((avg7ChangePct ?? 0) <= -8) trend = "cooling";
+  else trend = "steady";
+
+  const score = avg7 == null ? null : Math.round(avg7 * (1 + Math.max(-25, Math.min(25, avg7ChangePct ?? 0)) / 100));
+
+  return {
+    views: {
+      average7Day: avg7,
+      average7DayFmt: fmtNullableNum(avg7),
+      average30Day: avg30,
+      average30DayFmt: fmtNullableNum(avg30),
+      average7DayChangePct: avg7ChangePct,
+      average30DayChangePct: percentChange(avg30, previous30),
+      weeklyGrowth,
+      weeklyGrowthFmt: fmtNullableNum(weeklyGrowth),
+      monthlyGrowth,
+      monthlyGrowthFmt: fmtNullableNum(monthlyGrowth),
+      biggestSpike: biggestSpike ? {
+        date: biggestSpike.date,
+        views: biggestSpike.dailyViews,
+        viewsFmt: fmtNullableNum(biggestSpike.dailyViews),
+      } : null,
+    },
+    momentum: {
+      trend,
+      score,
+      scoreFmt: fmtNullableNum(score),
+    },
+    availableDays: dailyViews.filter(value => value != null).length,
   };
 }
 
@@ -777,6 +866,63 @@ async function loadSlugListFromCoverage(): Promise<void> {
 }
 
 /* ══ DB helpers ═══════════════════════════════════════════════════════════ */
+const isoToday = () => new Date().toISOString().slice(0, 10);
+
+let youtubeKworbDailyTableReady = false;
+
+async function ensureYoutubeKworbDailySnapshotTable(): Promise<void> {
+  if (youtubeKworbDailyTableReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS youtube_kworb_daily_snapshots (
+      id serial PRIMARY KEY,
+      artist_key text NOT NULL,
+      snapshot_date text NOT NULL,
+      source_type text NOT NULL DEFAULT 'kworb_youtube_artist',
+      total_views bigint,
+      daily_views bigint,
+      video_count integer,
+      fetched_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS youtube_kworb_daily_snapshots_artist_date_unique
+    ON youtube_kworb_daily_snapshots (artist_key, snapshot_date)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS youtube_kworb_daily_snapshots_artist_date_idx
+    ON youtube_kworb_daily_snapshots (artist_key, snapshot_date)
+  `);
+  youtubeKworbDailyTableReady = true;
+}
+
+async function saveYoutubeKworbDailySnapshot(
+  artistKey: string,
+  value: KworbStats["youtube"],
+): Promise<void> {
+  if (!value?.totalViews && !value?.dailyAvg) return;
+  await ensureYoutubeKworbDailySnapshotTable();
+  await db.insert(youtubeKworbDailySnapshots)
+    .values({
+      artistKey,
+      snapshotDate: isoToday(),
+      totalViews: value.totalViews || null,
+      dailyViews: value.dailyAvg || null,
+      videoCount: value.topVideos?.length ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [youtubeKworbDailySnapshots.artistKey, youtubeKworbDailySnapshots.snapshotDate],
+      set: {
+        totalViews: sql`EXCLUDED.total_views`,
+        dailyViews: sql`EXCLUDED.daily_views`,
+        videoCount: sql`EXCLUDED.video_count`,
+        fetchedAt: sql`now()`,
+        updatedAt: sql`now()`,
+      },
+    });
+}
+
 async function getSnapshot(artistKey: string, metricType: string): Promise<unknown | null> {
   const rows = await db
     .select({ value: kworbSnapshots.value })
@@ -801,6 +947,10 @@ async function saveSnapshot(
         expiresAt: sql`EXCLUDED.expires_at`,
       },
     });
+
+  if (metricType === "youtube") {
+    await saveYoutubeKworbDailySnapshot(artistKey, value as KworbStats["youtube"]);
+  }
 }
 
 async function enrichChartPositionsWithDeezerCovers(
@@ -1551,7 +1701,11 @@ router.get("/kworb/artist-stats", async (req, res) => {
   const spotifyId = cov?.spotifyId ?? spotifyIdMap.get(slug) ?? null;
 
   const snaps = await db
-    .select({ metricType: kworbSnapshots.metricType, value: kworbSnapshots.value })
+    .select({
+      metricType: kworbSnapshots.metricType,
+      value: kworbSnapshots.value,
+      fetchedAt: kworbSnapshots.fetchedAt,
+    })
     .from(kworbSnapshots)
     .where(eq(kworbSnapshots.artistKey, slug));
 
@@ -1591,6 +1745,43 @@ router.get("/kworb/artist-stats", async (req, res) => {
       analytics: deriveSpotifyKworbAnalytics(spotifyHistory),
     };
   }
+
+  if (stats.youtube) {
+    try {
+      const youtubeSnapshot = snaps.find(s => s.metricType === "youtube");
+      if (youtubeSnapshot?.fetchedAt?.toISOString().slice(0, 10) === isoToday()) {
+        await saveYoutubeKworbDailySnapshot(slug, stats.youtube);
+      } else {
+        await ensureYoutubeKworbDailySnapshotTable();
+      }
+      const historyRows = await db
+        .select({
+          snapshotDate: youtubeKworbDailySnapshots.snapshotDate,
+          totalViews: youtubeKworbDailySnapshots.totalViews,
+          dailyViews: youtubeKworbDailySnapshots.dailyViews,
+        })
+        .from(youtubeKworbDailySnapshots)
+        .where(eq(youtubeKworbDailySnapshots.artistKey, slug));
+
+      const youtubeHistory = historyRows
+        .map(row => ({
+          date: row.snapshotDate,
+          totalViews: row.totalViews,
+          dailyViews: row.dailyViews,
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .slice(-30);
+
+      stats.youtube = {
+        ...stats.youtube,
+        history: youtubeHistory,
+        analytics: deriveYoutubeKworbAnalytics(youtubeHistory),
+      };
+    } catch (err) {
+      console.warn("[kworb] failed to attach YouTube daily history", err);
+    }
+  }
+
   stats.chartPositions = await enrichChartPositionsWithDeezerCovers(slug, cov?.artistName ?? name, stats.chartPositions, true);
 
   const hasCachedData = !!(stats.spotify || stats.youtube || stats.chartPositions);

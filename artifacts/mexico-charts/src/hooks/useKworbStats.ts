@@ -77,6 +77,32 @@ export interface KworbYouTubeStats {
   dailyAvg: number;
   dailyAvgFmt: string;
   topVideos: KworbVideo[];
+  history?: Array<{
+    date: string;
+    totalViews: number | null;
+    dailyViews: number | null;
+  }>;
+  analytics?: {
+    views: {
+      average7Day: number | null;
+      average7DayFmt: string | null;
+      average30Day: number | null;
+      average30DayFmt: string | null;
+      average7DayChangePct: number | null;
+      average30DayChangePct: number | null;
+      weeklyGrowth: number | null;
+      weeklyGrowthFmt: string | null;
+      monthlyGrowth: number | null;
+      monthlyGrowthFmt: string | null;
+      biggestSpike: { date: string; views: number | null; viewsFmt: string | null } | null;
+    };
+    momentum: {
+      trend: "rising" | "steady" | "cooling" | "new" | null;
+      score: number | null;
+      scoreFmt: string | null;
+    };
+    availableDays: number;
+  } | null;
 }
 
 export interface KworbStats {

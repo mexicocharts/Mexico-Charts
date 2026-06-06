@@ -35,6 +35,12 @@ const DiscoveryReview = lazy(() => import("@/pages/DiscoveryReview"));
 
 const queryClient = new QueryClient();
 
+const LEGACY_ROUTE_REDIRECTS: Record<string, string> = {
+  "/about": "/acerca-de",
+  "/contact": "/contacto",
+  "/privacy": "/privacidad",
+};
+
 function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
@@ -43,9 +49,21 @@ function ScrollToTop() {
   return null;
 }
 
+function LegacyRouteRedirects() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    const target = LEGACY_ROUTE_REDIRECTS[location];
+    if (target) window.location.replace(target);
+  }, [location]);
+
+  return null;
+}
+
 function Router() {
   return (
     <>
+      <LegacyRouteRedirects />
       <ScrollToTop />
       <Suspense fallback={<div className="min-h-screen bg-[#050505]" />}>
         <Switch>
