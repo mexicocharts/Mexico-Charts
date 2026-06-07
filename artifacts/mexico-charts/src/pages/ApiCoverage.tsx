@@ -116,6 +116,19 @@ interface DailySnapshotStatus {
     missingPreview?: MomentumMissingRow[];
     missingReasonCounts?: Record<string, number>;
   };
+  youtubeVideoTracker?: {
+    total: number;
+    artists: number;
+    activeLinks: number;
+    dateRows: number;
+    rollupRows: number;
+    missing: number;
+    frozenVideos: number;
+    latestFetchedAt: string | null;
+    totalDailyViews: number;
+    missingPreview?: MomentumMissingRow[];
+    missingReasonCounts?: Record<string, number>;
+  };
   spotifyKworb: {
     total: number;
     dateRows: number;
@@ -127,7 +140,7 @@ interface DailySnapshotStatus {
   };
   recentRuns?: Array<{
     id: number;
-    provider: "youtube" | "spotify" | string;
+    provider: "youtube" | "spotify" | "youtube-video" | string;
     snapshotDate: string;
     reason: string;
     status: string;
@@ -296,6 +309,7 @@ export default function ApiCoverage() {
   const [refreshingTouring, setRefreshingTouring] = useState(false);
   const [refreshingYoutube, setRefreshingYoutube] = useState(false);
   const [runningYoutubeSnapshots, setRunningYoutubeSnapshots] = useState(false);
+  const [runningYoutubeVideoSnapshots, setRunningYoutubeVideoSnapshots] = useState(false);
   const [runningSpotifySnapshots, setRunningSpotifySnapshots] = useState(false);
   const [syncingKworb, setSyncingKworb] = useState(false);
   const [runningKworb, setRunningKworb] = useState(false);
@@ -448,13 +462,17 @@ export default function ApiCoverage() {
     }
   }
 
-  async function runDailySnapshot(provider: "youtube" | "spotify") {
+  async function runDailySnapshot(provider: "youtube" | "spotify" | "youtube-video") {
     if (!adminKey.trim()) {
       setError("Guarda la clave admin primero.");
       return;
     }
 
-    const setRunning = provider === "youtube" ? setRunningYoutubeSnapshots : setRunningSpotifySnapshots;
+    const setRunning = provider === "youtube"
+      ? setRunningYoutubeSnapshots
+      : provider === "youtube-video"
+        ? setRunningYoutubeVideoSnapshots
+        : setRunningSpotifySnapshots;
     setRunning(true);
     setActionMessage(null);
     setError(null);
@@ -463,20 +481,28 @@ export default function ApiCoverage() {
         method: "POST",
         headers: { "X-Admin-Key": adminKey.trim() },
       });
-      if (!res.ok) throw new Error(provider === "youtube" ? "No se pudo correr YouTube diario." : "No se pudo correr Spotify Kworb diario.");
+      if (!res.ok) {
+        const label = provider === "youtube"
+          ? "YouTube diario"
+          : provider === "youtube-video"
+            ? "YouTube videos diario"
+            : "Spotify Kworb diario";
+        throw new Error(`No se pudo correr ${label}.`);
+      }
       const data = await res.json() as {
         result?: {
           status?: string;
           channels?: number;
           artists?: number;
+          videos?: number;
           saved?: number;
           dateRows?: number;
           missing?: number;
         };
       };
       const result = data.result;
-      const label = provider === "youtube" ? "YouTube" : "Spotify Kworb";
-      setActionMessage(`${label}: ${result?.status ?? "ok"} · ${result?.dateRows ?? result?.saved ?? 0}/${result?.channels ?? result?.artists ?? 0} snapshots hoy.`);
+      const label = provider === "youtube" ? "YouTube canales" : provider === "youtube-video" ? "YouTube videos" : "Spotify Kworb";
+      setActionMessage(`${label}: ${result?.status ?? "ok"} · ${result?.dateRows ?? result?.saved ?? 0}/${result?.videos ?? result?.channels ?? result?.artists ?? 0} snapshots hoy.`);
       await loadDashboard(adminKey);
     } catch (err) {
       setError((err as Error).message);
@@ -795,11 +821,11 @@ export default function ApiCoverage() {
                   </button>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-3">
                   {[
                     {
                       key: "youtube",
-                      label: "YouTube",
+                      label: "YouTube canales",
                       scope: "canales oficiales vinculados",
                       color: "#ff4444",
                       icon: <SiYoutube className="h-5 w-5" />,
@@ -813,6 +839,27 @@ export default function ApiCoverage() {
                       missingReasonCounts: dailySnapshots.youtube.missingReasonCounts ?? {},
                       running: runningYoutubeSnapshots,
                       run: () => void runDailySnapshot("youtube"),
+                      totalCountLabel: "Canales",
+                      extraMeta: "Total del canal oficial; no siempre cambia diario",
+                    },
+                    {
+                      key: "youtube-video",
+                      label: "YouTube videos",
+                      scope: `${dailySnapshots.youtubeVideoTracker?.artists ?? 0} artistas · ${dailySnapshots.youtubeVideoTracker?.activeLinks ?? 0} enlaces activos`,
+                      color: "#ff7a3d",
+                      icon: <SiYoutube className="h-5 w-5" />,
+                      total: dailySnapshots.youtubeVideoTracker?.total ?? 0,
+                      dateRows: dailySnapshots.youtubeVideoTracker?.dateRows ?? 0,
+                      missing: dailySnapshots.youtubeVideoTracker?.missing ?? 0,
+                      latestFetchedAt: dailySnapshots.youtubeVideoTracker?.latestFetchedAt ?? null,
+                      totalDaily: dailySnapshots.youtubeVideoTracker?.totalDailyViews ?? 0,
+                      totalLabel: "views rastreadas",
+                      missingPreview: dailySnapshots.youtubeVideoTracker?.missingPreview ?? [],
+                      missingReasonCounts: dailySnapshots.youtubeVideoTracker?.missingReasonCounts ?? {},
+                      running: runningYoutubeVideoSnapshots,
+                      run: () => void runDailySnapshot("youtube-video"),
+                      totalCountLabel: "Videos",
+                      extraMeta: `${dailySnapshots.youtubeVideoTracker?.rollupRows ?? 0} rollups · ${dailySnapshots.youtubeVideoTracker?.frozenVideos ?? 0} videos sin cambio`,
                     },
                     {
                       key: "spotify",
@@ -830,6 +877,8 @@ export default function ApiCoverage() {
                       missingReasonCounts: dailySnapshots.spotifyKworb.missingReasonCounts ?? {},
                       running: runningSpotifySnapshots,
                       run: () => void runDailySnapshot("spotify"),
+                      totalCountLabel: "Artistas",
+                      extraMeta: "Streams diarios desde Kworb",
                     },
                   ].map(card => {
                     const complete = card.total > 0 && card.dateRows >= card.total;
@@ -868,7 +917,7 @@ export default function ApiCoverage() {
                           </div>
                           <div>
                             <div className="text-2xl font-black text-white">{card.total}</div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Vinculados</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">{card.totalCountLabel}</div>
                           </div>
                           <div>
                             <div className="text-2xl font-black text-white">{fmtCompact(card.totalDaily)}</div>
@@ -879,6 +928,7 @@ export default function ApiCoverage() {
                         <div className="mt-4 border-t border-white/[0.06] pt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                           <div>{card.dateRows}/{card.total} {card.scope}</div>
                           <div className="mt-1">Última corrida: {fmtDate(card.latestFetchedAt)}</div>
+                          <div className="mt-1">{card.extraMeta}</div>
                         </div>
 
                         {card.missing > 0 && (
@@ -913,7 +963,7 @@ export default function ApiCoverage() {
                               <div className="mt-3 max-h-72 overflow-auto rounded border border-white/[0.05] bg-black/20">
                                 {card.missingPreview.length > 0 ? (
                                   card.missingPreview.map(row => (
-                                    <div key={`${card.key}-${row.artistKey}`} className="grid gap-2 border-b border-white/[0.04] px-3 py-2 last:border-b-0 sm:grid-cols-[1fr_auto]">
+                                    <div key={`${card.key}-${row.artistKey}-${row.linkedId ?? row.linkedLabel ?? row.reason}`} className="grid gap-2 border-b border-white/[0.04] px-3 py-2 last:border-b-0 sm:grid-cols-[1fr_auto]">
                                       <div className="min-w-0">
                                         <div className="truncate text-xs font-black text-zinc-200">{row.artistName}</div>
                                         <div className="mt-0.5 truncate text-[10px] font-bold text-zinc-700">
@@ -946,14 +996,18 @@ export default function ApiCoverage() {
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <h3 className="text-xs font-black uppercase tracking-[0.14em] text-white">Últimas corridas</h3>
                     <span className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
-                      YouTube + Spotify
+                      YouTube + Spotify + Videos
                     </span>
                   </div>
                   <div className="grid gap-2 lg:grid-cols-2">
                     {(dailySnapshots.recentRuns ?? []).length > 0 ? (
                       (dailySnapshots.recentRuns ?? []).slice(0, 8).map(run => {
-                        const providerLabel = run.provider === "youtube" ? "YouTube" : "Spotify";
-                        const valueLabel = run.provider === "youtube" ? "views" : "streams";
+                        const providerLabel = run.provider === "youtube"
+                          ? "YouTube canales"
+                          : run.provider === "youtube-video"
+                            ? "YouTube videos"
+                            : "Spotify";
+                        const valueLabel = run.provider === "spotify" ? "streams" : "views";
                         return (
                           <div key={run.id} className="rounded border border-white/[0.05] bg-white/[0.02] px-3 py-2">
                             <div className="flex items-center gap-2">

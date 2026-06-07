@@ -13,6 +13,7 @@ import { logger } from "../lib/logger";
 import { ensureDailySnapshotRunLogTable } from "../lib/daily-snapshot-run-log";
 import { runDailySpotifyKworbSnapshots } from "../lib/spotify-kworb-snapshot-scheduler";
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
+import { ensureYoutubeVideoTrackerTables, runDailyYoutubeVideoSnapshots } from "../lib/youtube-video-tracker-scheduler";
 
 const router = Router();
 
@@ -665,7 +666,14 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
 
   try {
     await ensureDailySnapshotRunLogTable();
-    const [artistNames, youtubeRows, spotifyRows, youtubeMissingRows, spotifyMissingRows, runRows] = await Promise.all([
+    const ensureClient = await pool.connect();
+    try {
+      await ensureYoutubeVideoTrackerTables(ensureClient);
+    } finally {
+      ensureClient.release();
+    }
+
+    const [artistNames, youtubeRows, spotifyRows, youtubeVideoRows, youtubeMissingRows, spotifyMissingRows, youtubeVideoMissingRows, runRows] = await Promise.all([
       safeArtistNameMap(),
       pool.query<{
         total: number;
@@ -700,6 +708,29 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
             (SELECT count(*)::int FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS date_rows,
             (SELECT max(fetched_at)::text FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS latest_fetched_at,
             (SELECT COALESCE(sum(daily_streams), 0) FROM spotify_kworb_daily_snapshots WHERE snapshot_date = $1) AS total_daily_streams
+        `,
+        [snapshotDate],
+      ),
+      pool.query<{
+        total_videos: number;
+        total_artists: number;
+        active_links: number;
+        date_rows: number;
+        rollup_rows: number;
+        latest_fetched_at: string | null;
+        total_daily_views: string | number | null;
+        frozen_videos: number;
+      }>(
+        `
+          SELECT
+            (SELECT count(DISTINCT video_id)::int FROM youtube_artist_video_links WHERE active = true) AS total_videos,
+            (SELECT count(DISTINCT artist_key)::int FROM youtube_artist_video_links WHERE active = true) AS total_artists,
+            (SELECT count(*)::int FROM youtube_artist_video_links WHERE active = true) AS active_links,
+            (SELECT count(*)::int FROM youtube_video_daily_snapshots WHERE snapshot_date = $1) AS date_rows,
+            (SELECT count(*)::int FROM youtube_artist_video_daily_rollups WHERE snapshot_date = $1) AS rollup_rows,
+            (SELECT max(fetched_at)::text FROM youtube_video_daily_snapshots WHERE snapshot_date = $1) AS latest_fetched_at,
+            (SELECT COALESCE(sum(daily_view_delta), 0) FROM youtube_video_daily_snapshots WHERE snapshot_date = $1) AS total_daily_views,
+            (SELECT count(*)::int FROM youtube_video_daily_snapshots WHERE snapshot_date = $1 AND daily_view_delta = 0) AS frozen_videos
         `,
         [snapshotDate],
       ),
@@ -782,6 +813,46 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
         [snapshotDate, maxDetails],
       ),
       pool.query<{
+        artist_key: string;
+        artist_name: string | null;
+        video_id: string;
+        title: string | null;
+        last_snapshot_date: string | null;
+        last_fetched_at: string | null;
+        reason_bucket: string;
+      }>(
+        `
+          SELECT
+            l.artist_key,
+            l.artist_name,
+            l.video_id,
+            v.title,
+            latest.snapshot_date AS last_snapshot_date,
+            latest.fetched_at::text AS last_fetched_at,
+            CASE
+              WHEN latest.snapshot_date IS NULL THEN 'never_measured'
+              ELSE 'not_measured_today'
+            END AS reason_bucket
+          FROM youtube_artist_video_links l
+          LEFT JOIN youtube_tracked_videos v ON v.video_id = l.video_id
+          LEFT JOIN youtube_video_daily_snapshots today
+            ON today.video_id = l.video_id
+           AND today.snapshot_date = $1
+          LEFT JOIN LATERAL (
+            SELECT snapshot_date, fetched_at
+            FROM youtube_video_daily_snapshots ys
+            WHERE ys.video_id = l.video_id
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+          ) latest ON true
+          WHERE l.active = true
+            AND today.id IS NULL
+          ORDER BY latest.snapshot_date ASC NULLS FIRST, l.artist_key ASC, l.priority DESC
+          LIMIT $2
+        `,
+        [snapshotDate, maxDetails],
+      ),
+      pool.query<{
         id: number;
         provider: string;
         snapshot_date: string;
@@ -820,6 +891,16 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
 
     const youtube = youtubeRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_views: 0 };
     const spotify = spotifyRows.rows[0] ?? { total: 0, date_rows: 0, latest_fetched_at: null, total_daily_streams: 0 };
+    const youtubeVideo = youtubeVideoRows.rows[0] ?? {
+      total_videos: 0,
+      total_artists: 0,
+      active_links: 0,
+      date_rows: 0,
+      rollup_rows: 0,
+      latest_fetched_at: null,
+      total_daily_views: 0,
+      frozen_videos: 0,
+    };
     const reasonCounts = (rows: Array<{ reason_bucket: string }>) => rows.reduce<Record<string, number>>((counts, row) => {
       counts[row.reason_bucket] = (counts[row.reason_bucket] ?? 0) + 1;
       return counts;
@@ -845,6 +926,27 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
           reason: row.reason_bucket,
         })),
         missingReasonCounts: reasonCounts(youtubeMissingRows.rows),
+      },
+      youtubeVideoTracker: {
+        total: Number(youtubeVideo.total_videos ?? 0),
+        artists: Number(youtubeVideo.total_artists ?? 0),
+        activeLinks: Number(youtubeVideo.active_links ?? 0),
+        dateRows: Number(youtubeVideo.date_rows ?? 0),
+        rollupRows: Number(youtubeVideo.rollup_rows ?? 0),
+        missing: Math.max(0, Number(youtubeVideo.total_videos ?? 0) - Number(youtubeVideo.date_rows ?? 0)),
+        frozenVideos: Number(youtubeVideo.frozen_videos ?? 0),
+        latestFetchedAt: youtubeVideo.latest_fetched_at,
+        totalDailyViews: Number(youtubeVideo.total_daily_views ?? 0),
+        missingPreview: youtubeVideoMissingRows.rows.map(row => ({
+          artistKey: row.artist_key,
+          artistName: row.artist_name ?? artistNames.get(normalizeArtistKey(row.artist_key)) ?? row.artist_key,
+          linkedId: row.video_id,
+          linkedLabel: row.title,
+          lastSnapshotDate: row.last_snapshot_date,
+          lastFetchedAt: row.last_fetched_at,
+          reason: row.reason_bucket,
+        })),
+        missingReasonCounts: reasonCounts(youtubeVideoMissingRows.rows),
       },
       spotifyKworb: {
         total: Number(spotify.total ?? 0),
@@ -900,8 +1002,12 @@ router.post("/admin/artists/daily-snapshots/run", async (req, res) => {
       res.json({ provider: "spotifyKworb", result: await runDailySpotifyKworbSnapshots("admin-coverage-run-now") });
       return;
     }
+    if (provider === "youtube-video" || provider === "youtube-video-tracker") {
+      res.json({ provider: "youtubeVideoTracker", result: await runDailyYoutubeVideoSnapshots("admin-coverage-run-now") });
+      return;
+    }
 
-    res.status(400).json({ error: "provider must be youtube or spotify" });
+    res.status(400).json({ error: "provider must be youtube, spotify, or youtube-video" });
   } catch (err) {
     logger.error({ err, provider }, "[artists] daily snapshot run failed");
     res.status(500).json({ error: "Daily snapshot run failed" });

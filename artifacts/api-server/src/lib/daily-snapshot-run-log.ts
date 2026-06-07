@@ -4,7 +4,7 @@ type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
 };
 
-export type DailySnapshotProvider = "youtube" | "spotify";
+export type DailySnapshotProvider = "youtube" | "spotify" | "youtube-video";
 
 export interface DailySnapshotRunLogInput {
   provider: DailySnapshotProvider;
