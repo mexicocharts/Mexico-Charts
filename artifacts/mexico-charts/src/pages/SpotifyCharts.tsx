@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { SiSpotify } from "react-icons/si";
@@ -49,6 +49,10 @@ function PosChange({ val }: { val: string }) {
   return <span style={{ color: "rgba(255,255,255,0.45)" }}>—</span>;
 }
 
+function artistCredit(entry: ChartEntry) {
+  return `${entry.artist}${entry.features.length > 0 ? ` ft. ${entry.features.join(", ")}` : ""}`;
+}
+
 function AlbumArt({ src, title }: { src: string | null; title: string }) {
   const [err, setErr] = useState(false);
   if (!src || err) {
@@ -83,7 +87,13 @@ function SkeletonRow({ i }: { i: number }) {
 
 export default function SpotifyCharts() {
   const [period, setPeriod] = useState<"daily" | "weekly">("daily");
+  const [selectedEntry, setSelectedEntry] = useState<ChartEntry | null>(null);
   const { data, isLoading, isError } = useChart(period);
+
+  useEffect(() => {
+    setSelectedEntry(null);
+  }, [period]);
+
   const updatedLabel = data?.fetchedAt
     ? new Date(data.fetchedAt).toLocaleString("es-MX", {
         day: "numeric",
@@ -99,6 +109,13 @@ export default function SpotifyCharts() {
       ? "https://open.spotify.com/playlist/37i9dQZEVXbO3qyFxbkOE1"
       : "https://open.spotify.com/playlist/37i9dQZEVXbMXbN3EUUhlg",
     [period]);
+
+  const selectedTrackUrl = selectedEntry
+    ? `https://open.spotify.com/track/${selectedEntry.trackId}`
+    : "";
+  const selectedCredit = selectedEntry ? artistCredit(selectedEntry) : "";
+  const selectedMetricLabel = period === "daily" ? "Streams hoy" : "Streams semana";
+  const selectedChartLabel = `Spotify México · ${period === "daily" ? "Diario" : "Semanal"}`;
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
@@ -207,8 +224,23 @@ export default function SpotifyCharts() {
                   style={{ borderBottom: i < data.entries.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
 
                   {/* Desktop row */}
-                  <div className="hidden md:grid items-center px-5 py-3 gap-4 hover:bg-white/[0.018] transition-colors cursor-default"
-                    style={{ gridTemplateColumns: "40px 28px 56px 1fr 120px 120px" }}>
+                  <div
+                    className="hidden cursor-pointer items-center gap-4 px-5 py-3 transition-colors hover:bg-white/[0.028] md:grid"
+                    role="button"
+                    tabIndex={0}
+                    onClick={event => {
+                      if ((event.target as HTMLElement).closest("a,button")) return;
+                      setSelectedEntry(entry);
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedEntry(entry);
+                      }
+                    }}
+                    aria-label={`Ver detalle de ${entry.title}`}
+                    style={{ gridTemplateColumns: "40px 28px 56px 1fr 120px 120px" }}
+                  >
                     {/* Position */}
                     <div className="font-black text-sm text-right pr-2"
                       style={{ color: i < 3 ? G : "rgba(255,255,255,0.35)", textShadow: i < 3 ? `0 0 20px ${G}55` : "none" }}>
@@ -224,7 +256,7 @@ export default function SpotifyCharts() {
                     <div className="min-w-0">
                       <div className="text-sm font-black text-white truncate">{entry.title}</div>
                       <div className="text-[11px] font-medium truncate mt-0.5" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {entry.artist}{entry.features.length > 0 ? ` ft. ${entry.features.join(", ")}` : ""}
+                        {artistCredit(entry)}
                       </div>
                     </div>
                     {/* Streams */}
@@ -240,7 +272,22 @@ export default function SpotifyCharts() {
                   </div>
 
                   {/* Mobile row */}
-                  <div className="md:hidden flex items-center gap-3 px-4 py-3">
+                  <div
+                    className="flex cursor-pointer items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.028] md:hidden"
+                    role="button"
+                    tabIndex={0}
+                    onClick={event => {
+                      if ((event.target as HTMLElement).closest("a,button")) return;
+                      setSelectedEntry(entry);
+                    }}
+                    onKeyDown={event => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedEntry(entry);
+                      }
+                    }}
+                    aria-label={`Ver detalle de ${entry.title}`}
+                  >
                     <div className="font-black text-sm w-7 text-right flex-shrink-0"
                       style={{ color: i < 3 ? G : "rgba(255,255,255,0.3)" }}>
                       {entry.pos}
@@ -279,6 +326,146 @@ export default function SpotifyCharts() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {selectedEntry && (
+          <motion.div
+            className="fixed inset-0 z-[80] flex items-end justify-center bg-black/72 px-3 pb-3 backdrop-blur-md md:items-stretch md:justify-end md:p-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onMouseDown={() => setSelectedEntry(null)}
+          >
+            <motion.aside
+              className="max-h-[88vh] w-full max-w-xl overflow-y-auto rounded-xl md:h-full md:max-h-none md:rounded-none"
+              initial={{ y: 44, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 44, opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onMouseDown={event => event.stopPropagation()}
+              style={{
+                background: "linear-gradient(180deg,#0b0b0b,#050505)",
+                border: "1px solid rgba(57,255,20,0.22)",
+                boxShadow: "0 28px 90px rgba(0,0,0,0.76)",
+              }}
+            >
+              <div
+                className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3 md:px-6"
+                style={{
+                  borderColor: "rgba(255,255,255,0.08)",
+                  background: "rgba(8,8,8,0.92)",
+                  backdropFilter: "blur(14px)",
+                }}
+              >
+                <span className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                  Detalle de canción
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEntry(null)}
+                  className="h-9 w-9 rounded-lg text-lg font-black text-white/50 hover:text-white"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.04)" }}
+                  aria-label="Cerrar detalle"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="p-4 md:p-6">
+                <div
+                  className="overflow-hidden"
+                  style={{
+                    borderRadius: 8,
+                    border: `1px solid ${G}28`,
+                    background: "radial-gradient(circle at 8% 0%, rgba(57,255,20,0.12), transparent 36%), rgba(255,255,255,0.02)",
+                  }}
+                >
+                  <div className="relative aspect-[16/10] overflow-hidden bg-white/[0.04]">
+                    {selectedEntry.coverUrl ? (
+                      <img src={selectedEntry.coverUrl} alt="" className="h-full w-full object-cover opacity-80" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-7xl font-black uppercase opacity-20">
+                        {selectedEntry.title.charAt(0)}
+                      </div>
+                    )}
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0.9))" }} />
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="text-4xl font-black tabular-nums" style={{ color: G }}>{selectedEntry.pos}</span>
+                        <PosChange val={selectedEntry.posChange} />
+                      </div>
+                      <h3 className="text-4xl font-black uppercase leading-[0.9] md:text-5xl">{selectedEntry.title}</h3>
+                      <p className="mt-3 text-sm font-bold" style={{ color: "rgba(255,255,255,0.62)" }}>
+                        {selectedCredit}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-px bg-white/[0.06]">
+                    <div className="bg-[#080808] px-4 py-3">
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>
+                        Fuente
+                      </span>
+                      <span className="mt-2 block text-[11px] font-black uppercase tracking-[0.12em]" style={{ color: G }}>
+                        Spotify Charts
+                      </span>
+                    </div>
+                    <div className="bg-[#080808] px-4 py-3">
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>
+                        Chart
+                      </span>
+                      <span className="mt-2 block text-[11px] font-black uppercase tracking-[0.12em] text-white">
+                        {selectedChartLabel}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  {[
+                    ["Posición", `#${selectedEntry.pos}`],
+                    ["Movimiento", selectedEntry.posChange === "=" || selectedEntry.posChange === "" ? "Estable" : selectedEntry.posChange],
+                    [selectedMetricLabel, selectedEntry.streams],
+                    ["Streams totales", selectedEntry.totalStreams],
+                    ["Artista principal", selectedEntry.artist],
+                    ["Actualizado", updatedLabel ?? "—"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg px-4 py-3" style={{ border: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.018)" }}>
+                      <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+                        {label}
+                      </span>
+                      <span className="mt-2 block truncate text-sm font-black" style={{ color: label.includes("Streams") ? G : "rgba(255,255,255,0.76)" }}>
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                  <a
+                    href={selectedTrackUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex justify-center rounded-lg px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                    style={{ background: G, color: "#000" }}
+                  >
+                    Abrir en Spotify
+                  </a>
+                  <a
+                    href={spotifyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex justify-center rounded-lg px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
+                    style={{ border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.72)" }}
+                  >
+                    Ver lista completa
+                  </a>
+                </div>
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

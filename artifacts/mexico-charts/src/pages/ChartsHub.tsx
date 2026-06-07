@@ -270,6 +270,26 @@ function isMexican(row: Row): boolean {
   return (row["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE";
 }
 
+type EntryKind = "artist" | "album" | "video" | "song";
+
+function entryKindForSheet(sheetId: string): EntryKind {
+  if (sheetId.includes("Artists")) return "artist";
+  if (sheetId.includes("Albums")) return "album";
+  if (sheetId.includes("Videos") || sheetId.includes("Shorts")) return "video";
+  return "song";
+}
+
+function entryKindLabel(kind: EntryKind) {
+  if (kind === "artist") return "Detalle de artista";
+  if (kind === "album") return "Detalle de álbum";
+  if (kind === "video") return "Detalle de video";
+  return "Detalle de canción";
+}
+
+function creditLabelForKind(kind: EntryKind) {
+  return kind === "artist" ? "Crédito" : "Artista";
+}
+
 /* ── Known-slugs hook ────────────────────────────────────────────────────── */
 function useKnownSlugs() {
   return useQuery<{ slugs: string[] }>({
@@ -649,6 +669,8 @@ export default function ChartsHub() {
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
   const selectedChartTitle = `${platform.label} ${currentChartMeta.label} ${currentChartMeta.period || ""}`.trim();
   const featuredRow = rows[0] ?? null;
+  const detailKind = entryKindForSheet(activeSheet);
+  const detailHeader = entryKindLabel(detailKind);
   const detailTitle = detailRow ? previewTitle(activeSheet, detailRow) : "";
   const detailSubtitle = detailRow ? previewDetail(activeSheet, detailRow) : "";
   const detailImg = detailRow ? (previewImg(activeSheet, detailRow) || getRowImg(detailRow)) : null;
@@ -658,10 +680,11 @@ export default function ChartsHub() {
   const detailCredit = detailRow ? (["Artist", "Artist Name", "Artist Names", "artist_names"].map(key => detailRow[key]).find(Boolean) ?? "") : "";
   const detailCreditSlug = slugify(firstArtist(detailCredit));
   const detailExternal = detailRow ? (detailRow["YouTube URL"] || detailRow["Track Link"] || "") : "";
+  const repeatedDetailValues = new Set([detailTitle, detailSubtitle, detailCredit].filter(Boolean));
   const detailFields = detailRow ? cols
     .filter(col => !col.isLink)
     .map(col => ({ ...col, value: detailRow[col.key] ?? "" }))
-    .filter(col => col.value)
+    .filter(col => col.value && !repeatedDetailValues.has(col.value))
     : [];
   const no1Cards = useMemo(() => ([
     {
@@ -1037,7 +1060,7 @@ export default function ChartsHub() {
                     </div>
                   )}
                   <p className="mt-4 text-[10px] font-bold md:hidden" style={{ color: "rgba(255,255,255,0.36)" }}>
-                    Toca cualquier entrada para abrir el detalle del chart.
+                    Toca una entrada para abrir el detalle.
                   </p>
                 </div>
 
@@ -1321,7 +1344,7 @@ export default function ChartsHub() {
               <div className="sticky top-0 z-10 flex items-center justify-between border-b px-4 py-3 md:px-6"
                 style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(8,8,8,0.92)", backdropFilter: "blur(14px)" }}>
                 <span className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-                  Detalle de chart
+                  {detailHeader}
                 </span>
                 <button type="button" onClick={() => setDetailRow(null)}
                   className="h-9 w-9 rounded-lg text-lg font-black text-white/50 hover:text-white"
@@ -1375,7 +1398,7 @@ export default function ChartsHub() {
                 {detailCredit && (
                   <div className="mt-4 rounded-lg px-4 py-3" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
                     <span className="mb-2 block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>
-                      Artista
+                      {creditLabelForKind(detailKind)}
                     </span>
                     <p className="text-lg font-black text-white">
                       <ArtistCell value={detailCredit} knownSlugs={knownSlugs} />
