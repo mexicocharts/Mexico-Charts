@@ -1,6 +1,6 @@
 import { type ReactNode, useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink } from "lucide-react";
@@ -19,6 +19,13 @@ import { slugify } from "@/lib/utils";
 export { slugify };
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
+
+type ArtistTopTrack = {
+  title: string;
+  streams: string;
+  coverUrl: string | null;
+  rank: number;
+};
 
 /* ─── RELATIVE TIME IN SPANISH ───────────────────────────────── */
 function fmtRelativeEs(ts: number | null): string {
@@ -593,16 +600,19 @@ export default function ArtistDetail() {
   const lastUpdatedLabel = fmtRelativeEs(refreshStatus?.lastRefreshedAt ?? null);
 
   /* ── Top tracks: only real kworb data — never show hardcoded fake tracks ── */
-  const topTracks = useMemo(() => {
+  const topTracks = useMemo<ArtistTopTrack[]>(() => {
     if (kworbStats?.spotify?.topTracks?.length) {
-      return kworbStats.spotify.topTracks.map(t => ({
+      return kworbStats.spotify.topTracks.map((t, index) => ({
         title: t.title,
         streams: t.streamsFmt,
         coverUrl: t.coverUrl ?? null,
+        rank: index + 1,
       }));
     }
     return [];
   }, [kworbStats]);
+
+  const [selectedSong, setSelectedSong] = useState<ArtistTopTrack | null>(null);
 
   const chartPositions = useMemo(() => {
     const positions = kworbStats?.chartPositions ?? [];
@@ -634,6 +644,14 @@ export default function ArtistDetail() {
     : CHART_POSITION_PLATFORMS.find(platform => platform.key === chartPositionFilter) ?? null;
 
   const chartPositionTotal = kworbStats?.chartPositions?.length ?? 0;
+  const selectedSongChartMatches = useMemo(() => {
+    if (!selectedSong) return [];
+    const selectedKey = normalizeSongMatch(selectedSong.title);
+    return (kworbStats?.chartPositions ?? []).filter(position => {
+      const positionKey = normalizeSongMatch(position.song);
+      return positionKey === selectedKey || positionKey.includes(selectedKey) || selectedKey.includes(positionKey);
+    });
+  }, [kworbStats?.chartPositions, selectedSong]);
 
 
   return (
@@ -1482,8 +1500,11 @@ export default function ArtistDetail() {
                 </div>
 
                 {topTracks[0] && (
-                  <div
-                    className="mb-3 grid gap-3 rounded-xl p-4 sm:grid-cols-[auto_1fr_auto] sm:items-center"
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSong(topTracks[0])}
+                    aria-label={`Ver detalles de ${topTracks[0].title}`}
+                    className="mb-3 grid w-full gap-3 rounded-xl p-4 text-left transition hover:-translate-y-0.5 hover:border-white/20 focus:outline-none focus:ring-2 focus:ring-white/15 sm:grid-cols-[auto_1fr_auto] sm:items-center"
                     style={{ background: `${artist.accent}0f`, border: `1px solid ${artist.accent}26` }}
                   >
                     <div
@@ -1507,6 +1528,7 @@ export default function ArtistDetail() {
                         Canción líder
                       </div>
                       <div className="mt-1 truncate text-lg font-black text-white">{topTracks[0].title}</div>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">Tocar para abrir detalle</div>
                     </div>
                     <div className="sm:text-right">
                       <div className="text-2xl font-black leading-none" style={{ color: artist.accent }}>
@@ -1514,14 +1536,17 @@ export default function ArtistDetail() {
                       </div>
                       <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">streams</div>
                     </div>
-                  </div>
+                  </button>
                 )}
 
                 <div className="grid gap-2 md:grid-cols-2">
                   {topTracks.slice(1).map((s, i) => (
-                    <div
+                    <button
+                      type="button"
                       key={`${s.title}-${i}`}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3"
+                      onClick={() => setSelectedSong(s)}
+                      aria-label={`Ver detalles de ${s.title}`}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-white/15 focus:outline-none focus:ring-2 focus:ring-white/10"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                     >
                       <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
@@ -1537,7 +1562,7 @@ export default function ArtistDetail() {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-300">{s.title}</span>
                       <span className="shrink-0 text-sm font-black" style={{ color: artist.accent }}>{s.streams}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -2059,6 +2084,152 @@ export default function ArtistDetail() {
         </div>
 
       </div>
+
+      <AnimatePresence>
+        {selectedSong && (
+          <motion.div
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/70 px-3 pb-3 backdrop-blur-md sm:items-center sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedSong(null)}
+            role="presentation"
+          >
+            <motion.aside
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Detalle de ${selectedSong.title}`}
+              className="relative max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/10 bg-[#080808] p-4 text-zinc-300 shadow-2xl sm:p-5"
+              style={{
+                boxShadow: `0 24px 90px rgba(0,0,0,0.72), 0 0 0 1px ${artist.accent}14`,
+              }}
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 28, scale: 0.98 }}
+              animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+              exit={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              onClick={event => event.stopPropagation()}
+            >
+              <div className="absolute inset-0 rounded-2xl opacity-[0.035] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full blur-3xl" style={{ background: `${artist.accent}16` }} />
+
+              <div className="relative z-10">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: artist.accent }}>
+                      Detalle de canción
+                    </div>
+                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-zinc-700">
+                      Activos principales en Spotify
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSong(null)}
+                    className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 transition hover:border-white/20 hover:text-white"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-[8rem_1fr] sm:items-start">
+                  <div
+                    className="relative aspect-square w-28 overflow-hidden rounded-2xl sm:w-32"
+                    style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}28` }}
+                  >
+                    {selectedSong.coverUrl ? (
+                      <img src={selectedSong.coverUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Music className="h-8 w-8" style={{ color: artist.accent }} />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                    <div className="absolute bottom-2 left-2 rounded-lg px-2 py-1 text-xs font-black" style={{ background: `${artist.accent}e6`, color: "#050505" }}>
+                      #{selectedSong.rank}
+                    </div>
+                  </div>
+
+                  <div className="min-w-0">
+                    <h3 className="text-2xl font-black leading-tight text-white sm:text-3xl">{selectedSong.title}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
+                        style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}2f`, color: artist.accent }}
+                      >
+                        {artist.name}
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                        Spotify · Kworb
+                      </span>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Streams</div>
+                        <div className="mt-1 text-xl font-black leading-none" style={{ color: artist.accent }}>{selectedSong.streams}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Rank perfil</div>
+                        <div className="mt-1 text-xl font-black leading-none text-white">#{selectedSong.rank}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Canciones</div>
+                        <div className="mt-1 text-xl font-black leading-none text-white">{topTracks.length}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Actualizado</div>
+                        <div className="mt-1 truncate text-sm font-black text-white">{formatShortDateEs(spotifyKworbDailyTrend.at(-1)?.date) || "—"}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Presencia en listas MX</div>
+                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">{selectedSongChartMatches.length || 0} matches</div>
+                  </div>
+                  {selectedSongChartMatches.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedSongChartMatches.slice(0, 3).flatMap((match, matchIndex) =>
+                        CHART_POSITION_PLATFORMS.map(platform => {
+                          const rank = match[platform.key];
+                          if (rank === undefined) return null;
+                          return (
+                            <span
+                              key={`${match.song}-${platform.key}-${matchIndex}`}
+                              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.1em]"
+                              style={{
+                                background: `${platform.color}12`,
+                                border: `1px solid ${platform.color}30`,
+                                color: platform.color,
+                              }}
+                            >
+                              {platform.short}
+                              <span>#{rank}</span>
+                            </span>
+                          );
+                        }),
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium leading-relaxed text-zinc-600">
+                      No encontramos una posición actual enlazada para esta canción en las listas mexicanas guardadas del perfil.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-black/30 px-4 py-3">
+                  <div className="text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] text-zinc-700">
+                    Este detalle usa datos reales ya disponibles en el perfil. Sin relleno inventado.
+                  </div>
+                  <ExternalLink className="hidden h-4 w-4 shrink-0 text-zinc-700 sm:block" />
+                </div>
+              </div>
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── FOOTER ── */}
       <footer className="border-t py-6 px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
