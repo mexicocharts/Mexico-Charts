@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { ensureYoutubeKworbDailySnapshotTable } from "./youtube-kworb-daily-create-table";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -11,6 +12,8 @@ const { Pool } = require("../../lib/db/node_modules/pg") as {
 type PoolLike = InstanceType<typeof Pool>;
 
 export async function ensureYoutubeVideoTrackerTables(pool: PoolLike) {
+  await ensureYoutubeKworbDailySnapshotTable(pool);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS youtube_tracked_videos (
       video_id text PRIMARY KEY,
@@ -100,7 +103,7 @@ async function main() {
   const pool = new Pool({ connectionString: databaseUrl });
   try {
     await ensureYoutubeVideoTrackerTables(pool);
-    console.log("YouTube video tracker tables are ready.");
+    console.log("YouTube video tracker tables are ready, and YouTube Kworb daily history is preserved.");
   } finally {
     await pool.end();
   }
