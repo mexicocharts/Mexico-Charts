@@ -490,7 +490,7 @@ export default function ArtistDetail() {
   );
   const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
   const youtubeKworbDailyTrend = useMemo(
-    () => (kworbStats?.youtube?.history ?? []).filter(point => point.dailyViews != null),
+    () => (kworbStats?.youtube?.history ?? []).filter(point => (point.dailyViews ?? 0) > 0),
     [kworbStats?.youtube?.history],
   );
   const youtubeKworbAnalytics = kworbStats?.youtube?.analytics;
@@ -522,13 +522,14 @@ export default function ArtistDetail() {
     }> = [];
 
     if (kworbStats?.youtube) {
+      const hasYoutubeDailyAvg = kworbStats.youtube.dailyAvg > 0;
       sources.push({
         key: "youtube",
         label: "YouTube",
         kicker: "YouTube diario",
         color: "#ef4444",
         icon: <SiYoutube className="h-5 w-5" />,
-        todayValue: kworbStats.youtube.dailyAvgFmt,
+        todayValue: hasYoutubeDailyAvg ? kworbStats.youtube.dailyAvgFmt : null,
         totalValue: kworbStats.youtube.totalViewsFmt,
         totalLabel: "vistas totales",
         points: youtubeKworbDailyTrend,
