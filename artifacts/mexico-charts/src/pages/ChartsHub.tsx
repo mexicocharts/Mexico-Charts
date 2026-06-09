@@ -257,6 +257,10 @@ function fmt(val: string): string {
   return n.toLocaleString("es-MX");
 }
 
+function fmtCount(n: number): string {
+  return n.toLocaleString("es-MX");
+}
+
 function rankKey(row: Row): string {
   return (row["Rank"] ?? row["rank"] ?? "").trim();
 }
@@ -665,10 +669,25 @@ export default function ChartsHub() {
     });
   }, [data]);
 
+  const updatedShortFmt = useMemo(() => {
+    if (!data?.lastUpdated) return "—";
+    return new Date(data.lastUpdated).toLocaleDateString("es-MX", {
+      day: "numeric", month: "short",
+    });
+  }, [data]);
+
   const currentChartMeta = platform.charts.find(c => c.id === activeSheet) ?? platform.charts[0];
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
   const selectedChartTitle = `${platform.label} ${currentChartMeta.label} ${currentChartMeta.period || ""}`.trim();
   const featuredRow = rows[0] ?? null;
+  const totalEntries = sheetData?.rows.length ?? 0;
+  const mexicanEntries = useMemo(() => sheetData?.rows.filter(isMexican).length ?? 0, [sheetData]);
+  const chartStats = [
+    { label: "Entradas", value: fmtCount(rows.length), tone: G },
+    { label: "Base original", value: fmtCount(totalEntries), tone: "rgba(255,255,255,0.72)" },
+    { label: "Mexicanos", value: fmtCount(mexicanEntries), tone: G },
+    { label: "Actualizado", value: updatedShortFmt, tone: "rgba(255,255,255,0.72)" },
+  ];
   const detailKind = entryKindForSheet(activeSheet);
   const detailHeader = entryKindLabel(detailKind);
   const detailTitle = detailRow ? previewTitle(activeSheet, detailRow) : "";
@@ -774,6 +793,96 @@ export default function ChartsHub() {
       </section>
 
       <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 md:space-y-7 lg:px-12">
+        {no1Cards.length > 0 && (
+          <section
+            id="chart-pulse"
+            className="relative overflow-hidden px-4 py-5 sm:px-5 md:px-6 md:py-6"
+            style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 8,
+              background: "linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012))",
+              boxShadow: "0 18px 70px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.045)",
+            }}
+          >
+            <div className="pointer-events-none absolute inset-0 opacity-[0.028]" style={{ backgroundImage: NOISE, backgroundSize: "110px" }} />
+            <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl" style={{ background: `${G}10` }} />
+            <div className="relative z-10">
+              <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
+                    Pulso de listas
+                  </p>
+                  <h2 className="max-w-4xl font-black uppercase leading-[0.92]" style={{ fontSize: "clamp(2rem,6vw,4.4rem)" }}>
+                    Lo que manda ahora
+                  </h2>
+                </div>
+                <div className="max-w-sm text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] md:text-right" style={{ color: "rgba(255,255,255,0.38)" }}>
+                  Acceso rápido a los números uno activos en las principales señales del hub.
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {no1Cards.map((module) => {
+                  const row = module.row as Row;
+                  const title = previewTitle(module.sheet, row);
+                  const detail = previewDetail(module.sheet, row);
+                  const img = previewImg(module.sheet, row);
+                  const PlatformIcon = PLATFORMS.find(p => p.id === module.platform)?.Icon ?? MdMusicNote;
+
+                  return (
+                    <motion.button
+                      key={`pulse-${module.sheet}`}
+                      type="button"
+                      onClick={() => focusChart(module.platform, module.sheet)}
+                      whileHover={{ y: -3 }}
+                      className="group relative min-h-[13.5rem] overflow-hidden text-left"
+                      style={{
+                        borderRadius: 8,
+                        border: `1px solid ${module.color}33`,
+                        background: "rgba(0,0,0,0.46)",
+                        boxShadow: `0 16px 46px ${module.color}0d`,
+                      }}
+                    >
+                      <div className="absolute inset-0">
+                        {img ? (
+                          <img src={img} alt="" className="h-full w-full object-cover opacity-55 transition duration-500 group-hover:scale-105 group-hover:opacity-68" loading="lazy" />
+                        ) : (
+                          <div className="h-full w-full" style={{ background: `radial-gradient(circle at 20% 10%, ${module.color}35, transparent 42%), #090909` }} />
+                        )}
+                      </div>
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.88) 62%, rgba(0,0,0,0.98))" }} />
+                      <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${module.color}70, transparent)` }} />
+                      <div className="relative flex min-h-[13.5rem] flex-col justify-between p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em]" style={{ background: `${module.color}18`, border: `1px solid ${module.color}35`, color: module.color }}>
+                            <PlatformIcon className="h-3 w-3" />
+                            {module.label}
+                          </span>
+                          <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-white/70">
+                            #1
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="line-clamp-2 text-2xl font-black uppercase leading-[0.92] text-white">
+                            {title}
+                          </h3>
+                          <p className="mt-2 line-clamp-1 text-xs font-bold uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.52)" }}>
+                            {detail || module.platform}
+                          </p>
+                          <span className="mt-4 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: module.color }}>
+                            Abrir chart
+                            <span aria-hidden>→</span>
+                          </span>
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ── MEXICO CHARTS ──────────────────────────────────────────────── */}
         <section id="mexico-charts" className="relative overflow-hidden"
           style={{ border: `1px solid ${G}28`, borderRadius: 8, background: "radial-gradient(circle at 9% 5%, rgba(57,255,20,0.16), transparent 34%), rgba(255,255,255,0.018)" }}>
@@ -1059,6 +1168,25 @@ export default function ChartsHub() {
                       </div>
                     </div>
                   )}
+                  <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {chartStats.map(stat => (
+                      <div
+                        key={stat.label}
+                        className="min-w-0 rounded-lg px-3 py-3"
+                        style={{
+                          border: "1px solid rgba(255,255,255,0.075)",
+                          background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.018))",
+                        }}
+                      >
+                        <div className="truncate text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+                          {stat.label}
+                        </div>
+                        <div className="mt-2 truncate text-sm font-black uppercase tracking-[0.06em]" style={{ color: stat.tone }}>
+                          {stat.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                   <p className="mt-4 text-[10px] font-bold md:hidden" style={{ color: "rgba(255,255,255,0.36)" }}>
                     Toca una entrada para abrir el detalle.
                   </p>
