@@ -806,11 +806,11 @@ export default function ChartsHub() {
                     Pulso de listas
                   </p>
                   <h2 className="max-w-4xl font-black uppercase leading-[0.92]" style={{ fontSize: "clamp(2rem,6vw,4.4rem)" }}>
-                    Lo que manda ahora
+                    Números uno
                   </h2>
                 </div>
                 <div className="max-w-sm text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] md:text-right" style={{ color: "rgba(255,255,255,0.38)" }}>
-                  Acceso rápido a los números uno activos en las principales señales del hub.
+                  Acceso rápido a las entradas líderes en las principales señales del hub.
                 </div>
               </div>
 
