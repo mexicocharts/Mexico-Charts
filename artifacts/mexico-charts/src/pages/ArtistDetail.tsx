@@ -458,8 +458,37 @@ export default function ArtistDetail() {
     return merged;
   }, [sheetArtist, baseArtist, metaArtist]);
 
+  const similarArtists = useMemo(() => {
+    const currentGenre = artist.genre.trim().toLowerCase();
+    const currentSubgenre = artist.subgenre.trim().toLowerCase();
+    const currentRank = artist.rank || 999;
 
-  const names = useMemo(() => [artist.name], [artist.name]);
+    return weeklyArtists
+      .filter(candidate => slugify(candidate.name) !== slug)
+      .map(candidate => {
+        const candidateGenre = (candidate.genre ?? "").trim().toLowerCase();
+        const candidateSubgenre = (candidate.subgenre ?? "").trim().toLowerCase();
+        let score = 0;
+
+        if (currentGenre && candidateGenre === currentGenre) score += 6;
+        if (currentSubgenre && candidateSubgenre === currentSubgenre) score += 5;
+        if (currentGenre && candidateGenre && (candidateGenre.includes(currentGenre) || currentGenre.includes(candidateGenre))) score += 2;
+        if (currentSubgenre && candidateSubgenre && (candidateSubgenre.includes(currentSubgenre) || currentSubgenre.includes(candidateSubgenre))) score += 2;
+
+        const rankGap = Math.abs((candidate.mexicoRank || 999) - currentRank);
+        score += Math.max(0, 4 - rankGap / 12);
+
+        return { ...candidate, score };
+      })
+      .filter(candidate => candidate.score >= 2)
+      .sort((a, b) => b.score - a.score || a.mexicoRank - b.mexicoRank)
+      .slice(0, 4);
+  }, [artist.genre, artist.rank, artist.subgenre, weeklyArtists, slug]);
+
+  const names = useMemo(
+    () => Array.from(new Set([artist.name, ...similarArtists.map(candidate => candidate.name)])),
+    [artist.name, similarArtists],
+  );
   const artistImages = useArtistImages(names);
   const itunesData = useItunesArtist(artist.name);
   const wikiBio      = useWikiBio(artist.name);
@@ -613,33 +642,6 @@ export default function ArtistDetail() {
   }, [kworbStats]);
 
   const [selectedSong, setSelectedSong] = useState<ArtistTopTrack | null>(null);
-
-  const similarArtists = useMemo(() => {
-    const currentGenre = artist.genre.trim().toLowerCase();
-    const currentSubgenre = artist.subgenre.trim().toLowerCase();
-    const currentRank = artist.rank || 999;
-
-    return weeklyArtists
-      .filter(candidate => slugify(candidate.name) !== slug)
-      .map(candidate => {
-        const candidateGenre = (candidate.genre ?? "").trim().toLowerCase();
-        const candidateSubgenre = (candidate.subgenre ?? "").trim().toLowerCase();
-        let score = 0;
-
-        if (currentGenre && candidateGenre === currentGenre) score += 6;
-        if (currentSubgenre && candidateSubgenre === currentSubgenre) score += 5;
-        if (currentGenre && candidateGenre && (candidateGenre.includes(currentGenre) || currentGenre.includes(candidateGenre))) score += 2;
-        if (currentSubgenre && candidateSubgenre && (candidateSubgenre.includes(currentSubgenre) || currentSubgenre.includes(candidateSubgenre))) score += 2;
-
-        const rankGap = Math.abs((candidate.mexicoRank || 999) - currentRank);
-        score += Math.max(0, 4 - rankGap / 12);
-
-        return { ...candidate, score };
-      })
-      .filter(candidate => candidate.score >= 2)
-      .sort((a, b) => b.score - a.score || a.mexicoRank - b.mexicoRank)
-      .slice(0, 4);
-  }, [artist.genre, artist.rank, artist.subgenre, weeklyArtists, slug]);
 
   const chartPositions = useMemo(() => {
     const positions = kworbStats?.chartPositions ?? [];
@@ -2138,6 +2140,7 @@ export default function ArtistDetail() {
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {similarArtists.map(candidate => {
                     const candidateSlug = slugify(candidate.name);
+                    const candidatePhoto = artistImages[candidate.name] ?? null;
                     const initials = candidate.name
                       .split(/\s+/)
                       .filter(Boolean)
@@ -2150,33 +2153,58 @@ export default function ArtistDetail() {
                       <Link
                         key={candidateSlug}
                         href={`/artist/${candidateSlug}`}
-                        className="group relative overflow-hidden rounded-xl p-4 transition hover:-translate-y-0.5 hover:border-white/18 focus:outline-none focus:ring-2 focus:ring-white/10"
+                        className="group relative min-h-[15rem] overflow-hidden rounded-xl transition hover:-translate-y-0.5 hover:border-white/18 focus:outline-none focus:ring-2 focus:ring-white/10"
                         style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}
                         data-testid={`similar-artist-${candidateSlug}`}
                       >
-                        <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full blur-2xl opacity-0 transition-opacity group-hover:opacity-100" style={{ background: `${candidate.accent || artist.accent}18` }} />
-                        <div className="relative z-10 flex items-start gap-3">
+                        <div className="relative h-32 overflow-hidden">
+                          {candidatePhoto ? (
+                            <img
+                              src={candidatePhoto}
+                              alt=""
+                              className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div
+                              className="flex h-full w-full items-center justify-center text-2xl font-black"
+                              style={{ background: `linear-gradient(135deg, ${candidate.accent || artist.accent}18, rgba(255,255,255,0.025))`, color: candidate.accent || artist.accent }}
+                            >
+                              {initials || String(candidate.mexicoRank).padStart(2, "0")}
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#090909] via-black/25 to-transparent" />
                           <div
-                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black"
-                            style={{ background: `${candidate.accent || artist.accent}14`, border: `1px solid ${candidate.accent || artist.accent}28`, color: candidate.accent || artist.accent }}
+                            className="absolute left-3 top-3 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
+                            style={{ background: `${candidate.accent || artist.accent}e6`, color: "#050505" }}
                           >
-                            {initials || String(candidate.mexicoRank).padStart(2, "0")}
+                            #{candidate.mexicoRank} MX
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-black text-white transition-colors group-hover:text-zinc-100">{candidate.name}</div>
-                            <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
-                              {candidate.genre || candidate.subgenre || "Artista"}
-                            </div>
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
-                                #{candidate.mexicoRank} MX
+                          <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
+                            <span
+                              className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-xs font-black"
+                              style={{ background: "rgba(5,5,5,0.72)", border: `1px solid ${candidate.accent || artist.accent}45`, color: candidate.accent || artist.accent }}
+                            >
+                              {candidatePhoto ? initials : "MC"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="relative z-10 p-4">
+                          <div className="truncate text-base font-black text-white transition-colors group-hover:text-zinc-100">{candidate.name}</div>
+                          <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
+                            {candidate.genre || candidate.subgenre || "Artista"}
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            {candidate.subgenre && (
+                              <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                                {candidate.subgenre}
                               </span>
-                              {candidate.listeners && (
-                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
-                                  {candidate.listeners}
-                                </span>
-                              )}
-                            </div>
+                            )}
+                            {candidate.listeners && (
+                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                                {candidate.listeners}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </Link>
