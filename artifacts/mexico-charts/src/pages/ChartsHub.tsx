@@ -662,13 +662,6 @@ export default function ChartsHub() {
     });
   }, []);
 
-  const updatedFmt = useMemo(() => {
-    if (!data?.lastUpdated) return null;
-    return new Date(data.lastUpdated).toLocaleString("es-MX", {
-      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-    });
-  }, [data]);
-
   const updatedShortFmt = useMemo(() => {
     if (!data?.lastUpdated) return "—";
     return new Date(data.lastUpdated).toLocaleDateString("es-MX", {
@@ -988,73 +981,6 @@ export default function ChartsHub() {
                 ))}
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* ── NO 1 THIS WEEK ─────────────────────────────────────────────── */}
-        <section id="no1" className="px-4 py-5 md:px-7 md:py-7"
-          style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, background: "rgba(255,255,255,0.018)" }}>
-          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-            <h2 className="font-black uppercase leading-[0.9] sm:text-5xl md:text-6xl"
-              style={{ fontSize: "clamp(2.55rem,12vw,4rem)" }}>
-              No. 1 esta semana
-            </h2>
-            {updatedFmt && (
-              <span className="text-[8px] font-bold uppercase tracking-[0.16em] sm:text-[9px]" style={{ color: "rgba(255,255,255,0.32)" }}>
-                {updatedFmt}
-              </span>
-            )}
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2 md:gap-4 xl:grid-cols-4">
-            {no1Cards.map((module) => {
-              const row = module.row as Row;
-              const title = previewTitle(module.sheet, row);
-              const detail = previewDetail(module.sheet, row);
-              const img = previewImg(module.sheet, row);
-              return (
-                <motion.button key={module.sheet} type="button"
-                  onClick={() => focusChart(module.platform, module.sheet)}
-                  whileHover={{ y: -3 }}
-                  className="group relative min-h-[240px] overflow-hidden text-left sm:min-h-[280px] md:min-h-[300px]"
-                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.11)", background: "rgba(0,0,0,0.44)" }}>
-                  <div className="absolute inset-0">
-                    {img ? (
-                      <img src={img} alt="" className="h-full w-full object-cover opacity-70 transition-transform duration-500 group-hover:scale-105" />
-                    ) : (
-                      <div className="h-full w-full" style={{ background: `radial-gradient(circle at 30% 20%, ${module.color}33, transparent 42%), #0b0b0b` }} />
-                    )}
-                  </div>
-                  <div className="absolute inset-0"
-                    style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.82) 58%, rgba(0,0,0,0.96))" }} />
-                  <div className="relative flex min-h-[240px] flex-col justify-between p-4 sm:min-h-[280px] sm:p-5 md:min-h-[300px]">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[9px] font-black uppercase tracking-[0.22em]" style={{ color: module.color }}>
-                        {module.label}
-                      </span>
-                      <span className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.54)" }}>
-                        No. 1
-                      </span>
-                    </div>
-                    <div>
-                      <div className="mb-4 inline-flex h-12 w-12 items-center justify-center text-2xl font-black sm:h-14 sm:w-14 sm:text-3xl"
-                        style={{ borderRadius: 8, background: module.color, color: "#000" }}>
-                        1
-                      </div>
-                      <h3 className="line-clamp-3 text-2xl font-black uppercase leading-[0.94] text-white sm:text-3xl md:text-4xl">
-                        {title}
-                      </h3>
-                      <p className="mt-3 line-clamp-2 text-sm font-bold" style={{ color: "rgba(255,255,255,0.58)" }}>
-                        {detail}
-                      </p>
-                      <span className="mt-6 inline-flex text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: module.color }}>
-                        Ver en listas oficiales
-                      </span>
-                    </div>
-                  </div>
-                </motion.button>
-              );
-            })}
           </div>
         </section>
 
