@@ -614,6 +614,33 @@ export default function ArtistDetail() {
 
   const [selectedSong, setSelectedSong] = useState<ArtistTopTrack | null>(null);
 
+  const similarArtists = useMemo(() => {
+    const currentGenre = artist.genre.trim().toLowerCase();
+    const currentSubgenre = artist.subgenre.trim().toLowerCase();
+    const currentRank = artist.rank || 999;
+
+    return weeklyArtists
+      .filter(candidate => slugify(candidate.name) !== slug)
+      .map(candidate => {
+        const candidateGenre = (candidate.genre ?? "").trim().toLowerCase();
+        const candidateSubgenre = (candidate.subgenre ?? "").trim().toLowerCase();
+        let score = 0;
+
+        if (currentGenre && candidateGenre === currentGenre) score += 6;
+        if (currentSubgenre && candidateSubgenre === currentSubgenre) score += 5;
+        if (currentGenre && candidateGenre && (candidateGenre.includes(currentGenre) || currentGenre.includes(candidateGenre))) score += 2;
+        if (currentSubgenre && candidateSubgenre && (candidateSubgenre.includes(currentSubgenre) || currentSubgenre.includes(candidateSubgenre))) score += 2;
+
+        const rankGap = Math.abs((candidate.mexicoRank || 999) - currentRank);
+        score += Math.max(0, 4 - rankGap / 12);
+
+        return { ...candidate, score };
+      })
+      .filter(candidate => candidate.score >= 2)
+      .sort((a, b) => b.score - a.score || a.mexicoRank - b.mexicoRank)
+      .slice(0, 4);
+  }, [artist.genre, artist.rank, artist.subgenre, weeklyArtists, slug]);
+
   const chartPositions = useMemo(() => {
     const positions = kworbStats?.chartPositions ?? [];
     if (chartPositionFilter === "all") return positions;
@@ -1528,7 +1555,10 @@ export default function ArtistDetail() {
                         Canción líder
                       </div>
                       <div className="mt-1 truncate text-lg font-black text-white">{topTracks[0].title}</div>
-                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">Tocar para abrir detalle</div>
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.13em]" style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}30`, color: artist.accent }}>
+                        Detalle
+                        <ExternalLink className="h-3 w-3" />
+                      </div>
                     </div>
                     <div className="sm:text-right">
                       <div className="text-2xl font-black leading-none" style={{ color: artist.accent }}>
@@ -1562,6 +1592,9 @@ export default function ArtistDetail() {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-300">{s.title}</span>
                       <span className="shrink-0 text-sm font-black" style={{ color: artist.accent }}>{s.streams}</span>
+                      <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500 sm:inline-flex">
+                        Detalle
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -2068,6 +2101,92 @@ export default function ArtistDetail() {
             AMPROFON CERTIFICATIONS
         ══════════════════════════════════════════════════════════ */}
         <ArtistCertifications artistName={artist.name} accent={artist.accent} />
+
+        {similarArtists.length > 0 && (
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            data-testid="section-similar-artists"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl p-5 sm:p-6"
+              style={{
+                background: "linear-gradient(160deg,#0d0d0d 0%,#090909 100%)",
+                border: `1px solid ${artist.accent}18`,
+                boxShadow: "0 8px 48px rgba(0,0,0,0.62), inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+              <div className="relative z-10">
+                <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4" style={{ color: artist.accent }} />
+                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Artistas cercanos</h2>
+                    </div>
+                    <p className="max-w-xl text-xs font-medium leading-relaxed text-zinc-600">
+                      Recomendaciones basadas en género, subgénero y posición dentro de los datos semanales de Mexico Charts.
+                    </p>
+                  </div>
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700">
+                    Datos de ranking semanal
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {similarArtists.map(candidate => {
+                    const candidateSlug = slugify(candidate.name);
+                    const initials = candidate.name
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(part => part[0])
+                      .join("")
+                      .toUpperCase();
+
+                    return (
+                      <Link
+                        key={candidateSlug}
+                        href={`/artist/${candidateSlug}`}
+                        className="group relative overflow-hidden rounded-xl p-4 transition hover:-translate-y-0.5 hover:border-white/18 focus:outline-none focus:ring-2 focus:ring-white/10"
+                        style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}
+                        data-testid={`similar-artist-${candidateSlug}`}
+                      >
+                        <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full blur-2xl opacity-0 transition-opacity group-hover:opacity-100" style={{ background: `${candidate.accent || artist.accent}18` }} />
+                        <div className="relative z-10 flex items-start gap-3">
+                          <div
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-black"
+                            style={{ background: `${candidate.accent || artist.accent}14`, border: `1px solid ${candidate.accent || artist.accent}28`, color: candidate.accent || artist.accent }}
+                          >
+                            {initials || String(candidate.mexicoRank).padStart(2, "0")}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-black text-white transition-colors group-hover:text-zinc-100">{candidate.name}</div>
+                            <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
+                              {candidate.genre || candidate.subgenre || "Artista"}
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                                #{candidate.mexicoRank} MX
+                              </span>
+                              {candidate.listeners && (
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                                  {candidate.listeners}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </motion.section>
+        )}
 
         {/* ── BACK LINK ── */}
         <div className="pb-4">
