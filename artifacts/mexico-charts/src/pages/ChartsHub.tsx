@@ -839,7 +839,7 @@ export default function ChartsHub() {
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24" style={{ background: `linear-gradient(90deg, ${activePulse.color}1f, transparent 48%, ${activePulse.color}10)` }} />
 
                   <div className="relative z-10 grid h-full min-h-[32rem] gap-5 lg:grid-cols-[minmax(0,1fr)_21.5rem]">
-                    <div className="grid gap-5 md:grid-cols-[minmax(0,0.86fr)_minmax(15rem,22rem)] md:items-center">
+                    <div className="grid gap-5 md:grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)] md:items-start">
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={`pulse-copy-${activePulse.sheet}`}
@@ -847,75 +847,31 @@ export default function ChartsHub() {
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 18 }}
                           transition={{ duration: 0.34, ease: "easeOut" }}
-                          className="flex min-h-[21rem] flex-col justify-between"
+                          className="md:col-span-2"
                         >
-                          <div>
-                            <div className="mb-6 flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
-                                style={{ borderRadius: 8, background: `${activePulse.color}18`, border: `1px solid ${activePulse.color}42`, color: activePulse.color }}>
-                                <PlatformIcon className="h-3.5 w-3.5" />
-                                Pulso en vivo
-                              </span>
-                              <span className="px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
-                                style={{ borderRadius: 8, background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.66)" }}>
-                                México · #1
-                              </span>
+                          <div className="mb-5 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
+                              style={{ borderRadius: 8, background: `${activePulse.color}18`, border: `1px solid ${activePulse.color}42`, color: activePulse.color }}>
+                              <PlatformIcon className="h-3.5 w-3.5" />
+                              Pulso en vivo
+                            </span>
+                            <span className="px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
+                              style={{ borderRadius: 8, background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.66)" }}>
+                              México · #1
+                            </span>
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                            <div>
+                              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: activePulse.color }}>
+                                {activePulse.label}
+                              </p>
+                              <h2 className="max-w-[18ch] text-balance font-black uppercase leading-[0.9]" style={{ fontSize: "clamp(2.5rem,5.1vw,5.2rem)" }}>
+                                {title}
+                              </h2>
                             </div>
-                            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: activePulse.color }}>
-                              {activePulse.label}
-                            </p>
-                            <h2 className="max-w-[10ch] text-balance font-black uppercase leading-[0.92]" style={{ fontSize: "clamp(2.25rem,4.55vw,4.4rem)" }}>
-                              {title}
-                            </h2>
-                            <p className="mt-4 max-w-lg text-sm font-black uppercase tracking-[0.12em] md:text-base" style={{ color: activePulse.color }}>
+                            <p className="max-w-[20rem] text-[10px] font-black uppercase leading-relaxed tracking-[0.18em] md:text-right" style={{ color: activePulse.color }}>
                               {pulseAction}
                             </p>
-                            <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.62)" }}>
-                              {pulseSubline}
-                            </p>
-                            <div className="mt-5 flex max-w-lg flex-wrap gap-x-5 gap-y-3 border-y border-white/[0.08] py-3">
-                              {[
-                                { label: "Posición", value: "#1" },
-                                { label: "Lista", value: activePulse.platform },
-                                { label: "Dato", value: metric ? fmt(metric) : activePulse.label },
-                              ].map(item => (
-                                <div key={item.label} className="min-w-[5.6rem]">
-                                  <span className="block text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.38)" }}>
-                                    {item.label}
-                                  </span>
-                                  <span className="mt-1 block max-w-[9rem] truncate text-sm font-black uppercase leading-none md:text-base" style={{ color: item.label === "Posición" ? activePulse.color : "#fff" }}>
-                                    {item.value}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="mt-7 flex flex-wrap items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => focusChart(activePulse.platform, activePulse.sheet)}
-                              className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition hover:brightness-110"
-                              style={{ borderRadius: 8, background: activePulse.color, color: "#050505" }}
-                            >
-                              Abrir chart
-                            </button>
-                            <div className="flex items-center gap-2" aria-label="Seleccionar señal destacada">
-                              {no1Cards.map((module, index) => (
-                                <button
-                                  key={`pulse-dot-${module.sheet}`}
-                                  type="button"
-                                  aria-label={`Ver ${module.label}`}
-                                  onClick={() => setPulseIndex(index)}
-                                  className="h-2.5 transition-all"
-                                  style={{
-                                    width: index === pulseIndex ? 26 : 10,
-                                    borderRadius: 999,
-                                    background: index === pulseIndex ? activePulse.color : "rgba(255,255,255,0.24)",
-                                  }}
-                                />
-                              ))}
-                            </div>
                           </div>
                         </motion.div>
                       </AnimatePresence>
@@ -951,6 +907,66 @@ export default function ChartsHub() {
                             style={{ borderRadius: 8, background: activePulse.color, color: "#050505" }}>
                             0{pulseIndex + 1}/0{no1Cards.length}
                           </span>
+                        </motion.div>
+                      </AnimatePresence>
+
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={`pulse-info-${activePulse.sheet}`}
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -12 }}
+                          transition={{ duration: 0.3, ease: "easeOut" }}
+                          className="flex h-full min-h-[15rem] flex-col justify-between"
+                        >
+                          <div>
+                            <p className="max-w-md text-sm font-semibold leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.62)" }}>
+                              {pulseSubline}
+                            </p>
+                            <div className="mt-5 flex max-w-lg flex-wrap gap-x-5 gap-y-3 border-y border-white/[0.08] py-3">
+                              {[
+                                { label: "Posición", value: "#1" },
+                                { label: "Lista", value: activePulse.platform },
+                                { label: "Dato", value: metric ? fmt(metric) : activePulse.label },
+                              ].map(item => (
+                                <div key={item.label} className="min-w-[5.6rem]">
+                                  <span className="block text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                                    {item.label}
+                                  </span>
+                                  <span className="mt-1 block max-w-[9rem] truncate text-sm font-black uppercase leading-none md:text-base" style={{ color: item.label === "Posición" ? activePulse.color : "#fff" }}>
+                                    {item.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="mt-6 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => focusChart(activePulse.platform, activePulse.sheet)}
+                              className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition hover:brightness-110"
+                              style={{ borderRadius: 8, background: activePulse.color, color: "#050505" }}
+                            >
+                              Abrir chart
+                            </button>
+                            <div className="flex items-center gap-2" aria-label="Seleccionar señal destacada">
+                              {no1Cards.map((module, index) => (
+                                <button
+                                  key={`pulse-dot-${module.sheet}`}
+                                  type="button"
+                                  aria-label={`Ver ${module.label}`}
+                                  onClick={() => setPulseIndex(index)}
+                                  className="h-2.5 transition-all"
+                                  style={{
+                                    width: index === pulseIndex ? 26 : 10,
+                                    borderRadius: 999,
+                                    background: index === pulseIndex ? activePulse.color : "rgba(255,255,255,0.24)",
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
                         </motion.div>
                       </AnimatePresence>
                     </div>
