@@ -820,9 +820,9 @@ export default function ChartsHub() {
               const PlatformIcon = PLATFORMS.find(p => p.id === activePulse.platform)?.Icon ?? MdMusicNote;
               const isArtistSignal = activePulse.sheet.includes("Artists");
               const metric = row["Streams"] || row["streams"] || row["Views"] || row["views"] || row["Total Streams"] || row["Weekly Streams"] || "";
-              const pulseHeadline = isArtistSignal
-                ? `${title} domina ${activePulse.label}`
-                : `${title} lidera ${activePulse.label}`;
+              const pulseAction = isArtistSignal
+                ? `Domina ${activePulse.label}`
+                : `Lidera ${activePulse.label}`;
               const pulseSubline = detail && detail !== activePulse.label
                 ? detail
                 : activePulse.platform === "Spotify"
@@ -839,7 +839,7 @@ export default function ChartsHub() {
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24" style={{ background: `linear-gradient(90deg, ${activePulse.color}1f, transparent 48%, ${activePulse.color}10)` }} />
 
                   <div className="relative z-10 grid h-full min-h-[32rem] gap-5 lg:grid-cols-[minmax(0,1fr)_21.5rem]">
-                    <div className="grid gap-5 md:grid-cols-[minmax(0,0.95fr)_minmax(14rem,22rem)] md:items-center">
+                    <div className="grid gap-5 md:grid-cols-[minmax(0,0.86fr)_minmax(15rem,22rem)] md:items-center">
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={`pulse-copy-${activePulse.sheet}`}
@@ -864,24 +864,26 @@ export default function ChartsHub() {
                             <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: activePulse.color }}>
                               {activePulse.label}
                             </p>
-                            <h2 className="max-w-4xl text-balance font-black uppercase leading-[0.9]" style={{ fontSize: "clamp(2.35rem,5.8vw,5.45rem)" }}>
-                              {pulseHeadline}
+                            <h2 className="max-w-[10ch] text-balance font-black uppercase leading-[0.92]" style={{ fontSize: "clamp(2.25rem,4.55vw,4.4rem)" }}>
+                              {title}
                             </h2>
-                            <p className="mt-4 max-w-xl text-sm font-semibold leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.62)" }}>
+                            <p className="mt-4 max-w-lg text-sm font-black uppercase tracking-[0.12em] md:text-base" style={{ color: activePulse.color }}>
+                              {pulseAction}
+                            </p>
+                            <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.62)" }}>
                               {pulseSubline}
                             </p>
-                            <div className="mt-5 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-3">
+                            <div className="mt-5 flex max-w-lg flex-wrap gap-x-5 gap-y-3 border-y border-white/[0.08] py-3">
                               {[
                                 { label: "Posición", value: "#1" },
                                 { label: "Lista", value: activePulse.platform },
-                                { label: "Dato", value: metric ? fmt(metric) : "Activo" },
+                                { label: "Dato", value: metric ? fmt(metric) : activePulse.label },
                               ].map(item => (
-                                <div key={item.label} className="px-3 py-3"
-                                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.24)" }}>
-                                  <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                                <div key={item.label} className="min-w-[5.6rem]">
+                                  <span className="block text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.38)" }}>
                                     {item.label}
                                   </span>
-                                  <span className="mt-2 block truncate text-base font-black uppercase leading-none" style={{ color: item.label === "Posición" ? activePulse.color : "#fff" }}>
+                                  <span className="mt-1 block max-w-[9rem] truncate text-sm font-black uppercase leading-none md:text-base" style={{ color: item.label === "Posición" ? activePulse.color : "#fff" }}>
                                     {item.value}
                                   </span>
                                 </div>
