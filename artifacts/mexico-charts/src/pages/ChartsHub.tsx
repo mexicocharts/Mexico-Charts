@@ -728,6 +728,21 @@ export default function ChartsHub() {
       color: G,
     },
   ].filter(card => card.row)), [topYoutubeArtists, topSpotifyArtists, topYoutubeSongs, topRegionalSongs]);
+  const [pulseIndex, setPulseIndex] = useState(0);
+
+  useEffect(() => {
+    if (no1Cards.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setPulseIndex(index => (index + 1) % no1Cards.length);
+    }, 5600);
+    return () => window.clearInterval(timer);
+  }, [no1Cards.length]);
+
+  useEffect(() => {
+    if (pulseIndex >= no1Cards.length) setPulseIndex(0);
+  }, [pulseIndex, no1Cards.length]);
+
+  const activePulse = no1Cards[pulseIndex] ?? no1Cards[0] ?? null;
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
@@ -786,93 +801,172 @@ export default function ChartsHub() {
       </section>
 
       <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 md:space-y-7 lg:px-12">
-        {no1Cards.length > 0 && (
+        {activePulse && (
           <section
             id="chart-pulse"
-            className="relative overflow-hidden px-4 py-5 sm:px-5 md:px-6 md:py-6"
+            className="relative overflow-hidden"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 8,
-              background: "linear-gradient(135deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012))",
-              boxShadow: "0 18px 70px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.045)",
+              background: `radial-gradient(circle at 18% 15%, ${activePulse.color}24, transparent 34%), radial-gradient(circle at 78% 18%, rgba(255,255,255,0.08), transparent 28%), linear-gradient(135deg, #111, #050505 68%)`,
+              boxShadow: `0 24px 90px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.055), 0 0 0 1px ${activePulse.color}10`,
             }}
           >
-            <div className="pointer-events-none absolute inset-0 opacity-[0.028]" style={{ backgroundImage: NOISE, backgroundSize: "110px" }} />
-            <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full blur-3xl" style={{ background: `${G}10` }} />
-            <div className="relative z-10">
-              <div className="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-                    Pulso de listas
-                  </p>
-                  <h2 className="max-w-4xl font-black uppercase leading-[0.92]" style={{ fontSize: "clamp(2rem,6vw,4.4rem)" }}>
-                    Números uno
-                  </h2>
-                </div>
-                <div className="max-w-sm text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] md:text-right" style={{ color: "rgba(255,255,255,0.38)" }}>
-                  Acceso rápido a las entradas líderes en las principales señales del hub.
-                </div>
-              </div>
+            {(() => {
+              const row = activePulse.row as Row;
+              const title = previewTitle(activePulse.sheet, row);
+              const detail = previewDetail(activePulse.sheet, row);
+              const img = previewImg(activePulse.sheet, row);
+              const PlatformIcon = PLATFORMS.find(p => p.id === activePulse.platform)?.Icon ?? MdMusicNote;
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {no1Cards.map((module) => {
-                  const row = module.row as Row;
-                  const title = previewTitle(module.sheet, row);
-                  const detail = previewDetail(module.sheet, row);
-                  const img = previewImg(module.sheet, row);
-                  const PlatformIcon = PLATFORMS.find(p => p.id === module.platform)?.Icon ?? MdMusicNote;
+              return (
+                <div className="relative min-h-[34rem] p-4 sm:p-5 md:p-7 lg:min-h-[31rem]">
+                  <div className="pointer-events-none absolute inset-0 opacity-[0.032]" style={{ backgroundImage: NOISE, backgroundSize: "110px" }} />
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${activePulse.color}99, transparent)` }} />
+                  <div className="pointer-events-none absolute bottom-0 right-0 text-[34vw] font-black uppercase leading-none opacity-[0.035] md:text-[18rem]">
+                    #1
+                  </div>
 
-                  return (
-                    <motion.button
-                      key={`pulse-${module.sheet}`}
-                      type="button"
-                      onClick={() => focusChart(module.platform, module.sheet)}
-                      whileHover={{ y: -3 }}
-                      className="group relative min-h-[13.5rem] overflow-hidden text-left"
-                      style={{
-                        borderRadius: 8,
-                        border: `1px solid ${module.color}33`,
-                        background: "rgba(0,0,0,0.46)",
-                        boxShadow: `0 16px 46px ${module.color}0d`,
-                      }}
-                    >
-                      <div className="absolute inset-0">
-                        {img ? (
-                          <img src={img} alt="" className="h-full w-full object-cover opacity-55 transition duration-500 group-hover:scale-105 group-hover:opacity-68" loading="lazy" />
-                        ) : (
-                          <div className="h-full w-full" style={{ background: `radial-gradient(circle at 20% 10%, ${module.color}35, transparent 42%), #090909` }} />
-                        )}
-                      </div>
-                      <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.88) 62%, rgba(0,0,0,0.98))" }} />
-                      <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${module.color}70, transparent)` }} />
-                      <div className="relative flex min-h-[13.5rem] flex-col justify-between p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em]" style={{ background: `${module.color}18`, border: `1px solid ${module.color}35`, color: module.color }}>
-                            <PlatformIcon className="h-3 w-3" />
-                            {module.label}
+                  <div className="relative z-10 grid h-full min-h-[31rem] gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(13rem,19rem)] md:items-center">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={`pulse-copy-${activePulse.sheet}`}
+                          initial={{ opacity: 0, x: -18 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 18 }}
+                          transition={{ duration: 0.34, ease: "easeOut" }}
+                          className="flex min-h-[19rem] flex-col justify-between"
+                        >
+                          <div>
+                            <div className="mb-7 flex flex-wrap items-center gap-2">
+                              <span className="inline-flex items-center gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
+                                style={{ borderRadius: 8, background: `${activePulse.color}18`, border: `1px solid ${activePulse.color}42`, color: activePulse.color }}>
+                                <PlatformIcon className="h-3.5 w-3.5" />
+                                Pulso en vivo
+                              </span>
+                              <span className="px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
+                                style={{ borderRadius: 8, background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.66)" }}>
+                                México · #1
+                              </span>
+                            </div>
+                            <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: activePulse.color }}>
+                              {activePulse.label}
+                            </p>
+                            <h2 className="max-w-4xl font-black uppercase leading-[0.88]" style={{ fontSize: "clamp(2.65rem,7.4vw,6.4rem)" }}>
+                              {title}
+                            </h2>
+                            <p className="mt-4 max-w-2xl text-sm font-semibold leading-relaxed md:text-lg" style={{ color: "rgba(255,255,255,0.6)" }}>
+                              Lidera {activePulse.label.toLowerCase()} en Mexico Charts. {detail || "Señal principal del hub esta semana."}
+                            </p>
+                          </div>
+
+                          <div className="mt-7 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => focusChart(activePulse.platform, activePulse.sheet)}
+                              className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] transition hover:brightness-110"
+                              style={{ borderRadius: 8, background: activePulse.color, color: "#050505" }}
+                            >
+                              Abrir chart
+                            </button>
+                            <div className="flex items-center gap-2" aria-label="Seleccionar señal destacada">
+                              {no1Cards.map((module, index) => (
+                                <button
+                                  key={`pulse-dot-${module.sheet}`}
+                                  type="button"
+                                  aria-label={`Ver ${module.label}`}
+                                  onClick={() => setPulseIndex(index)}
+                                  className="h-2.5 transition-all"
+                                  style={{
+                                    width: index === pulseIndex ? 26 : 10,
+                                    borderRadius: 999,
+                                    background: index === pulseIndex ? activePulse.color : "rgba(255,255,255,0.24)",
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </motion.div>
+                      </AnimatePresence>
+
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={`pulse-art-${activePulse.sheet}`}
+                          initial={{ opacity: 0, scale: 0.94, rotate: -1 }}
+                          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                          exit={{ opacity: 0, scale: 0.97, rotate: 1 }}
+                          transition={{ duration: 0.36, ease: "easeOut" }}
+                          className="relative aspect-square overflow-hidden"
+                          style={{
+                            borderRadius: 8,
+                            border: `1px solid ${activePulse.color}38`,
+                            boxShadow: `0 24px 70px rgba(0,0,0,0.45), 0 0 80px ${activePulse.color}18`,
+                            background: `radial-gradient(circle at 30% 20%, ${activePulse.color}34, transparent 44%), rgba(0,0,0,0.54)`,
+                          }}
+                        >
+                          {img ? (
+                            <img src={img} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-5xl font-black uppercase" style={{ color: activePulse.color }}>
+                              #1
+                            </div>
+                          )}
+                          <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 -80px 90px rgba(0,0,0,0.38)" }} />
+                          <span className="absolute bottom-3 left-3 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em]"
+                            style={{ borderRadius: 8, background: "rgba(0,0,0,0.66)", color: "#fff", border: "1px solid rgba(255,255,255,0.14)" }}>
+                            {activePulse.platform}
                           </span>
-                          <span className="rounded-full bg-white/[0.08] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.15em] text-white/70">
-                            #1
-                          </span>
-                        </div>
-                        <div>
-                          <h3 className="line-clamp-2 text-2xl font-black uppercase leading-[0.92] text-white">
-                            {title}
-                          </h3>
-                          <p className="mt-2 line-clamp-1 text-xs font-bold uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.52)" }}>
-                            {detail || module.platform}
-                          </p>
-                          <span className="mt-4 inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: module.color }}>
-                            Abrir chart
-                            <span aria-hidden>→</span>
-                          </span>
-                        </div>
-                      </div>
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+
+                    <div className="grid content-end gap-2 lg:content-center">
+                      <p className="mb-1 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.42)" }}>
+                        Señales principales
+                      </p>
+                      {no1Cards.map((module, index) => {
+                        const moduleRow = module.row as Row;
+                        const moduleTitle = previewTitle(module.sheet, moduleRow);
+                        const ModuleIcon = PLATFORMS.find(p => p.id === module.platform)?.Icon ?? MdMusicNote;
+                        const active = index === pulseIndex;
+
+                        return (
+                          <button
+                            key={`pulse-selector-${module.sheet}`}
+                            type="button"
+                            onClick={() => setPulseIndex(index)}
+                            className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 p-3 text-left transition"
+                            style={{
+                              borderRadius: 8,
+                              border: `1px solid ${active ? module.color : "rgba(255,255,255,0.09)"}`,
+                              background: active ? `${module.color}14` : "rgba(255,255,255,0.035)",
+                              boxShadow: active ? `0 14px 40px ${module.color}12` : "none",
+                            }}
+                          >
+                            <span className="flex h-10 w-10 items-center justify-center"
+                              style={{ borderRadius: 8, background: `${module.color}18`, color: module.color }}>
+                              <ModuleIcon className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: module.color }}>
+                                {module.label}
+                              </span>
+                              <span className="mt-1 block truncate text-sm font-black uppercase text-white">
+                                {moduleTitle}
+                              </span>
+                            </span>
+                            <span className="text-xl font-black" style={{ color: active ? module.color : "rgba(255,255,255,0.35)" }}>
+                              0{index + 1}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </section>
         )}
 
