@@ -818,17 +818,28 @@ export default function ChartsHub() {
               const detail = previewDetail(activePulse.sheet, row);
               const img = previewImg(activePulse.sheet, row);
               const PlatformIcon = PLATFORMS.find(p => p.id === activePulse.platform)?.Icon ?? MdMusicNote;
+              const isArtistSignal = activePulse.sheet.includes("Artists");
+              const metric = row["Streams"] || row["streams"] || row["Views"] || row["views"] || row["Total Streams"] || row["Weekly Streams"] || "";
+              const pulseHeadline = isArtistSignal
+                ? `${title} domina ${activePulse.label}`
+                : `${title} lidera ${activePulse.label}`;
+              const pulseSubline = detail && detail !== activePulse.label
+                ? detail
+                : activePulse.platform === "Spotify"
+                  ? "La señal de streaming más fuerte de la semana."
+                  : "La señal de video más fuerte de la semana.";
 
               return (
-                <div className="relative min-h-[34rem] p-4 sm:p-5 md:p-7 lg:min-h-[31rem]">
+                <div className="relative min-h-[34rem] p-4 sm:p-5 md:p-7 lg:min-h-[32rem]">
                   <div className="pointer-events-none absolute inset-0 opacity-[0.032]" style={{ backgroundImage: NOISE, backgroundSize: "110px" }} />
                   <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, ${activePulse.color}99, transparent)` }} />
-                  <div className="pointer-events-none absolute bottom-0 right-0 text-[34vw] font-black uppercase leading-none opacity-[0.035] md:text-[18rem]">
+                  <div className="pointer-events-none absolute bottom-0 right-0 text-[34vw] font-black uppercase leading-none opacity-[0.025] md:text-[18rem]">
                     #1
                   </div>
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24" style={{ background: `linear-gradient(90deg, ${activePulse.color}1f, transparent 48%, ${activePulse.color}10)` }} />
 
-                  <div className="relative z-10 grid h-full min-h-[31rem] gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-                    <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(13rem,19rem)] md:items-center">
+                  <div className="relative z-10 grid h-full min-h-[32rem] gap-5 lg:grid-cols-[minmax(0,1fr)_21.5rem]">
+                    <div className="grid gap-5 md:grid-cols-[minmax(0,0.95fr)_minmax(14rem,22rem)] md:items-center">
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={`pulse-copy-${activePulse.sheet}`}
@@ -836,10 +847,10 @@ export default function ChartsHub() {
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 18 }}
                           transition={{ duration: 0.34, ease: "easeOut" }}
-                          className="flex min-h-[19rem] flex-col justify-between"
+                          className="flex min-h-[21rem] flex-col justify-between"
                         >
                           <div>
-                            <div className="mb-7 flex flex-wrap items-center gap-2">
+                            <div className="mb-6 flex flex-wrap items-center gap-2">
                               <span className="inline-flex items-center gap-2 px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em]"
                                 style={{ borderRadius: 8, background: `${activePulse.color}18`, border: `1px solid ${activePulse.color}42`, color: activePulse.color }}>
                                 <PlatformIcon className="h-3.5 w-3.5" />
@@ -853,12 +864,29 @@ export default function ChartsHub() {
                             <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: activePulse.color }}>
                               {activePulse.label}
                             </p>
-                            <h2 className="max-w-4xl font-black uppercase leading-[0.88]" style={{ fontSize: "clamp(2.65rem,7.4vw,6.4rem)" }}>
-                              {title}
+                            <h2 className="max-w-4xl text-balance font-black uppercase leading-[0.9]" style={{ fontSize: "clamp(2.35rem,5.8vw,5.45rem)" }}>
+                              {pulseHeadline}
                             </h2>
-                            <p className="mt-4 max-w-2xl text-sm font-semibold leading-relaxed md:text-lg" style={{ color: "rgba(255,255,255,0.6)" }}>
-                              Lidera {activePulse.label.toLowerCase()} en Mexico Charts. {detail || "Señal principal del hub esta semana."}
+                            <p className="mt-4 max-w-xl text-sm font-semibold leading-relaxed md:text-base" style={{ color: "rgba(255,255,255,0.62)" }}>
+                              {pulseSubline}
                             </p>
+                            <div className="mt-5 grid max-w-xl grid-cols-2 gap-2 sm:grid-cols-3">
+                              {[
+                                { label: "Posición", value: "#1" },
+                                { label: "Lista", value: activePulse.platform },
+                                { label: "Dato", value: metric ? fmt(metric) : "Activo" },
+                              ].map(item => (
+                                <div key={item.label} className="px-3 py-3"
+                                  style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.24)" }}>
+                                  <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                                    {item.label}
+                                  </span>
+                                  <span className="mt-2 block truncate text-base font-black uppercase leading-none" style={{ color: item.label === "Posición" ? activePulse.color : "#fff" }}>
+                                    {item.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
 
                           <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -897,11 +925,11 @@ export default function ChartsHub() {
                           animate={{ opacity: 1, scale: 1, rotate: 0 }}
                           exit={{ opacity: 0, scale: 0.97, rotate: 1 }}
                           transition={{ duration: 0.36, ease: "easeOut" }}
-                          className="relative aspect-square overflow-hidden"
+                          className="relative aspect-[4/5] overflow-hidden md:aspect-square"
                           style={{
                             borderRadius: 8,
                             border: `1px solid ${activePulse.color}38`,
-                            boxShadow: `0 24px 70px rgba(0,0,0,0.45), 0 0 80px ${activePulse.color}18`,
+                            boxShadow: `0 28px 80px rgba(0,0,0,0.5), 0 0 90px ${activePulse.color}1c`,
                             background: `radial-gradient(circle at 30% 20%, ${activePulse.color}34, transparent 44%), rgba(0,0,0,0.54)`,
                           }}
                         >
@@ -917,17 +945,27 @@ export default function ChartsHub() {
                             style={{ borderRadius: 8, background: "rgba(0,0,0,0.66)", color: "#fff", border: "1px solid rgba(255,255,255,0.14)" }}>
                             {activePulse.platform}
                           </span>
+                          <span className="absolute right-3 top-3 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em]"
+                            style={{ borderRadius: 8, background: activePulse.color, color: "#050505" }}>
+                            0{pulseIndex + 1}/0{no1Cards.length}
+                          </span>
                         </motion.div>
                       </AnimatePresence>
                     </div>
 
                     <div className="grid content-end gap-2 lg:content-center">
-                      <p className="mb-1 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.42)" }}>
-                        Señales principales
-                      </p>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.42)" }}>
+                          Señales principales
+                        </p>
+                        <span className="text-[9px] font-black uppercase tracking-[0.16em]" style={{ color: activePulse.color }}>
+                          Rotando
+                        </span>
+                      </div>
                       {no1Cards.map((module, index) => {
                         const moduleRow = module.row as Row;
                         const moduleTitle = previewTitle(module.sheet, moduleRow);
+                        const moduleDetail = previewDetail(module.sheet, moduleRow);
                         const ModuleIcon = PLATFORMS.find(p => p.id === module.platform)?.Icon ?? MdMusicNote;
                         const active = index === pulseIndex;
 
@@ -940,7 +978,7 @@ export default function ChartsHub() {
                             style={{
                               borderRadius: 8,
                               border: `1px solid ${active ? module.color : "rgba(255,255,255,0.09)"}`,
-                              background: active ? `${module.color}14` : "rgba(255,255,255,0.035)",
+                              background: active ? `linear-gradient(90deg, ${module.color}1a, rgba(255,255,255,0.04))` : "rgba(255,255,255,0.035)",
                               boxShadow: active ? `0 14px 40px ${module.color}12` : "none",
                             }}
                           >
@@ -955,6 +993,9 @@ export default function ChartsHub() {
                               <span className="mt-1 block truncate text-sm font-black uppercase text-white">
                                 {moduleTitle}
                               </span>
+                              <span className="mt-1 block truncate text-[10px] font-bold uppercase tracking-[0.08em]" style={{ color: "rgba(255,255,255,0.38)" }}>
+                                {moduleDetail || module.platform}
+                              </span>
                             </span>
                             <span className="text-xl font-black" style={{ color: active ? module.color : "rgba(255,255,255,0.35)" }}>
                               0{index + 1}
@@ -962,6 +1003,16 @@ export default function ChartsHub() {
                           </button>
                         );
                       })}
+                      <div className="mt-2 h-1 overflow-hidden" style={{ borderRadius: 999, background: "rgba(255,255,255,0.08)" }}>
+                        <motion.div
+                          key={`pulse-progress-${activePulse.sheet}`}
+                          initial={{ width: "0%" }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 5.6, ease: "linear" }}
+                          className="h-full"
+                          style={{ background: activePulse.color }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
