@@ -662,7 +662,8 @@ router.get("/admin/artists/daily-snapshots/status", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
   const snapshotDate = (req.query["date"] as string | undefined) ?? new Date().toISOString().slice(0, 10);
-  const maxDetails = Math.min(parseInt((req.query["details"] as string | undefined) ?? "80", 10), 300);
+  const rawDetails = parseInt((req.query["details"] as string | undefined) ?? "80", 10);
+  const maxDetails = Math.min(Number.isFinite(rawDetails) && rawDetails > 0 ? rawDetails : 80, 300);
 
   try {
     await ensureDailySnapshotRunLogTable();
