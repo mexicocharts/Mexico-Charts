@@ -7,7 +7,6 @@ export const SOCIAL_HANDLE = "@mexicocharts";
 
 export const SOCIAL_URLS = {
   instagram: "https://www.instagram.com/mexicocharts/",
-  x: "https://x.com/MexicoCharts",
   tiktok: "https://www.tiktok.com/@mexicocharts",
   youtube: "https://www.youtube.com/@mexicocharts",
 } as const;

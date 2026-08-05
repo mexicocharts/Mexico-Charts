@@ -63,12 +63,12 @@ const ASCENSO_ACCENTS = [
   "rgba(57,255,20,0.24)",
 ];
 
-const SOCIAL_LINKS = [
+const SOCIAL_LINKS: { label: string; href: string | null; icon: React.ElementType }[] = [
   { label: "Instagram", href: SOCIAL_URLS.instagram, icon: SiInstagram },
-  { label: "X", href: SOCIAL_URLS.x, icon: SiX },
-  { label: "TikTok", href: SOCIAL_URLS.tiktok, icon: SiTiktok },
-  { label: "YouTube", href: SOCIAL_URLS.youtube, icon: SiYoutube },
-] as const;
+  { label: "X",         href: null,                  icon: SiX },
+  { label: "TikTok",   href: SOCIAL_URLS.tiktok,    icon: SiTiktok },
+  { label: "YouTube",  href: SOCIAL_URLS.youtube,   icon: SiYoutube },
+];
 
 const PUBLIC_FEATURES = [
   {
@@ -1291,9 +1291,13 @@ export default function HomeV6() {
               <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
               <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">Datos, charts y contexto de la música mexicana.</p>
               <div className="flex gap-4 mt-4">
-                {SOCIAL_LINKS.map(({ label, href, icon: Icon }) => (
-                  <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
-                ))}
+                {SOCIAL_LINKS.map(({ label, href, icon: Icon }) =>
+                  href ? (
+                    <a key={label} href={href} target="_blank" rel="noreferrer" aria-label={label} className="text-zinc-500 hover:text-[#39FF14] transition-colors duration-200"><Icon className="w-4 h-4" /></a>
+                  ) : (
+                    <span key={label} aria-label={label} className="text-zinc-500"><Icon className="w-4 h-4" /></span>
+                  )
+                )}
               </div>
             </div>
             {[
