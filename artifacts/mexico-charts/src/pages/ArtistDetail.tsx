@@ -63,7 +63,9 @@ function formatTourDate(iso: string): string {
 
 function formatShortDateEs(iso: string | null | undefined): string {
   if (!iso) return "";
-  const date = new Date(iso);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T12:00:00`)
+    : new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
