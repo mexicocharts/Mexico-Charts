@@ -3,9 +3,8 @@ import { db } from "@workspace/db";
 import {
   songstatsArtistDailySnapshots,
   songstatsArtists,
-  spotifyArtists,
 } from "@workspace/db/schema";
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, inArray } from "drizzle-orm";
 import {
   getSongstatsArtistAudience,
   getSongstatsArtistAudienceDetails,
@@ -16,6 +15,8 @@ import {
 } from "../lib/songstats-client";
 import {
   ensureSongstatsTables,
+  listSongstatsCatalogArtists,
+  songstatsArtistKeyCandidates,
   syncSongstatsCurrentStats,
 } from "../lib/songstats-snapshot-service";
 import { logger } from "../lib/logger";
@@ -109,10 +110,14 @@ router.get("/providers/songstats/artist", async (req, res) => {
 
   try {
     await ensureSongstatsTables();
-    const [artist] = await db.select()
+    const lookupKeys = songstatsArtistKeyCandidates(artistKey);
+    const artistRows = await db.select()
       .from(songstatsArtists)
-      .where(eq(songstatsArtists.artistKey, artistKey));
-    const [snapshot] = await db.select({
+      .where(inArray(songstatsArtists.artistKey, lookupKeys));
+    const artist = lookupKeys
+      .map(key => artistRows.find(row => row.artistKey === key))
+      .find(Boolean);
+    const snapshotRows = await db.select({
       snapshotDate: songstatsArtistDailySnapshots.snapshotDate,
       spotifyFollowers: songstatsArtistDailySnapshots.spotifyFollowers,
       spotifyMonthlyListeners: songstatsArtistDailySnapshots.spotifyMonthlyListeners,
@@ -128,9 +133,10 @@ router.get("/providers/songstats/artist", async (req, res) => {
       fetchedAt: songstatsArtistDailySnapshots.fetchedAt,
     })
       .from(songstatsArtistDailySnapshots)
-      .where(eq(songstatsArtistDailySnapshots.artistKey, artistKey))
+      .where(inArray(songstatsArtistDailySnapshots.artistKey, lookupKeys))
       .orderBy(desc(songstatsArtistDailySnapshots.snapshotDate))
       .limit(1);
+    const snapshot = snapshotRows[0];
 
     if (!artist || !snapshot) {
       res.status(404).json({ error: "No saved Songstats data for this artist" });
@@ -154,15 +160,11 @@ router.get("/providers/songstats/artist", async (req, res) => {
 router.get("/admin/songstats/sync-preview", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const limit = requestedLimit(req.query["limit"]);
-  const artists = (await db.select({
-    artistKey: spotifyArtists.artistKey,
-    spotifyArtistId: spotifyArtists.spotifyArtistId,
-    spotifyName: spotifyArtists.spotifyName,
-  })
-    .from(spotifyArtists)
-    .where(eq(spotifyArtists.verified, true))
-    .orderBy(asc(spotifyArtists.artistKey)))
-    .slice(0, limit);
+  const requestedArtistKey = String(req.query["artistKey"] ?? "").trim();
+  const artists = await listSongstatsCatalogArtists({
+    limit,
+    artistKeys: requestedArtistKey ? [requestedArtistKey] : undefined,
+  });
 
   res.json({
     testModeLimit: configuredSyncLimit(),
@@ -207,11 +209,12 @@ router.get("/admin/songstats/live/:artistKey", async (req, res) => {
   }
 
   try {
-    const [artist] = await db.select()
-      .from(spotifyArtists)
-      .where(eq(spotifyArtists.artistKey, artistKey));
-    if (!artist?.verified) {
-      res.status(404).json({ error: "No verified Spotify artist linked for this artist" });
+    const [artist] = await listSongstatsCatalogArtists({
+      limit: 1,
+      artistKeys: [artistKey],
+    });
+    if (!artist) {
+      res.status(404).json({ error: "No Spotify artist linked for this catalog artist" });
       return;
     }
 

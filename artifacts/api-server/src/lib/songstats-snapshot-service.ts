@@ -2,9 +2,7 @@ import { db, pool } from "@workspace/db";
 import {
   songstatsArtistDailySnapshots,
   songstatsArtists,
-  spotifyArtists,
 } from "@workspace/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   getSongstatsArtistCurrentStats,
   type SongstatsCurrentStatsResponse,
@@ -28,6 +26,85 @@ export interface SongstatsSyncSummary {
   saved: number;
   failed: number;
   results: SongstatsSyncResult[];
+}
+
+export interface SongstatsCatalogArtist {
+  artistKey: string;
+  spotifyArtistId: string;
+  spotifyName: string | null;
+}
+
+const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
+  "banda el recodo de cruz lizarraga": "banda el recodo",
+  "banda sinaloense ms de sergio lizarraga": "banda ms de sergio lizarraga",
+  "banda tito y su torbellino": "tito torbellino",
+  "ramon ayala y sus bravos del norte": "ramon ayala",
+};
+
+function normalizeArtistKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function compactArtistKey(value: string): string {
+  return normalizeArtistKey(value).replace(/[^a-z0-9]/g, "");
+}
+
+export function songstatsArtistKeyCandidates(value: string): string[] {
+  const normalized = normalizeArtistKey(value);
+  const canonical = CANONICAL_ARTIST_KEY_BY_ALIAS[normalized] ?? normalized;
+  return [...new Set([
+    normalized,
+    canonical,
+    compactArtistKey(normalized),
+    compactArtistKey(canonical),
+  ].filter(Boolean))];
+}
+
+export async function listSongstatsCatalogArtists(options: {
+  limit: number;
+  artistKeys?: string[];
+}): Promise<SongstatsCatalogArtist[]> {
+  const limit = Math.max(1, Math.floor(options.limit));
+  const requestedKeys = [...new Set(
+    (options.artistKeys ?? []).flatMap(songstatsArtistKeyCandidates),
+  )];
+  const params: unknown[] = [limit];
+  const requestedFilter = requestedKeys.length
+    ? "AND lower(c.artist_key) = ANY($2::text[])"
+    : "";
+  if (requestedKeys.length) params.push(requestedKeys);
+
+  const result = await pool.query<{
+    artist_key: string;
+    spotify_artist_id: string;
+    spotify_name: string | null;
+  }>(
+    `
+      SELECT
+        c.artist_key,
+        COALESCE(c.spotify_id, s.spotify_artist_id) AS spotify_artist_id,
+        COALESCE(c.artist_name, s.spotify_name) AS spotify_name
+      FROM kworb_coverage c
+      LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
+      WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
+        AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
+        ${requestedFilter}
+      ORDER BY c.tier, c.artist_key
+      LIMIT $1
+    `,
+    params,
+  );
+
+  return result.rows.map(row => ({
+    artistKey: row.artist_key,
+    spotifyArtistId: row.spotify_artist_id,
+    spotifyName: row.spotify_name,
+  }));
 }
 
 function todayIso(): string {
@@ -133,7 +210,7 @@ export async function ensureSongstatsTables(): Promise<void> {
 }
 
 async function saveCurrentStats(
-  artist: typeof spotifyArtists.$inferSelect,
+  artist: SongstatsCatalogArtist,
   response: SongstatsCurrentStatsResponse,
   snapshotDate: string,
 ): Promise<SongstatsSyncResult> {
@@ -228,23 +305,10 @@ export async function syncSongstatsCurrentStats(options: {
 
   const limit = Math.max(1, Math.floor(options.limit));
   const snapshotDate = options.snapshotDate ?? todayIso();
-  const requestedKeys = [...new Set(
-    (options.artistKeys ?? []).map(key => key.trim().toLowerCase()).filter(Boolean),
-  )];
-
-  let query = db.select()
-    .from(spotifyArtists)
-    .where(
-      requestedKeys.length
-        ? and(
-            eq(spotifyArtists.verified, true),
-            inArray(spotifyArtists.artistKey, requestedKeys),
-          )
-        : eq(spotifyArtists.verified, true),
-    )
-    .orderBy(asc(spotifyArtists.artistKey));
-
-  const artists = (await query).slice(0, limit);
+  const artists = await listSongstatsCatalogArtists({
+    limit,
+    artistKeys: options.artistKeys,
+  });
   const results: SongstatsSyncResult[] = [];
 
   for (const artist of artists) {
