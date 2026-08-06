@@ -14,6 +14,7 @@ import wikiRouter from "./wiki";
 import youtubeRouter from "./youtube";
 import newsletterRouter from "./newsletter";
 import artistDiscoveryRouter from "./artist-discovery";
+import songstatsRouter from "./songstats";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(wikiRouter);
 router.use(youtubeRouter);
 router.use(newsletterRouter);
 router.use(artistDiscoveryRouter);
+router.use(songstatsRouter);
 
 export default router;

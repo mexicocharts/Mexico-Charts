@@ -35,3 +35,4 @@ export * from "./musicbrainz_artists";
 export * from "./newsletter_subscribers";
 export * from "./artist_discovery";
 export * from "./social_template_artwork";
+export * from "./songstats_artists";

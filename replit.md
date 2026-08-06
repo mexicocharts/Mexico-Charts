@@ -12,6 +12,7 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `pnpm --filter @workspace/db run push` — push DB schema changes in development.
 - YouTube artist profile channel snapshots run automatically from the API server once per UTC day after `YOUTUBE_CHANNEL_SNAPSHOT_HOUR_UTC` (default `9`). The manual backfill command is `pnpm --filter @workspace/scripts run youtube-channel-daily-snapshots`.
 - Spotify/Kworb artist stream snapshots run automatically from the API server once per UTC day after `SPOTIFY_KWORB_SNAPSHOT_HOUR_UTC` (default `10`). The manual backfill command is `pnpm --filter @workspace/scripts run spotify-kworb-daily-snapshots`.
+- Songstats artist-level current metrics can be tested with `POST /api/admin/songstats/sync-current?limit=25`. Daily snapshots are opt-in through `SONGSTATS_SNAPSHOT_AUTOMATION=true`.
 
 ## Required Environment
 
@@ -25,6 +26,11 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - Spotify credentials used by the Replit Spotify integration/API routes.
 - `VITE_SITE_URL` — public site origin used for canonical/Open Graph URLs.
 - `VITE_SOCIAL_TEMPLATES_ACCESS_CODE` — private access code for `/social-templates`.
+- `SONGSTATS_API_KEY` — server-only Songstats Enterprise API key. Never expose this as a `VITE_` variable.
+- `SONGSTATS_ADMIN_KEY` — optional admin key for Songstats routes; falls back to the existing Spotify or YouTube admin key.
+- `SONGSTATS_SYNC_MAX_ARTISTS` — maximum unique artists one sync can request; keep at `25` for the free test key and raise deliberately for production.
+- `SONGSTATS_SNAPSHOT_AUTOMATION` — optional; must be exactly `true` to enable daily Songstats snapshots.
+- `SONGSTATS_SNAPSHOT_HOUR_UTC` — optional UTC hour for the daily Songstats snapshot, default `11`.
 
 ## Stack
 
@@ -58,6 +64,7 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - Replit is the source-of-truth runtime because it has Postgres and provider secrets preconfigured.
 - Local macOS dev/build can fail because `pnpm-workspace.yaml` excludes macOS native Rollup/esbuild optional packages for the Replit/Linux environment.
 - Local Codex can still edit, typecheck, commit, and push. Full runtime QA should happen in Replit unless local platform overrides are adjusted.
+- Songstats raw API payloads are stored server-side and are available only through protected admin inspection. Public provider routes return normalized display metrics, not the raw response.
 - Use pnpm only. The root `preinstall` rejects npm/yarn lockfiles.
 - Social templates should not be linked from public navigation or indexed in search.
 

@@ -6,7 +6,7 @@ import { SHEET_SOURCES } from "@/config/sheetSources";
 import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
-import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud } from "react-icons/si";
+import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
@@ -14,6 +14,7 @@ import { useWikiBio } from "@/hooks/useWikiBio";
 import { useYoutubeChannel } from "@/hooks/useYoutubeChannel";
 import { useArtistTouring } from "@/hooks/useTouring";
 import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
+import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
 
 export { slugify };
@@ -131,6 +132,14 @@ function pctLabel(value: number | null | undefined) {
 function formatSignedMetric(value: number | null | undefined, formatted: string | null | undefined) {
   if (value == null || !formatted) return "—";
   return value > 0 ? `+${formatted}` : formatted;
+}
+
+function formatCompactCount(value: number | null | undefined): string {
+  if (value == null || value <= 0) return "—";
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  return value.toLocaleString("es-MX");
 }
 
 function momentumLabel(trend: "rising" | "steady" | "cooling" | "new" | null | undefined) {
@@ -421,6 +430,7 @@ export default function ArtistDetail() {
     () => lookupArtistMetadata(slugAsKey, displayName, metaByKey, metaByName),
     [slugAsKey, displayName, metaByKey, metaByName]
   );
+  const { data: songstatsArtist } = useSongstatsArtist(slugAsKey);
 
   /* ── Merge: base → chart sheet → metadata (priority order, highest last) ── */
   const artist: ArtistData = useMemo(() => {
@@ -455,8 +465,38 @@ export default function ArtistDetail() {
         ...(metaArtist.soundcloudFollowers > 0 && { soundcloudFollowers: metaArtist.soundcloudFollowersFmt }),
       };
     }
+    // 4. Licensed Songstats snapshots are the freshest source and therefore
+    // override manually maintained audience values when available.
+    const songstats = songstatsArtist?.snapshot;
+    if (songstats) {
+      merged = {
+        ...merged,
+        ...(songstats.spotifyMonthlyListeners && {
+          listeners: formatCompactCount(songstats.spotifyMonthlyListeners),
+          listenersRaw: songstats.spotifyMonthlyListeners / 1_000_000,
+        }),
+        ...(songstats.spotifyFollowers && {
+          spotifyFollowers: formatCompactCount(songstats.spotifyFollowers),
+        }),
+        ...(songstats.youtubeSubscribers && {
+          youtubeSubscribers: formatCompactCount(songstats.youtubeSubscribers),
+        }),
+        ...(songstats.tiktokFollowers && {
+          tiktokFollowers: formatCompactCount(songstats.tiktokFollowers),
+        }),
+        ...(songstats.instagramFollowers && {
+          instagramFollowers: formatCompactCount(songstats.instagramFollowers),
+        }),
+        ...(songstats.deezerFollowers && {
+          deezerFans: formatCompactCount(songstats.deezerFollowers),
+        }),
+        ...(songstats.soundcloudFollowers && {
+          soundcloudFollowers: formatCompactCount(songstats.soundcloudFollowers),
+        }),
+      };
+    }
     return merged;
-  }, [sheetArtist, baseArtist, metaArtist]);
+  }, [sheetArtist, baseArtist, metaArtist, songstatsArtist]);
 
   const similarArtists = useMemo(() => {
     const currentGenre = artist.genre.trim().toLowerCase();
@@ -501,17 +541,27 @@ export default function ArtistDetail() {
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
-  const hasAudienceStats = Boolean(metaArtist && (
-    metaArtist.spotifyListeners > 0 ||
-    metaArtist.spotifyFollowers > 0 ||
-    metaArtist.instagramFollowers > 0 ||
-    metaArtist.tiktokFollowers > 0 ||
-    metaArtist.youtubeSubscribers > 0 ||
-    metaArtist.deezerFans > 0 ||
-    ytChannel?.subscribersFmt ||
-    ytChannel?.viewsFmt ||
-    ytChannel?.videoCount != null
-  ));
+  const audienceStats = useMemo(() => {
+    const songstats = songstatsArtist?.snapshot;
+    return {
+      spotifyListeners: songstats?.spotifyMonthlyListeners ?? metaArtist?.spotifyListeners ?? 0,
+      spotifyFollowers: songstats?.spotifyFollowers ?? metaArtist?.spotifyFollowers ?? 0,
+      instagramFollowers: songstats?.instagramFollowers ?? metaArtist?.instagramFollowers ?? 0,
+      tiktokFollowers: songstats?.tiktokFollowers ?? metaArtist?.tiktokFollowers ?? 0,
+      youtubeSubscribers: songstats?.youtubeSubscribers
+        ?? ytChannel?.subscriberCount
+        ?? metaArtist?.youtubeSubscribers
+        ?? 0,
+      youtubeViews: songstats?.youtubeChannelViews ?? ytChannel?.viewCount ?? 0,
+      facebookFollowers: songstats?.facebookFollowers ?? metaArtist?.facebookFollowers ?? 0,
+      twitterFollowers: songstats?.twitterFollowers ?? 0,
+      soundcloudFollowers: songstats?.soundcloudFollowers ?? metaArtist?.soundcloudFollowers ?? 0,
+      deezerFollowers: songstats?.deezerFollowers ?? metaArtist?.deezerFans ?? 0,
+    };
+  }, [metaArtist, songstatsArtist, ytChannel]);
+  const hasAudienceStats = Object.values(audienceStats).some(value => value > 0)
+    || ytChannel?.videoCount != null;
+  const songstatsSnapshotLabel = formatShortDateEs(songstatsArtist?.snapshot.snapshotDate);
 
   const nextTourEvent = useMemo(() => {
     return artistTouring?.events?.[0] ?? null;
@@ -1076,9 +1126,10 @@ export default function ArtistDetail() {
       <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-8 sm:py-10 flex flex-col gap-8 sm:gap-10">
 
         {/* ══════════════════════════════════════════════════════════
-            SOCIAL & PLATFORM STATS — from metadata sheet
+            SOCIAL & PLATFORM STATS — licensed Songstats snapshots first,
+            with existing metadata/official-channel fallbacks.
         ══════════════════════════════════════════════════════════ */}
-        {hasAudienceStats && metaArtist && (
+        {hasAudienceStats && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1091,53 +1142,55 @@ export default function ArtistDetail() {
             >
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
-                <h2 className="mb-4 text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500 sm:mb-5 sm:text-xs sm:tracking-[0.25em]">Audiencia y alcance</h2>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5">
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500 sm:text-xs sm:tracking-[0.25em]">Audiencia y alcance</h2>
+                  {songstatsArtist && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#39FF14]/15 bg-[#39FF14]/[0.04] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#39FF14]/75">
+                      <Database className="h-3 w-3" />
+                      Songstats{songstatsSnapshotLabel ? ` · ${songstatsSnapshotLabel}` : ""}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
-                  {metaArtist.spotifyListeners > 0 && (
+                  {audienceStats.spotifyListeners > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.spotifyListenersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.spotifyListeners)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Oyentes mensuales</div>
                     </div>
                   )}
-                  {metaArtist.spotifyFollowers > 0 && (
+                  {audienceStats.spotifyFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.spotifyFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.spotifyFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Spotify</div>
                     </div>
                   )}
-                  {metaArtist.instagramFollowers > 0 && (
+                  {audienceStats.instagramFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
                       <SiInstagram className="w-4 h-4 text-pink-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.instagramFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.instagramFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Instagram</div>
                     </div>
                   )}
-                  {metaArtist.tiktokFollowers > 0 && (
+                  {audienceStats.tiktokFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiTiktok className="w-4 h-4 text-zinc-300" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.tiktokFollowersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.tiktokFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
-                  {ytChannel?.subscribersFmt ? (
+                  {audienceStats.youtubeSubscribers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.subscribersFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.youtubeSubscribers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
-                  ) : metaArtist.youtubeSubscribers > 0 ? (
-                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
-                      <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.youtubeSubscribersFmt}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
-                    </div>
-                  ) : null}
-                  {ytChannel?.viewsFmt && (
+                  )}
+                  {audienceStats.youtubeViews > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.viewsFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.youtubeViews)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
                     </div>
                   )}
@@ -1148,15 +1201,36 @@ export default function ArtistDetail() {
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Videos en canal</div>
                     </div>
                   )}
-                  {metaArtist.deezerFans > 0 && (
+                  {audienceStats.deezerFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
                       <Music className="w-4 h-4" style={{ color: "#A238FF" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{metaArtist.deezerFansFmt}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.deezerFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Fans Deezer</div>
                     </div>
                   )}
+                  {audienceStats.facebookFollowers > 0 && (
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(24,119,242,0.06)", border: "1px solid rgba(24,119,242,0.15)" }}>
+                      <SiFacebook className="h-4 w-4 text-blue-500" />
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.facebookFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Facebook</div>
+                    </div>
+                  )}
+                  {audienceStats.twitterFollowers > 0 && (
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                      <SiX className="h-4 w-4 text-zinc-300" />
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.twitterFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores X</div>
+                    </div>
+                  )}
+                  {audienceStats.soundcloudFollowers > 0 && (
+                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,85,0,0.06)", border: "1px solid rgba(255,85,0,0.15)" }}>
+                      <SiSoundcloud className="h-4 w-4 text-orange-500" />
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.soundcloudFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores SoundCloud</div>
+                    </div>
+                  )}
                 </div>
-                {metaArtist.label && (
+                {metaArtist?.label && (
                   <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
                     <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>
                     {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
