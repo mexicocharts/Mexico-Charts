@@ -8,6 +8,7 @@ import {
   type SongstatsCurrentStatsResponse,
   type SongstatsSourceStats,
 } from "./songstats-client";
+import { ensureSongstatsBillingUsageTable } from "./songstats-billing-guard";
 import { logger } from "./logger";
 
 export interface SongstatsSyncResult {
@@ -69,6 +70,7 @@ export async function listSongstatsCatalogArtists(options: {
   limit: number;
   artistKeys?: string[];
   excludeSnapshotDate?: string;
+  excludeBillingMonth?: string;
 }): Promise<SongstatsCatalogArtist[]> {
   const limit = Math.max(1, Math.floor(options.limit));
   const requestedKeys = [...new Set(
@@ -85,6 +87,17 @@ export async function listSongstatsCatalogArtists(options: {
         FROM songstats_artist_daily_snapshots existing_snapshot
         WHERE existing_snapshot.artist_key = c.artist_key
           AND existing_snapshot.snapshot_date = $${params.push(options.excludeSnapshotDate)}
+      )
+    `
+    : "";
+  const billingFilter = options.excludeBillingMonth
+    ? `
+      AND NOT EXISTS (
+        SELECT 1
+        FROM songstats_monthly_artist_usage existing_usage
+        WHERE existing_usage.billing_month = $${params.push(options.excludeBillingMonth)}
+          AND existing_usage.identifier_type = 'spotify_artist_id'
+          AND existing_usage.identifier_value = COALESCE(c.spotify_id, s.spotify_artist_id)
       )
     `
     : "";
@@ -105,6 +118,7 @@ export async function listSongstatsCatalogArtists(options: {
         AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
         ${requestedFilter}
         ${snapshotFilter}
+        ${billingFilter}
       ORDER BY c.tier, c.artist_key
       LIMIT $1
     `,
@@ -312,7 +326,10 @@ export async function syncSongstatsCurrentStats(options: {
   artistKeys?: string[];
   snapshotDate?: string;
 }): Promise<SongstatsSyncSummary> {
-  await ensureSongstatsTables();
+  await Promise.all([
+    ensureSongstatsTables(),
+    ensureSongstatsBillingUsageTable(),
+  ]);
 
   const limit = Math.max(1, Math.floor(options.limit));
   const snapshotDate = options.snapshotDate ?? todayIso();
@@ -320,6 +337,9 @@ export async function syncSongstatsCurrentStats(options: {
     limit,
     artistKeys: options.artistKeys,
     excludeSnapshotDate: options.artistKeys?.length ? undefined : snapshotDate,
+    excludeBillingMonth: options.artistKeys?.length
+      ? undefined
+      : new Date().toISOString().slice(0, 7),
   });
   const results: SongstatsSyncResult[] = [];
 
