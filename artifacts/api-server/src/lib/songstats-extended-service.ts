@@ -61,6 +61,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown Songstats error";
 }
 
+function configuredExtendedConcurrency(): number {
+  const parsed = Number(process.env["SONGSTATS_EXTENDED_SYNC_CONCURRENCY"] ?? "2");
+  return Number.isFinite(parsed)
+    ? Math.max(1, Math.min(5, Math.floor(parsed)))
+    : 2;
+}
+
 function artistInfoFromPayloads(payloads: ExtendedPayloads): SongstatsArtistInfo | undefined {
   for (const payload of [
     payloads.historic,
@@ -419,33 +426,40 @@ export async function syncSongstatsExtendedData(options: {
     historyStartDate: options.historyStartDate,
     historyEndDate: options.historyEndDate,
   });
-  const results: SongstatsExtendedSyncResult[] = [];
-
-  for (const artist of artists) {
-    try {
-      const { payloads, errors } = await fetchExtendedPayloads(artist, options);
-      results.push(await saveExtendedPayloads(artist, payloads, errors, options));
-    } catch (error) {
-      const message = errorMessage(error);
-      logger.warn(
-        {
+  const results = new Array<SongstatsExtendedSyncResult>(artists.length);
+  let nextArtistIndex = 0;
+  const workers = Array.from({
+    length: Math.min(configuredExtendedConcurrency(), artists.length),
+  }, async () => {
+    while (nextArtistIndex < artists.length) {
+      const index = nextArtistIndex++;
+      const artist = artists[index]!;
+      try {
+        const { payloads, errors } = await fetchExtendedPayloads(artist, options);
+        results[index] = await saveExtendedPayloads(artist, payloads, errors, options);
+      } catch (error) {
+        const message = errorMessage(error);
+        logger.warn(
+          {
+            artistKey: artist.artistKey,
+            spotifyArtistId: artist.spotifyArtistId,
+            error: message,
+          },
+          "[songstats] extended artist sync failed",
+        );
+        results[index] = {
           artistKey: artist.artistKey,
           spotifyArtistId: artist.spotifyArtistId,
-          error: message,
-        },
-        "[songstats] extended artist sync failed",
-      );
-      results.push({
-        artistKey: artist.artistKey,
-        spotifyArtistId: artist.spotifyArtistId,
-        status: "failed",
-        savedEndpoints: [],
-        errors: { request: message },
-      });
-    }
+          status: "failed",
+          savedEndpoints: [],
+          errors: { request: message },
+        };
+      }
 
-    if (artists.length > 1) await sleep(125);
-  }
+      if (artists.length > 1) await sleep(125);
+    }
+  });
+  await Promise.all(workers);
 
   return {
     requested: artists.length,
