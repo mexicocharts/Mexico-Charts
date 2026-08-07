@@ -342,11 +342,23 @@ async function main() {
     });
     const artists = rowsToObjects(parseCsv(csv));
     const linked = await pool.query<{ artist_key: string }>("select artist_key from spotify_artists");
-    const linkedKeys = new Set(linked.rows.map(row => row.artist_key));
+    const linkedKeys = new Set(linked.rows.flatMap(row => [
+      row.artist_key,
+      compactName(row.artist_key),
+    ]));
     const reviewed = await pool.query<{ artist_key: string }>("select artist_key from spotify_artist_candidates");
-    const reviewedKeys = new Set(reviewed.rows.map(row => row.artist_key));
+    const reviewedKeys = new Set(reviewed.rows.flatMap(row => [
+      row.artist_key,
+      compactName(row.artist_key),
+    ]));
     const queue = artists
-      .filter(artist => !linkedKeys.has(artist.artist_key) && !reviewedKeys.has(artist.artist_key))
+      .filter(artist => {
+        const compactKey = compactName(artist.artist_key);
+        return !linkedKeys.has(artist.artist_key)
+          && !linkedKeys.has(compactKey)
+          && !reviewedKeys.has(artist.artist_key)
+          && !reviewedKeys.has(compactKey);
+      })
       .slice(offset, offset + limit);
 
     let auto = 0;
