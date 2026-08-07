@@ -14,6 +14,7 @@ const { Pool } = require("../../lib/db/node_modules/pg") as {
 interface VerifiedMapping {
   catalogArtistName: string;
   spotifyArtistId: string;
+  allowInsert?: boolean;
 }
 
 interface CoverageRow {
@@ -59,7 +60,7 @@ const VERIFIED_MAPPINGS: VerifiedMapping[] = [
   { catalogArtistName: "Angel Tumbado", spotifyArtistId: "6Vlv2tBpKw6ib5C7DHkOfq" },
   { catalogArtistName: "Banda Rancho Viejo De Julio Aramburo La Bandononona", spotifyArtistId: "39dmt5DRpnyJKgz5bc4ZNV" },
   { catalogArtistName: "Los Nuevos Elegantes", spotifyArtistId: "3RtWK9v7X0AvL18T3LeC7i" },
-  { catalogArtistName: "Grupo Secreto", spotifyArtistId: "3qDB4quRSDMBXygOU4JAbg" },
+  { catalogArtistName: "Grupo Secreto", spotifyArtistId: "3qDB4quRSDMBXygOU4JAbg", allowInsert: true },
   { catalogArtistName: "Los Amos De Nuevo Leon", spotifyArtistId: "2PpOrMC4P8PG2yi0S3ft0l" },
   { catalogArtistName: "Omar Ruiz", spotifyArtistId: "2ylQO8qFEBINvkNNZGe4uC" },
   { catalogArtistName: "Los Tiranos Del Norte", spotifyArtistId: "1utHYFInTd5VfFdsshUQ7H" },
@@ -121,6 +122,8 @@ async function main() {
     );
     const rowByKey = new Map(rows.map(row => [row.artist_key, row]));
     const missing = expected.filter(mapping => !rowByKey.has(mapping.artistKey));
+    const insertableMissing = missing.filter(mapping => mapping.allowInsert);
+    const invalidMissing = missing.filter(mapping => !mapping.allowInsert);
     const conflicting = expected.filter(mapping => {
       const current = rowByKey.get(mapping.artistKey)?.spotify_id;
       return current != null && current !== mapping.spotifyArtistId;
@@ -139,7 +142,8 @@ async function main() {
       mode: write ? "write" : "dry-run",
       requested: expected.length,
       found: rows.length,
-      missing: missing.map(mapping => mapping.artistKey),
+      insertableMissing: insertableMissing.map(mapping => mapping.artistKey),
+      invalidMissing: invalidMissing.map(mapping => mapping.artistKey),
       conflicting: conflicting.map(mapping => ({
         artistKey: mapping.artistKey,
         current: rowByKey.get(mapping.artistKey)?.spotify_id,
@@ -158,7 +162,7 @@ async function main() {
       }),
     }, null, 2));
 
-    if (missing.length > 0 || conflicting.length > 0) {
+    if (invalidMissing.length > 0 || conflicting.length > 0) {
       throw new Error("Validation failed; no database changes were made.");
     }
     if (!write) {
@@ -167,6 +171,25 @@ async function main() {
     }
 
     await client.query("BEGIN");
+    for (const mapping of insertableMissing) {
+      const result = await client.query(
+        `INSERT INTO kworb_coverage (
+           artist_key,
+           artist_name,
+           spotify_id,
+           has_spotify,
+           status,
+           consecutive_failures,
+           last_discovered_at
+         )
+         VALUES ($1, $2, $3, TRUE, 'active', 0, NOW())
+         ON CONFLICT (artist_key) DO NOTHING`,
+        [mapping.artistKey, mapping.catalogArtistName, mapping.spotifyArtistId],
+      );
+      if (result.rowCount !== 1) {
+        throw new Error(`Atomic insert failed for ${mapping.artistKey}; rolling back.`);
+      }
+    }
     for (const mapping of expected) {
       const result = await client.query(
         `UPDATE kworb_coverage
