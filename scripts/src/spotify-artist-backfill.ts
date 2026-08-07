@@ -43,6 +43,7 @@ const ARTIST_METADATA_URL =
 const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const API_BASE = "https://api.spotify.com/v1";
 const MAX_RETRIES = 3;
+const MAX_RETRY_AFTER_SECONDS = 60;
 
 let tokenCache: { token: string; expiresAt: number } | null = null;
 
@@ -183,6 +184,9 @@ async function spotifyFetch<T>(path: string, params: Record<string, string>, att
 
   if (res.status === 429 && attempt < MAX_RETRIES) {
     const retryAfter = Math.max(1, Number(res.headers.get("retry-after") ?? "1"));
+    if (retryAfter > MAX_RETRY_AFTER_SECONDS) {
+      throw new Error(`Spotify API 429: retry_after=${retryAfter}s exceeds safe wait limit`);
+    }
     console.error(`RATE_LIMIT,retry_after=${retryAfter}s,path=${path}`);
     await sleep(retryAfter * 1000);
     return spotifyFetch<T>(path, params, attempt + 1);
