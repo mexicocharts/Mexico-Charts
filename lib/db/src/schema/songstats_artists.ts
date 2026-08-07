@@ -12,8 +12,8 @@ import {
 
 export const songstatsArtists = pgTable("songstats_artists", {
   artistKey:          text("artist_key").primaryKey(),
-  spotifyArtistId:    text("spotify_artist_id").notNull().unique(),
-  songstatsArtistId:  text("songstats_artist_id").unique(),
+  spotifyArtistId:    text("spotify_artist_id").notNull(),
+  songstatsArtistId:  text("songstats_artist_id"),
   songstatsName:      text("songstats_name"),
   avatarUrl:          text("avatar_url"),
   siteUrl:            text("site_url"),

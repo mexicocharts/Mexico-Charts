@@ -184,8 +184,8 @@ export async function ensureSongstatsTables(): Promise<void> {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS songstats_artists (
       artist_key text PRIMARY KEY,
-      spotify_artist_id text NOT NULL UNIQUE,
-      songstats_artist_id text UNIQUE,
+      spotify_artist_id text NOT NULL,
+      songstats_artist_id text,
       songstats_name text,
       avatar_url text,
       site_url text,
@@ -193,6 +193,16 @@ export async function ensureSongstatsTables(): Promise<void> {
       last_synced_at timestamptz NOT NULL DEFAULT now(),
       linked_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+
+  // Multiple catalog entries can intentionally resolve to the same Spotify or
+  // Songstats identity (for example a legal name and a commonly used alias).
+  // The catalog key remains the row identity so each entry can keep its own
+  // snapshot without overwriting another alias.
+  await pool.query(`
+    ALTER TABLE songstats_artists
+      DROP CONSTRAINT IF EXISTS songstats_artists_spotify_artist_id_key,
+      DROP CONSTRAINT IF EXISTS songstats_artists_songstats_artist_id_key
   `);
 
   await pool.query(`
