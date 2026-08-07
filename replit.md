@@ -13,6 +13,8 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - YouTube artist profile channel snapshots run automatically from the API server once per UTC day after `YOUTUBE_CHANNEL_SNAPSHOT_HOUR_UTC` (default `9`). The manual backfill command is `pnpm --filter @workspace/scripts run youtube-channel-daily-snapshots`.
 - Spotify/Kworb artist stream snapshots run automatically from the API server once per UTC day after `SPOTIFY_KWORB_SNAPSHOT_HOUR_UTC` (default `10`). The manual backfill command is `pnpm --filter @workspace/scripts run spotify-kworb-daily-snapshots`.
 - Songstats artist-level current metrics can be tested with `POST /api/admin/songstats/sync-current?limit=25`. Daily snapshots are opt-in through `SONGSTATS_SNAPSHOT_AUTOMATION=true`.
+- Songstats extended artist data is synced with `POST /api/admin/songstats/sync-extended`. It stores a bounded historical window plus audience, country/source audience details, and catalog payloads. The safe defaults are 90 history days, Mexico (`MX`), Spotify audience details, and 100 catalog tracks.
+- Extended syncs are resumable: artists that already have every requested endpoint for the requested historical window are skipped. Inspect progress without contacting Songstats at `GET /api/admin/songstats/extended-coverage`.
 
 ## Required Environment
 
@@ -29,6 +31,8 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `SONGSTATS_API_KEY` — server-only Songstats Enterprise API key. Never expose this as a `VITE_` variable.
 - `SONGSTATS_ADMIN_KEY` — optional admin key for Songstats routes; falls back to the existing Spotify or YouTube admin key.
 - `SONGSTATS_SYNC_MAX_ARTISTS` — maximum unique artists one sync can request; keep at `25` for the free test key and raise deliberately for production.
+- `SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS` — maximum artists accepted by one extended-data request, default `5` and hard-capped at `25`.
+- `SONGSTATS_EXTENDED_SYNC_CONCURRENCY` — concurrent extended artist workers, default `2` and hard-capped at `5`.
 - `SONGSTATS_SNAPSHOT_AUTOMATION` — optional; must be exactly `true` to enable daily Songstats snapshots.
 - `SONGSTATS_SNAPSHOT_HOUR_UTC` — optional UTC hour for the daily Songstats snapshot, default `11`.
 
@@ -65,6 +69,7 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - Local macOS dev/build can fail because `pnpm-workspace.yaml` excludes macOS native Rollup/esbuild optional packages for the Replit/Linux environment.
 - Local Codex can still edit, typecheck, commit, and push. Full runtime QA should happen in Replit unless local platform overrides are adjusted.
 - Songstats raw API payloads are stored server-side and are available only through protected admin inspection. Public provider routes return normalized display metrics, not the raw response.
+- Keep extended Songstats backfills bounded and resumable. Do not use `source=all` for audience-details requests; request explicit sources such as Spotify instead.
 - Use pnpm only. The root `preinstall` rejects npm/yarn lockfiles.
 - Social templates should not be linked from public navigation or indexed in search.
 
