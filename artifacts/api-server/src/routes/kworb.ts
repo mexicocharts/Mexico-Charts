@@ -207,7 +207,7 @@ const SPOTIFY_ID_SEED: Record<string, string> = {
   leninramirez:                     "3hTffafUYLLgO4yuPAxb5U",
   joansebastian:                    "7FsRH5bw8iWpSbMX1G7xf1",
   calibre50:                        "4jogXSSvlyMkODGSZ2wc2P",
-  eslabonarmado:                    "0XeEobZplHxzM9QzFQWLiF",
+  eslabonarmado:                    "0XeEobZplHxzM9QzFQWLiR",
   edenmunoz:                        "1gJdf4Yybu4X5A2xYV3NMV",
   jessejoy:                         "1mX1TWKpNxDSAH16LgDfiR",
   losdareyesdelasierrra:            "1ZMJSCQw8DIefcLb1FIpY0",
