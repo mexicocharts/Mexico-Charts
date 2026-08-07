@@ -58,6 +58,7 @@ function parseArgs() {
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
     minAutoScore: Math.max(0, Math.min(Number(args.get("minAutoScore") ?? 90), 100)),
     write: args.get("write") === "true",
+    listOnly: args.get("listOnly") === "true",
   };
 }
 
@@ -340,7 +341,7 @@ async function saveCandidate(pool: InstanceType<typeof Pool>, artist: ArtistRow,
 }
 
 async function main() {
-  const { limit, offset, minAutoScore, write } = parseArgs();
+  const { limit, offset, minAutoScore, write, listOnly } = parseArgs();
   const databaseUrl = process.env["DATABASE_URL"];
   if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
 
@@ -365,6 +366,23 @@ async function main() {
       row.artist_key,
       catalogIdentityKey(row.artist_key),
     ]));
+    if (listOnly) {
+      const missing = artists.filter(artist => {
+        const compactKey = catalogIdentityKey(artist.artist_key);
+        return !linkedKeys.has(artist.artist_key) && !linkedKeys.has(compactKey);
+      });
+      console.log(JSON.stringify({
+        catalogArtists: artists.length,
+        missingSpotifyIds: missing.length,
+        artists: missing.map(artist => ({
+          artistKey: artist.artist_key,
+          artistName: artist.artist_name,
+          previouslyReviewed: reviewedKeys.has(artist.artist_key)
+            || reviewedKeys.has(catalogIdentityKey(artist.artist_key)),
+        })),
+      }, null, 2));
+      return;
+    }
     const queue = artists
       .filter(artist => {
         const compactKey = catalogIdentityKey(artist.artist_key);
