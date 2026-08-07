@@ -24,6 +24,11 @@ import {
   songstatsArtistKeyCandidates,
   syncSongstatsCurrentStats,
 } from "../lib/songstats-snapshot-service";
+import {
+  getSongstatsExtendedCoverage,
+  syncSongstatsExtendedData,
+  type SongstatsExtendedEndpoint,
+} from "../lib/songstats-extended-service";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -53,6 +58,13 @@ const ALLOWED_SOURCES = new Set<SongstatsSource>([
 
 const LIVE_ENDPOINTS = new Set([
   "current",
+  "historic",
+  "audience",
+  "audience_details",
+  "catalog",
+]);
+
+const EXTENDED_ENDPOINTS = new Set<SongstatsExtendedEndpoint>([
   "historic",
   "audience",
   "audience_details",
@@ -92,12 +104,86 @@ function requestedLimit(raw: unknown): number {
   return Math.max(1, Math.min(configuredSyncLimit(), Math.floor(parsed)));
 }
 
+function configuredExtendedSyncLimit(): number {
+  const parsed = Number(process.env["SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS"] ?? "5");
+  return Number.isFinite(parsed)
+    ? Math.max(1, Math.min(25, Math.floor(parsed)))
+    : 5;
+}
+
+function requestedExtendedLimit(raw: unknown): number {
+  const parsed = Number(raw ?? configuredExtendedSyncLimit());
+  if (!Number.isFinite(parsed)) return configuredExtendedSyncLimit();
+  return Math.max(1, Math.min(configuredExtendedSyncLimit(), Math.floor(parsed)));
+}
+
 function sourceFromQuery(raw: unknown): SongstatsSource {
   const source = String(raw ?? "all").trim().toLowerCase() as SongstatsSource;
   if (!ALLOWED_SOURCES.has(source)) {
     throw new Error(`Unsupported Songstats source: ${source}`);
   }
   return source;
+}
+
+function stringList(raw: unknown, fallback: string[]): string[] {
+  const values = Array.isArray(raw)
+    ? raw.map(String)
+    : String(raw ?? fallback.join(",")).split(",");
+  return [...new Set(values
+    .map(value => value.trim().toLowerCase())
+    .filter(Boolean))];
+}
+
+function extendedEndpoints(raw: unknown): SongstatsExtendedEndpoint[] {
+  const endpoints = stringList(raw, [
+    "historic",
+    "audience",
+    "audience_details",
+    "catalog",
+  ]);
+  const invalid = endpoints.filter(endpoint => !EXTENDED_ENDPOINTS.has(
+    endpoint as SongstatsExtendedEndpoint,
+  ));
+  if (invalid.length) {
+    throw new Error(`Unsupported extended endpoint(s): ${invalid.join(", ")}`);
+  }
+  return endpoints as SongstatsExtendedEndpoint[];
+}
+
+function audienceDetailsSources(raw: unknown): SongstatsSource[] {
+  const sources = stringList(raw, ["spotify"]);
+  const invalid = sources.filter(source => (
+    source === "all" || !ALLOWED_SOURCES.has(source as SongstatsSource)
+  ));
+  if (invalid.length) {
+    throw new Error(`Unsupported audience-detail source(s): ${invalid.join(", ")}`);
+  }
+  return sources as SongstatsSource[];
+}
+
+function countryCodeFromQuery(raw: unknown): string {
+  const value = String(raw ?? "MX").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(value)) {
+    throw new Error("countryCode must be a two-letter country code");
+  }
+  return value;
+}
+
+function boundedInteger(
+  raw: unknown,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = Number(raw ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(minimum, Math.min(maximum, Math.floor(parsed)));
+}
+
+function dateDaysBefore(endDate: string, days: number): string {
+  const date = new Date(`${endDate}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - Math.max(0, days - 1));
+  return date.toISOString().slice(0, 10);
 }
 
 function dateFromQuery(raw: unknown, name: string): string | undefined {
@@ -218,6 +304,84 @@ router.post("/admin/songstats/sync-current", async (req, res) => {
     logger.error({ error: message }, "[songstats] current stats sync failed");
     res.status(500).json({ error: message });
   }
+});
+
+// ADMIN: persists a bounded historical window plus the latest audience,
+// country-level audience details, and catalog payloads. Raw provider payloads
+// remain server-side; this route is deliberately limited to small batches.
+router.post("/admin/songstats/sync-extended", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const limit = requestedExtendedLimit(req.query["limit"]);
+  const artistKeys = Array.isArray(req.body?.artistKeys)
+    ? (req.body.artistKeys as unknown[]).map(String)
+    : undefined;
+
+  if (artistKeys && artistKeys.length > limit) {
+    res.status(400).json({ error: `artistKeys cannot contain more than ${limit} entries` });
+    return;
+  }
+
+  try {
+    const endpoints = extendedEndpoints(
+      req.body?.endpoints ?? req.query["include"],
+    );
+    const detailsSources = audienceDetailsSources(
+      req.body?.audienceDetailsSources ?? req.query["detailsSources"],
+    );
+    const countryCode = countryCodeFromQuery(
+      req.body?.countryCode ?? req.query["countryCode"],
+    );
+    const historyDays = boundedInteger(
+      req.body?.historyDays ?? req.query["historyDays"],
+      90,
+      30,
+      365,
+    );
+    const endDate = dateFromQuery(
+      req.body?.endDate ?? req.query["endDate"],
+      "endDate",
+    ) ?? new Date().toISOString().slice(0, 10);
+    const startDate = dateFromQuery(
+      req.body?.startDate ?? req.query["startDate"],
+      "startDate",
+    ) ?? dateDaysBefore(endDate, historyDays);
+    if (startDate > endDate) {
+      throw new Error("startDate cannot be after endDate");
+    }
+    const catalogLimit = boundedInteger(
+      req.body?.catalogLimit ?? req.query["catalogLimit"],
+      100,
+      1,
+      100,
+    );
+
+    const summary = await syncSongstatsExtendedData({
+      limit,
+      artistKeys,
+      endpoints,
+      historyStartDate: startDate,
+      historyEndDate: endDate,
+      countryCode,
+      audienceDetailsSources: detailsSources,
+      catalogLimit,
+    });
+    res.status(summary.failed > 0 && summary.saved === 0 && summary.partial === 0
+      ? 502
+      : 200).json(summary);
+  } catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : "Unknown Songstats extended sync error";
+    logger.error({ error: message }, "[songstats] extended sync failed");
+    res.status(500).json({ error: message });
+  }
+});
+
+// ADMIN: reports server-side extended-data coverage and physical row size.
+// It never contacts Songstats and therefore cannot add billable artists.
+router.get("/admin/songstats/extended-coverage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json(await getSongstatsExtendedCoverage());
 });
 
 // ADMIN: inspect any of the five licensed artist endpoints for one already

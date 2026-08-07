@@ -52,5 +52,30 @@ export const songstatsArtistDailySnapshots = pgTable("songstats_artist_daily_sna
     .on(table.songstatsArtistId, table.snapshotDate),
 ]);
 
+export const songstatsArtistExtendedData = pgTable("songstats_artist_extended_data", {
+  artistKey:                 text("artist_key").primaryKey(),
+  spotifyArtistId:           text("spotify_artist_id").notNull(),
+  songstatsArtistId:         text("songstats_artist_id"),
+  historyStartDate:          text("history_start_date"),
+  historyEndDate:            text("history_end_date"),
+  historicStats:             jsonb("historic_stats").$type<Record<string, unknown>>(),
+  audience:                  jsonb("audience").$type<Record<string, unknown>>(),
+  audienceDetails:           jsonb("audience_details").$type<Record<string, unknown>>(),
+  catalog:                   jsonb("catalog").$type<Record<string, unknown>>(),
+  syncErrors:                jsonb("sync_errors").$type<Record<string, string>>().notNull().default({}),
+  historicFetchedAt:         timestamp("historic_fetched_at", { withTimezone: true }),
+  audienceFetchedAt:         timestamp("audience_fetched_at", { withTimezone: true }),
+  audienceDetailsFetchedAt:  timestamp("audience_details_fetched_at", { withTimezone: true }),
+  catalogFetchedAt:          timestamp("catalog_fetched_at", { withTimezone: true }),
+  createdAt:                 timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:                 timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("songstats_artist_extended_data_spotify_idx")
+    .on(table.spotifyArtistId),
+  index("songstats_artist_extended_data_songstats_idx")
+    .on(table.songstatsArtistId),
+]);
+
 export type SongstatsArtist = typeof songstatsArtists.$inferSelect;
 export type SongstatsArtistDailySnapshot = typeof songstatsArtistDailySnapshots.$inferSelect;
+export type SongstatsArtistExtendedData = typeof songstatsArtistExtendedData.$inferSelect;
