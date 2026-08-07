@@ -141,6 +141,9 @@ function extendedEndpoints(raw: unknown): SongstatsExtendedEndpoint[] {
     "audience_details",
     "catalog",
   ]);
+  if (endpoints.length === 0) {
+    throw new Error("At least one extended endpoint is required");
+  }
   const invalid = endpoints.filter(endpoint => !EXTENDED_ENDPOINTS.has(
     endpoint as SongstatsExtendedEndpoint,
   ));
@@ -152,6 +155,9 @@ function extendedEndpoints(raw: unknown): SongstatsExtendedEndpoint[] {
 
 function audienceDetailsSources(raw: unknown): SongstatsSource[] {
   const sources = stringList(raw, ["spotify"]);
+  if (sources.length === 0) {
+    throw new Error("At least one audience-detail source is required");
+  }
   const invalid = sources.filter(source => (
     source === "all" || !ALLOWED_SOURCES.has(source as SongstatsSource)
   ));

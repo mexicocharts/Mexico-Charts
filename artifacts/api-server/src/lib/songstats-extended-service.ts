@@ -7,7 +7,10 @@ import {
   type SongstatsArtistInfo,
   type SongstatsSource,
 } from "./songstats-client";
-import { ensureSongstatsBillingUsageTable } from "./songstats-billing-guard";
+import {
+  configuredSongstatsMonthlyArtistLimit,
+  ensureSongstatsBillingUsageTable,
+} from "./songstats-billing-guard";
 import {
   ensureSongstatsTables,
   listSongstatsCatalogArtists,
@@ -113,6 +116,62 @@ export async function ensureSongstatsExtendedTable(): Promise<void> {
     CREATE INDEX IF NOT EXISTS songstats_artist_extended_data_songstats_idx
     ON songstats_artist_extended_data (songstats_artist_id)
   `);
+}
+
+async function listExtendedSyncArtists(options: {
+  limit: number;
+  artistKeys?: string[];
+  endpoints: SongstatsExtendedEndpoint[];
+  historyStartDate: string;
+  historyEndDate: string;
+}): Promise<SongstatsCatalogArtist[]> {
+  const explicitArtistKeys = options.artistKeys?.length
+    ? options.artistKeys
+    : undefined;
+  const candidates = await listSongstatsCatalogArtists({
+    limit: explicitArtistKeys
+      ? options.limit
+      : configuredSongstatsMonthlyArtistLimit(),
+    artistKeys: explicitArtistKeys,
+  });
+  if (explicitArtistKeys || candidates.length === 0) {
+    return candidates.slice(0, options.limit);
+  }
+
+  const params: unknown[] = [candidates.map(artist => artist.artistKey)];
+  const completeConditions: string[] = [];
+  if (options.endpoints.includes("historic")) {
+    completeConditions.push(
+      `historic_stats IS NOT NULL`,
+      `history_start_date <= $${params.push(options.historyStartDate)}`,
+      `history_end_date >= $${params.push(options.historyEndDate)}`,
+    );
+  }
+  if (options.endpoints.includes("audience")) {
+    completeConditions.push(`audience IS NOT NULL`);
+  }
+  if (options.endpoints.includes("audience_details")) {
+    completeConditions.push(`audience_details IS NOT NULL`);
+  }
+  if (options.endpoints.includes("catalog")) {
+    completeConditions.push(`catalog IS NOT NULL`);
+  }
+
+  const completed = await pool.query<{ artist_key: string }>(
+    `
+      SELECT artist_key
+      FROM songstats_artist_extended_data
+      WHERE artist_key = ANY($1::text[])
+        AND ${completeConditions.length > 0
+          ? completeConditions.join("\n        AND ")
+          : "FALSE"}
+    `,
+    params,
+  );
+  const completedKeys = new Set(completed.rows.map(row => row.artist_key));
+  return candidates
+    .filter(artist => !completedKeys.has(artist.artistKey))
+    .slice(0, options.limit);
 }
 
 async function fetchExtendedPayloads(
@@ -352,9 +411,13 @@ export async function syncSongstatsExtendedData(options: {
     ensureSongstatsBillingUsageTable(),
   ]);
 
-  const artists = await listSongstatsCatalogArtists({
-    limit: Math.max(1, Math.floor(options.limit)),
+  const limit = Math.max(1, Math.floor(options.limit));
+  const artists = await listExtendedSyncArtists({
+    limit,
     artistKeys: options.artistKeys,
+    endpoints: options.endpoints,
+    historyStartDate: options.historyStartDate,
+    historyEndDate: options.historyEndDate,
   });
   const results: SongstatsExtendedSyncResult[] = [];
 
