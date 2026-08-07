@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { configuredSongstatsMonthlyArtistLimit } from "./songstats-billing-guard";
 import {
   ensureSongstatsTables,
   syncSongstatsCurrentStats,
@@ -27,7 +28,12 @@ function scheduledHourUtc(): number {
 
 function syncLimit(): number {
   const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "25");
-  return Number.isFinite(parsed) ? Math.max(1, Math.min(2_000, Math.floor(parsed))) : 25;
+  return Number.isFinite(parsed)
+    ? Math.max(
+      1,
+      Math.min(configuredSongstatsMonthlyArtistLimit(), Math.floor(parsed)),
+    )
+    : 25;
 }
 
 async function snapshotProgress(

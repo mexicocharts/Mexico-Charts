@@ -1,3 +1,8 @@
+import {
+  claimSongstatsMonthlyArtist,
+  type SongstatsBillableIdentifier,
+} from "./songstats-billing-guard";
+
 const DEFAULT_API_BASE_URL = "https://api.songstats.com/enterprise/v1";
 // Historic and audience responses can be several megabytes for established
 // artists, so their successful responses need more room than a typical API call.
@@ -25,11 +30,7 @@ export type SongstatsSource =
   | "twitter"
   | "youtube";
 
-export interface SongstatsArtistIdentifier {
-  songstatsArtistId?: string;
-  spotifyArtistId?: string;
-  appleMusicArtistId?: number;
-}
+export interface SongstatsArtistIdentifier extends SongstatsBillableIdentifier {}
 
 export interface SongstatsArtistInfo {
   songstats_artist_id?: string;
@@ -133,7 +134,10 @@ function addOptionalParam(
 async function songstatsGet<T>(
   endpoint: string,
   params: Record<string, string>,
+  identifier: SongstatsArtistIdentifier,
 ): Promise<T> {
+  await claimSongstatsMonthlyArtist(identifier, endpoint);
+
   const url = new URL(`${apiBaseUrl()}${endpoint}`);
   for (const [name, value] of Object.entries(params)) {
     url.searchParams.set(name, value);
@@ -186,7 +190,7 @@ export async function getSongstatsArtistCurrentStats(
   return songstatsGet<SongstatsCurrentStatsResponse>("/artists/stats", {
     ...identifierParams(identifier),
     source,
-  });
+  }, identifier);
 }
 
 export async function getSongstatsArtistHistoricStats(
@@ -208,6 +212,7 @@ export async function getSongstatsArtistHistoricStats(
   return songstatsGet<SongstatsHistoricStatsResponse>(
     "/artists/historic_stats",
     Object.fromEntries(params),
+    identifier,
   );
 }
 
@@ -218,7 +223,7 @@ export async function getSongstatsArtistAudience(
   return songstatsGet<SongstatsAudienceResponse>("/artists/audience", {
     ...identifierParams(identifier),
     source,
-  });
+  }, identifier);
 }
 
 export async function getSongstatsArtistAudienceDetails(
@@ -235,7 +240,7 @@ export async function getSongstatsArtistAudienceDetails(
     ...identifierParams(identifier),
     source,
     country_code: normalizedCountryCode,
-  });
+  }, identifier);
 }
 
 export async function getSongstatsArtistCatalog(
@@ -249,5 +254,6 @@ export async function getSongstatsArtistCatalog(
   return songstatsGet<SongstatsCatalogResponse>(
     "/artists/catalog",
     Object.fromEntries(params),
+    identifier,
   );
 }

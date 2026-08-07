@@ -6,6 +6,11 @@ import {
 } from "@workspace/db/schema";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import {
+  configuredSongstatsMonthlyArtistLimit,
+  getSongstatsMonthlyUsage,
+  SONGSTATS_CONTRACT_UNIQUE_ARTIST_LIMIT,
+} from "../lib/songstats-billing-guard";
+import {
   getSongstatsArtistAudience,
   getSongstatsArtistAudienceDetails,
   getSongstatsArtistCatalog,
@@ -73,7 +78,12 @@ function requireAdmin(req: Request, res: Response): boolean {
 
 function configuredSyncLimit(): number {
   const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "25");
-  return Number.isFinite(parsed) ? Math.max(1, Math.min(2_000, Math.floor(parsed))) : 25;
+  return Number.isFinite(parsed)
+    ? Math.max(
+      1,
+      Math.min(configuredSongstatsMonthlyArtistLimit(), Math.floor(parsed)),
+    )
+    : 25;
 }
 
 function requestedLimit(raw: unknown): number {
@@ -161,16 +171,28 @@ router.get("/admin/songstats/sync-preview", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const limit = requestedLimit(req.query["limit"]);
   const requestedArtistKey = String(req.query["artistKey"] ?? "").trim();
-  const artists = await listSongstatsCatalogArtists({
-    limit,
-    artistKeys: requestedArtistKey ? [requestedArtistKey] : undefined,
-  });
+  const [artists, monthlyUsage] = await Promise.all([
+    listSongstatsCatalogArtists({
+      limit,
+      artistKeys: requestedArtistKey ? [requestedArtistKey] : undefined,
+    }),
+    getSongstatsMonthlyUsage(),
+  ]);
 
   res.json({
-    testModeLimit: configuredSyncLimit(),
+    configuredSyncLimit: configuredSyncLimit(),
+    contractUniqueArtistLimit: SONGSTATS_CONTRACT_UNIQUE_ARTIST_LIMIT,
+    monthlyUsage,
     wouldRequest: artists.length,
     artists,
   });
+});
+
+// ADMIN: shows the local monthly unique-artist safety ledger. This endpoint
+// never contacts Songstats and therefore cannot add billable artists.
+router.get("/admin/songstats/billing-usage", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json(await getSongstatsMonthlyUsage());
 });
 
 // ADMIN: calls the Current Stats endpoint and saves one daily snapshot per
