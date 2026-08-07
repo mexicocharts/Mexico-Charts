@@ -134,6 +134,14 @@ function catalogIdentityKey(value: string): string {
     .replace(/\s+/g, "");
 }
 
+function catalogKeyCandidates(value: string): string[] {
+  return [...new Set([
+    normalizeName(value),
+    compactName(value),
+    catalogIdentityKey(value),
+  ].filter(Boolean))];
+}
+
 function parseCount(value: string | undefined): number | null {
   if (!value?.trim()) return null;
   const parsed = Number(value.replace(/,/g, "").trim());
@@ -357,40 +365,29 @@ async function main() {
       union
       select artist_key from kworb_coverage where spotify_id is not null
     `);
-    const linkedKeys = new Set(linked.rows.flatMap(row => [
-      row.artist_key,
-      catalogIdentityKey(row.artist_key),
-    ]));
+    const linkedKeys = new Set(linked.rows.flatMap(row => catalogKeyCandidates(row.artist_key)));
     const reviewed = await pool.query<{ artist_key: string }>("select artist_key from spotify_artist_candidates");
-    const reviewedKeys = new Set(reviewed.rows.flatMap(row => [
-      row.artist_key,
-      catalogIdentityKey(row.artist_key),
-    ]));
+    const reviewedKeys = new Set(reviewed.rows.flatMap(row => catalogKeyCandidates(row.artist_key)));
+    const hasKey = (keys: Set<string>, value: string) =>
+      catalogKeyCandidates(value).some(candidate => keys.has(candidate));
     if (listOnly) {
-      const missing = artists.filter(artist => {
-        const compactKey = catalogIdentityKey(artist.artist_key);
-        return !linkedKeys.has(artist.artist_key) && !linkedKeys.has(compactKey);
-      });
+      const missing = artists.filter(artist => !hasKey(linkedKeys, artist.artist_key));
       console.log(JSON.stringify({
         catalogArtists: artists.length,
         missingSpotifyIds: missing.length,
         artists: missing.map(artist => ({
           artistKey: artist.artist_key,
           artistName: artist.artist_name,
-          previouslyReviewed: reviewedKeys.has(artist.artist_key)
-            || reviewedKeys.has(catalogIdentityKey(artist.artist_key)),
+          previouslyReviewed: hasKey(reviewedKeys, artist.artist_key),
         })),
       }, null, 2));
       return;
     }
     const queue = artists
-      .filter(artist => {
-        const compactKey = catalogIdentityKey(artist.artist_key);
-        return !linkedKeys.has(artist.artist_key)
-          && !linkedKeys.has(compactKey)
-          && !reviewedKeys.has(artist.artist_key)
-          && !reviewedKeys.has(compactKey);
-      })
+      .filter(artist =>
+        !hasKey(linkedKeys, artist.artist_key)
+        && !hasKey(reviewedKeys, artist.artist_key),
+      )
       .slice(offset, offset + limit);
 
     let auto = 0;
