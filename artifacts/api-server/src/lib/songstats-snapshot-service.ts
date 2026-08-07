@@ -68,6 +68,7 @@ export function songstatsArtistKeyCandidates(value: string): string[] {
 export async function listSongstatsCatalogArtists(options: {
   limit: number;
   artistKeys?: string[];
+  excludeSnapshotDate?: string;
 }): Promise<SongstatsCatalogArtist[]> {
   const limit = Math.max(1, Math.floor(options.limit));
   const requestedKeys = [...new Set(
@@ -75,9 +76,18 @@ export async function listSongstatsCatalogArtists(options: {
   )];
   const params: unknown[] = [limit];
   const requestedFilter = requestedKeys.length
-    ? "AND lower(c.artist_key) = ANY($2::text[])"
+    ? `AND lower(c.artist_key) = ANY($${params.push(requestedKeys)}::text[])`
     : "";
-  if (requestedKeys.length) params.push(requestedKeys);
+  const snapshotFilter = options.excludeSnapshotDate
+    ? `
+      AND NOT EXISTS (
+        SELECT 1
+        FROM songstats_artist_daily_snapshots existing_snapshot
+        WHERE existing_snapshot.artist_key = c.artist_key
+          AND existing_snapshot.snapshot_date = $${params.push(options.excludeSnapshotDate)}
+      )
+    `
+    : "";
 
   const result = await pool.query<{
     artist_key: string;
@@ -94,6 +104,7 @@ export async function listSongstatsCatalogArtists(options: {
       WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
         AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
         ${requestedFilter}
+        ${snapshotFilter}
       ORDER BY c.tier, c.artist_key
       LIMIT $1
     `,
@@ -308,6 +319,7 @@ export async function syncSongstatsCurrentStats(options: {
   const artists = await listSongstatsCatalogArtists({
     limit,
     artistKeys: options.artistKeys,
+    excludeSnapshotDate: options.artistKeys?.length ? undefined : snapshotDate,
   });
   const results: SongstatsSyncResult[] = [];
 
