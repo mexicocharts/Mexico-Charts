@@ -80,12 +80,19 @@ function YoutubeDailySparkline({
   gradientId,
   ariaLabel = "Tendencia diaria de vistas del canal de YouTube",
 }: {
-  points: Array<{ date: string; dailyViews?: number | null; dailyStreams?: number | null }>;
+  points: Array<{
+    date: string;
+    dailyViews?: number | null;
+    dailyStreams?: number | null;
+    value?: number | null;
+  }>;
   color: string;
   gradientId?: string;
   ariaLabel?: string;
 }) {
-  const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? 0);
+  const values = points.map(point => (
+    point.dailyViews ?? point.dailyStreams ?? point.value ?? 0
+  ));
   const max = Math.max(...values, 1);
   const width = 300;
   const height = 72;
@@ -142,6 +149,19 @@ function formatCompactCount(value: number | null | undefined): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
   return value.toLocaleString("es-MX");
+}
+
+function formatExactCount(value: number | null | undefined): string {
+  if (value == null || value <= 0) return "—";
+  return Math.round(value).toLocaleString("es-MX");
+}
+
+function formatGrowthPercentage(value: number | null | undefined): string | null {
+  if (value == null) return null;
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("es-MX", {
+    maximumFractionDigits: 2,
+  })}%`;
 }
 
 function momentumLabel(trend: "rising" | "steady" | "cooling" | "new" | null | undefined) {
@@ -550,11 +570,13 @@ export default function ArtistDetail() {
       spotifyFollowers: songstats?.spotifyFollowers ?? metaArtist?.spotifyFollowers ?? 0,
       instagramFollowers: songstats?.instagramFollowers ?? metaArtist?.instagramFollowers ?? 0,
       tiktokFollowers: songstats?.tiktokFollowers ?? metaArtist?.tiktokFollowers ?? 0,
-      youtubeSubscribers: songstats?.youtubeSubscribers
-        ?? ytChannel?.subscriberCount
+      // The official registered channel is authoritative when Songstats has
+      // aggregated multiple YouTube channels for the artist.
+      youtubeSubscribers: ytChannel?.subscriberCount
+        ?? songstats?.youtubeSubscribers
         ?? metaArtist?.youtubeSubscribers
         ?? 0,
-      youtubeViews: songstats?.youtubeChannelViews ?? ytChannel?.viewCount ?? 0,
+      youtubeViews: ytChannel?.viewCount ?? songstats?.youtubeChannelViews ?? 0,
       facebookFollowers: songstats?.facebookFollowers ?? metaArtist?.facebookFollowers ?? 0,
       twitterFollowers: songstats?.twitterFollowers ?? 0,
       soundcloudFollowers: songstats?.soundcloudFollowers ?? metaArtist?.soundcloudFollowers ?? 0,
@@ -562,8 +584,40 @@ export default function ArtistDetail() {
     };
   }, [metaArtist, songstatsArtist, ytChannel]);
   const hasAudienceStats = Object.values(audienceStats).some(value => value > 0)
-    || ytChannel?.videoCount != null;
+    || ytChannel?.videoCount != null
+    || Boolean(songstatsArtist);
   const songstatsSnapshotLabel = formatShortDateEs(songstatsArtist?.snapshot.snapshotDate);
+  const songstatsGrowthCards = useMemo(() => {
+    const cards = [
+      {
+        key: "spotifyMonthlyListeners" as const,
+        label: "Oyentes Spotify",
+        color: "#1DB954",
+        icon: <SiSpotify className="h-4 w-4" />,
+      },
+      {
+        key: "instagramFollowers" as const,
+        label: "Seguidores Instagram",
+        color: "#E1306C",
+        icon: <SiInstagram className="h-4 w-4" />,
+      },
+      {
+        key: "tiktokFollowers" as const,
+        label: "Seguidores TikTok",
+        color: "#E8E8E8",
+        icon: <SiTiktok className="h-4 w-4" />,
+      },
+    ];
+    return cards.flatMap(card => {
+      const points = songstatsArtist?.trends[card.key] ?? [];
+      const growth = songstatsArtist?.growth[card.key];
+      const latest = points.at(-1)?.value;
+      if (points.length < 2 || latest == null) return [];
+      return [{ ...card, points, growth, latest }];
+    });
+  }, [songstatsArtist]);
+  const topMexicoCities = songstatsArtist?.topMexicoCities ?? [];
+  const maxMexicoCityListeners = topMexicoCities[0]?.currentListeners ?? 1;
 
   const nextTourEvent = useMemo(() => {
     return artistTouring?.events?.[0] ?? null;
@@ -1157,42 +1211,42 @@ export default function ArtistDetail() {
                   {audienceStats.spotifyListeners > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.spotifyListeners)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.spotifyListeners)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Oyentes mensuales</div>
                     </div>
                   )}
                   {audienceStats.spotifyFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.spotifyFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.spotifyFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Spotify</div>
                     </div>
                   )}
                   {audienceStats.instagramFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
                       <SiInstagram className="w-4 h-4 text-pink-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.instagramFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.instagramFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Instagram</div>
                     </div>
                   )}
                   {audienceStats.tiktokFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiTiktok className="w-4 h-4 text-zinc-300" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.tiktokFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.tiktokFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
                   {audienceStats.youtubeSubscribers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.youtubeSubscribers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeSubscribers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
                     </div>
                   )}
                   {audienceStats.youtubeViews > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.youtubeViews)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeViews)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
                     </div>
                   )}
@@ -1206,32 +1260,174 @@ export default function ArtistDetail() {
                   {audienceStats.deezerFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
                       <Music className="w-4 h-4" style={{ color: "#A238FF" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.deezerFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.deezerFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Fans Deezer</div>
                     </div>
                   )}
                   {audienceStats.facebookFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(24,119,242,0.06)", border: "1px solid rgba(24,119,242,0.15)" }}>
                       <SiFacebook className="h-4 w-4 text-blue-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.facebookFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.facebookFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Facebook</div>
                     </div>
                   )}
                   {audienceStats.twitterFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiX className="h-4 w-4 text-zinc-300" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.twitterFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.twitterFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores X</div>
                     </div>
                   )}
                   {audienceStats.soundcloudFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,85,0,0.06)", border: "1px solid rgba(255,85,0,0.15)" }}>
                       <SiSoundcloud className="h-4 w-4 text-orange-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatCompactCount(audienceStats.soundcloudFollowers)}</div>
+                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.soundcloudFollowers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores SoundCloud</div>
                     </div>
                   )}
                 </div>
+                {songstatsGrowthCards.length > 0 && (
+                  <div className="mt-6 border-t border-white/[0.06] pt-5">
+                    <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                          Crecimiento de audiencia
+                        </h3>
+                        <p className="mt-1 text-[10px] font-bold text-zinc-700">
+                          Historial licenciado de Songstats · cifras exactas
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {songstatsGrowthCards.map(card => {
+                        const growth30 = formatGrowthPercentage(card.growth?.days30?.percentage);
+                        return (
+                          <div
+                            key={card.key}
+                            className="overflow-hidden rounded-xl p-3.5 sm:p-4"
+                            style={{
+                              background: `${card.color}08`,
+                              border: `1px solid ${card.color}20`,
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2" style={{ color: card.color }}>
+                                  {card.icon}
+                                  <span className="truncate text-[9px] font-black uppercase tracking-[0.14em]">
+                                    {card.label}
+                                  </span>
+                                </div>
+                                <div className="mt-2 text-xl font-black leading-none text-white">
+                                  {formatExactCount(card.latest)}
+                                </div>
+                              </div>
+                              {growth30 && (
+                                <span
+                                  className="shrink-0 rounded-full px-2 py-1 text-[9px] font-black"
+                                  style={{
+                                    background: card.growth?.days30?.absolute && card.growth.days30.absolute < 0
+                                      ? "rgba(244,63,94,0.10)"
+                                      : `${card.color}12`,
+                                    color: card.growth?.days30?.absolute && card.growth.days30.absolute < 0
+                                      ? "#fb7185"
+                                      : card.color,
+                                  }}
+                                >
+                                  {growth30} · 30d
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-3 h-14">
+                              <YoutubeDailySparkline
+                                points={card.points}
+                                color={card.color}
+                                gradientId={`songstats-${slug}-${card.key}`}
+                                ariaLabel={`Tendencia reciente de ${card.label}`}
+                              />
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-1.5">
+                              {([
+                                ["7 días", card.growth?.days7],
+                                ["30 días", card.growth?.days30],
+                                ["90 días", card.growth?.days90],
+                              ] as const).map(([label, window]) => (
+                                <div key={label} className="min-w-0 rounded-lg bg-black/20 px-2 py-2">
+                                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
+                                    {label}
+                                  </div>
+                                  <div
+                                    className="mt-1 truncate text-[10px] font-black"
+                                    style={{
+                                      color: window?.absolute != null && window.absolute < 0
+                                        ? "#fb7185"
+                                        : window?.absolute != null
+                                          ? card.color
+                                          : "#52525b",
+                                    }}
+                                  >
+                                    {window?.absolute != null
+                                      ? `${window.absolute > 0 ? "+" : ""}${Math.round(window.absolute).toLocaleString("es-MX")}`
+                                      : "—"}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {topMexicoCities.length > 0 && (
+                  <div className="mt-6 border-t border-white/[0.06] pt-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-[#39FF14]/80" />
+                      <div>
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                          Ciudades con más oyentes en México
+                        </h3>
+                        <p className="mt-1 text-[10px] font-bold text-zinc-700">
+                          Audiencia mensual de Spotify
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                      {topMexicoCities.map((city, index) => (
+                        <div
+                          key={`${city.name}-${city.region ?? ""}`}
+                          className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.025] p-3"
+                        >
+                          <div
+                            className="absolute inset-y-0 left-0 bg-[#39FF14]/[0.04]"
+                            style={{
+                              width: `${Math.max(5, (city.currentListeners / maxMexicoCityListeners) * 100)}%`,
+                            }}
+                          />
+                          <div className="relative">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-xs font-black text-zinc-200">{city.name}</div>
+                                {city.region && (
+                                  <div className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-zinc-700">
+                                    {city.region}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-[10px] font-black text-[#39FF14]/60">#{index + 1}</span>
+                            </div>
+                            <div className="mt-3 text-sm font-black text-white">
+                              {formatExactCount(city.currentListeners)}
+                            </div>
+                            <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
+                              oyentes
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {metaArtist?.label && (
                   <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
                     <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>

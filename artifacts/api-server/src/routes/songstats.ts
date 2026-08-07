@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import {
   songstatsArtistDailySnapshots,
   songstatsArtists,
@@ -30,6 +30,10 @@ import {
   type SongstatsExtendedEndpoint,
 } from "../lib/songstats-extended-service";
 import { logger } from "../lib/logger";
+import {
+  buildSongstatsPublicInsight,
+  type SongstatsPublicMetricKey,
+} from "../lib/songstats-public-service";
 
 const router = Router();
 
@@ -213,43 +217,138 @@ router.get("/providers/songstats/artist", async (req, res) => {
   try {
     await ensureSongstatsTables();
     const lookupKeys = songstatsArtistKeyCandidates(artistKey);
-    const artistRows = await db.select()
-      .from(songstatsArtists)
-      .where(inArray(songstatsArtists.artistKey, lookupKeys));
+    const [artistRows, snapshotRows, extendedRows] = await Promise.all([
+      db.select()
+        .from(songstatsArtists)
+        .where(inArray(songstatsArtists.artistKey, lookupKeys)),
+      db.select({
+        snapshotDate: songstatsArtistDailySnapshots.snapshotDate,
+        spotifyFollowers: songstatsArtistDailySnapshots.spotifyFollowers,
+        spotifyMonthlyListeners: songstatsArtistDailySnapshots.spotifyMonthlyListeners,
+        spotifyPopularity: songstatsArtistDailySnapshots.spotifyPopularity,
+        youtubeSubscribers: songstatsArtistDailySnapshots.youtubeSubscribers,
+        youtubeChannelViews: songstatsArtistDailySnapshots.youtubeChannelViews,
+        instagramFollowers: songstatsArtistDailySnapshots.instagramFollowers,
+        tiktokFollowers: songstatsArtistDailySnapshots.tiktokFollowers,
+        facebookFollowers: songstatsArtistDailySnapshots.facebookFollowers,
+        twitterFollowers: songstatsArtistDailySnapshots.twitterFollowers,
+        soundcloudFollowers: songstatsArtistDailySnapshots.soundcloudFollowers,
+        deezerFollowers: songstatsArtistDailySnapshots.deezerFollowers,
+        fetchedAt: songstatsArtistDailySnapshots.fetchedAt,
+      })
+        .from(songstatsArtistDailySnapshots)
+        .where(inArray(songstatsArtistDailySnapshots.artistKey, lookupKeys))
+        .orderBy(desc(songstatsArtistDailySnapshots.snapshotDate))
+        .limit(1),
+      pool.query<{
+        artist_key: string;
+        historic_stats: unknown;
+        audience: unknown;
+        audience_details: unknown;
+        updated_at: Date;
+      }>(
+        `
+          SELECT
+            artist_key,
+            historic_stats,
+            audience,
+            audience_details,
+            updated_at
+          FROM songstats_artist_extended_data
+          WHERE artist_key = ANY($1::text[])
+          ORDER BY array_position($1::text[], artist_key)
+          LIMIT 1
+        `,
+        [lookupKeys],
+      ).catch(error => {
+        if ((error as { code?: string }).code === "42P01") {
+          return { rows: [] };
+        }
+        throw error;
+      }),
+    ]);
     const artist = lookupKeys
       .map(key => artistRows.find(row => row.artistKey === key))
       .find(Boolean);
-    const snapshotRows = await db.select({
-      snapshotDate: songstatsArtistDailySnapshots.snapshotDate,
-      spotifyFollowers: songstatsArtistDailySnapshots.spotifyFollowers,
-      spotifyMonthlyListeners: songstatsArtistDailySnapshots.spotifyMonthlyListeners,
-      spotifyPopularity: songstatsArtistDailySnapshots.spotifyPopularity,
-      youtubeSubscribers: songstatsArtistDailySnapshots.youtubeSubscribers,
-      youtubeChannelViews: songstatsArtistDailySnapshots.youtubeChannelViews,
-      instagramFollowers: songstatsArtistDailySnapshots.instagramFollowers,
-      tiktokFollowers: songstatsArtistDailySnapshots.tiktokFollowers,
-      facebookFollowers: songstatsArtistDailySnapshots.facebookFollowers,
-      twitterFollowers: songstatsArtistDailySnapshots.twitterFollowers,
-      soundcloudFollowers: songstatsArtistDailySnapshots.soundcloudFollowers,
-      deezerFollowers: songstatsArtistDailySnapshots.deezerFollowers,
-      fetchedAt: songstatsArtistDailySnapshots.fetchedAt,
-    })
-      .from(songstatsArtistDailySnapshots)
-      .where(inArray(songstatsArtistDailySnapshots.artistKey, lookupKeys))
-      .orderBy(desc(songstatsArtistDailySnapshots.snapshotDate))
-      .limit(1);
-    const snapshot = snapshotRows[0];
+    const savedSnapshot = snapshotRows[0];
+    const extended = extendedRows.rows[0];
+    const insight = extended
+      ? buildSongstatsPublicInsight({
+        historicStats: extended.historic_stats,
+        audience: extended.audience,
+        audienceDetails: extended.audience_details,
+      })
+      : null;
 
-    if (!artist || !snapshot) {
+    if (!savedSnapshot && !insight) {
       res.status(404).json({ error: "No saved Songstats data for this artist" });
       return;
     }
 
+    const current = insight?.current;
+    const snapshotMetric = (
+      key: SongstatsPublicMetricKey,
+      savedValue: number | null | undefined,
+    ) => current?.[key] ?? savedValue ?? null;
+    const snapshotDate = [
+      savedSnapshot?.snapshotDate,
+      insight?.snapshotDate,
+    ].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+
     res.json({
-      artistKey: artist.artistKey,
-      name: artist.songstatsName,
-      avatarUrl: artist.avatarUrl,
-      snapshot,
+      artistKey: extended?.artist_key ?? artist?.artistKey ?? artistKey,
+      name: insight?.name ?? artist?.songstatsName ?? null,
+      avatarUrl: insight?.avatarUrl ?? artist?.avatarUrl ?? null,
+      snapshot: {
+        snapshotDate,
+        spotifyFollowers: snapshotMetric(
+          "spotifyFollowers",
+          savedSnapshot?.spotifyFollowers,
+        ),
+        spotifyMonthlyListeners: snapshotMetric(
+          "spotifyMonthlyListeners",
+          savedSnapshot?.spotifyMonthlyListeners,
+        ),
+        spotifyPopularity: savedSnapshot?.spotifyPopularity ?? null,
+        youtubeSubscribers: snapshotMetric(
+          "youtubeSubscribers",
+          savedSnapshot?.youtubeSubscribers,
+        ),
+        youtubeChannelViews: snapshotMetric(
+          "youtubeChannelViews",
+          savedSnapshot?.youtubeChannelViews,
+        ),
+        instagramFollowers: snapshotMetric(
+          "instagramFollowers",
+          savedSnapshot?.instagramFollowers,
+        ),
+        tiktokFollowers: snapshotMetric(
+          "tiktokFollowers",
+          savedSnapshot?.tiktokFollowers,
+        ),
+        facebookFollowers: snapshotMetric(
+          "facebookFollowers",
+          savedSnapshot?.facebookFollowers,
+        ),
+        twitterFollowers: snapshotMetric(
+          "twitterFollowers",
+          savedSnapshot?.twitterFollowers,
+        ),
+        soundcloudFollowers: snapshotMetric(
+          "soundcloudFollowers",
+          savedSnapshot?.soundcloudFollowers,
+        ),
+        deezerFollowers: snapshotMetric(
+          "deezerFollowers",
+          savedSnapshot?.deezerFollowers,
+        ),
+        fetchedAt: extended?.updated_at?.toISOString()
+          ?? savedSnapshot?.fetchedAt?.toISOString()
+          ?? null,
+      },
+      growth: insight?.growth ?? {},
+      trends: insight?.trends ?? {},
+      topMexicoCities: insight?.topMexicoCities ?? [],
     });
   } catch (error) {
     logger.error({ error }, "[songstats] saved artist lookup failed");

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 export interface SongstatsArtistSnapshot {
-  snapshotDate: string;
+  snapshotDate: string | null;
   spotifyFollowers: number | null;
   spotifyMonthlyListeners: number | null;
   spotifyPopularity: number | null;
@@ -13,7 +13,31 @@ export interface SongstatsArtistSnapshot {
   twitterFollowers: number | null;
   soundcloudFollowers: number | null;
   deezerFollowers: number | null;
-  fetchedAt: string;
+  fetchedAt: string | null;
+}
+
+export interface SongstatsGrowthWindow {
+  absolute: number;
+  percentage: number | null;
+}
+
+export interface SongstatsMetricGrowth {
+  days7: SongstatsGrowthWindow | null;
+  days30: SongstatsGrowthWindow | null;
+  days90: SongstatsGrowthWindow | null;
+}
+
+export interface SongstatsTrendPoint {
+  date: string;
+  value: number;
+}
+
+export interface SongstatsMexicoCity {
+  name: string;
+  region: string | null;
+  countryCode: string;
+  currentListeners: number;
+  peakListeners: number | null;
 }
 
 export interface SongstatsArtistData {
@@ -21,6 +45,27 @@ export interface SongstatsArtistData {
   name: string | null;
   avatarUrl: string | null;
   snapshot: SongstatsArtistSnapshot;
+  growth: Partial<Record<
+    | "spotifyMonthlyListeners"
+    | "spotifyFollowers"
+    | "instagramFollowers"
+    | "tiktokFollowers"
+    | "youtubeSubscribers"
+    | "youtubeChannelViews"
+    | "facebookFollowers"
+    | "twitterFollowers"
+    | "soundcloudFollowers"
+    | "deezerFollowers",
+    SongstatsMetricGrowth
+  >>;
+  trends: Partial<Record<
+    | "spotifyMonthlyListeners"
+    | "instagramFollowers"
+    | "tiktokFollowers"
+    | "youtubeSubscribers",
+    SongstatsTrendPoint[]
+  >>;
+  topMexicoCities: SongstatsMexicoCity[];
 }
 
 export function useSongstatsArtist(artistKey: string) {
