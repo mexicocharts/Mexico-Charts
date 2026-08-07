@@ -341,7 +341,11 @@ async function main() {
       return res.text();
     });
     const artists = rowsToObjects(parseCsv(csv));
-    const linked = await pool.query<{ artist_key: string }>("select artist_key from spotify_artists");
+    const linked = await pool.query<{ artist_key: string }>(`
+      select artist_key from spotify_artists
+      union
+      select artist_key from kworb_coverage where spotify_id is not null
+    `);
     const linkedKeys = new Set(linked.rows.flatMap(row => [
       row.artist_key,
       compactName(row.artist_key),
