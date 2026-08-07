@@ -14,6 +14,7 @@
     "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
     "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",
     "spotify-artist-backfill": "tsx ./src/spotify-artist-backfill.ts",
+    "spotify-apply-verified-mappings": "tsx ./src/apply-verified-spotify-mappings.ts",
     "musicbrainz-create-tables": "tsx ./src/musicbrainz-create-tables.ts",
     "musicbrainz-artist-backfill": "tsx ./src/musicbrainz-artist-backfill.ts",
     "musicbrainz-review-export": "tsx ./src/musicbrainz-review-export.ts",
