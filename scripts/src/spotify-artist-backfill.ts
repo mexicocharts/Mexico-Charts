@@ -126,6 +126,12 @@ function compactName(value: string): string {
   return normalizeName(value).replace(/\s+/g, "");
 }
 
+function catalogIdentityKey(value: string): string {
+  return normalizeName(value)
+    .replace(/\b(?:and|y)\b/g, "")
+    .replace(/\s+/g, "");
+}
+
 function parseCount(value: string | undefined): number | null {
   if (!value?.trim()) return null;
   const parsed = Number(value.replace(/,/g, "").trim());
@@ -348,16 +354,16 @@ async function main() {
     `);
     const linkedKeys = new Set(linked.rows.flatMap(row => [
       row.artist_key,
-      compactName(row.artist_key),
+      catalogIdentityKey(row.artist_key),
     ]));
     const reviewed = await pool.query<{ artist_key: string }>("select artist_key from spotify_artist_candidates");
     const reviewedKeys = new Set(reviewed.rows.flatMap(row => [
       row.artist_key,
-      compactName(row.artist_key),
+      catalogIdentityKey(row.artist_key),
     ]));
     const queue = artists
       .filter(artist => {
-        const compactKey = compactName(artist.artist_key);
+        const compactKey = catalogIdentityKey(artist.artist_key);
         return !linkedKeys.has(artist.artist_key)
           && !linkedKeys.has(compactKey)
           && !reviewedKeys.has(artist.artist_key)
