@@ -12,18 +12,22 @@ type EditorialHeroProps = {
 
 export function EditorialHero({ title, description, aside, compact = false }: EditorialHeroProps) {
   return (
-    <section data-editorial-hero className={aside ? "grid gap-10 xl:grid-cols-[minmax(0,1fr)_390px] xl:items-end" : undefined}>
+    <section data-editorial-hero className={aside ? "grid gap-10 2xl:grid-cols-[minmax(0,1fr)_350px] 2xl:items-center" : undefined}>
       <div className="min-w-0">
         <div className="mb-4 flex items-center gap-2">
           <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>Mexico Charts</span>
           <span className="h-px w-10" style={{ background: "rgba(57,255,20,0.25)" }} />
         </div>
         <h1
-          className="max-w-[12ch] text-balance break-normal font-black uppercase tracking-[-0.035em]"
+          className={`${aside ? "max-w-[10ch]" : "max-w-[12ch]"} text-balance break-normal font-black uppercase tracking-[-0.035em]`}
           style={{
-            fontSize: compact ? "clamp(1.65rem, 7vw, 5rem)" : "clamp(1.65rem, 7vw, 5rem)",
+            fontSize: aside
+              ? "clamp(1.65rem, 6vw, 4rem)"
+              : compact
+                ? "clamp(1.65rem, 6.4vw, 4.25rem)"
+                : "clamp(1.65rem, 7vw, 4.75rem)",
             lineHeight: 0.88,
-            overflowWrap: "normal",
+            overflowWrap: "anywhere",
           }}
         >
           {title}

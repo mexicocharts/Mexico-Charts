@@ -937,8 +937,16 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               {genreLabel(artist.genre)}
             </div>
             <h1
-              className="mb-3 max-w-full break-normal font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
-              style={{ fontSize: "clamp(2.25rem, 14vw, 6rem)", overflowWrap: "normal", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
+              className="mb-3 max-w-full font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
+              style={{
+                fontSize: Math.max(...artist.name.trim().split(/\s+/).map(word => word.length)) >= 11 || artist.name.length >= 34
+                  ? "clamp(1.75rem, 8vw, 5.25rem)"
+                  : artist.name.length >= 23
+                    ? "clamp(2rem, 10vw, 5.5rem)"
+                    : "clamp(2.25rem, 12vw, 6rem)",
+                overflowWrap: "anywhere",
+                textShadow: "0 2px 60px rgba(0,0,0,0.98)",
+              }}
             >
               {artist.name}
             </h1>

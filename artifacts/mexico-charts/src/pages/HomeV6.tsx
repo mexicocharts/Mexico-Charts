@@ -134,6 +134,13 @@ function splitName(name: string): { line1: string; line2: string } {
   };
 }
 
+function displayNameSize(name: string): string {
+  const longestWord = Math.max(...name.trim().split(/\s+/).map(word => word.length));
+  if (longestWord >= 11 || name.length >= 34) return "clamp(2rem, 8vw, 6rem)";
+  if (name.length >= 23) return "clamp(2.2rem, 8.8vw, 6.75rem)";
+  return "clamp(2.6rem, 9vw, 7.5rem)";
+}
+
 /* ─── SKELETON COMPONENTS ────────────────────────────────────── */
 
 function SkeletonPulse({ className = "", style = {} }: { className?: string; style?: React.CSSProperties }) {
@@ -635,10 +642,11 @@ export default function HomeV6() {
                 {genreLabel(hero.tag)}
               </div>
               <h1
-                className="font-black uppercase leading-[0.88] tracking-tight text-white mb-4"
-                style={{ fontSize:"clamp(2.6rem, 9vw, 7.5rem)", textShadow:"0 2px 80px rgba(0,0,0,0.98), 0 0 200px rgba(0,0,0,0.8)" }}
+                className="mb-4 max-w-[14ch] font-black uppercase leading-[0.88] tracking-tight text-white"
+                style={{ fontSize:displayNameSize(hero.name), overflowWrap:"anywhere", textShadow:"0 2px 80px rgba(0,0,0,0.98), 0 0 200px rgba(0,0,0,0.8)" }}
               >
-                {hero.line1} {hero.line2}
+                <span className="block">{hero.line1}</span>
+                {hero.line2 ? <span className="block">{hero.line2}</span> : null}
               </h1>
               <p className="text-sm text-white/55 uppercase tracking-[0.18em] mb-6 font-medium">
                 {hero.listeners} {pick("OYENTES MENSUALES", "MONTHLY LISTENERS")}
