@@ -1,7 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { Suspense, lazy, useEffect } from "react";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
@@ -46,7 +45,7 @@ const queryClient = new QueryClient({
 
 function AppLoadingState() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white" role="status" aria-live="polite">
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white" role="status" aria-live="polite" aria-busy="true">
       <div className="text-center">
         <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" className="mx-auto h-10 object-contain opacity-85" />
         <div className="mx-auto mt-6 h-1 w-28 overflow-hidden rounded-full bg-white/10">
@@ -143,16 +142,14 @@ function Router() {
 
 function App() {
   return (
-    <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </HelmetProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 

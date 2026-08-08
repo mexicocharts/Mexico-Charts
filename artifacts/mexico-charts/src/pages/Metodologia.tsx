@@ -43,8 +43,30 @@ export default function Metodologia() {
             Mexico Charts recopila, organiza y presenta información pública y/o licenciada de distintas fuentes relacionadas con música, streaming, listas, giras e industria.
           </p>
           <p className="text-base leading-relaxed" style={{ color: "rgba(255,255,255,0.62)" }}>
-            Nuestros rankings y perfiles pueden incluir datos provenientes de plataformas como Spotify, YouTube, Apple Music, Deezer, Ticketmaster, Pollstar, IFPI, AMPROFON, Chartmetric, Soundcharts, Songstats, Chartmasters u otras fuentes públicas, privadas o editoriales, dependiendo de la disponibilidad y el tipo de sección.
+            Nuestros rankings y perfiles pueden incluir datos de Spotify, YouTube, Apple Music, Deezer, Songstats, Ticketmaster, Pollstar, IFPI, AMPROFON y otras fuentes oficiales, públicas o editoriales, dependiendo de la disponibilidad y del tipo de sección.
           </p>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            {[
+              {
+                title: "Datos licenciados",
+                body: "Las métricas de audiencia e historial identificadas como Songstats se obtienen mediante acceso licenciado. Mexico Charts normaliza y presenta únicamente campos seleccionados; las respuestas completas del proveedor permanecen privadas.",
+              },
+              {
+                title: "Fuentes oficiales y públicas",
+                body: "Las cifras de plataforma y listas se vinculan al artista correcto mediante identificadores y fuentes verificadas. En YouTube se prioriza el canal oficial registrado cuando está disponible.",
+              },
+              {
+                title: "Cálculos de Mexico Charts",
+                body: "Cambios, tendencias, agregados y comparaciones pueden calcularse a partir de snapshots guardados. Se distinguen de una lista oficial y se acompaña la cifra con su plataforma o periodo cuando corresponde.",
+              },
+            ].map(({ title, body }) => (
+              <div key={title} className="rounded-xl p-5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] mb-3" style={{ color: G }}>{title}</h3>
+                <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>{body}</p>
+              </div>
+            ))}
+          </div>
 
           <div>
             <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>Principios</h2>
@@ -82,6 +104,13 @@ export default function Metodologia() {
             <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Sellos y distribuidores asociados</h3>
             <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
               Este campo puede reunir asociaciones de sello o distribución actuales e históricas observadas en el catálogo. No implica que todas las compañías listadas sean el sello actual del artista.
+            </p>
+          </div>
+
+          <div className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Disponibilidad y ausencia de datos</h3>
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+              La cobertura varía por artista, plataforma y fecha. Un campo ausente no equivale a cero: si una fuente no ofrece una métrica verificable, Mexico Charts la omite o lo indica expresamente. Las plataformas también pueden actualizar en horarios distintos, por lo que sus fechas de corte no siempre coinciden.
             </p>
           </div>
 

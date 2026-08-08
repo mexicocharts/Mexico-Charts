@@ -412,7 +412,7 @@ export default function GeneroHub() {
               {genreStats[selectedGenre]?.totalStreams > 0 && (
                 <div className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wide"
                   style={{ background: "rgba(57,255,20,0.07)", border: `1px solid ${activeGenre.accent}33`, color: activeGenre.accent }}>
-                  {fmtNum(genreStats[selectedGenre].totalStreams)} streams totales
+                  {fmtNum(genreStats[selectedGenre].totalStreams)} streams Spotify
                 </div>
               )}
               {genreStats[selectedGenre]?.chartCount > 0 && (
@@ -427,7 +427,7 @@ export default function GeneroHub() {
           {/* Sort label */}
           {activeArtists.length > 0 && (
             <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-4" style={{ color: "rgba(255,255,255,0.50)" }}>
-              Ordenado por streams totales · Spotify
+              Ordenado por streams acumulados · Spotify
             </div>
           )}
 

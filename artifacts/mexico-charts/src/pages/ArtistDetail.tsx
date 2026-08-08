@@ -613,9 +613,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       deezerFollowers: songstats?.deezerFollowers ?? metaArtist?.deezerFans ?? 0,
     };
   }, [metaArtist, songstatsArtist, ytChannel]);
-  const hasAudienceStats = Object.values(audienceStats).some(value => value > 0)
-    || ytChannel?.videoCount != null
-    || Boolean(songstatsArtist);
+  const hasVisibleAudienceMetrics = Object.values(audienceStats).some(value => value > 0)
+    || ytChannel?.videoCount != null;
+  const hasAudienceStats = hasVisibleAudienceMetrics || Boolean(songstatsArtist);
   const songstatsSnapshotLabel = formatShortDateEs(songstatsArtist?.snapshot.snapshotDate);
   const songstatsGrowthCards = useMemo(() => {
     const cards = [
@@ -937,8 +937,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               {genreLabel(artist.genre)}
             </div>
             <h1
-              className="mb-3 max-w-[11ch] break-words font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
-              style={{ fontSize: "clamp(2.25rem, 17vw, 6rem)", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
+              className="mb-3 max-w-full break-normal font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
+              style={{ fontSize: "clamp(2.25rem, 14vw, 6rem)", overflowWrap: "normal", textShadow: "0 2px 60px rgba(0,0,0,0.98)" }}
             >
               {artist.name}
             </h1>
@@ -1316,6 +1316,16 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     </div>
                   )}
                 </div>
+                {!hasVisibleAudienceMetrics && (
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-5 text-sm font-medium leading-6 text-zinc-500">
+                    Aún no hay métricas públicas verificadas para este artista. Un dato ausente no se muestra como cero; el perfil conserva únicamente las fuentes disponibles.
+                  </div>
+                )}
+                {hasVisibleAudienceMetrics && (
+                  <p className="mt-4 text-[10px] font-medium leading-5 text-zinc-700">
+                    Audiencia multired: Songstats. En YouTube se prioriza el canal oficial registrado cuando está disponible. Cada plataforma puede actualizar sus cifras en horarios distintos.
+                  </p>
+                )}
                 {songstatsGrowthCards.length > 0 && (
                   <div className="mt-6 border-t border-white/[0.06] pt-5">
                     <div className="mb-4 flex flex-wrap items-end justify-between gap-2">

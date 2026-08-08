@@ -21,6 +21,8 @@ const GENRE_LABELS: Record<string, string> = {
   "latin rock": "Rock latino",
   "mexican hip hop": "Hip-hop mexicano",
   "mexican rock": "Rock mexicano",
+  latin: "Latina",
+  religious: "Religiosa",
   alternative: "Alternativo",
   electronic: "Electrónica",
 };

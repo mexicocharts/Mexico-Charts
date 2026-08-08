@@ -1141,7 +1141,7 @@ export default function HomeV6() {
         <section className="px-6 lg:px-12 py-4" data-testid="platform-strip">
           <div className="rounded-xl overflow-hidden" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 6px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
             <div className="px-6 py-3 border-b border-white/[0.05] flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">STREAMS TOTALES</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">TOTALES POR PLATAFORMA</h2>
             </div>
             <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
               {([
@@ -1150,14 +1150,14 @@ export default function HomeV6() {
                   color: "#1DB954",
                   name: "Spotify",
                   streams: platformTotals.spotifyFmt ?? "—",
-                  label: "streams totales",
+                  label: "streams acumulados",
                 },
                 {
                   icon: <SiYoutube className="w-5 h-5" />,
                   color: "#FF0000",
                   name: "YouTube",
                   streams: platformTotals.youtubeFmt ?? "—",
-                  label: "vistas totales",
+                  label: "vistas acumuladas",
                 },
               ] as const).map(p => (
                 <motion.div

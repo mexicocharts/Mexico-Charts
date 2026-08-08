@@ -34,6 +34,10 @@ import {
   buildSongstatsPublicInsight,
   type SongstatsPublicMetricKey,
 } from "../lib/songstats-public-service";
+import {
+  chooseFreshSongstatsMetric,
+  newestSongstatsDate,
+} from "../lib/songstats-public-freshness";
 
 const router = Router();
 
@@ -289,11 +293,14 @@ router.get("/providers/songstats/artist", async (req, res) => {
     const snapshotMetric = (
       key: SongstatsPublicMetricKey,
       savedValue: number | null | undefined,
-    ) => current?.[key] ?? savedValue ?? null;
-    const snapshotDate = [
+    ) => chooseFreshSongstatsMetric(
+      { value: savedValue, date: savedSnapshot?.snapshotDate },
+      { value: current?.[key], date: insight?.snapshotDate },
+    );
+    const snapshotDate = newestSongstatsDate(
       savedSnapshot?.snapshotDate,
       insight?.snapshotDate,
-    ].filter((value): value is string => Boolean(value)).sort().at(-1) ?? null;
+    );
 
     res.json({
       artistKey: extended?.artist_key ?? artist?.artistKey ?? artistKey,

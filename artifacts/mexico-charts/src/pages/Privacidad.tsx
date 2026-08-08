@@ -10,12 +10,12 @@ const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http:
 const PRIVACY_ITEMS = [
   {
     title: "Información recopilada",
-    body: "Mexico Charts puede recopilar información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Esta información se usa para entender el rendimiento del sitio y mejorar la experiencia del usuario.",
+    body: "Mexico Charts recopila información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Se usa para entender el rendimiento del sitio y mejorar la experiencia.",
     icon: BarChart3,
   },
   {
     title: "Cookies y analítica",
-    body: "El sitio puede utilizar cookies, herramientas de analítica o servicios de terceros para medir tráfico, rendimiento, errores y comportamiento general de navegación.",
+    body: "El sitio utiliza Google Analytics para medir tráfico y navegación de forma agregada. Google puede emplear cookies o tecnologías similares de acuerdo con sus propias políticas.",
     icon: Cookie,
   },
   {
@@ -154,7 +154,7 @@ export default function Privacidad() {
         </section>
 
         <p className="mt-8 max-w-3xl text-xs font-medium leading-6 text-zinc-700">
-          Esta política puede actualizarse conforme el sitio evolucione. Última versión visible: 2026.
+          Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 8 de agosto de 2026.
         </p>
       </div>
 

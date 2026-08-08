@@ -255,7 +255,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
                 <div className="flex items-center gap-1 col-span-2 pt-1 mt-0.5 border-t border-white/[0.04]">
                   <SiSpotify className="w-2.5 h-2.5 flex-shrink-0" style={{ color: "#1DB954" }} />
                   <span className="text-[10px] font-black truncate" style={{ color }}>{totalStreamsFmt}</span>
-                  <span className="text-[9px] text-zinc-700 font-bold uppercase tracking-wider">streams totales</span>
+                  <span className="text-[9px] text-zinc-700 font-bold uppercase tracking-wider">streams Spotify</span>
                 </div>
               )}
             </div>
