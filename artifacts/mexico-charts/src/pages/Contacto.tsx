@@ -84,15 +84,15 @@ export default function Contacto() {
             title={pick("Contacto", "Contact")}
             description={pick("Correcciones, prensa, colaboraciones y oportunidades relacionadas con música mexicana.", "Corrections, press, collaborations and opportunities related to Mexican music.")}
             aside={<aside
-              className="rounded-3xl p-3"
+              className="min-w-0 rounded-3xl p-2 sm:p-3"
               style={{ background: "linear-gradient(160deg,rgba(57,255,20,0.07),rgba(255,255,255,0.025) 42%,rgba(0,0,0,0.22))", border: "1px solid rgba(57,255,20,0.16)", boxShadow: "0 28px 90px rgba(0,0,0,0.36)" }}
             >
-              <div className="rounded-2xl p-5 sm:p-6" style={{ background: "rgba(5,5,5,0.72)", border: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="min-w-0 rounded-2xl p-4 sm:p-6" style={{ background: "rgba(5,5,5,0.72)", border: "1px solid rgba(255,255,255,0.07)" }}>
                 <div className="mb-6 flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-xl" style={{ background: "rgba(57,255,20,0.10)", color: G }}>
                     <BadgeCheck className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <div className="text-sm font-black uppercase tracking-[0.12em] text-white">{pick("Canales oficiales", "Official channels")}</div>
                     <div className="mt-1 text-xs font-medium text-zinc-600">{pick("Respuesta editorial directa", "Direct editorial response")}</div>
                   </div>
@@ -105,7 +105,7 @@ export default function Contacto() {
                       href={href}
                       target={href.startsWith("mailto:") ? undefined : "_blank"}
                       rel={href.startsWith("mailto:") ? undefined : "noreferrer"}
-                      className="group flex items-center gap-4 rounded-2xl p-4 transition-colors hover:bg-white/[0.045]"
+                      className="group flex min-w-0 items-center gap-3 rounded-2xl p-3 transition-colors hover:bg-white/[0.045] sm:gap-4 sm:p-4"
                       style={{
                         background: featured ? "rgba(57,255,20,0.055)" : "rgba(255,255,255,0.025)",
                         border: featured ? "1px solid rgba(57,255,20,0.18)" : "1px solid rgba(255,255,255,0.07)",
@@ -117,9 +117,9 @@ export default function Contacto() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">{label}</span>
-                        <span className="mt-1 block truncate text-sm font-black" style={{ color: featured ? G : "rgba(255,255,255,0.72)" }}>{value}</span>
+                        <span className={`mt-1 block font-black ${featured ? "break-all text-xs sm:text-sm" : "truncate text-sm"}`} style={{ color: featured ? G : "rgba(255,255,255,0.72)" }}>{value}</span>
                       </span>
-                      <ArrowUpRight className="h-4 w-4 text-zinc-700 transition-colors group-hover:text-zinc-300" />
+                      <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-700 transition-colors group-hover:text-zinc-300" />
                     </a>
                   ))}
                 </div>

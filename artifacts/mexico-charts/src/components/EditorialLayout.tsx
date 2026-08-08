@@ -19,15 +19,16 @@ export function EditorialHero({ title, description, aside, compact = false }: Ed
           <span className="h-px w-10" style={{ background: "rgba(57,255,20,0.25)" }} />
         </div>
         <h1
-          className={`${aside ? "max-w-[10ch]" : "max-w-[12ch]"} text-balance break-normal font-black uppercase tracking-[-0.035em]`}
+          className={`${compact ? "max-w-full" : aside ? "max-w-[10ch]" : "max-w-[12ch]"} text-balance break-normal font-black uppercase tracking-[-0.035em]`}
           style={{
             fontSize: aside
               ? "clamp(1.65rem, 6vw, 4rem)"
               : compact
-                ? "clamp(1.65rem, 6.4vw, 4.25rem)"
+                ? "clamp(1.2rem, 5.1vw, 4.25rem)"
                 : "clamp(1.65rem, 7vw, 4.75rem)",
             lineHeight: 0.88,
-            overflowWrap: "anywhere",
+            overflowWrap: compact ? "normal" : "anywhere",
+            wordBreak: "normal",
           }}
         >
           {title}
@@ -36,7 +37,7 @@ export function EditorialHero({ title, description, aside, compact = false }: Ed
           {description}
         </p>
       </div>
-      {aside ? <div data-editorial-aside>{aside}</div> : null}
+      {aside ? <div className="min-w-0" data-editorial-aside>{aside}</div> : null}
     </section>
   );
 }

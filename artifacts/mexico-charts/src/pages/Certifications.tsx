@@ -266,8 +266,8 @@ export default function Certifications() {
           <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-5" style={{ color: G }}>Industria / Certificaciones</p>
         </FadeUp>
         <FadeUp delay={0.04}>
-          <h1 className="font-black uppercase leading-[0.9] mb-5"
-            style={{ fontSize: "clamp(2rem, 4.5vw, 4.8rem)", letterSpacing: "-0.035em" }}>
+          <h1 className="max-w-full font-black uppercase leading-[0.9] mb-5"
+            style={{ fontSize: "clamp(1.25rem, 5.4vw, 4.8rem)", letterSpacing: "-0.035em", overflowWrap: "normal", wordBreak: "normal" }}>
             Certificaciones<br />en México
           </h1>
         </FadeUp>
