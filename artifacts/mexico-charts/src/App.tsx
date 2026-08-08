@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { LanguageProvider, useLanguage } from "@/i18n/LanguageContext";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const HomeV6 = lazy(() => import("@/pages/HomeV6"));
@@ -44,6 +45,7 @@ const queryClient = new QueryClient({
 });
 
 function AppLoadingState() {
+  const { pick } = useLanguage();
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white" role="status" aria-live="polite" aria-busy="true">
       <div className="text-center">
@@ -51,7 +53,7 @@ function AppLoadingState() {
         <div className="mx-auto mt-6 h-1 w-28 overflow-hidden rounded-full bg-white/10">
           <div className="h-full w-1/2 animate-pulse rounded-full bg-[#39FF14]" />
         </div>
-        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-600">Cargando Mexico Charts…</p>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-600">{pick("Cargando Mexico Charts…", "Loading Mexico Charts…")}</p>
       </div>
     </main>
   );
@@ -142,14 +144,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <LanguageProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </LanguageProvider>
   );
 }
 

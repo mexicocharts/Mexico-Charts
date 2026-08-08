@@ -19,6 +19,7 @@ import { SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
 import { subscribeToNewsletter } from "@/services/newsletter";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -74,30 +75,34 @@ const SOCIAL_LINKS: { label: string; href: string | null; icon: React.ElementTyp
 
 const PUBLIC_FEATURES = [
   {
-    title: "Mexico Charts Top 100",
-    kicker: "MX100",
-    description: "El ranking editorial de artistas con mayor impacto en la música mexicana.",
+    titleEs: "Mexico Charts Top 100", titleEn: "Mexico Charts Top 100",
+    kickerEs: "MX100", kickerEn: "MX100",
+    descriptionEs: "El ranking editorial de artistas con mayor impacto en la música mexicana.",
+    descriptionEn: "The editorial ranking of artists making the greatest impact on Mexican music.",
     href: "/mx100",
     icon: TrendingUp,
   },
   {
-    title: "Directorio de Artistas",
-    kicker: "Perfiles verificados",
-    description: "Explora perfiles con audiencia, fuentes oficiales, canciones, videos, listas y certificaciones.",
+    titleEs: "Directorio de Artistas", titleEn: "Artist Directory",
+    kickerEs: "Perfiles verificados", kickerEn: "Verified profiles",
+    descriptionEs: "Explora perfiles con audiencia, fuentes oficiales, canciones, videos, listas y certificaciones.",
+    descriptionEn: "Explore profiles with audience data, official sources, songs, videos, charts and certifications.",
     href: "/artists",
     icon: Users,
   },
   {
-    title: "Certificaciones",
-    kicker: "AMPROFON México",
-    description: "Historial de discos, sencillos, diamante, platino y oro para artistas mexicanos.",
+    titleEs: "Certificaciones", titleEn: "Certifications",
+    kickerEs: "AMPROFON México", kickerEn: "AMPROFON Mexico",
+    descriptionEs: "Historial de discos, sencillos, diamante, platino y oro para artistas mexicanos.",
+    descriptionEn: "Album and single certification history, including Diamond, Platinum and Gold for Mexican artists.",
     href: "/industry/certifications",
     icon: Award,
   },
   {
-    title: "Giras",
-    kicker: "Próximos conciertos",
-    description: "Fechas activas de artistas mexicanos en México, Estados Unidos y Latinoamérica.",
+    titleEs: "Giras", titleEn: "Touring",
+    kickerEs: "Próximos conciertos", kickerEn: "Upcoming concerts",
+    descriptionEs: "Fechas activas de artistas mexicanos en México, Estados Unidos y Latinoamérica.",
+    descriptionEn: "Active tour dates for Mexican artists in Mexico, the United States and Latin America.",
     href: "/touring",
     icon: RadioTower,
   },
@@ -231,6 +236,7 @@ function Shelf({ label, icon, description, children }: { label: string; icon: Re
 /* ─── PAGE ───────────────────────────────────────────────────── */
 
 export default function HomeV6() {
+  const { language, pick } = useLanguage();
   const [heroIndex, setHeroIndex] = useState(0);
   const [tickerPaused, setTickerPaused] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -421,9 +427,9 @@ export default function HomeV6() {
   }, [metaByKey]);
 
   const TICKER_ITEMS = useMemo(() => {
-    if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", "TOP ARTISTAS", "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
-    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} VISTAS · YOUTUBE · SEMANA`]);
-  }, [TOP_STRIP]);
+    if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", pick("TOP ARTISTAS", "TOP ARTISTS"), "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
+    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} ${pick("VISTAS · YOUTUBE · SEMANA", "VIEWS · YOUTUBE · WEEK")}`]);
+  }, [TOP_STRIP, language, pick]);
 
   /* Scroll parallax for hero */
   const { scrollYProgress: heroScroll } = useScroll({
@@ -466,8 +472,8 @@ export default function HomeV6() {
       data-testid="page-v6"
     >
       <PageSEO
-        title="Mexico Charts — Datos, charts y contexto de la música mexicana"
-        description="Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster."
+        title={pick("Mexico Charts — Datos, charts y contexto de la música mexicana", "Mexico Charts — Mexican music data, charts and context")}
+        description={pick("Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster.", "Mexico Charts presents Mexican music charts, artists, streaming, industry, certifications and touring with sources including Spotify, YouTube, IFPI, AMPROFON, Pollstar and Ticketmaster.")}
         path="/"
       />
 
@@ -624,7 +630,7 @@ export default function HomeV6() {
               transition={{ duration:0.55, ease:[0.16,1,0.3,1] }}
             >
               <div className="text-[10px] font-black uppercase tracking-[0.32em] mb-3" style={{ color:"#39FF14" }}>
-                {hero.rank} EN MÉXICO
+                {hero.rank} {pick("EN MÉXICO", "IN MEXICO")}
                 <span className="mx-3 opacity-40">·</span>
                 {genreLabel(hero.tag)}
               </div>
@@ -635,9 +641,9 @@ export default function HomeV6() {
                 {hero.line1} {hero.line2}
               </h1>
               <p className="text-sm text-white/55 uppercase tracking-[0.18em] mb-6 font-medium">
-                {hero.listeners} OYENTES MENSUALES
+                {hero.listeners} {pick("OYENTES MENSUALES", "MONTHLY LISTENERS")}
                 {hero.growth && hero.growth !== "—" && (
-                  <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} variación semanal · Spotify</span></>
+                  <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} {pick("variación semanal", "weekly change")} · Spotify</span></>
                 )}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
@@ -649,7 +655,7 @@ export default function HomeV6() {
                     style={{ background:"#39FF14", boxShadow:"0 0 18px rgba(57,255,20,0.26)" }}
                     data-testid="btn-hero-cta"
                   >
-                    Ver listas →
+                    {pick("Ver listas", "View charts")} →
                   </motion.span>
                 </Link>
                 <Link href={canonicalArtistHref(hero.name) ?? "/artists"}>
@@ -659,7 +665,7 @@ export default function HomeV6() {
                     className="inline-block px-6 py-2.5 text-xs font-black uppercase tracking-[0.12em] rounded-full border border-white/25 text-white backdrop-blur-sm cursor-pointer"
                     data-testid="btn-hero-profile"
                   >
-                    Ver Perfil
+                    {pick("Ver Perfil", "View profile")}
                   </motion.span>
                 </Link>
               </div>
@@ -673,7 +679,7 @@ export default function HomeV6() {
               <button key={i} onClick={() => setHeroIndex(i)}
                 className="transition-all duration-300 rounded-full focus:outline-none"
                 style={{ width:i===heroIndex?22:6, height:6, background:i===heroIndex?"#39FF14":"rgba(255,255,255,0.25)", border:"none", padding:0, cursor:"pointer" }}
-                aria-label={`Artista ${i+1}`}
+                aria-label={`${pick("Artista", "Artist")} ${i+1}`}
               />
             ))}
           </div>
@@ -692,10 +698,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {[`${artistCatalogCount.toLocaleString("es-MX")} ARTISTAS`,"MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("ARTISTAS", "ARTISTS")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {[`${artistCatalogCount.toLocaleString("es-MX")} ARTISTAS`,"MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("ARTISTAS", "ARTISTS")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>
@@ -710,10 +716,10 @@ export default function HomeV6() {
           data-testid="error-banner"
         >
           <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,80,80,0.9)" }}>
-            Fuente temporalmente no disponible
+            {pick("Fuente temporalmente no disponible", "Source temporarily unavailable")}
           </span>
           <span className="text-[10px] text-zinc-600 font-medium">
-            · Mostrando datos de referencia mientras vuelve la conexión.
+            · {pick("Mostrando datos de referencia mientras vuelve la conexión.", "Showing reference data while the connection recovers.")}
           </span>
         </div>
       )}
@@ -721,7 +727,7 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           TOP 10 ARTIST CARDS — V5 cards + premium hover
       ══════════════════════════════════════════════════════════ */}
-      <Shelf label="Top 10 Artistas Mexicanos · Spotify diario" icon={<TrendingUp className="w-4 h-4" />} description="Días = permanencia consecutiva en el ranking diario de artistas de Spotify.">
+      <Shelf label={pick("Top 10 Artistas Mexicanos · Spotify diario", "Top 10 Mexican Artists · Spotify daily")} icon={<TrendingUp className="w-4 h-4" />} description={pick("Días = permanencia consecutiva en el ranking diario de artistas de Spotify.", "Days = consecutive days on Spotify's daily artist ranking.")}>
         {hubLoading
           ? Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)
           : SHELF_ARTISTS.map((a, idx) => {
@@ -802,8 +808,8 @@ export default function HomeV6() {
                         backdropFilter: "blur(12px)",
                         color: a.accent,
                       }}
-                      aria-label="Artista verificado"
-                      title="Artista verificado por Mexico Charts"
+                      aria-label={pick("Artista verificado", "Verified artist")}
+                      title={pick("Artista verificado por Mexico Charts", "Artist verified by Mexico Charts")}
                     >
                       <BadgeCheck className="h-3.5 w-3.5" strokeWidth={2.8} />
                     </span>
@@ -815,7 +821,7 @@ export default function HomeV6() {
                 <div className="absolute bottom-0 left-0 right-0 p-3" style={{ background:"linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.55) 55%, transparent 100%)" }}>
                   <div className="mb-0.5 flex items-center gap-1.5">
                     <div className="truncate font-black text-sm uppercase leading-tight text-white">{a.name}</div>
-                    {isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={2.8} style={{ color:a.accent }} aria-label="Artista verificado" />}
+                    {isVerified && <BadgeCheck className="h-3.5 w-3.5 shrink-0" strokeWidth={2.8} style={{ color:a.accent }} aria-label={pick("Artista verificado", "Verified artist")} />}
                   </div>
                   <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color:"rgba(255,255,255,0.48)" }}>{a.genre}</div>
                   <div className="text-[11px] font-black" style={{ color:a.accent }}>{a.streams}</div>
@@ -835,7 +841,7 @@ export default function HomeV6() {
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><Music className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Territorios de Género</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{pick("Territorios de Género", "Genre Territories")}</h2>
             <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
@@ -878,7 +884,7 @@ export default function HomeV6() {
                 <div>
                   <div className="font-black text-sm uppercase leading-tight text-white">{g.name}</div>
                   <div className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color:"rgba(255,255,255,0.38)" }}>
-                    {genreArtistCounts !== null ? `${genreArtistCounts[g.name]} artistas` : "—"}
+                    {genreArtistCounts !== null ? `${genreArtistCounts[g.name]} ${pick("artistas", "artists")}` : "—"}
                   </div>
                 </div>
                 <div className="flex items-end justify-between">
@@ -893,7 +899,7 @@ export default function HomeV6() {
                     initial={{ opacity:0 }}
                     whileHover={{ opacity:1 }}
                     style={{ color:g.accent }}
-                  >VER →</motion.span>
+                  >{pick("VER", "VIEW")} →</motion.span>
                 </div>
               </div>
             </motion.div>
@@ -968,17 +974,17 @@ export default function HomeV6() {
                         className="inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-[0.2em]"
                         style={{ background: "#39FF14", color: "#000" }}
                       >
-                        Nuevo Informe
+                        {pick("Nuevo Informe", "New Report")}
                       </span>
                       <span className="text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        Música Grabada · Global
+                        {pick("Música Grabada · Global", "Recorded Music · Global")}
                       </span>
                     </div>
                     <div className="text-sm font-black uppercase tracking-tight text-white leading-snug">
-                      México entra al <span style={{ color: "#39FF14" }}>Top 10</span> mundial
+                      {pick("México entra al", "Mexico enters the")} <span style={{ color: "#39FF14" }}>Top 10</span> {pick("mundial", "globally")}
                     </div>
                     <div className="text-[10px] mt-0.5 font-medium" style={{ color: "rgba(255,255,255,0.38)" }}>
-                      Por primera vez en la historia · IFPI Global Music Report
+                      {pick("Por primera vez en la historia", "For the first time in history")} · IFPI Global Music Report
                     </div>
                   </div>
                 </div>
@@ -986,9 +992,9 @@ export default function HomeV6() {
                 {/* Center: three stats */}
                 <div className="hidden md:flex items-center gap-5 shrink-0">
                   {[
-                    { v: "#10",    l: "mercado global" },
-                    { v: "+13.3%", l: "crecimiento 2025" },
-                    { v: "1ª VEZ", l: "en el Top 10" },
+                    { v: "#10",    l: pick("mercado global", "global market") },
+                    { v: "+13.3%", l: pick("crecimiento 2025", "2025 growth") },
+                    { v: pick("1ª VEZ", "1ST TIME"), l: pick("en el Top 10", "in the Top 10") },
                   ].map(s => (
                     <div key={s.l} className="text-center">
                       <div className="text-lg font-black leading-none" style={{ color: "#39FF14", letterSpacing: "-0.02em" }}>{s.v}</div>
@@ -1003,7 +1009,7 @@ export default function HomeV6() {
                   style={{ color: "#39FF14" }}
                   whileHover={reduced ? {} : { x: 3 }}
                 >
-                  Leer →
+                  {pick("Leer", "Read")} →
                 </motion.span>
               </div>
             </motion.div>
@@ -1019,7 +1025,7 @@ export default function HomeV6() {
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><TrendingUp className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Estadísticas · 2026</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{pick("Estadísticas", "Statistics")} · 2026</h2>
             <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
@@ -1033,10 +1039,10 @@ export default function HomeV6() {
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-5">
                   <div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">YOUTUBE · SEMANAL</div>
-                    <h3 className="text-base font-black uppercase text-white">TOP ARTISTAS <span style={{ color:"#39FF14" }}>MÉXICO</span></h3>
+                    <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">YOUTUBE · {pick("SEMANAL", "WEEKLY")}</div>
+                    <h3 className="text-base font-black uppercase text-white">{pick("TOP ARTISTAS", "TOP ARTISTS")} <span style={{ color:"#39FF14" }}>{pick("MÉXICO", "MEXICO")}</span></h3>
                   </div>
-                  <Link href="/charts?platform=YouTube&sheet=YT_Artists_Weekly" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>VER TODOS →</Link>
+                  <Link href="/charts?platform=YouTube&sheet=YT_Artists_Weekly" className="text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors" style={{ color:"#39FF14" }}>{pick("VER TODOS", "VIEW ALL")} →</Link>
                 </div>
                 <motion.div
                   className="flex flex-col gap-3"
@@ -1055,7 +1061,7 @@ export default function HomeV6() {
                         </div>
                       ))
                     : TOP_STRIP.length === 0
-                    ? <div className="text-xs text-zinc-600 uppercase tracking-widest py-4">Sin datos disponibles</div>
+                    ? <div className="text-xs text-zinc-600 uppercase tracking-widest py-4">{pick("Sin datos disponibles", "No data available")}</div>
                     : TOP_STRIP.slice(0,5).map((a) => {
                     const photo = img(a.name);
                     const isVerified = verifiedArtistKeys.has(slugify(a.name).replace(/-/g, " "));
@@ -1079,7 +1085,7 @@ export default function HomeV6() {
                                 className="h-3.5 w-3.5 shrink-0"
                                 strokeWidth={2.8}
                                 style={{ color:a.accent }}
-                                aria-label="Artista verificado"
+                                aria-label={pick("Artista verificado", "Verified artist")}
                               />
                             )}
                           </div>
@@ -1102,8 +1108,8 @@ export default function HomeV6() {
               <div className="absolute -bottom-4 -right-2 font-black italic text-[100px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>↑</div>
               <div className="relative z-10 flex flex-col">
                 <div className="mb-5">
-                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">ARTISTAS MEXICANOS · SPOTIFY DIARIO</div>
-                  <h3 className="text-base font-black uppercase text-white">EN <span style={{ color:"#39FF14" }}>ASCENSO</span></h3>
+                  <div className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500 mb-0.5">{pick("ARTISTAS MEXICANOS · SPOTIFY DIARIO", "MEXICAN ARTISTS · SPOTIFY DAILY")}</div>
+                  <h3 className="text-base font-black uppercase text-white">{pick("EN", "ON THE")} <span style={{ color:"#39FF14" }}>{pick("ASCENSO", "RISE")}</span></h3>
                 </div>
                 <div className="flex flex-col gap-4">
                   {hubLoading
@@ -1127,7 +1133,7 @@ export default function HomeV6() {
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">Mayor movimiento hoy</p>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mt-5 font-bold">{pick("Mayor movimiento hoy", "Biggest movement today")}</p>
               </div>
             </div>
           </FadeUp>
@@ -1141,7 +1147,7 @@ export default function HomeV6() {
         <section className="px-6 lg:px-12 py-4" data-testid="platform-strip">
           <div className="rounded-xl overflow-hidden" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 6px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
             <div className="px-6 py-3 border-b border-white/[0.05] flex items-center justify-between">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">TOTALES POR PLATAFORMA</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{pick("TOTALES POR PLATAFORMA", "TOTALS BY PLATFORM")}</h2>
             </div>
             <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
               {([
@@ -1150,14 +1156,14 @@ export default function HomeV6() {
                   color: "#1DB954",
                   name: "Spotify",
                   streams: platformTotals.spotifyFmt ?? "—",
-                  label: "streams acumulados",
+                  label: pick("streams acumulados", "cumulative streams"),
                 },
                 {
                   icon: <SiYoutube className="w-5 h-5" />,
                   color: "#FF0000",
                   name: "YouTube",
                   streams: platformTotals.youtubeFmt ?? "—",
-                  label: "vistas acumuladas",
+                  label: pick("vistas acumuladas", "cumulative views"),
                 },
               ] as const).map(p => (
                 <motion.div
@@ -1179,7 +1185,7 @@ export default function HomeV6() {
               ))}
             </div>
             <div className="border-t border-white/[0.05] px-6 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">
-              Fuente: Spotify y YouTube · Totales acumulados del catálogo activo
+              {pick("Fuente: Spotify y YouTube · Totales acumulados del catálogo activo", "Source: Spotify and YouTube · Cumulative totals for the active catalog")}
             </div>
           </div>
         </section>
@@ -1190,7 +1196,7 @@ export default function HomeV6() {
         <FadeUp>
           <div className="flex items-center gap-3 mb-5">
             <span style={{ color:"#39FF14" }}><Disc3 className="w-4 h-4" /></span>
-            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Explora Mexico Charts</h2>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{pick("Explora Mexico Charts", "Explore Mexico Charts")}</h2>
             <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
           </div>
         </FadeUp>
@@ -1223,12 +1229,12 @@ export default function HomeV6() {
                           <Icon className="h-5 w-5" />
                         </span>
                         <span className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color:"rgba(57,255,20,0.72)" }}>
-                          Abrir →
+                          {pick("Abrir", "Open")} →
                         </span>
                       </div>
-                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{feature.kicker}</div>
-                      <h3 className="mt-1 text-base font-black uppercase text-white transition-colors duration-200 group-hover:text-[#39FF14]">{feature.title}</h3>
-                      <p className="mt-3 text-xs leading-relaxed text-zinc-500">{feature.description}</p>
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">{pick(feature.kickerEs, feature.kickerEn)}</div>
+                      <h3 className="mt-1 text-base font-black uppercase text-white transition-colors duration-200 group-hover:text-[#39FF14]">{pick(feature.titleEs, feature.titleEn)}</h3>
+                      <p className="mt-3 text-xs leading-relaxed text-zinc-500">{pick(feature.descriptionEs, feature.descriptionEn)}</p>
                     </div>
                   </motion.article>
                 </Link>
@@ -1249,10 +1255,10 @@ export default function HomeV6() {
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <Mail className="w-4 h-4" style={{ color:"#39FF14" }} />
-                <span className="text-xs font-black uppercase tracking-[0.25em]" style={{ color:"#39FF14" }}>BOLETÍN SEMANAL</span>
+                <span className="text-xs font-black uppercase tracking-[0.25em]" style={{ color:"#39FF14" }}>{pick("BOLETÍN SEMANAL", "WEEKLY NEWSLETTER")}</span>
               </div>
-              <h3 className="text-xl font-black uppercase text-white mb-1">Reportes exclusivos directo a tu correo</h3>
-              <p className="text-xs text-zinc-500 leading-relaxed">Listas, análisis y estadísticas de la música mexicana cada semana.</p>
+              <h3 className="text-xl font-black uppercase text-white mb-1">{pick("Reportes exclusivos directo a tu correo", "Exclusive reports delivered to your inbox")}</h3>
+              <p className="text-xs text-zinc-500 leading-relaxed">{pick("Listas, análisis y estadísticas de la música mexicana cada semana.", "Mexican music charts, analysis and statistics every week.")}</p>
             </div>
             <form onSubmit={submitNewsletter} className="relative z-10 flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <input
@@ -1260,7 +1266,7 @@ export default function HomeV6() {
                 required
                 value={newsletterEmail}
                 onChange={(event) => setNewsletterEmail(event.target.value)}
-                placeholder="correo@ejemplo.com"
+                placeholder={pick("correo@ejemplo.com", "email@example.com")}
                 className="bg-black/50 border border-white/10 rounded-full text-white text-xs px-4 py-3 focus:outline-none focus:border-[rgba(57,255,20,0.4)] transition-all duration-300 placeholder-zinc-700 md:w-56"
                 data-testid="input-newsletter"
               />
@@ -1271,15 +1277,15 @@ export default function HomeV6() {
                 className="text-black font-black text-xs uppercase tracking-widest px-6 py-3 rounded-full whitespace-nowrap"
                 style={{ background:"#39FF14", boxShadow:"0 0 16px rgba(57,255,20,0.22)" }}
                 data-testid="btn-newsletter"
-              >{newsletterStatus === "loading" ? "GUARDANDO" : "SUSCRIBIRME"}</motion.button>
+              >{newsletterStatus === "loading" ? pick("GUARDANDO", "SAVING") : pick("SUSCRIBIRME", "SUBSCRIBE")}</motion.button>
               {newsletterStatus === "success" && (
                 <div className="sm:basis-full text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
-                  Listo, ya quedaste en la lista
+                  {pick("Listo, ya quedaste en la lista", "Done, you're on the list")}
                 </div>
               )}
               {newsletterStatus === "error" && (
                 <div className="sm:basis-full text-[10px] font-black uppercase tracking-[0.16em] text-red-400">
-                  No se pudo guardar, intenta otra vez
+                  {pick("No se pudo guardar, intenta otra vez", "Could not save; please try again")}
                 </div>
               )}
             </form>
@@ -1297,7 +1303,7 @@ export default function HomeV6() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
               <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
-              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">Datos, charts y contexto de la música mexicana.</p>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">{pick("Datos, charts y contexto de la música mexicana.", "Mexican music data, charts and context.")}</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) =>
                   href ? (
@@ -1309,19 +1315,19 @@ export default function HomeV6() {
               </div>
             </div>
             {[
-              { title:"Explorar", links:[
-                { label:"Listas",           href:"/charts" },
-                { label:"Artistas",         href:"/artists" },
+              { title:pick("Explorar", "Explore"), links:[
+                { label:pick("Listas", "Charts"),           href:"/charts" },
+                { label:pick("Artistas", "Artists"),         href:"/artists" },
                 { label:"MX100",            href:"/mx100" },
-                { label:"Giras",            href:"/touring" },
-                { label:"Certificaciones",  href:"/industry/certifications" },
-                { label:"Industria",        href:"/industria" },
+                { label:pick("Giras", "Touring"),            href:"/touring" },
+                { label:pick("Certificaciones", "Certifications"),  href:"/industry/certifications" },
+                { label:pick("Industria", "Industry"),        href:"/industria" },
               ]},
-              { title:"Compañía", links:[
-                { label:"Acerca de",   href:"/acerca-de" },
-                { label:"Metodología", href:"/metodologia" },
-                { label:"Contacto",    href:"/contacto" },
-                { label:"Privacidad",  href:"/privacidad" },
+              { title:pick("Compañía", "Company"), links:[
+                { label:pick("Acerca de", "About"),   href:"/acerca-de" },
+                { label:pick("Metodología", "Methodology"), href:"/metodologia" },
+                { label:pick("Contacto", "Contact"),    href:"/contacto" },
+                { label:pick("Privacidad", "Privacy"),  href:"/privacidad" },
               ]},
             ].map(col => (
               <div key={col.title}>
@@ -1339,7 +1345,7 @@ export default function HomeV6() {
             ))}
           </div>
           <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.06)" }}>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. {pick("Todos los derechos reservados.", "All rights reserved.")}</p>
           </div>
         </div>
       </footer>

@@ -3,51 +3,29 @@ import { BarChart3, ChevronRight, Cookie, ExternalLink, Home, Mail, Megaphone, M
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
 import { CONTACT_EMAIL, SITE_DOMAIN, SITE_URL } from "@/config/brand";
+import { EditorialFooter, EditorialHero } from "@/components/EditorialLayout";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
-const PRIVACY_ITEMS = [
-  {
-    title: "Información recopilada",
-    body: "Mexico Charts recopila información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Se usa para entender el rendimiento del sitio y mejorar la experiencia.",
-    icon: BarChart3,
-  },
-  {
-    title: "Cookies y analítica",
-    body: "El sitio utiliza Google Analytics para medir tráfico y navegación de forma agregada. Google puede emplear cookies o tecnologías similares de acuerdo con sus propias políticas.",
-    icon: Cookie,
-  },
-  {
-    title: "Servicios de terceros",
-    body: "Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.",
-    icon: ExternalLink,
-  },
-  {
-    title: "Datos personales",
-    body: "Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar la consulta.",
-    icon: UserRound,
-  },
-  {
-    title: "Publicidad",
-    body: "En el futuro, Mexico Charts podría utilizar publicidad, patrocinios o herramientas de monetización. Si se implementan, esta página deberá actualizarse.",
-    icon: Megaphone,
-  },
-  {
-    title: "Cambios",
-    body: "Esta política puede actualizarse conforme el sitio evolucione.",
-    icon: MousePointer2,
-  },
-] as const;
-
 export default function Privacidad() {
+  const { language, pick } = useLanguage();
+  const privacyItems = [
+    { title: pick("Información recopilada", "Information collected"), body: pick("Mexico Charts recopila información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Se usa para entender el rendimiento del sitio y mejorar la experiencia.", "Mexico Charts collects basic site-usage information such as pages visited, device, browser, approximate location, traffic source and interaction metrics. It is used to understand site performance and improve the experience."), icon: BarChart3 },
+    { title: pick("Cookies y analítica", "Cookies and analytics"), body: pick("El sitio utiliza Google Analytics para medir tráfico y navegación de forma agregada. Google puede emplear cookies o tecnologías similares de acuerdo con sus propias políticas.", "The site uses Google Analytics to measure traffic and navigation in aggregate. Google may use cookies or similar technologies under its own policies."), icon: Cookie },
+    { title: pick("Servicios de terceros", "Third-party services"), body: pick("Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.", "Mexico Charts may link to or integrate content from external platforms such as Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster and others. Each external platform has its own privacy policies."), icon: ExternalLink },
+    { title: pick("Datos personales", "Personal data"), body: pick("Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar la consulta.", "Mexico Charts does not sell users' personal information. If someone contacts us by email or social media, the information shared is used only to respond to or manage the inquiry."), icon: UserRound },
+    { title: pick("Publicidad", "Advertising"), body: pick("En el futuro, Mexico Charts podría utilizar publicidad, patrocinios o herramientas de monetización. Si se implementan, esta página deberá actualizarse.", "In the future, Mexico Charts may use advertising, sponsorships or monetization tools. If implemented, this page will be updated."), icon: Megaphone },
+    { title: pick("Cambios", "Changes"), body: pick("Esta política puede actualizarse conforme el sitio evolucione.", "This policy may be updated as the site evolves."), icon: MousePointer2 },
+  ];
   const privacyJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Privacidad — Mexico Charts",
+    name: pick("Privacidad — Mexico Charts", "Privacy — Mexico Charts"),
     url: `${SITE_URL}/privacidad`,
-    description: "Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com.",
-    inLanguage: "es-MX",
+    description: pick("Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com.", "Mexico Charts privacy policy: site usage, analytics, cookies, external services and information handling related to mexicochart.com."),
+    inLanguage: language === "en" ? "en" : "es-MX",
     isPartOf: {
       "@type": "WebSite",
       name: "Mexico Charts",
@@ -64,8 +42,8 @@ export default function Privacidad() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
-        title="Privacidad — Mexico Charts"
-        description="Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com."
+        title={pick("Privacidad — Mexico Charts", "Privacy — Mexico Charts")}
+        description={pick("Política de privacidad de Mexico Charts: uso del sitio, analítica, cookies, servicios externos y manejo de información relacionada con mexicochart.com.", "Mexico Charts privacy policy: site usage, analytics, cookies, external services and information handling related to mexicochart.com.")}
         path="/privacidad"
         jsonLd={privacyJsonLd}
       />
@@ -81,41 +59,29 @@ export default function Privacidad() {
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
         <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
         <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.20)" }} />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>Privacidad</span>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>{pick("Privacidad", "Privacy")}</span>
       </div>
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 py-14 sm:py-18 lg:px-10 lg:py-24">
-        <section className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_390px] lg:items-end">
-          <div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>Mexico Charts</span>
-              <span className="h-px w-10" style={{ background: "rgba(57,255,20,0.25)" }} />
-            </div>
-            <h1 className="max-w-4xl font-black uppercase leading-[0.84] tracking-normal"
-              style={{ fontSize: "clamp(54px,10vw,136px)" }}>
-              Privacidad
-            </h1>
-            <p className="mt-7 max-w-2xl text-lg font-medium leading-8 sm:text-xl" style={{ color: "rgba(255,255,255,0.52)" }}>
-              Cómo manejamos información básica de uso, servicios externos y contacto dentro de {SITE_DOMAIN}.
-            </p>
-          </div>
-
-          <div
+        <EditorialHero
+          title={pick("Privacidad", "Privacy")}
+          description={pick(`Cómo manejamos información básica de uso, servicios externos y contacto dentro de ${SITE_DOMAIN}.`, `How we handle basic usage information, external services and contact within ${SITE_DOMAIN}.`)}
+          aside={<div
             className="rounded-3xl p-6"
             style={{ background: "linear-gradient(160deg,rgba(57,255,20,0.075),rgba(255,255,255,0.028) 45%,rgba(0,0,0,0.24))", border: "1px solid rgba(57,255,20,0.16)" }}
           >
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: "rgba(57,255,20,0.10)", color: G }}>
               <ShieldCheck className="h-5 w-5" />
             </div>
-            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-white">Principio base</h2>
+            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-white">{pick("Principio base", "Core principle")}</h2>
             <p className="mt-4 text-sm font-medium leading-7 text-zinc-500">
-              Mexico Charts no vende información personal de usuarios. Si nos escribes, usamos esa información solo para responder o gestionar la consulta.
+              {pick("Mexico Charts no vende información personal de usuarios. Si nos escribes, usamos esa información solo para responder o gestionar la consulta.", "Mexico Charts does not sell users' personal information. If you write to us, we use that information only to respond to or manage the inquiry.")}
             </p>
-          </div>
-        </section>
+          </div>}
+        />
 
         <section className="mt-14 grid gap-3 md:grid-cols-2">
-          {PRIVACY_ITEMS.map(({ title, body, icon: Icon }) => (
+          {privacyItems.map(({ title, body, icon: Icon }) => (
             <article
               key={title}
               className="rounded-2xl p-5"
@@ -136,9 +102,9 @@ export default function Privacidad() {
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: G }}>Contacto de privacidad</h2>
+              <h2 className="text-xs font-black uppercase tracking-[0.2em]" style={{ color: G }}>{pick("Contacto de privacidad", "Privacy contact")}</h2>
               <p className="mt-2 text-sm font-medium leading-6 text-zinc-500">
-                Para dudas relacionadas con privacidad, escríbenos directo.
+                {pick("Para dudas relacionadas con privacidad, escríbenos directo.", "For privacy-related questions, contact us directly.")}
               </p>
             </div>
             <a
@@ -154,15 +120,11 @@ export default function Privacidad() {
         </section>
 
         <p className="mt-8 max-w-3xl text-xs font-medium leading-6 text-zinc-700">
-          Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 8 de agosto de 2026.
+          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 8 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 8, 2026.")}
         </p>
       </div>
 
-      <footer className="border-t py-8 px-6 lg:px-10 text-center" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-        <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">
-          Mexico Charts © 2026 — Plataforma independiente de datos, cultura e impacto de la música mexicana
-        </p>
-      </footer>
+      <EditorialFooter />
     </div>
   );
 }

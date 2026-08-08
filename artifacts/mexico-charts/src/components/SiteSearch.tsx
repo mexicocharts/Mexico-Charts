@@ -8,6 +8,7 @@ import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { genreLabel } from "@/lib/presentationLabels";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 const G = "#39FF14";
 
@@ -142,7 +143,59 @@ function chartRank(row: HubRow, index: number) {
   return row.Rank || row.rank || row.Position || row.position || String(index + 1);
 }
 
+const ENGLISH_SEARCH_TEXT: Record<string, string> = {
+  "Radar Nuevos": "New Artist Radar",
+  "Listas oficiales": "Official charts",
+  "Artistas": "Artists",
+  "Comparar artistas": "Compare artists",
+  "Géneros": "Genres",
+  "Giras": "Touring",
+  "Certificaciones": "Certifications",
+  "Industria": "Industry",
+  "Metodología": "Methodology",
+  "Contacto": "Contact",
+  "Ranking editorial de artistas": "Editorial artist ranking",
+  "Artistas nuevos y emergentes": "New and emerging artists",
+  "YouTube, Spotify, Apple Music y Deezer": "YouTube, Spotify, Apple Music and Deezer",
+  "Roster completo con filtros": "Complete roster with filters",
+  "Dos artistas, señales lado a lado": "Two artists, side by side",
+  "Mapa editorial por género": "Editorial map by genre",
+  "Próximas fechas y perfiles": "Upcoming dates and profiles",
+  "AMPROFON organizado por Mexico Charts": "AMPROFON organized by Mexico Charts",
+  "Mercado, reportes y contexto": "Market, reports and context",
+  "Fuentes, límites y criterio editorial": "Sources, limitations and editorial criteria",
+  "Correcciones, alianzas y contacto": "Corrections, partnerships and contact",
+  "Artista": "Artist",
+  "Género": "Genre",
+  "Gira": "Touring",
+  "Concierto": "Concert",
+  "Certificación": "Certification",
+  "Diario": "Daily",
+  "Semanal": "Weekly",
+  "Canciones": "Songs",
+  "Álbumes": "Albums",
+  "Listas": "Charts",
+  "Directorio": "Directory",
+  "Herramienta": "Tool",
+  "Explorar": "Explore",
+  "Confianza": "Trust",
+  "Sitio": "Site",
+};
+
+function englishSearchText(value: string) {
+  if (ENGLISH_SEARCH_TEXT[value]) return ENGLISH_SEARCH_TEXT[value];
+  return value
+    .replace(/fechas activas/g, "active dates")
+    .replace(/Perfil de touring/g, "Touring profile")
+    .replace(/Artistas/g, "Artists")
+    .replace(/Canciones/g, "Songs")
+    .replace(/Álbumes/g, "Albums")
+    .replace(/Semanal/g, "Weekly")
+    .replace(/Diario/g, "Daily");
+}
+
 export default function SiteSearch() {
+  const { language, pick } = useLanguage();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const [, navigate] = useLocation();
@@ -184,10 +237,10 @@ export default function SiteSearch() {
         onClick={openSearch}
         className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors lg:flex"
         style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.48)" }}
-        aria-label="Buscar en Mexico Charts"
+        aria-label={pick("Buscar en Mexico Charts", "Search Mexico Charts")}
       >
         <Search className="h-3.5 w-3.5" />
-        Buscar
+        {pick("Buscar", "Search")}
       </button>
 
       <button
@@ -195,17 +248,17 @@ export default function SiteSearch() {
         onClick={openSearch}
         className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
-        aria-label="Buscar"
+        aria-label={pick("Buscar", "Search")}
       >
         <Search className="h-4 w-4" />
       </button>
 
-      {open && <SearchDialog onClose={closeSearch} onNavigate={go} />}
+      {open && <SearchDialog onClose={closeSearch} onNavigate={go} language={language} />}
     </>
   );
 }
 
-function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate: (href: string) => void }) {
+function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; onNavigate: (href: string) => void; language: "es" | "en" }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const titleId = "site-search-title";
@@ -262,7 +315,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
       baseScore: 150,
       category: "site",
       dedupeKey: `site:${row.href}`,
-      haystack: norm(`${row.label} ${row.type} ${row.detail}`),
+      haystack: norm(`${row.label} ${row.type} ${row.detail} ${englishSearchText(row.label)} ${englishSearchText(row.type)} ${englishSearchText(row.detail)}`),
     }));
 
     const genreRows: SearchCandidate[] = GENRE_RESULTS.map(row => ({
@@ -363,7 +416,7 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
             style={{ background: "linear-gradient(180deg,#0b0b0b,#050505)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 28px 80px rgba(0,0,0,0.72)" }}
             onMouseDown={event => event.stopPropagation()}
           >
-            <h2 id={titleId} className="sr-only">Buscar en Mexico Charts</h2>
+            <h2 id={titleId} className="sr-only">{language === "en" ? "Search Mexico Charts" : "Buscar en Mexico Charts"}</h2>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
               <Search className="h-4 w-4" style={{ color: G }} />
               <input
@@ -375,11 +428,11 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
                   if (event.key === "Enter" && results[0]) onNavigate(results[0].href);
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/25"
-                placeholder="Buscar artista, canción, chart, certificado, gira..."
-                aria-label="Buscar artista, canción, chart, certificado o gira"
+                placeholder={language === "en" ? "Search artist, song, chart, certification, touring..." : "Buscar artista, canción, chart, certificado, gira..."}
+                aria-label={language === "en" ? "Search artist, song, chart, certification or touring" : "Buscar artista, canción, chart, certificado o gira"}
                 aria-controls={resultsId}
               />
-              <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label="Cerrar búsqueda">
+              <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/40 hover:text-white" aria-label={language === "en" ? "Close search" : "Cerrar búsqueda"}>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -390,26 +443,26 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
                   key={result.dedupeKey ?? `${result.type}-${result.href}-${result.label}-${result.detail}`}
                   type="button"
                   onClick={() => onNavigate(result.href)}
-                  aria-label={`${result.label}. ${result.detail}. ${result.type}`}
+                    aria-label={`${language === "en" ? englishSearchText(result.label) : result.label}. ${language === "en" ? englishSearchText(result.detail) : result.detail}. ${language === "en" ? englishSearchText(result.type) : result.type}`}
                   className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 rounded-lg px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-white">{result.label}</span>
-                    <span className="mt-1 block truncate text-[11px]" style={{ color: "rgba(255,255,255,0.42)" }}>{result.detail}</span>
+                    <span className="block truncate text-sm font-black text-white">{language === "en" ? englishSearchText(result.label) : result.label}</span>
+                    <span className="mt-1 block truncate text-[11px]" style={{ color: "rgba(255,255,255,0.42)" }}>{language === "en" ? englishSearchText(result.detail) : result.detail}</span>
                   </span>
                   <span className="rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-[0.16em]" style={{ color: G, background: "rgba(57,255,20,0.09)", border: "1px solid rgba(57,255,20,0.18)" }}>
-                    {result.type}
+                    {language === "en" ? englishSearchText(result.type) : result.type}
                   </span>
                 </button>
               ))}
               {results.length === 0 && (
                 <div className="px-4 py-10 text-center text-sm font-bold" style={{ color: "rgba(255,255,255,0.38)" }}>
-                  Sin resultados para esa búsqueda.
+                  {language === "en" ? "No results for that search." : "Sin resultados para esa búsqueda."}
                 </div>
               )}
               {!query.trim() && (
                 <div className="px-4 pb-4 pt-2 text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.28)" }}>
-                  Tip: busca artistas, canciones, certificaciones, ciudades o géneros.
+                  {language === "en" ? "Tip: search artists, songs, certifications, cities or genres." : "Tip: busca artistas, canciones, certificaciones, ciudades o géneros."}
                 </div>
               )}
             </div>
