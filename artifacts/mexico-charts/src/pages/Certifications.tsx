@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
+import { formatCertificationLevels } from "@/lib/certificationLabels";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
@@ -109,6 +111,10 @@ function tierOf(row: CertRow) {
 
 function artistSearchHref(artist: string) {
   return `/artists?q=${encodeURIComponent(artist)}`;
+}
+
+function artistLinkHref(artist: string) {
+  return canonicalArtistHref(artist) ?? artistSearchHref(artist);
 }
 
 export default function Certifications() {
@@ -284,7 +290,7 @@ export default function Certifications() {
         <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             {[
-              { icon: Trophy,       v: stats.total.toLocaleString("es-MX"),    l: "Certificaciones\nfiltradas",    hi: false },
+              { icon: Trophy,       v: stats.total.toLocaleString("es-MX"),    l: "Registros de\ncertificación",  hi: false },
               { icon: Trophy,       v: stats.diamante.toLocaleString("es-MX"), l: "Niveles\nDiamante",            hi: true  },
               { icon: Trophy,       v: stats.platino.toLocaleString("es-MX"),  l: "Niveles\nPlatino",             hi: false },
               { icon: Trophy,       v: stats.oro.toLocaleString("es-MX"),      l: "Niveles\nOro",                 hi: false },
@@ -438,7 +444,7 @@ export default function Certifications() {
                       borderBottom: "1px solid rgba(255,255,255,0.05)",
                       background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)"
                     }}>
-                    <Link href={artistSearchHref(row.artista)} className="min-w-0 pr-2">
+                    <Link href={artistLinkHref(row.artista)} className="min-w-0 pr-2">
                       <span className="block truncate text-xs font-black text-white underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#39FF14] hover:decoration-[#39FF14]/45">
                         {row.artista}
                       </span>
@@ -448,7 +454,7 @@ export default function Certifications() {
                       {row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}
                     </div>
                     <CertBadge cert={row.certificacion} />
-                    <div className="text-xs font-black" style={{ color: "rgba(255,255,255,0.85)" }}>{row.nivel || "—"}</div>
+                    <div className="text-xs font-black" style={{ color: "rgba(255,255,255,0.85)" }}>{formatCertificationLevels(row.certificacion, row.nivel)}</div>
                     <div className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.7)" }}>{formatDate(row.fechaISO)}</div>
                     <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{row.disquera || "—"}</div>
                   </motion.div>
@@ -463,7 +469,7 @@ export default function Certifications() {
                   <div className="rounded-xl p-4" style={{ background: "#0e0e0e", border: "1px solid rgba(255,255,255,0.08)" }}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
-                        <Link href={artistSearchHref(row.artista)}>
+                        <Link href={artistLinkHref(row.artista)}>
                           <span className="font-black text-sm text-white underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#39FF14] hover:decoration-[#39FF14]/45">
                             {row.artista}
                           </span>
@@ -474,7 +480,7 @@ export default function Certifications() {
                     </div>
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.65)" }}>
                       <span>{row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}</span>
-                      <span>Nivel: {row.nivel || "—"}</span>
+                      <span>Niveles: {formatCertificationLevels(row.certificacion, row.nivel)}</span>
                       <span>{formatDate(row.fechaISO)}</span>
                     </div>
                     {row.disquera && (

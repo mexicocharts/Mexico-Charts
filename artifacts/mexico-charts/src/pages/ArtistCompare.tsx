@@ -10,6 +10,8 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type ChartsHubData } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
 
 const G = "#39FF14";
@@ -50,7 +52,7 @@ function compact(value: number) {
 }
 
 function artistOptionLabel(artist: ArtistMetadata) {
-  return [artist.displayName, artist.subgenre || artist.genre].filter(Boolean).join(" · ");
+  return [artist.displayName, genreLabel(artist.subgenre || artist.genre)].filter(Boolean).join(" · ");
 }
 
 function artistSearchText(artist: ArtistMetadata) {
@@ -87,7 +89,7 @@ function chartAppearances(hub: HubData | undefined, artist: ArtistMetadata) {
 
 function certSummary(rows: ReturnType<typeof useCertifications>["rows"], artist: ArtistMetadata) {
   const matches = rows.filter(row => artistMatches(row.artista, artist.displayName));
-  const levels = matches.reduce((sum, row) => sum + (row.totalLevels || row.diamante * 10 + row.platino + row.oro), 0);
+  const levels = matches.reduce((sum, row) => sum + (row.totalLevels || row.diamante + row.platino + row.oro), 0);
   return {
     count: matches.length,
     levels,
@@ -227,7 +229,7 @@ function ArtistPanel({ artist, rank, certs, tours, charts, image, side }: {
           <span className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: side === "a" ? "#000" : "rgba(255,255,255,0.78)", background: side === "a" ? G : "rgba(255,255,255,0.08)", border: side === "a" ? "none" : "1px solid rgba(255,255,255,0.12)" }}>
             Artista {side.toUpperCase()}
           </span>
-          <Link href={`/artist/${slugify(artist.displayName)}`}>
+          <Link href={canonicalArtistHref(artist.artistKey) ?? canonicalArtistHref(artist.displayName) ?? "/artists"}>
             <span className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em]"
               style={{ border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.78)", background: "rgba(0,0,0,0.36)" }}>
               Perfil
@@ -248,7 +250,11 @@ function ArtistPanel({ artist, rank, certs, tours, charts, image, side }: {
             {artist.displayName}
           </h2>
           <p className="mt-3 text-sm font-bold" style={{ color: "rgba(255,255,255,0.46)" }}>
-            {[artist.subgenre || artist.genre, artist.country, artist.label].filter(Boolean).join(" · ") || "Datos editoriales"}
+            {[
+              artist.subgenre || artist.genre ? genreLabel(artist.subgenre || artist.genre) : "",
+              artist.country ? countryLabel(artist.country) : "",
+              artist.label ? `Sellos/distribuidores: ${labelAssociationValue(artist.label)}` : "",
+            ].filter(Boolean).join(" · ") || "Datos editoriales"}
           </p>
         </div>
       </div>

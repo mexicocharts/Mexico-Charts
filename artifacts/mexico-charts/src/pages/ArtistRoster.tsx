@@ -8,6 +8,8 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
 
@@ -93,7 +95,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
       transition={{ duration: 0.32, delay: Math.min(index * 0.015, 0.3), ease: [0.16, 1, 0.3, 1] }}
       layout
     >
-      <Link href={`/artist/${slug}`}>
+      <Link href={canonicalArtistHref(name) ?? "/artists"}>
         <div
           className="group relative rounded-xl overflow-hidden cursor-pointer h-full flex flex-col"
           style={{
@@ -206,19 +208,21 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
                 className="text-[10px] font-black uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full"
                 style={{ background: `${color}14`, color, border: `1px solid ${color}28` }}
               >
-                {genre || "—"}
+                {genre ? genreLabel(genre) : "—"}
               </span>
             </div>
 
             {country && (
               <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-1">
                 <Globe className="w-2.5 h-2.5 flex-shrink-0" />
-                <span className="truncate">{country}</span>
+                <span className="truncate">{countryLabel(country)}</span>
               </div>
             )}
 
             {label && (
-              <div className="text-[10px] text-zinc-600 truncate mb-1.5">{label}</div>
+              <div className="text-[10px] text-zinc-600 truncate mb-1.5" title="Sellos y distribuidores asociados">
+                Sellos/distribuidores: {labelAssociationValue(label)}
+              </div>
             )}
 
             {/* Stats row */}
@@ -268,8 +272,9 @@ interface DropdownProps {
   value: string;
   options: string[];
   onChange: (v: string) => void;
+  formatOption?: (v: string) => string;
 }
-function FilterDropdown({ label, value, options, onChange }: DropdownProps) {
+function FilterDropdown({ label, value, options, onChange, formatOption = v => v }: DropdownProps) {
   return (
     <div className="relative">
       <select
@@ -281,7 +286,7 @@ function FilterDropdown({ label, value, options, onChange }: DropdownProps) {
       >
         <option value="">{label}</option>
         {options.map(o => (
-          <option key={o} value={o}>{o}</option>
+          <option key={o} value={o}>{formatOption(o)}</option>
         ))}
       </select>
       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-500 pointer-events-none" />
@@ -391,7 +396,7 @@ export default function ArtistRoster() {
             </span>
           </h1>
           <p className="text-sm text-zinc-500 max-w-md mx-auto mb-6">
-            Explora el roster completo de artistas mexicanos — busca, filtra por género o país y accede al perfil de cada artista.
+            Explora artistas mexicanos y artistas vinculados a la música mexicana. Busca, filtra por género o país y accede al perfil de cada artista.
           </p>
           {!isLoading && !isEmpty && (
             <div className="flex items-center justify-center gap-6 text-center">
@@ -449,12 +454,14 @@ export default function ArtistRoster() {
               value={genreFilter}
               options={genres}
               onChange={setGenreFilter}
+              formatOption={genreLabel}
             />
             <FilterDropdown
               label="País"
               value={countryFilter}
               options={countries}
               onChange={setCountryFilter}
+              formatOption={countryLabel}
             />
             <div className="relative">
               <select

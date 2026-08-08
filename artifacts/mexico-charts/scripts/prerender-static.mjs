@@ -511,9 +511,53 @@ async function writeRoute(baseHtml, route) {
   await writeFile(cleanRoutePath, html);
 }
 
+function buildArtistAliasRedirect(baseHtml, artist) {
+  const redirectScript = `<script>window.location.replace(${JSON.stringify(artist.path)});</script>`;
+  return updateHead(baseHtml, {
+    path: artist.path,
+    title: `${artist.name} — Perfil de artista | Mexico Charts`,
+    description: `Redirección al perfil canónico de ${artist.name} en Mexico Charts.`,
+  })
+    .replace(/<meta name="robots" content=".*?" \/>/s, '<meta name="robots" content="noindex,follow" />')
+    .replace(
+      "</head>",
+      `  <meta http-equiv="refresh" content="0; url=${artist.path}" />\n  ${redirectScript}\n</head>`,
+    )
+    .replace(
+      '<div id="root"></div>',
+      `<main style="min-height:100vh;background:#050505;color:#fff;display:grid;place-items:center;font-family:system-ui,sans-serif"><p>Redirigiendo al perfil de ${escapeHtml(artist.name)}…</p></main><div id="root"></div>`,
+    );
+}
+
+async function writeAliasRedirect(baseHtml, aliasPath, artist) {
+  const html = buildArtistAliasRedirect(baseHtml, artist);
+  const outputPath = path.join(outDir, aliasPath.slice(1));
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, html);
+}
+
 const baseHtml = await readFile(baseHtmlPath, "utf8");
 for (const route of routes) {
   await writeRoute(baseHtml, route);
 }
 
-console.log(`Prerendered ${routes.length} static route shells.`);
+const canonicalArtistSlugs = new Set(artistProfileRoutes.map((artist) => artist.path.replace(/^\/artist\//, "")));
+const compactAliases = new Map();
+const ambiguousCompactAliases = new Set();
+for (const artist of artistProfileRoutes) {
+  const slug = artist.path.replace(/^\/artist\//, "");
+  const compact = slug.replace(/-/g, "");
+  if (!compact || compact === slug || canonicalArtistSlugs.has(compact) || ambiguousCompactAliases.has(compact)) continue;
+  const existing = compactAliases.get(compact);
+  if (existing && existing.path !== artist.path) {
+    compactAliases.delete(compact);
+    ambiguousCompactAliases.add(compact);
+  } else {
+    compactAliases.set(compact, artist);
+  }
+}
+for (const [compact, artist] of compactAliases) {
+  await writeAliasRedirect(baseHtml, `/artist/${compact}`, artist);
+}
+
+console.log(`Prerendered ${routes.length} static route shells and ${compactAliases.size} canonical artist alias redirects.`);

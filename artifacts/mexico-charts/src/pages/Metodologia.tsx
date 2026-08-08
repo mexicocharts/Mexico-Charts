@@ -71,6 +71,20 @@ export default function Metodologia() {
             </p>
           </div>
 
+          <div className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Verificado por Mexico Charts</h3>
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+              Significa que Mexico Charts verificó la identidad del artista y vinculó fuentes oficiales y mapeos de datos al registro correcto. No significa que el artista haya reclamado el perfil, participado en su creación o respaldado a Mexico Charts.
+            </p>
+          </div>
+
+          <div className="rounded-xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] mb-3" style={{ color: G }}>Sellos y distribuidores asociados</h3>
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.45)" }}>
+              Este campo puede reunir asociaciones de sello o distribución actuales e históricas observadas en el catálogo. No implica que todas las compañías listadas sean el sello actual del artista.
+            </p>
+          </div>
+
           <div className="space-y-5">
             {[
               {

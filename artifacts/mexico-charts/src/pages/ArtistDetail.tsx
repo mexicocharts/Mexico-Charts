@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
@@ -16,6 +16,8 @@ import { useArtistTouring } from "@/hooks/useTouring";
 import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
 import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
+import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
+import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 
 export { slugify };
 
@@ -389,7 +391,7 @@ const ARTISTS: Record<string, ArtistData> = {
   },
 };
 
-/* ─── FALLBACK DATA ──────────────────────────────────────────── */
+/* ─── GENERIC MASTER-CATALOG PROFILE ─────────────────────────── */
 function buildFallback(name: string): ArtistData {
   return {
     name,
@@ -401,18 +403,9 @@ function buildFallback(name: string): ArtistData {
     growth: "—",
     origin: "México",
     accent: "#39FF14",
-    bio: `${name} es un artista del movimiento musical mexicano que ha ganado reconocimiento internacional con su sonido único.`,
-    platformStreams: [
-      { platform: "Spotify",     streams: "2.1M", streamsNum: 2.1, color: "#1DB954", icon: "spotify"   },
-      { platform: "YouTube",     streams: "1.2M", streamsNum: 1.2, color: "#FF0000", icon: "youtube"   },
-      { platform: "Apple Music", streams: "0.5M", streamsNum: 0.5, color: "#FF2D55", icon: "apple"     },
-      { platform: "Deezer",      streams: "0.2M", streamsNum: 0.2, color: "#A238FF", icon: "deezer"    },
-    ] as ArtistData["platformStreams"],
-    genreBreakdown: [
-      { genre: "Regional Mexicano",  pct: 55 },
-      { genre: "Corridos Tumbados", pct: 30 },
-      { genre: "Banda",              pct: 15 },
-    ],
+    bio: `Perfil de ${name} en el catálogo editorial de Mexico Charts. Los datos visibles se cargan únicamente desde fuentes vinculadas a este registro canónico.`,
+    platformStreams: [],
+    genreBreakdown: [],
     tours: [],
     topSongs: [],
   };
@@ -422,7 +415,46 @@ function buildFallback(name: string): ArtistData {
 /* ─── PAGE ───────────────────────────────────────────────────── */
 export default function ArtistDetail() {
   const params = useParams<{ slug: string }>();
-  const slug = params.slug ?? "";
+  const requestedSlug = params.slug ?? "";
+  const canonicalArtist = resolveCanonicalArtist(requestedSlug);
+
+  useEffect(() => {
+    if (canonicalArtist && requestedSlug !== canonicalArtist.slug) {
+      window.location.replace(canonicalArtist.path);
+    }
+  }, [canonicalArtist, requestedSlug]);
+
+  if (!canonicalArtist) {
+    const searchHref = artistSearchHref(requestedSlug.replace(/-/g, " "));
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white">
+        <PageSEO
+          title="Artista no encontrado — Mexico Charts"
+          description="El perfil solicitado no corresponde a un artista activo del catálogo de Mexico Charts."
+          path={`/artist/${requestedSlug}`}
+          noindex
+        />
+        <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-center">
+          <img src={logoUrl} alt="Mexico Charts" className="mx-auto mb-8 h-9 object-contain opacity-80" />
+          <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#39FF14]">Perfil no encontrado</p>
+          <h1 className="text-3xl font-black uppercase">Ese artista no está en el catálogo activo</h1>
+          <p className="mt-4 text-sm leading-6 text-zinc-500">No creamos perfiles a partir de una URL desconocida. Busca el artista correcto en el directorio.</p>
+          <Link href={searchHref} className="mt-7 inline-flex rounded-full bg-[#39FF14] px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">
+            Buscar artistas
+          </Link>
+        </section>
+      </main>
+    );
+  }
+
+  if (requestedSlug !== canonicalArtist.slug) {
+    return <div className="min-h-screen bg-[#050505]" aria-label="Redirigiendo al perfil canónico" />;
+  }
+
+  return <CanonicalArtistDetail slug={canonicalArtist.slug} canonicalName={canonicalArtist.name} />;
+}
+
+function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonicalName: string }) {
   const reduced = useReducedMotion();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [chartPositionFilter, setChartPositionFilter] = useState<ChartPositionFilter>("all");
@@ -438,10 +470,7 @@ export default function ArtistDetail() {
   );
 
   /* ── Base artist data (hardcoded profile + rich detail) ── */
-  const displayName = sheetArtist?.name ?? (
-    ARTISTS[slug]?.name ??
-    slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-  );
+  const displayName = sheetArtist?.name ?? ARTISTS[slug]?.name ?? canonicalName;
   const baseArtist = ARTISTS[slug] ?? buildFallback(displayName);
 
   /* ── Metadata lookup — try slug-derived key first, then normalized name ── */
@@ -449,10 +478,11 @@ export default function ArtistDetail() {
   // which matches the slug with hyphens replaced by spaces.
   const slugAsKey = slug.replace(/-/g, " ");
   const metaArtist = useMemo(
-    () => lookupArtistMetadata(slugAsKey, displayName, metaByKey, metaByName),
-    [slugAsKey, displayName, metaByKey, metaByName]
+    () => lookupArtistMetadata(slugAsKey, canonicalName, metaByKey, metaByName),
+    [slugAsKey, canonicalName, metaByKey, metaByName]
   );
-  const { data: songstatsArtist } = useSongstatsArtist(slugAsKey);
+  const canonicalArtistKey = metaArtist?.artistKey ?? "";
+  const { data: songstatsArtist } = useSongstatsArtist(canonicalArtistKey);
 
   /* ── Merge: base → chart sheet → metadata (priority order, highest last) ── */
   const artist: ArtistData = useMemo(() => {
@@ -555,7 +585,7 @@ export default function ArtistDetail() {
   const itunesData = useItunesArtist(artist.name);
   const wikiBio      = useWikiBio(artist.name);
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
-  const enrichment   = useArtistEnrichment(slugAsKey);
+  const enrichment   = useArtistEnrichment(canonicalArtistKey);
   const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
   const officialSourceCount = [enrichment?.spotify, enrichment?.youtube, enrichment?.musicbrainz].filter(Boolean).length;
   const spotifyUpdatedLabel = formatShortDateEs(enrichment?.spotify?.lastUpdated);
@@ -798,7 +828,7 @@ export default function ArtistDetail() {
       <PageSEO
         title={`${artist.name} — Perfil de artista | Mexico Charts`}
         description={`${artist.name}: perfil de artista con género, estadísticas de streaming, audiencia, redes sociales, certificaciones y datos de listas en México Charts.`}
-        path={`/artist/${slug}`}
+        path={canonicalArtistHref(slug) ?? `/artist/${slug}`}
       />
       {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
       {showErrorState && (
@@ -904,7 +934,7 @@ export default function ArtistDetail() {
             <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
               {artist.rank > 0 ? `#${artist.rank} En México` : "Artista"}
               <span className="opacity-40">·</span>
-              {artist.genre}
+              {genreLabel(artist.genre)}
             </div>
             <h1
               className="mb-3 max-w-[11ch] break-words font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"
@@ -966,7 +996,7 @@ export default function ArtistDetail() {
                       Verificación Mexico Charts
                     </div>
                     <p className="text-xs font-medium leading-relaxed text-zinc-400">
-                      Este perfil fue enlazado con fuentes oficiales del artista, como Spotify, YouTube o MusicBrainz.
+                      Mexico Charts verificó la identidad del artista y enlazó sus fuentes oficiales y mapeos de datos. Esto no significa que el artista haya reclamado el perfil o respaldado a Mexico Charts.
                     </p>
                   </div>
                 )}
@@ -978,7 +1008,7 @@ export default function ArtistDetail() {
                 {artist.origin}
               </span>
               <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
-                {artist.listeners} oyentes
+                {artist.listeners} oyentes mensuales · Spotify
               </span>
               {artist.spotifyFollowers && (
                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
@@ -988,7 +1018,7 @@ export default function ArtistDetail() {
               {artist.growth && artist.growth !== "—" && (
                 <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em]" style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}24`, color: artist.accent }}>
                   <TrendingUp className="h-3.5 w-3.5" />
-                  {artist.growth} esta semana
+                  {artist.growth} variación semanal · Spotify
                 </span>
               )}
             </div>
@@ -1430,8 +1460,8 @@ export default function ArtistDetail() {
                 )}
                 {metaArtist?.label && (
                   <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
-                    <span><span className="text-zinc-500 font-bold">Sello: </span>{metaArtist.label}</span>
-                    {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{metaArtist.country}</span>}
+                    <span><span className="text-zinc-500 font-bold">Sellos y distribuidores asociados: </span>{labelAssociationValue(metaArtist.label)}</span>
+                    {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{countryLabel(metaArtist.country)}</span>}
                   </div>
                 )}
               </div>
@@ -2411,7 +2441,8 @@ export default function ArtistDetail() {
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {similarArtists.map(candidate => {
-                    const candidateSlug = slugify(candidate.name);
+                    const candidateHref = canonicalArtistHref(candidate.name);
+                    const candidateSlug = candidateHref?.replace(/^\/artist\//, "") ?? slugify(candidate.name);
                     const candidatePhoto = artistImages[candidate.name] ?? null;
                     const initials = candidate.name
                       .split(/\s+/)
@@ -2422,9 +2453,9 @@ export default function ArtistDetail() {
                       .toUpperCase();
 
                     return (
-                      <Link
+                      candidateHref ? <Link
                         key={candidateSlug}
-                        href={`/artist/${candidateSlug}`}
+                        href={candidateHref}
                         className="group relative min-h-[15rem] overflow-hidden rounded-xl transition hover:-translate-y-0.5 hover:border-white/18 focus:outline-none focus:ring-2 focus:ring-white/10"
                         style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}
                         data-testid={`similar-artist-${candidateSlug}`}
@@ -2464,12 +2495,12 @@ export default function ArtistDetail() {
                         <div className="relative z-10 p-4">
                           <div className="truncate text-base font-black text-white transition-colors group-hover:text-zinc-100">{candidate.name}</div>
                           <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
-                            {candidate.genre || candidate.subgenre || "Artista"}
+                            {genreLabel(candidate.genre || candidate.subgenre || "Artista")}
                           </div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             {candidate.subgenre && (
                               <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
-                                {candidate.subgenre}
+                                {genreLabel(candidate.subgenre)}
                               </span>
                             )}
                             {candidate.listeners && (
@@ -2479,7 +2510,7 @@ export default function ArtistDetail() {
                             )}
                           </div>
                         </div>
-                      </Link>
+                      </Link> : null
                     );
                   })}
                 </div>

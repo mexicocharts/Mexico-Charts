@@ -8,6 +8,8 @@ import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { genreLabel } from "@/lib/presentationLabels";
 import type { ChartArtist } from "@/types/chartData";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 
@@ -225,13 +227,14 @@ function scoreArtists(
 function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number; photoUrl?: string | null }) {
   const { dailyChartArtist, meta } = item;
   const slug = slugify(item.name);
-  const genre = meta?.subgenre || dailyChartArtist?.subgenre || dailyChartArtist?.genre;
+  const rawGenre = meta?.subgenre || dailyChartArtist?.subgenre || dailyChartArtist?.genre;
+  const genre = rawGenre ? genreLabel(rawGenre) : "";
   const isTopThree = index < 3;
   const rank = index + 1;
   const initial = item.name.trim()[0]?.toUpperCase() ?? "?";
 
   return (
-    <Link href={`/artist/${slug}`}>
+    <Link href={canonicalArtistHref(meta?.artistKey ?? item.name) ?? "/artists"}>
       <article
         className="group relative cursor-pointer overflow-hidden border bg-[#080808] transition hover:border-[#39FF14]/35"
         style={{
@@ -367,7 +370,7 @@ export default function Mx100() {
                   de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras
                 </p>
                 {leader && (
-                  <Link href={`/artist/${slugify(leader.name)}`}>
+                  <Link href={canonicalArtistHref(leader.meta?.artistKey ?? leader.name) ?? "/artists"}>
                     <div
                       className="mt-6 max-w-2xl cursor-pointer overflow-hidden border bg-black/30 transition hover:border-[#39FF14]/40 lg:max-w-4xl"
                       style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}

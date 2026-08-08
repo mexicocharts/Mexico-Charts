@@ -8,6 +8,7 @@
     "build": "node scripts/audit-public-routes.mjs && vite build --config vite.config.ts && node scripts/prerender-static.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "audit:routes": "node scripts/audit-public-routes.mjs",
+    "test": "node --test src/lib/artistRoutes.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

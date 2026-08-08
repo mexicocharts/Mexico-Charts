@@ -43,10 +43,11 @@ function removeStaticSeoDuplicates() {
 
   DEDUPED_HEAD_SELECTORS.forEach((selector) => {
     const nodes = Array.from(document.head.querySelectorAll(selector));
-    if (!nodes.some(isHelmetManaged)) return;
-
+    if (nodes.length <= 1) return;
+    const managed = nodes.filter(isHelmetManaged);
+    const keep = managed.at(-1) ?? nodes.at(-1);
     nodes.forEach((node) => {
-      if (!isHelmetManaged(node)) node.remove();
+      if (node !== keep) node.remove();
     });
   });
 }

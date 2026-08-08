@@ -1,6 +1,6 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { Suspense, lazy, useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,7 +33,30 @@ const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
 const DiscoveryReview = lazy(() => import("@/pages/DiscoveryReview"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      console.error("[Mexico Charts data error]", { queryKey: query.queryKey, error });
+    },
+  }),
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+  },
+});
+
+function AppLoadingState() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#050505] px-6 text-white" role="status" aria-live="polite">
+      <div className="text-center">
+        <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" className="mx-auto h-10 object-contain opacity-85" />
+        <div className="mx-auto mt-6 h-1 w-28 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-[#39FF14]" />
+        </div>
+        <p className="mt-4 text-[10px] font-black uppercase tracking-[0.24em] text-zinc-600">Cargando Mexico Charts…</p>
+      </div>
+    </main>
+  );
+}
 
 const LEGACY_ROUTE_REDIRECTS: Record<string, string> = {
   "/about": "/acerca-de",
@@ -46,6 +69,22 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location]);
+  return null;
+}
+
+function GoogleAnalyticsPageView() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    const analyticsWindow = window as typeof window & {
+      gtag?: (command: "event", eventName: string, params: Record<string, string>) => void;
+    };
+    analyticsWindow.gtag?.("event", "page_view", {
+      page_path: location,
+      page_location: window.location.href,
+    });
+  }, [location]);
+
   return null;
 }
 
@@ -65,7 +104,8 @@ function Router() {
     <>
       <LegacyRouteRedirects />
       <ScrollToTop />
-      <Suspense fallback={<div className="min-h-screen bg-[#050505]" />}>
+      <GoogleAnalyticsPageView />
+      <Suspense fallback={<AppLoadingState />}>
         <Switch>
           <Route path="/" component={HomeV6} />
           <Route path="/artists" component={ArtistRoster} />

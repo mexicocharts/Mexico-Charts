@@ -7,6 +7,8 @@ import { useArtistMetadata } from "@/services/dataProvider";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 
 /* ─── Constants ─────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -103,7 +105,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.35 }}
     >
-      <Link href={`/artist/${slug}`}>
+      <Link href={canonicalArtistHref(meta.artistKey) ?? canonicalArtistHref(meta.displayName) ?? "/artists"}>
         <div
           className="relative overflow-hidden rounded-xl cursor-pointer group"
           style={{
@@ -155,7 +157,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
               {meta.subgenre && (
                 <div className="text-[10px] uppercase tracking-wide mt-0.5 truncate"
                   style={{ color: "rgba(255,255,255,0.38)" }}>
-                  {meta.subgenre}
+                  {genreLabel(meta.subgenre)}
                 </div>
               )}
               <div className="flex items-center gap-3 mt-2">
@@ -167,7 +169,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
                 {meta.label && (
                   <span className="text-[10px] uppercase tracking-wide truncate"
                     style={{ color: "rgba(255,255,255,0.55)" }}>
-                    {meta.label}
+                    Sellos/distribuidores: {labelAssociationValue(meta.label)}
                   </span>
                 )}
               </div>

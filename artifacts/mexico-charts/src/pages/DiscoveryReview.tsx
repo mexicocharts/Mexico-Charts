@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { ArrowLeft, Check, ExternalLink, KeyRound, Link2, RefreshCw, Search, X } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 
@@ -902,7 +903,7 @@ export default function DiscoveryReview() {
                         </section>
 
                         {selectedCandidate.matched_artist_id && (
-                          <Link href={`/artist/${encodeURIComponent(selectedCandidate.matched_artist_id)}`} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:text-white">
+                          <Link href={canonicalArtistHref(selectedCandidate.matched_artist_id) ?? "/artists"} className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:text-white">
                             Ver perfil vinculado
                             <ExternalLink className="h-3.5 w-3.5" />
                           </Link>

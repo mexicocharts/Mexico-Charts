@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { ArrowLeft, Copy, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
 import { SiMusicbrainz, SiSpotify } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
@@ -466,7 +467,7 @@ export default function EnrichmentReview() {
                       {isConfirming ? "Confirmar" : "Aprobar"}
                     </button>
                     <Link
-                      href={`/artist/${row.artistKey.replace(/\s+/g, "-")}`}
+                      href={canonicalArtistHref(row.artistKey) ?? "/artists"}
                       className="rounded-lg border border-white/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 hover:border-white/25 hover:text-white"
                     >
                       Perfil

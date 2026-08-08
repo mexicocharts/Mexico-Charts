@@ -7,6 +7,8 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useBatchKworbStreamStats, type KworbStreamSnapshot } from "@/hooks/useKworbStats";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { countryLabel, genreLabel } from "@/lib/presentationLabels";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 
 const ACCENT = "#39FF14";
@@ -232,7 +234,7 @@ function LegacyRow({ act, photoUrl }: { act: LegacyAct; photoUrl?: string | null
   const initial = act.meta.displayName.trim()[0]?.toUpperCase() ?? "?";
 
   return (
-    <Link href={`/artist/${slugify(act.meta.displayName)}`}>
+    <Link href={canonicalArtistHref(act.meta.artistKey) ?? canonicalArtistHref(act.meta.displayName) ?? "/artists"}>
       <article
         className="group grid cursor-pointer gap-4 border border-white/[0.08] bg-[#080808] p-4 transition hover:border-[#39FF14]/40 sm:grid-cols-[92px_1fr] md:grid-cols-[104px_1fr_300px] md:items-center"
         style={{ borderRadius: 8 }}
@@ -268,8 +270,8 @@ function LegacyRow({ act, photoUrl }: { act: LegacyAct; photoUrl?: string | null
             {act.meta.displayName}
           </h2>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
-            <span>{act.meta.subgenre || act.meta.genre || "Mexico Charts"}</span>
-            {act.meta.country && <span>{act.meta.country}</span>}
+            <span>{genreLabel(act.meta.subgenre || act.meta.genre || "Mexico Charts")}</span>
+            {act.meta.country && <span>{countryLabel(act.meta.country)}</span>}
           </div>
         </div>
 
@@ -336,7 +338,7 @@ export default function LegacyActs() {
               </div>
 
               {leader && (
-                <Link href={`/artist/${slugify(leader.meta.displayName)}`}>
+                <Link href={canonicalArtistHref(leader.meta.artistKey) ?? canonicalArtistHref(leader.meta.displayName) ?? "/artists"}>
                   <article
                     className="group cursor-pointer overflow-hidden border bg-black/35 transition hover:border-[#39FF14]/45"
                     style={{ borderColor: "rgba(57,255,20,0.24)", borderRadius: 8 }}

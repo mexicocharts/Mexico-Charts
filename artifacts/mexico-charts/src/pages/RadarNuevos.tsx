@@ -7,6 +7,8 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { genreLabel } from "@/lib/presentationLabels";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 import type { ChartArtist } from "@/types/chartData";
 
@@ -230,12 +232,12 @@ function stageColor(stage: RadarStage) {
 function RadarRow({ item, index, photoUrl }: { item: RadarArtist; index: number; photoUrl?: string | null }) {
   const slug = slugify(item.name);
   const rank = index + 1;
-  const genre = item.meta?.subgenre || item.meta?.genre || "Mexico Charts";
+  const genre = genreLabel(item.meta?.subgenre || item.meta?.genre || "Mexico Charts");
   const initial = item.name.trim()[0]?.toUpperCase() ?? "?";
   const isTopThree = index < 3;
 
   return (
-    <Link href={`/artist/${slug}`}>
+    <Link href={canonicalArtistHref(item.meta?.artistKey ?? item.name) ?? "/artists"}>
       <article
         className="group cursor-pointer overflow-hidden border bg-[#080808] transition hover:border-[#39FF14]/35"
         style={{
@@ -367,7 +369,7 @@ export default function RadarNuevos() {
               </div>
 
               {leader && (
-                <Link href={`/artist/${slugify(leader.name)}`}>
+                <Link href={canonicalArtistHref(leader.meta?.artistKey ?? leader.name) ?? "/artists"}>
                   <div
                     className="cursor-pointer overflow-hidden border bg-black/35 transition hover:border-[#39FF14]/40"
                     style={{ borderColor: "rgba(57,255,20,0.22)", borderRadius: 8 }}

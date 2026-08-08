@@ -4,6 +4,8 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { Link } from "wouter";
 import { slugify } from "@/lib/utils";
+import { artistCatalogCount, canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { genreLabel } from "@/lib/presentationLabels";
 import {
   motion, AnimatePresence,
   useScroll, useTransform,
@@ -202,14 +204,17 @@ function FadeUp({ children, delay = 0, className = "" }: { children: React.React
   );
 }
 
-function Shelf({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Shelf({ label, icon, description, children }: { label: string; icon: React.ReactNode; description?: string; children: React.ReactNode }) {
   return (
     <section className="py-7 relative">
       <div className="absolute top-0 left-0 right-0 h-px pointer-events-none" style={{ background:"linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)" }} />
       <FadeUp>
-        <div className="flex items-center gap-3 px-6 lg:px-12 mb-5">
+        <div className="flex items-start gap-3 px-6 lg:px-12 mb-5">
           <span style={{ color:"#39FF14" }}>{icon}</span>
-          <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{label}</h2>
+          <div>
+            <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{label}</h2>
+            {description && <p className="mt-1 text-[10px] font-medium text-zinc-600">{description}</p>}
+          </div>
           <div className="flex-1 h-px ml-2" style={{ background:"rgba(255,255,255,0.07)" }} />
         </div>
       </FadeUp>
@@ -417,7 +422,7 @@ export default function HomeV6() {
 
   const TICKER_ITEMS = useMemo(() => {
     if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", "TOP ARTISTAS", "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
-    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} VIEWS`]);
+    return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} VISTAS · YOUTUBE · SEMANA`]);
   }, [TOP_STRIP]);
 
   /* Scroll parallax for hero */
@@ -621,7 +626,7 @@ export default function HomeV6() {
               <div className="text-[10px] font-black uppercase tracking-[0.32em] mb-3" style={{ color:"#39FF14" }}>
                 {hero.rank} EN MÉXICO
                 <span className="mx-3 opacity-40">·</span>
-                {hero.tag}
+                {genreLabel(hero.tag)}
               </div>
               <h1
                 className="font-black uppercase leading-[0.88] tracking-tight text-white mb-4"
@@ -630,9 +635,9 @@ export default function HomeV6() {
                 {hero.line1} {hero.line2}
               </h1>
               <p className="text-sm text-white/55 uppercase tracking-[0.18em] mb-6 font-medium">
-                {hero.listeners} OYENTES
+                {hero.listeners} OYENTES MENSUALES
                 {hero.growth && hero.growth !== "—" && (
-                  <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} esta semana</span></>
+                  <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} variación semanal · Spotify</span></>
                 )}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
@@ -647,7 +652,7 @@ export default function HomeV6() {
                     Ver listas →
                   </motion.span>
                 </Link>
-                <Link href={`/artist/${slugify(hero.name)}`}>
+                <Link href={canonicalArtistHref(hero.name) ?? "/artists"}>
                   <motion.span
                     whileHover={reduced ? {} : { scale:1.03, borderColor:"rgba(255,255,255,0.5)" }}
                     whileTap={reduced ? {} : { scale:0.97 }}
@@ -687,10 +692,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString("es-MX")} ARTISTAS`,"MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {["145+ ARTISTAS","MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString("es-MX")} ARTISTAS`,"MÚSICA MEXICANA","DATOS EN TIEMPO REAL","MOMENTUM DIARIO","LISTAS SEMANALES"].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>
@@ -716,7 +721,7 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           TOP 10 ARTIST CARDS — V5 cards + premium hover
       ══════════════════════════════════════════════════════════ */}
-      <Shelf label="Top 10 Artistas Mexicanos · Esta Semana" icon={<TrendingUp className="w-4 h-4" />}>
+      <Shelf label="Top 10 Artistas Mexicanos · Spotify diario" icon={<TrendingUp className="w-4 h-4" />} description="Días = permanencia consecutiva en el ranking diario de artistas de Spotify.">
         {hubLoading
           ? Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)
           : SHELF_ARTISTS.map((a, idx) => {
@@ -725,7 +730,7 @@ export default function HomeV6() {
           return (
             <Link
               key={a.rank}
-              href={`/artist/${slugify(a.name)}`}
+              href={canonicalArtistHref(a.name) ?? "/artists"}
               style={{ flexShrink:0, scrollSnapAlign:"start", display:"block" }}
             >
             <motion.div
@@ -1055,7 +1060,7 @@ export default function HomeV6() {
                     const photo = img(a.name);
                     const isVerified = verifiedArtistKeys.has(slugify(a.name).replace(/-/g, " "));
                     return (
-                      <Link key={a.rank} href={`/artist/${slugify(a.name)}`} style={{ display:"block" }}>
+                      <Link key={a.rank} href={canonicalArtistHref(a.name) ?? "/artists"} style={{ display:"block" }}>
                       <motion.div
                         variants={fadeUpVariants}
                         whileHover={reduced ? {} : { x:3, transition:{ duration:0.2 } }}
@@ -1172,6 +1177,9 @@ export default function HomeV6() {
                   </div>
                 </motion.div>
               ))}
+            </div>
+            <div className="border-t border-white/[0.05] px-6 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+              Fuente: Spotify y YouTube · Totales acumulados del catálogo activo
             </div>
           </div>
         </section>

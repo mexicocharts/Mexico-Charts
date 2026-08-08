@@ -6,6 +6,7 @@ import { Link, useSearch } from "wouter";
 import { SiSpotify, SiYoutube, SiApplemusic } from "react-icons/si";
 import { MdMusicNote } from "react-icons/md";
 import SiteNav from "@/components/SiteNav";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 /* ── Brand ───────────────────────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -365,9 +366,10 @@ function ArtistCell({ value, knownSlugs }: { value: string; knownSlugs: Set<stri
         if (!trimmed) return <span key={i}>{part}</span>;
 
         const slug = slugify(trimmed);
-        if (slug && knownSlugs.has(slug)) {
+        const canonicalHref = canonicalArtistHref(trimmed);
+        if (slug && knownSlugs.has(slug) && canonicalHref) {
           return (
-            <Link key={i} href={`/artist/${slug}`}>
+            <Link key={i} href={canonicalHref}>
               <span className="underline decoration-white/30 underline-offset-2 hover:decoration-white/70 transition-all cursor-pointer text-white">
                 {part}
               </span>
@@ -1637,8 +1639,8 @@ export default function ChartsHub() {
                 </div>
 
                 <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                  {detailCreditSlug && knownSlugs.has(detailCreditSlug) && (
-                    <Link href={`/artist/${detailCreditSlug}`}>
+                  {detailCreditSlug && knownSlugs.has(detailCreditSlug) && canonicalArtistHref(detailCreditSlug) && (
+                    <Link href={canonicalArtistHref(detailCreditSlug)!}>
                       <span className="inline-flex justify-center rounded-lg px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em]"
                         style={{ background: G, color: "#000" }}>
                         Abrir perfil

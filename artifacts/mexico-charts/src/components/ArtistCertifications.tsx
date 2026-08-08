@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useCertifications, artistMatches, type CertRow } from "@/hooks/useCertifications";
+import { formatCertificationLevels } from "@/lib/certificationLabels";
 
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
@@ -119,10 +120,10 @@ export default function ArtistCertifications({ artistName }: Props) {
   const ctaHref = `/industry/certifications?artist=${encodeURIComponent(artistName)}`;
 
   const stats = [
-    { label: "Total",     value: matched.length },
-    ...(totalDiamante > 0 ? [{ label: "Diamante", value: totalDiamante, certKey: "DIAMANTE" as const }] : []),
-    ...(totalPlatino  > 0 ? [{ label: "Platino",  value: totalPlatino,  certKey: "PLATINO"  as const }] : []),
-    ...(totalOro      > 0 ? [{ label: "Oro",      value: totalOro,      certKey: "ORO"      as const }] : []),
+    { label: "Registros", value: matched.length },
+    ...(totalDiamante > 0 ? [{ label: "Niveles Diamante", value: totalDiamante, certKey: "DIAMANTE" as const }] : []),
+    ...(totalPlatino  > 0 ? [{ label: "Niveles Platino",  value: totalPlatino,  certKey: "PLATINO"  as const }] : []),
+    ...(totalOro      > 0 ? [{ label: "Niveles Oro",      value: totalOro,      certKey: "ORO"      as const }] : []),
     ...(albums  > 0 ? [{ label: "Álbumes", value: albums  }] : []),
     ...(singles > 0 ? [{ label: "Singles", value: singles }] : []),
     { label: "Última cert.", value: fmtDate(latestDate) },
@@ -203,7 +204,7 @@ export default function ArtistCertifications({ artistName }: Props) {
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
                   <td className="px-5 py-2.5 text-center"><div className="flex justify-center"><CertBadge cert={row.certificacion} /></div></td>
                   <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: G }}>
-                    {row.nivel}
+                    {formatCertificationLevels(row.certificacion, row.nivel)}
                   </td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 whitespace-nowrap">{fmtDate(row.fechaISO)}</td>
                   <td className="px-5 py-2.5 text-[10px] text-zinc-600 max-w-[130px]">
@@ -236,7 +237,7 @@ export default function ArtistCertifications({ artistName }: Props) {
                 </div>
                 {row.nivel && (
                   <div className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: G }}>
-                    {row.nivel}
+                    {formatCertificationLevels(row.certificacion, row.nivel)}
                   </div>
                 )}
               </div>

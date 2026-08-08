@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { genreLabel } from "@/lib/presentationLabels";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
 
@@ -244,9 +246,9 @@ function SearchDialog({ onClose, onNavigate }: { onClose: () => void; onNavigate
     const includeDeep = deepSearchEnabled;
     const artists: SearchCandidate[] = Array.from(byKey.values()).map(artist => ({
       label: artist.displayName,
-      href: `/artist/${slugify(artist.displayName)}`,
+      href: canonicalArtistHref(artist.artistKey) ?? canonicalArtistHref(artist.displayName) ?? "/artists",
       type: "Artista",
-      detail: [artist.subgenre || artist.genre, artist.spotifyListenersFmt].filter(Boolean).join(" · "),
+      detail: [genreLabel(artist.subgenre || artist.genre), artist.spotifyListenersFmt].filter(Boolean).join(" · "),
       score: 0,
       baseScore: 170,
       category: "artist",
