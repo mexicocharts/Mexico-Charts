@@ -4,7 +4,7 @@ import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { Link } from "wouter";
 import { slugify } from "@/lib/utils";
-import { artistCatalogCount, canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { artistCatalogCount, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { genreLabel } from "@/lib/presentationLabels";
 import {
   motion, AnimatePresence,
@@ -14,6 +14,8 @@ import {
 import { Award, BadgeCheck, Disc3, Mail, Music, RadioTower, TrendingUp, Users } from "lucide-react";
 import { useArtistsWeekly, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
+import { useBatchKworbStreamStats, useRefreshStatus } from "@/hooks/useKworbStats";
+import { useSongstatsArtists } from "@/hooks/useSongstatsArtist";
 import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
@@ -29,11 +31,11 @@ const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='h
 /* ─── DEFAULT DATA (shown while sheets aren't configured yet) ─── */
 
 const DEFAULT_HERO_ARTISTS = [
-  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"32.4M", growth:"+18%", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"12.4M", growth:"+31%", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"11.7M", growth:"+22%", tag:"CORRIDOS TUMBADOS" },
-  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"9.8M",  growth:"+15%", tag:"REGIONAL MEXICANO" },
-  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"7.1M",  growth:"+28%", tag:"REGIONAL MEXICANO" },
+  { rank:"#1", name:"Peso Pluma",     line1:"PESO",     line2:"PLUMA",  listeners:"—", growth:"", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#2", name:"Fuerza Regida",  line1:"FUERZA",   line2:"REGIDA", listeners:"—", growth:"", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#3", name:"Natanael Cano",  line1:"NATANAEL", line2:"CANO",   listeners:"—", growth:"", tag:"CORRIDOS TUMBADOS" },
+  { rank:"#4", name:"Junior H",       line1:"JUNIOR",   line2:"H",      listeners:"—", growth:"", tag:"REGIONAL MEXICANO" },
+  { rank:"#5", name:"Carin León",     line1:"CARIN",    line2:"LEÓN",   listeners:"—", growth:"", tag:"REGIONAL MEXICANO" },
 ];
 
 const RANK_ACCENTS_HOME = [
@@ -119,6 +121,15 @@ function fmtViews(raw: string): string {
 
 function parseGrowthNum(raw: string): number {
   return parseFloat((raw ?? "").replace(/[^0-9.\-]/g, "")) || 0;
+}
+
+function fmtExactCount(value: number): string {
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+}
+
+function fmtSignedPct(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1")}%`;
 }
 
 
@@ -269,6 +280,12 @@ export default function HomeV6() {
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isLoading: sheetsLoading, isError: sheetsError } = useArtistsWeekly();
   const { byKey: metaByKey, byName: metaByName } = useArtistMetadata();
   const verifiedArtistKeys = useVerifiedArtistKeys();
+  const catalogNames = useMemo(
+    () => [...metaByKey.values()].map(artist => artist.displayName),
+    [metaByKey],
+  );
+  const { data: kworbByArtist } = useBatchKworbStreamStats(catalogNames);
+  const { data: refreshStatus } = useRefreshStatus();
 
   /* ── Charts-hub data, same source as /charts page ── */
   const { data: hubData, isLoading: hubLoading } = useChartsHub({ retry: 2 });
@@ -277,12 +294,6 @@ export default function HomeV6() {
   /* ── Loading/error state only relevant when a URL is actually configured ── */
   const showLoadingState = !!SHEET_SOURCES.artistsWeekly && sheetsLoading;
   const showErrorState   = !!SHEET_SOURCES.artistsWeekly && sheetsError && !sheetsLoading;
-
-  /* ── Helper: enrich a listener string with real metadata where available ── */
-  function enrichListeners(name: string, fallback: string): string {
-    const meta = lookupArtistMetadata(undefined, name, metaByKey, metaByName);
-    return (meta && meta.spotifyListeners > 0) ? meta.spotifyListenersFmt : fallback;
-  }
 
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
@@ -306,8 +317,8 @@ export default function HomeV6() {
     return [];
   }, [ytArtistRows]);
 
-  const HERO_ARTISTS = useMemo(() => {
-    const base = (sheetsEmpty || weeklyArtists.length === 0)
+  const BASE_HERO_ARTISTS = useMemo(() => {
+    return (sheetsEmpty || weeklyArtists.length === 0)
       ? DEFAULT_HERO_ARTISTS
       : weeklyArtists.slice(0, 5).map(a => {
           const { line1, line2 } = splitName(a.name);
@@ -321,12 +332,41 @@ export default function HomeV6() {
             tag: a.genre.toUpperCase(),
           };
         });
-    // Overlay real listener counts from metadata
-    return base.map(a => ({
+  }, [weeklyArtists, sheetsEmpty]);
+
+  const heroArtistKeys = useMemo(
+    () => BASE_HERO_ARTISTS.map(artist => resolveCanonicalArtist(artist.name)?.slug ?? "").filter(Boolean),
+    [BASE_HERO_ARTISTS],
+  );
+  const { data: heroSongstats, isLoading: heroSongstatsLoading } = useSongstatsArtists(heroArtistKeys);
+
+  const HERO_ARTISTS = useMemo(() => {
+    // Current licensed snapshots are authoritative. Metadata is only a fallback after
+    // Songstats confirms that an artist has no stored snapshot.
+    return BASE_HERO_ARTISTS.map(a => ({
       ...a,
-      listeners: enrichListeners(a.name, a.listeners),
+      ...(() => {
+        const key = resolveCanonicalArtist(a.name)?.slug ?? "";
+        const current = key ? heroSongstats?.[key] : null;
+        const listeners = current?.snapshot.spotifyMonthlyListeners;
+        const weeklyGrowth = current?.growth.spotifyMonthlyListeners?.days7?.percentage;
+        if (listeners && listeners > 0) {
+          return {
+            listeners: fmtExactCount(listeners),
+            growth: typeof weeklyGrowth === "number" ? fmtSignedPct(weeklyGrowth) : "",
+            snapshotDate: current?.snapshot.snapshotDate ?? "",
+          };
+        }
+        if (heroSongstatsLoading || !heroSongstats) return { listeners: "—", growth: "", snapshotDate: "" };
+        const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
+        return {
+          listeners: meta && meta.spotifyListeners > 0 ? fmtExactCount(meta.spotifyListeners) : "—",
+          growth: "",
+          snapshotDate: "",
+        };
+      })(),
     }));
-  }, [weeklyArtists, sheetsEmpty, metaByKey, metaByName]);
+  }, [BASE_HERO_ARTISTS, heroSongstats, heroSongstatsLoading, metaByKey, metaByName]);
 
   const ASCENSO = useMemo(() => {
     // Build from Spotify_Artists_Daily — Mexican artists with biggest rank climbs today
@@ -384,9 +424,9 @@ export default function HomeV6() {
   };
 
   const genreStats = useMemo(() => {
-    if (metaByKey.size === 0) return null;
-    const init = () => ({ artists: 0, streams: 0, listeners: 0 });
-    const stats: Record<string, { artists: number; streams: number; listeners: number }> = {
+    if (metaByKey.size === 0 || !kworbByArtist) return null;
+    const init = () => ({ artists: 0, streams: 0, streamCoverage: 0 });
+    const stats: Record<string, { artists: number; streams: number; streamCoverage: number }> = {
       "Corridos Tumbados": init(),
       "Regional Mexicano": init(),
       "Norteño":           init(),
@@ -400,20 +440,23 @@ export default function HomeV6() {
       for (const [label, synonyms] of Object.entries(GENRE_SYNONYMS)) {
         if (synonyms.some(s => g === s || sg === s)) {
           stats[label].artists++;
-          stats[label].streams   += m.spotifyStreams;
-          stats[label].listeners += m.spotifyListeners;
+          const currentStreams = kworbByArtist[m.displayName]?.totalStreams;
+          if (currentStreams && currentStreams > 0) {
+            stats[label].streams += currentStreams;
+            stats[label].streamCoverage++;
+          }
         }
       }
     }
     return stats;
-  }, [metaByKey]);
+  }, [metaByKey, kworbByArtist]);
 
   const genreArtistCounts = useMemo(
     () => genreStats ? Object.fromEntries(Object.entries(genreStats).map(([k, v]) => [k, v.artists])) : null,
     [genreStats],
   );
 
-  /* ── Platform totals — summed from artist metadata (real lifetime numbers) ── */
+  /* ── Platform totals — summed from current stored Kworb snapshots ── */
   function fmtBig(n: number): string {
     if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -421,17 +464,30 @@ export default function HomeV6() {
   }
 
   const platformTotals = useMemo(() => {
+    if (!kworbByArtist) {
+      return { spotifyFmt: null, youtubeFmt: null, spotifyCoverage: 0, youtubeCoverage: 0 };
+    }
     let spotify = 0;
     let youtube = 0;
-    for (const m of metaByKey.values()) {
-      spotify += m.spotifyStreams;
-      youtube += m.youtubeViews;
+    let spotifyCoverage = 0;
+    let youtubeCoverage = 0;
+    for (const snapshot of Object.values(kworbByArtist)) {
+      if (snapshot?.totalStreams && snapshot.totalStreams > 0) {
+        spotify += snapshot.totalStreams;
+        spotifyCoverage++;
+      }
+      if (snapshot?.totalViews && snapshot.totalViews > 0) {
+        youtube += snapshot.totalViews;
+        youtubeCoverage++;
+      }
     }
     return {
       spotifyFmt: spotify > 0 ? fmtBig(spotify) : null,
       youtubeFmt: youtube > 0 ? fmtBig(youtube) : null,
+      spotifyCoverage,
+      youtubeCoverage,
     };
-  }, [metaByKey]);
+  }, [kworbByArtist]);
 
   const TICKER_ITEMS = useMemo(() => {
     if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", pick("TOP ARTISTAS", "TOP ARTISTS"), "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
@@ -652,6 +708,9 @@ export default function HomeV6() {
                 {hero.listeners} {pick("OYENTES MENSUALES", "MONTHLY LISTENERS")}
                 {hero.growth && hero.growth !== "—" && (
                   <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} {pick("variación semanal", "weekly change")} · Spotify</span></>
+                )}
+                {hero.snapshotDate && (
+                  <><span className="mx-3 opacity-40">·</span><span className="text-white/35">Songstats · {hero.snapshotDate}</span></>
                 )}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
@@ -900,7 +959,11 @@ export default function HomeV6() {
                     <div className="text-lg font-black leading-none text-white">
                       {genreStats ? fmtBig(genreStats[g.name].streams) : "—"}
                     </div>
-                    <div className="text-[9px] uppercase tracking-widest mt-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>streams spotify</div>
+                    <div className="text-[9px] uppercase tracking-widest mt-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>
+                      {genreStats
+                        ? `streams spotify · ${genreStats[g.name].streamCoverage}/${genreStats[g.name].artists} ${pick("artistas", "artists")}`
+                        : "streams spotify"}
+                    </div>
                   </div>
                   <motion.span
                     className="text-[9px] uppercase tracking-widest font-black"
@@ -1164,14 +1227,18 @@ export default function HomeV6() {
                   color: "#1DB954",
                   name: "Spotify",
                   streams: platformTotals.spotifyFmt ?? "—",
-                  label: pick("streams acumulados", "cumulative streams"),
+                  label: platformTotals.spotifyCoverage > 0
+                    ? `${pick("streams acumulados", "cumulative streams")} · ${platformTotals.spotifyCoverage} ${pick("artistas", "artists")}`
+                    : pick("streams acumulados", "cumulative streams"),
                 },
                 {
                   icon: <SiYoutube className="w-5 h-5" />,
                   color: "#FF0000",
                   name: "YouTube",
                   streams: platformTotals.youtubeFmt ?? "—",
-                  label: pick("vistas acumuladas", "cumulative views"),
+                  label: platformTotals.youtubeCoverage > 0
+                    ? `${pick("vistas acumuladas", "cumulative views")} · ${platformTotals.youtubeCoverage} ${pick("artistas", "artists")}`
+                    : pick("vistas acumuladas", "cumulative views"),
                 },
               ] as const).map(p => (
                 <motion.div
@@ -1193,7 +1260,8 @@ export default function HomeV6() {
               ))}
             </div>
             <div className="border-t border-white/[0.05] px-6 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">
-              {pick("Fuente: Spotify y YouTube · Totales acumulados del catálogo activo", "Source: Spotify and YouTube · Cumulative totals for the active catalog")}
+              {pick("Fuente: Kworb · snapshots almacenados del catálogo activo", "Source: Kworb · stored snapshots for the active catalog")}
+              {refreshStatus?.lastRefreshedFmt ? ` · ${refreshStatus.lastRefreshedFmt}` : ""}
             </div>
           </div>
         </section>

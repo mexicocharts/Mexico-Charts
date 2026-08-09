@@ -68,19 +68,38 @@ export interface SongstatsArtistData {
   topMexicoCities: SongstatsMexicoCity[];
 }
 
+async function fetchSongstatsArtist(artistKey: string): Promise<SongstatsArtistData | null> {
+  if (!artistKey) return null;
+  const response = await fetch(
+    `/api/providers/songstats/artist?artistKey=${encodeURIComponent(artistKey)}`,
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Songstats artist request failed: ${response.status}`);
+  return response.json() as Promise<SongstatsArtistData>;
+}
+
 export function useSongstatsArtist(artistKey: string) {
   return useQuery<SongstatsArtistData | null>({
     queryKey: ["songstatsArtist", artistKey],
-    queryFn: async () => {
-      if (!artistKey) return null;
-      const response = await fetch(
-        `/api/providers/songstats/artist?artistKey=${encodeURIComponent(artistKey)}`,
-      );
-      if (response.status === 404) return null;
-      if (!response.ok) throw new Error(`Songstats artist request failed: ${response.status}`);
-      return response.json() as Promise<SongstatsArtistData>;
-    },
+    queryFn: () => fetchSongstatsArtist(artistKey),
     enabled: Boolean(artistKey),
+    staleTime: 15 * 60 * 1000,
+    retry: 1,
+  });
+}
+
+/** Fetches a small, explicit artist set from the same stored snapshots used by profiles. */
+export function useSongstatsArtists(artistKeys: string[]) {
+  const keys = [...new Set(artistKeys.filter(Boolean))].sort();
+  return useQuery<Record<string, SongstatsArtistData | null>>({
+    queryKey: ["songstatsArtists", keys.join(",")],
+    queryFn: async () => {
+      const entries = await Promise.all(
+        keys.map(async key => [key, await fetchSongstatsArtist(key)] as const),
+      );
+      return Object.fromEntries(entries);
+    },
+    enabled: keys.length > 0,
     staleTime: 15 * 60 * 1000,
     retry: 1,
   });
