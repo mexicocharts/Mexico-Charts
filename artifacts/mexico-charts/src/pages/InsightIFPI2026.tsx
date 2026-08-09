@@ -136,7 +136,7 @@ export default function InsightIFPI2026() {
             {STATS.map((s, i) => (
               <div
                 key={i}
-                className="relative overflow-hidden rounded-xl p-5"
+                className="relative min-w-0 overflow-hidden rounded-xl p-3 sm:p-5"
                 style={{
                   background: "linear-gradient(160deg, #0e0e0e 0%, #0a0a0a 100%)",
                   border: i === 0 ? "1px solid rgba(57,255,20,0.22)" : "1px solid rgba(255,255,255,0.07)",
@@ -145,9 +145,9 @@ export default function InsightIFPI2026() {
               >
                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "64px" }} />
                 <div
-                  className="font-black leading-none mb-3 relative z-10"
+                  className="relative z-10 mb-3 whitespace-nowrap font-black leading-none"
                   style={{
-                    fontSize: "clamp(1.8rem, 4vw, 2.6rem)",
+                    fontSize: "clamp(1.45rem, 7vw, 2.6rem)",
                     color: i === 0 ? GREEN : "#fff",
                     letterSpacing: "-0.03em",
                     textShadow: i === 0 ? "0 0 30px rgba(57,255,20,0.3)" : "none",
