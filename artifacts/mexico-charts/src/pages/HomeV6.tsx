@@ -1260,7 +1260,7 @@ export default function HomeV6() {
               ))}
             </div>
             <div className="border-t border-white/[0.05] px-6 py-2 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">
-              {pick("Fuente: Kworb · snapshots almacenados del catálogo activo", "Source: Kworb · stored snapshots for the active catalog")}
+              {pick("Datos almacenados del catálogo activo", "Stored data for the active catalog")}
               {refreshStatus?.lastRefreshedFmt ? ` · ${refreshStatus.lastRefreshedFmt}` : ""}
             </div>
           </div>

@@ -314,13 +314,11 @@ export default function SpotifyCharts() {
             {data && (
               <div className="flex items-center justify-between mt-4 px-1">
                 <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.50)" }}>
-                  Fuente: Spotify Charts · México · {period === "daily" ? "Diario" : "Semanal"} · vía kworb.net
+                  Fuente: Spotify Charts · México · {period === "daily" ? "Diario" : "Semanal"}
                 </span>
-                <a href={`https://kworb.net/spotify/country/mx_${period}.html`} target="_blank" rel="noopener noreferrer"
-                  className="text-[9px] font-black uppercase tracking-widest hover:opacity-70 transition-opacity"
-                  style={{ color: "rgba(255,255,255,0.52)" }}>
-                  {data.entries.length} canciones ↗
-                </a>
+                <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.52)" }}>
+                  {data.entries.length} canciones
+                </span>
               </div>
             )}
           </motion.div>
