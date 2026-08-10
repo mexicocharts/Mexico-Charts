@@ -283,11 +283,11 @@ export default function Monitoreo() {
                             <span className="rounded-full bg-[#39FF14]/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#39FF14]">{pick("Monitoreo activo", "Active monitoring")}</span>
                             <span className="text-[7px] font-bold text-white/25">{pick("Actualizado hoy", "Updated today")}</span>
                           </div>
-                          <h3 className="mt-3 truncate text-3xl font-black tracking-[-0.05em] sm:text-5xl">{previewArtist?.displayName ?? "Luis Miguel"}</h3>
+                          <h3 className="mt-3 break-words text-3xl font-black tracking-[-0.05em] sm:text-4xl lg:text-5xl">{previewArtist?.displayName ?? "Luis Miguel"}</h3>
                           <p className="mt-2 text-[10px] font-medium text-white/35 sm:text-xs">{pick("Audiencia, streaming y rendimiento del catálogo en un solo lugar", "Audience, streaming and catalog performance in one place")}</p>
                         </div>
                       </div>
-                      <button type="button" className="hidden h-9 shrink-0 items-center gap-2 rounded-full bg-[#39FF14] px-4 text-[8px] font-black uppercase tracking-[0.13em] text-black sm:inline-flex"><FileDown className="h-3.5 w-3.5" /> {pick("Reporte", "Report")}</button>
+                      <button type="button" className="hidden h-9 shrink-0 items-center gap-2 rounded-full bg-[#39FF14] px-4 text-[8px] font-black uppercase tracking-[0.13em] text-black lg:inline-flex"><FileDown className="h-3.5 w-3.5" /> {pick("Reporte", "Report")}</button>
                     </div>
                   </div>
 
