@@ -18,13 +18,17 @@ function stripeSecret(): string {
   return (process.env["STRIPE_SECRET_KEY"] ?? "").trim();
 }
 
+function paidMonitoringEnabled(): boolean {
+  return process.env["PAID_MONITORING_ENABLED"]?.trim().toLowerCase() === "true";
+}
+
 function safeLanguage(raw: unknown): "es" | "en" {
   return String(raw ?? "es").toLowerCase() === "en" ? "en" : "es";
 }
 
 router.get("/monitoring/config", (_req, res) => {
   res.json({
-    checkoutEnabled: Boolean(stripeSecret()) && clerkConfigured(),
+    checkoutEnabled: paidMonitoringEnabled() && Boolean(stripeSecret()) && clerkConfigured(),
     accountsEnabled: clerkConfigured(),
     priceUsdCents: PRICE_USD_CENTS,
     delivery: "daily_dashboard_monthly_report",
@@ -55,6 +59,14 @@ router.post("/monitoring/checkout", requireClerkUser, async (req, res) => {
   const language = safeLanguage(req.body?.language);
   const secret = stripeSecret();
   const userId = clerkUserId(res);
+
+  if (!paidMonitoringEnabled()) {
+    res.status(503).json({
+      error: "Paid monitoring is not available yet",
+      code: "paid_monitoring_disabled",
+    });
+    return;
+  }
 
   if (!secret) {
     res.status(503).json({
