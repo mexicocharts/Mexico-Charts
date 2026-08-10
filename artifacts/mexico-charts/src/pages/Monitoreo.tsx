@@ -219,7 +219,7 @@ export default function Monitoreo() {
             <div>
               <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#39FF14]"><Sparkles className="h-3.5 w-3.5" /> {pick("Más que una cifra", "More than a number")}</span>
               <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente; el Monitor conserva el historial", "The profile shows today; Monitor keeps the history")}</h2>
-              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su evolución, consultar la discografía completa y volver a cualquier fecha guardada.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su evolución, explorar su discografía completa y volver a cualquier fecha guardada.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
             </div>
 
             <div className="grid overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] sm:grid-cols-2">
@@ -246,7 +246,7 @@ export default function Monitoreo() {
           <div className="mx-auto max-w-7xl text-center">
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#198d0b]">{pick("Un solo plan, sin complicaciones", "One plan, no complications")}</p>
             <h2 className="mt-3 font-sans text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">{pick("Empieza a monitorear", "Start monitoring")}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-black/50">{pick("Elige un artista y consulta su panel todos los días. Su historial crecerá con cada actualización.", "Choose an artist and open their daily dashboard; history grows with every new snapshot.")}</p>
+            <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-black/50">{pick("Elige un artista y sigue su evolución día a día. Su historial crecerá con cada actualización.", "Choose an artist and open their daily dashboard; history grows with every new snapshot.")}</p>
           </div>
 
           <div className="mx-auto mt-10 grid max-w-6xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] lg:grid-cols-[minmax(0,1fr)_430px]">
