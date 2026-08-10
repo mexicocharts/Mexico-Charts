@@ -5,14 +5,18 @@ import {
   ArrowRight,
   BarChart3,
   BellRing,
+  CalendarDays,
   Check,
   ChevronRight,
-  Clock3,
+  Disc3,
+  FileDown,
   Home,
+  LibraryBig,
   Mail,
   MapPin,
   Search,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
 } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
@@ -89,6 +93,7 @@ export default function Monitoreo() {
   const previewArtist = selectedArtist
     ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "peso pluma")
     ?? null;
+  const readyArtistCount = artists.length;
 
   async function startCheckout() {
     if (!selectedArtist) return;
@@ -177,22 +182,63 @@ export default function Monitoreo() {
               {pick("Elegir artista", "Choose an artist")} <ArrowRight className="h-4 w-4" />
             </a>
             <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.14em] text-white/25">$6 USD / {pick("artista / mes", "artist / month")} · {pick("Cancela cuando quieras", "Cancel anytime")}</p>
+            <div className="mx-auto mt-8 flex w-fit flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-white/[0.07] bg-black/25 px-5 py-3 text-[8px] font-black uppercase tracking-[0.15em] text-white/35 backdrop-blur-sm">
+              <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#39FF14] shadow-[0_0_10px_#39FF14]" />{availabilityLoading ? pick("Verificando catálogo", "Checking catalog") : `${readyArtistCount.toLocaleString(language === "es" ? "es-MX" : "en-US")} ${pick("artistas disponibles", "artists available")}`}</span>
+              <span className="hidden h-3 w-px bg-white/10 sm:block" />
+              <span>{pick("Solo cobertura completa", "Complete coverage only")}</span>
+            </div>
           </div>
         </section>
 
         <section className="px-6 py-16 sm:py-20 lg:px-10">
-          <div className="mx-auto grid max-w-7xl gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#39FF14]">{pick("Todo en un lugar", "Everything in one place")}</p>
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{pick("Datos que se convierten en historia.", "Data that becomes history.")}</h2>
+          </div>
+          <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title }, index) => (
-              <article key={title} className="text-center">
-                <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-full border border-white/[0.07] bg-[radial-gradient(circle_at_50%_35%,rgba(57,255,20,0.15),rgba(255,255,255,0.025)_68%)] sm:h-36 sm:w-36">
-                  <Icon className="h-12 w-12 text-[#39FF14]" strokeWidth={1.35} />
+              <article key={title} className="group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6 text-left transition-colors hover:border-[#39FF14]/20 hover:bg-white/[0.04] sm:p-7">
+                <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#39FF14]/0 blur-3xl transition-colors group-hover:bg-[#39FF14]/10" />
+                <div className="flex items-start justify-between">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[#39FF14]/20 bg-[#39FF14]/[0.07]">
+                    <Icon className="h-5 w-5 text-[#39FF14]" strokeWidth={1.6} />
+                  </div>
+                  <span className="text-[9px] font-black tracking-[0.2em] text-white/15">0{index + 1}</span>
                 </div>
-                <h2 className="mt-5 text-sm font-black uppercase tracking-[0.08em]">{title}</h2>
-                <p className="mt-2 text-xs font-medium leading-5 text-white/35">
+                <h2 className="mt-8 text-sm font-black uppercase tracking-[0.08em]">{title}</h2>
+                <p className="mt-3 text-xs font-medium leading-5 text-white/35">
                   {[pick("Las cifras importantes, juntas.", "The important figures, together."), pick("Mira qué cambió y cuándo.", "See what changed and when."), pick("Contexto de audiencia en México.", "Mexican audience context."), pick("Listo para guardar y compartir.", "Ready to save and share.")][index]}
                 </p>
               </article>
             ))}
+          </div>
+        </section>
+
+        <section className="border-y border-white/[0.06] px-6 py-16 sm:py-20 lg:px-10 lg:py-24">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
+            <div>
+              <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#39FF14]"><Sparkles className="h-3.5 w-3.5" /> {pick("Más que una cifra", "More than a number")}</span>
+              <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente. Monitor conserva la historia.", "The profile shows today. Monitor keeps the history.")}</h2>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su movimiento, consultar la discografía completa y regresar a cualquier día guardado.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
+            </div>
+
+            <div className="grid overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] sm:grid-cols-2">
+              <div className="border-b border-white/[0.07] p-6 sm:border-b-0 sm:border-r sm:p-8">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">{pick("Perfil gratuito", "Free profile")}</p>
+                <h3 className="mt-3 text-xl font-black">{pick("La foto de hoy", "Today's snapshot")}</h3>
+                <ul className="mt-7 space-y-4 text-xs font-bold text-white/40">
+                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Resumen general del artista", "General artist overview"), pick("Contexto visible disponible", "Available visible context")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
+                </ul>
+              </div>
+              <div className="relative overflow-hidden bg-[linear-gradient(145deg,rgba(57,255,20,0.10),rgba(57,255,20,0.015)_62%)] p-6 sm:p-8">
+                <div className="absolute right-5 top-5 rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Monitor</div>
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
+                <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
+                <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
+                  {[pick("Streams diarios por canción y álbum", "Daily streams by song and album"), pick("Historial permanente por fecha", "Permanent history by date"), pick("Cambios, tendencias y comparaciones", "Changes, trends and comparisons"), pick("Alertas y resumen descargable", "Alerts and downloadable summary")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -240,6 +286,20 @@ export default function Monitoreo() {
                   ))}
                 </div>
               </div>
+
+              <div className="relative mt-3 grid gap-3 sm:grid-cols-3">
+                {[
+                  { icon: Disc3, label: pick("Canciones", "Songs"), value: pick("Streams por día", "Streams by day") },
+                  { icon: LibraryBig, label: pick("Álbumes", "Albums"), value: pick("Historial completo", "Complete history") },
+                  { icon: CalendarDays, label: pick("Archivo", "Archive"), value: pick("Día · Mes · Año", "Day · Month · Year") },
+                ].map(({ icon: PreviewIcon, label, value }) => (
+                  <div key={label} className="rounded-lg border border-white/[0.08] bg-black/30 p-3.5">
+                    <PreviewIcon className="h-3.5 w-3.5 text-[#39FF14]" />
+                    <p className="mt-4 text-[7px] font-black uppercase tracking-[0.16em] text-white/25">{label}</p>
+                    <p className="mt-1 text-[10px] font-bold text-white/65">{value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="p-6 sm:p-9 lg:p-10">
@@ -255,6 +315,14 @@ export default function Monitoreo() {
                   <li key={item} className="flex items-center gap-3 text-xs font-bold text-black/65"><Check className="h-4 w-4 text-[#198d0b]" /> {item}</li>
                 ))}
               </ul>
+
+              <div className="mt-6 flex items-center gap-3 rounded-lg border border-black/[0.07] bg-[#f7f7f4] p-3.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#111] text-[#39FF14]"><FileDown className="h-4 w-4" /></div>
+                <div>
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em]">{pick("Tu historial no desaparece", "Your history does not disappear")}</p>
+                  <p className="mt-1 text-[9px] font-semibold leading-4 text-black/40">{pick("Cada captura amplía tu archivo privado.", "Every snapshot expands your private archive.")}</p>
+                </div>
+              </div>
 
               <label className="mt-7 block text-[8px] font-black uppercase tracking-[0.18em] text-black/40" htmlFor="monitor-artist-search">{pick("Elige un artista", "Choose an artist")}</label>
               <div className="relative mt-2">
