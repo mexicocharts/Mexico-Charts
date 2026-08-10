@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import {
   AudioLines,
   ArrowRight,
+  Award,
   BarChart3,
   Camera,
   CalendarDays,
@@ -9,13 +10,19 @@ import {
   Clock3,
   Cloud,
   Database,
+  Disc3,
+  Gauge,
   Globe2,
   History,
   Home,
+  Layers3,
+  ListMusic,
   MapPin,
   Music2,
   Play,
   ShieldCheck,
+  Sparkles,
+  Ticket,
   TrendingUp,
   Users,
   type LucideIcon,
@@ -106,14 +113,14 @@ function MetricCard({ platform, english }: { platform: PlatformCard; english: bo
     >
       <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full opacity-[0.12] blur-3xl transition-opacity duration-300 group-hover:opacity-20" style={{ background: platform.accent }} />
       <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, ${platform.accent}, transparent 72%)` }} />
-      <div className="flex items-start justify-between gap-5">
-        <div>
+      <div>
+        <div className="flex items-start justify-between gap-4">
           <p className="text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: platform.accent }}>{platform.eyebrow}</p>
-          <h3 className="mt-3 text-2xl font-black tracking-[-0.04em] text-white">{platform.name}</h3>
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ color: platform.accent, background: `${platform.accent}12`, border: `1px solid ${platform.accent}32` }}>
+            <Icon className="h-5 w-5" strokeWidth={2.2} />
+          </span>
         </div>
-        <span className="relative flex h-11 w-11 items-center justify-center rounded-xl" style={{ color: platform.accent, background: `${platform.accent}12`, border: `1px solid ${platform.accent}32` }}>
-          <Icon className="h-5 w-5" strokeWidth={2.2} />
-        </span>
+        <h3 className="mt-1 text-2xl font-black tracking-[-0.04em] text-white" style={{ overflowWrap: "anywhere" }}>{platform.name}</h3>
       </div>
       <ul className="mt-6 border-t border-white/[0.06]">
         {metrics.map(metric => (
@@ -163,6 +170,92 @@ export default function FuentesDatos() {
     },
   ];
 
+  const insights = [
+    {
+      icon: TrendingUp,
+      title: pick("Detectar crecimiento", "Spot growth"),
+      body: pick("Compara el valor actual con periodos anteriores para identificar aceleración, estabilidad o retroceso.", "Compare the current value with previous periods to identify acceleration, stability or decline."),
+    },
+    {
+      icon: Layers3,
+      title: pick("Leer cada plataforma", "Read each platform"),
+      body: pick("Distingue dónde crece una audiencia y evita mezclar señales que representan comportamientos diferentes.", "See where an audience is growing without mixing signals that represent different behaviors."),
+    },
+    {
+      icon: Gauge,
+      title: pick("Medir el impulso", "Measure momentum"),
+      body: pick("Observa cambios recientes junto con el historial para separar un pico momentáneo de una tendencia sostenida.", "View recent changes alongside history to separate a short-lived spike from a sustained trend."),
+    },
+    {
+      icon: MapPin,
+      title: pick("Entender a México", "Understand Mexico"),
+      body: pick("Consulta la presencia del artista en ciudades mexicanas cuando la plataforma ofrece información geográfica.", "Explore an artist's presence in Mexican cities when geographic information is available."),
+    },
+  ];
+
+  const dataProducts = [
+    {
+      icon: Users,
+      eyebrow: pick("Perfiles", "Profiles"),
+      title: pick("Estadísticas de artistas", "Artist statistics"),
+      body: pick("Una vista unificada de audiencia, crecimiento e historial entre plataformas.", "A unified view of audience, growth and history across platforms."),
+      items: [pick("Métricas actuales", "Current metrics"), pick("Cambios a 7, 30 y 90 días", "7, 30 and 90-day changes"), pick("Historial por plataforma", "History by platform"), pick("Audiencia en ciudades de México", "Audience in Mexican cities")],
+      href: "/artists",
+      action: pick("Explorar perfiles", "Explore profiles"),
+      accent: "#39FF14",
+    },
+    {
+      icon: Disc3,
+      eyebrow: pick("Discografía", "Catalog"),
+      title: pick("Streaming de canciones y álbumes", "Song and album streaming"),
+      body: pick("Seguimiento del catálogo completo, desde el total histórico hasta el movimiento diario.", "Complete catalog tracking, from lifetime totals to daily movement."),
+      items: [pick("Streams acumulados y diarios", "Lifetime and daily streams"), pick("Canciones y álbumes", "Songs and albums"), pick("Orden por rendimiento", "Performance sorting"), pick("Archivo histórico continuo", "Continuous historical archive")],
+      href: "/monitoreo",
+      action: pick("Ver monitoreo", "View monitoring"),
+      accent: "#8D7CFF",
+    },
+    {
+      icon: ListMusic,
+      eyebrow: pick("Playlisting", "Playlisting"),
+      title: pick("Presencia en playlists", "Playlist presence"),
+      body: pick("Medición agregada de la presencia del catálogo en playlists y su alcance potencial.", "Aggregated measurement of catalog presence in playlists and its potential reach."),
+      items: [pick("Playlists actuales e históricas", "Current and historical playlists"), pick("Alcance agregado", "Aggregated reach"), pick("Presencia editorial", "Editorial presence"), "Spotify · Apple Music · Amazon · Deezer · YouTube · Tidal"],
+      href: null,
+      action: pick("Integración en desarrollo", "Integration in progress"),
+      accent: "#FFB347",
+    },
+    {
+      icon: BarChart3,
+      eyebrow: pick("Rankings", "Rankings"),
+      title: pick("Listas por plataforma", "Platform charts"),
+      body: pick("Listas de México organizadas por plataforma, formato y periodo de actualización.", "Mexico charts organized by platform, format and refresh period."),
+      items: [pick("Spotify diario y semanal", "Daily and weekly Spotify"), pick("YouTube diario y semanal", "Daily and weekly YouTube"), pick("Apple Music diario", "Daily Apple Music"), pick("Deezer diario", "Daily Deezer")],
+      href: "/charts",
+      action: pick("Ver listas", "View charts"),
+      accent: "#51C8FF",
+    },
+    {
+      icon: Award,
+      eyebrow: pick("Industria", "Industry"),
+      title: pick("Certificaciones en México", "Certifications in Mexico"),
+      body: pick("Un archivo consultable de certificaciones mexicanas para canciones, álbumes y artistas.", "A searchable archive of Mexican certifications for songs, albums and artists."),
+      items: ["AMPROFON", pick("Oro, platino y diamante", "Gold, platinum and diamond"), pick("Álbumes y sencillos", "Albums and singles"), pick("Resumen por artista", "Artist summaries")],
+      href: "/industry/certifications",
+      action: pick("Ver certificaciones", "View certifications"),
+      accent: "#F5C451",
+    },
+    {
+      icon: Ticket,
+      eyebrow: pick("En vivo", "Live"),
+      title: pick("Giras y presentaciones", "Tours and performances"),
+      body: pick("Contexto de actividad en vivo, fechas, recintos y mercados cuando existe cobertura verificable.", "Live activity context, dates, venues and markets when verifiable coverage exists."),
+      items: [pick("Próximas fechas", "Upcoming dates"), pick("Recintos y ciudades", "Venues and cities"), pick("Historial disponible", "Available history"), pick("Contexto de mercado", "Market context")],
+      href: "/touring",
+      action: pick("Explorar giras", "Explore tours"),
+      accent: "#FF6B8B",
+    },
+  ];
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#050505] text-white">
       <PageSEO
@@ -184,6 +277,7 @@ export default function FuentesDatos() {
           <div className="relative mx-auto max-w-[1280px]">
             <div className="flex flex-wrap gap-2">
               {[
+                [pick("Productos de datos", "Data products"), "#productos"],
                 [pick("Estadísticas de artistas", "Artist statistics"), "#estadisticas"],
                 [pick("Cómo se procesan", "How data is processed"), "#proceso"],
                 [pick("Cobertura", "Coverage"), "#cobertura"],
@@ -226,6 +320,53 @@ export default function FuentesDatos() {
                 <p className="mt-2 max-w-[250px] text-[10px] font-black uppercase leading-5 tracking-[0.16em] text-white/35">{label}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section id="productos" className="scroll-mt-24 border-b border-white/[0.06] px-6 py-16 lg:px-10 lg:py-20">
+          <div className="mx-auto max-w-[1280px]">
+            <div className="grid gap-7 lg:grid-cols-[1fr_520px] lg:items-end">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Cobertura de Mexico Charts", "Mexico Charts coverage")}</p>
+                <h2 className="mt-4 max-w-3xl text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>
+                  {pick("Mucho más que cifras de audiencia", "More than audience figures")}
+                </h2>
+              </div>
+              <p className="text-sm leading-7 text-white/45 sm:text-base">
+                {pick("La plataforma conecta perfiles, discografías, playlists, rankings, certificaciones y actividad en vivo. Cada producto conserva su propia fuente, frecuencia y nivel de cobertura.", "The platform connects profiles, catalogs, playlists, rankings, certifications and live activity. Every product retains its own source, frequency and coverage level.")}
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-4 lg:grid-cols-2">
+              {dataProducts.map(({ icon: Icon, eyebrow, title, body, items, href, action, accent }, index) => (
+                <article key={title} className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.018] p-6 sm:p-8">
+                  <div className="pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full opacity-[0.08] blur-3xl" style={{ background: accent }} />
+                  <div className="relative flex items-start justify-between gap-6">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" style={{ color: accent, background: `${accent}10`, border: `1px solid ${accent}28` }}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="text-[10px] font-black tracking-[0.2em] text-white/15">0{index + 1}</span>
+                  </div>
+                  <div className="relative mt-8 grid gap-7 sm:grid-cols-[minmax(0,1fr)_minmax(180px,0.72fr)]">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.26em]" style={{ color: accent }}>{eyebrow}</p>
+                      <h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.04em]">{title}</h3>
+                      <p className="mt-4 text-sm leading-6 text-white/42">{body}</p>
+                    </div>
+                    <ul className="border-t border-white/[0.06] sm:border-l sm:border-t-0 sm:pl-6">
+                      {items.map(item => <li key={item} className="border-b border-white/[0.045] py-2.5 text-xs leading-5 text-white/48">{item}</li>)}
+                    </ul>
+                  </div>
+                  <div className="relative mt-7 border-t border-white/[0.06] pt-5">
+                    {href ? (
+                      <Link href={href}>
+                        <span className="inline-flex cursor-pointer items-center gap-2 text-[9px] font-black uppercase tracking-[0.17em] transition-opacity hover:opacity-70" style={{ color: accent }}>{action}<ArrowRight className="h-3.5 w-3.5" /></span>
+                      </Link>
+                    ) : <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.17em] text-white/28"><Clock3 className="h-3.5 w-3.5" />{action}</span>}
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -274,6 +415,54 @@ export default function FuentesDatos() {
           </div>
         </section>
 
+        <section className="border-b border-white/[0.06] px-6 py-16 lg:px-10 lg:py-20">
+          <div className="mx-auto max-w-[1280px]">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-end">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Del dato a la lectura", "From data to insight")}</p>
+                <h2 className="mt-4 max-w-2xl text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>
+                  {pick("Lo que las cifras permiten entender", "What the numbers reveal")}
+                </h2>
+              </div>
+              <p className="max-w-2xl text-sm leading-7 text-white/45 sm:text-base">
+                {pick("Una cifra aislada muestra tamaño. Su periodo, historial y plataforma muestran dirección. Mexico Charts reúne esas piezas para dar contexto al movimiento de cada artista.", "A figure on its own shows scale. Its period, history and platform show direction. Mexico Charts brings those pieces together to add context to every artist's movement.")}
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {insights.map(({ icon: Icon, title, body }, index) => (
+                <article key={title} className="group rounded-2xl border border-white/[0.075] bg-white/[0.018] p-6 transition-colors hover:border-[#39FF14]/25 sm:p-7">
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#39FF14]/[0.08] text-[#39FF14]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="text-[10px] font-black tracking-[0.18em] text-white/15">0{index + 1}</span>
+                  </div>
+                  <h3 className="mt-8 text-sm font-black uppercase leading-5 tracking-[0.12em]">{title}</h3>
+                  <p className="mt-4 text-sm leading-6 text-white/42">{body}</p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-4 grid overflow-hidden rounded-2xl border border-white/[0.075] bg-[#080808] sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                { icon: BarChart3, label: pick("Valor", "Value"), detail: pick("La cifra observada", "The observed figure") },
+                { icon: Clock3, label: pick("Periodo", "Period"), detail: pick("El intervalo comparado", "The compared interval") },
+                { icon: Globe2, label: pick("Plataforma", "Platform"), detail: pick("El origen de la métrica", "The metric's origin") },
+                { icon: CalendarDays, label: pick("Fecha", "Date"), detail: pick("El corte de medición", "The measurement cutoff") },
+              ].map(({ icon: Icon, label, detail }, index) => (
+                <div key={label} className="flex items-center gap-4 p-5 sm:p-6" style={{ borderLeft: index ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
+                  <Icon className="h-4 w-4 shrink-0 text-[#39FF14]" />
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/75">{label}</p>
+                    <p className="mt-1 text-xs text-white/32">{detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="cobertura" className="scroll-mt-24 px-6 py-16 lg:px-10 lg:py-20">
           <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[1fr_1fr] lg:items-center">
             <div>
@@ -301,7 +490,7 @@ export default function FuentesDatos() {
         <section className="border-t border-white/[0.06] px-6 py-16 lg:px-10">
           <div className="mx-auto flex max-w-[1280px] flex-col gap-8 rounded-3xl p-8 sm:p-12 lg:flex-row lg:items-center lg:justify-between" style={{ background: "linear-gradient(125deg, rgba(57,255,20,0.11), rgba(255,255,255,0.025) 65%)", border: "1px solid rgba(57,255,20,0.18)" }}>
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Más transparencia", "More transparency")}</p>
+              <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}><Sparkles className="h-3.5 w-3.5" />{pick("Más transparencia", "More transparency")}</p>
               <h2 className="mt-4 max-w-2xl font-black uppercase leading-[0.98] tracking-[-0.035em]" style={{ fontSize: "clamp(1.5rem, 3.4vw, 2.25rem)", overflowWrap: "anywhere" }}>{pick("Consulta la metodología completa", "Read the full methodology")}</h2>
             </div>
             <Link href="/metodologia">
