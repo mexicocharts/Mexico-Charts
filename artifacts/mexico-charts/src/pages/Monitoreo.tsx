@@ -25,11 +25,13 @@ import { EditorialFooter } from "@/components/EditorialLayout";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { CONTACT_EMAIL, SITE_URL } from "@/config/brand";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 
 const G = "#39FF14";
 
 type MonitoringConfig = {
   checkoutEnabled: boolean;
+  accountsEnabled: boolean;
   priceUsdCents: number;
   delivery: "daily_dashboard_monthly_report";
 };
@@ -48,6 +50,7 @@ function compactArtistKey(value: string): string {
 
 export default function Monitoreo() {
   const { language, pick } = useLanguage();
+  const auth = useMexicoAuth();
   const search = useSearch();
   const requestedArtist = new URLSearchParams(search).get("artist")?.trim().toLowerCase() ?? "";
   const { byKey, isLoading: artistsLoading } = useArtistMetadata();
@@ -167,6 +170,10 @@ export default function Monitoreo() {
 
   async function startCheckout() {
     if (selectedPlan.id !== "catalogo" && !selectedArtist) return;
+    if (selectedPlan.id === "individual" && config?.checkoutEnabled && auth.configured && !auth.isSignedIn) {
+      auth.openSignUp();
+      return;
+    }
     setCheckoutError("");
     if (!config?.checkoutEnabled || selectedPlan.id !== "individual") {
       const artistDetail = selectedArtist?.displayName ?? pick("catálogo completo", "complete catalog");
@@ -182,7 +189,7 @@ export default function Monitoreo() {
     }
     setCheckoutLoading(true);
     try {
-      const response = await fetch("/api/monitoring/checkout", {
+      const response = await authenticatedFetch(auth.getToken, "/api/monitoring/checkout", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

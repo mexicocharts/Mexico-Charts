@@ -3,5 +3,6 @@ Disallow: /admin
 Disallow: /social-templates
 Disallow: /tavus-preview
 Disallow: /monitoreo/exito
+Disallow: /cuenta
 Allow: /
 Sitemap: https://mexicochart.com/sitemap.xml

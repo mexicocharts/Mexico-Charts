@@ -18,6 +18,7 @@ import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
 import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
+import SaveArtistButton from "@/components/SaveArtistButton";
 
 export { slugify };
 
@@ -1009,6 +1010,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </div>
                 )}
               </div>
+            )}
+            {canonicalArtistKey && (
+              <div className="mb-5"><SaveArtistButton artistKey={canonicalArtistKey} artistName={artist.name} /></div>
             )}
             <div className="mb-5 flex max-w-3xl flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">

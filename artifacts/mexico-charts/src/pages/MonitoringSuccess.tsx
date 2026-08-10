@@ -17,10 +17,10 @@ export default function MonitoringSuccess() {
           <CheckCircle2 className="mx-auto h-12 w-12 text-[#39FF14]" />
           <h1 className="mt-7 text-3xl font-black uppercase tracking-[-0.03em] sm:text-5xl">{pick("Monitoreo activado", "Monitoring activated")}</h1>
           <p className="mx-auto mt-5 max-w-xl text-sm font-medium leading-7 text-zinc-500 sm:text-base">
-            {pick("Stripe enviará la confirmación de pago al email utilizado. Mexico Charts usará ese mismo email para entregar el reporte mensual del artista seleccionado.", "Stripe will send payment confirmation to the email used at checkout. Mexico Charts will use that same email to deliver the selected artist's monthly report.")}
+            {pick("Recibimos tu pago. Estamos vinculando el monitoreo con tu cuenta; aparecerá en Mi cuenta en cuanto Stripe confirme la suscripción.", "We received your payment. We are linking monitoring to your account; it will appear in My account as soon as Stripe confirms the subscription.")}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link href="/artists" className="rounded-full bg-[#39FF14] px-6 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">{pick("Explorar artistas", "Explore artists")}</Link>
+            <Link href="/cuenta" className="rounded-full bg-[#39FF14] px-6 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">{pick("Ver mi cuenta", "View my account")}</Link>
             <a href={`mailto:${CONTACT_EMAIL}`} className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 px-6 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-white/65"><Mail className="h-4 w-4" />{pick("Ayuda", "Help")}</a>
           </div>
         </div>

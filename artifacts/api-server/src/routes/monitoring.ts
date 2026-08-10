@@ -5,6 +5,7 @@ import {
   getMonitoringReadyArtist,
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
+import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -23,7 +24,8 @@ function safeLanguage(raw: unknown): "es" | "en" {
 
 router.get("/monitoring/config", (_req, res) => {
   res.json({
-    checkoutEnabled: Boolean(stripeSecret()),
+    checkoutEnabled: Boolean(stripeSecret()) && clerkConfigured(),
+    accountsEnabled: clerkConfigured(),
     priceUsdCents: PRICE_USD_CENTS,
     delivery: "daily_dashboard_monthly_report",
   });
@@ -47,11 +49,12 @@ router.get("/monitoring/artists", async (_req, res) => {
   }
 });
 
-router.post("/monitoring/checkout", async (req, res) => {
+router.post("/monitoring/checkout", requireClerkUser, async (req, res) => {
   const artistKey = String(req.body?.artistKey ?? "").trim().toLowerCase();
   const requestedName = String(req.body?.artistName ?? "").trim();
   const language = safeLanguage(req.body?.language);
   const secret = stripeSecret();
+  const userId = clerkUserId(res);
 
   if (!secret) {
     res.status(503).json({
@@ -103,9 +106,12 @@ router.post("/monitoring/checkout", async (req, res) => {
     params.set("metadata[artist_key]", catalogArtist.artistKey);
     params.set("metadata[artist_name]", artistName);
     params.set("metadata[product]", "artist_monitoring");
+    params.set("metadata[clerk_user_id]", userId);
+    params.set("client_reference_id", userId);
     params.set("subscription_data[metadata][artist_key]", catalogArtist.artistKey);
     params.set("subscription_data[metadata][artist_name]", artistName);
     params.set("subscription_data[metadata][product]", "artist_monitoring");
+    params.set("subscription_data[metadata][clerk_user_id]", userId);
 
     const stripeResponse = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",

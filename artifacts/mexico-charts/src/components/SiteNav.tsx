@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { ChevronDown, Languages, Menu, X } from "lucide-react";
 import SiteSearch from "@/components/SiteSearch";
 import { useLanguage, type SiteLanguage } from "@/i18n/LanguageContext";
+import AccountControl from "@/components/AccountControl";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
@@ -164,6 +165,7 @@ export default function SiteNav({ homeActive = false }: Props) {
 
         <div className="ml-5 flex shrink-0 items-center gap-3 xl:ml-7">
           <SiteSearch />
+          <div className="hidden lg:block"><AccountControl /></div>
           <div className="hidden items-center gap-0.5 rounded-lg p-0.5 lg:flex" aria-label={pick("Idioma del sitio", "Site language")}
             style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)" }}>
             {languageButton("es")}
@@ -278,6 +280,7 @@ export default function SiteNav({ homeActive = false }: Props) {
                 {languageButton("en")}
               </div>
             </div>
+            <div className="mt-3 border-t border-white/[0.06]"><AccountControl mobile /></div>
           </nav>
         </div>
       )}

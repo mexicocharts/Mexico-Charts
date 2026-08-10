@@ -77,6 +77,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@clerk/react": "^6.13.1",
     "@types/papaparse": "^5.5.2",
     "html-to-image": "^1.11.13",
     "html2canvas": "^1.4.1",

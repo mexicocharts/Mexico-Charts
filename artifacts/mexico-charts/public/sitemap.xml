@@ -3283,6 +3283,12 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://mexicochart.com/fuentes-de-datos</loc>
+    <lastmod>2026-08-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mexicochart.com/privacidad</loc>
     <lastmod>2026-06-05</lastmod>
     <changefreq>yearly</changefreq>

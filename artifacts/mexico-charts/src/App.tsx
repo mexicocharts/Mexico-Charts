@@ -37,6 +37,7 @@ const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
 const DiscoveryReview = lazy(() => import("@/pages/DiscoveryReview"));
+const Cuenta = lazy(() => import("@/pages/Cuenta"));
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -139,6 +140,7 @@ function Router() {
           <Route path="/terminos" component={Terminos} />
           <Route path="/monitoreo/exito" component={MonitoringSuccess} />
           <Route path="/monitoreo" component={Monitoreo} />
+          <Route path="/cuenta" component={Cuenta} />
           <Route path="/admin/social-templates" component={SocialTemplates} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />

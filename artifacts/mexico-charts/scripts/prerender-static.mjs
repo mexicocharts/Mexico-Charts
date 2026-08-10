@@ -259,6 +259,21 @@ const routes = [
     ],
   },
   {
+    path: "/fuentes-de-datos",
+    title: "Fuentes de datos de artistas — Mexico Charts",
+    description:
+      "Conoce las plataformas, métricas, cobertura y proceso de verificación de los datos de artistas en Mexico Charts.",
+    eyebrow: "Fuentes de datos",
+    heading: "Datos de artistas, con contexto",
+    body:
+      "Mexico Charts reúne señales de audiencia, streaming y crecimiento, las vincula al perfil canónico del artista y conserva su contexto de plataforma y fecha.",
+    links: [
+      ["/artists", "Artistas"],
+      ["/charts", "Charts"],
+      ["/metodologia", "Metodología"],
+    ],
+  },
+  {
     path: "/tavus-preview",
     title: "Video Tavus — Mexico Charts",
     description:
