@@ -30,6 +30,16 @@ type MonitoringConfig = {
   delivery: "daily_dashboard_monthly_report";
 };
 
+type MonitoringArtistAvailability = {
+  policyVersion: number;
+  count: number;
+  artists: Array<{ artistKey: string; artistName: string; matchKeys: string[] }>;
+};
+
+function compactArtistKey(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export default function Monitoreo() {
   const { language, pick } = useLanguage();
   const search = useSearch();
@@ -49,9 +59,24 @@ export default function Monitoreo() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
+  const { data: availability, isLoading: availabilityLoading } = useQuery<MonitoringArtistAvailability>({
+    queryKey: ["monitoringArtists"],
+    queryFn: async () => {
+      const response = await fetch("/api/monitoring/artists");
+      if (!response.ok) throw new Error("Monitoring artist availability unavailable");
+      return response.json() as Promise<MonitoringArtistAvailability>;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const readyMatchKeys = useMemo(() => new Set(
+    (availability?.artists ?? []).flatMap(artist => artist.matchKeys.map(compactArtistKey)),
+  ), [availability]);
 
   const artists = useMemo(() => [...byKey.values()]
-    .sort((a, b) => a.displayName.localeCompare(b.displayName, "es")), [byKey]);
+    .filter(artist => readyMatchKeys.has(compactArtistKey(artist.artistKey)))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, "es")), [byKey, readyMatchKeys]);
   const matches = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     if (!normalized) return [];
@@ -60,9 +85,7 @@ export default function Monitoreo() {
       || artist.artistKey.includes(normalized)
     )).slice(0, 6);
   }, [artists, query]);
-  const selectedArtist = byKey.get(selectedKey)
-    ?? artists.find(artist => artist.artistKey === selectedKey)
-    ?? null;
+  const selectedArtist = artists.find(artist => artist.artistKey === selectedKey) ?? null;
   const previewArtist = selectedArtist
     ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "peso pluma")
     ?? null;
@@ -240,7 +263,7 @@ export default function Monitoreo() {
               </div>
 
               <div className="mt-2 max-h-48 space-y-1 overflow-y-auto" aria-live="polite">
-                {artistsLoading ? (
+                {artistsLoading || availabilityLoading ? (
                   <div className="px-3 py-3 text-xs font-bold text-black/35">{pick("Cargando artistas…", "Loading artists…")}</div>
                 ) : query.trim() && matches.length ? matches.map(artist => {
                   const active = artist.artistKey === selectedArtist?.artistKey;
@@ -251,7 +274,7 @@ export default function Monitoreo() {
                     </button>
                   );
                 }) : query.trim() ? (
-                  <div className="px-3 py-3 text-xs font-bold text-black/35">{pick("No encontramos ese artista.", "We couldn't find that artist.")}</div>
+                  <div className="px-3 py-3 text-xs font-bold text-black/35">{pick("Este artista no está disponible para monitoreo completo.", "This artist is not available for complete monitoring.")}</div>
                 ) : null}
               </div>
 

@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { listSongstatsCatalogArtists } from "../lib/songstats-snapshot-service";
+import {
+  auditMonitoringReadiness,
+  getMonitoringReadyArtist,
+} from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -23,6 +27,24 @@ router.get("/monitoring/config", (_req, res) => {
     priceUsdCents: PRICE_USD_CENTS,
     delivery: "daily_dashboard_monthly_report",
   });
+});
+
+router.get("/monitoring/artists", async (_req, res) => {
+  try {
+    const audit = await auditMonitoringReadiness({ readyOnly: true });
+    res.json({
+      policyVersion: audit.policyVersion,
+      count: audit.ready.length,
+      artists: audit.ready.map(artist => ({
+        artistKey: artist.artistKey,
+        artistName: artist.artistName,
+        matchKeys: artist.matchKeys,
+      })),
+    });
+  } catch (error) {
+    logger.error({ error }, "Monitoring artist availability failed");
+    res.status(503).json({ error: "Monitoring availability is temporarily unavailable" });
+  }
 });
 
 router.post("/monitoring/checkout", async (req, res) => {
@@ -50,6 +72,14 @@ router.post("/monitoring/checkout", async (req, res) => {
     });
     if (!catalogArtist) {
       res.status(404).json({ error: "Artist is not available for monitoring" });
+      return;
+    }
+    const readyArtist = await getMonitoringReadyArtist(catalogArtist.artistKey);
+    if (!readyArtist) {
+      res.status(409).json({
+        error: "This artist does not currently meet the complete monitoring-data standard",
+        code: "monitoring_not_ready",
+      });
       return;
     }
 
