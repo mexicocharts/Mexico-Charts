@@ -16,6 +16,7 @@ import {
   getSongstatsArtistCatalog,
   getSongstatsArtistCurrentStats,
   getSongstatsArtistHistoricStats,
+  getSongstatsArtistInfo,
   type SongstatsSource,
 } from "../lib/songstats-client";
 import {
@@ -65,6 +66,7 @@ const ALLOWED_SOURCES = new Set<SongstatsSource>([
 ]);
 
 const LIVE_ENDPOINTS = new Set([
+  "info",
   "current",
   "historic",
   "audience",
@@ -73,6 +75,7 @@ const LIVE_ENDPOINTS = new Set([
 ]);
 
 const EXTENDED_ENDPOINTS = new Set<SongstatsExtendedEndpoint>([
+  "info",
   "historic",
   "audience",
   "audience_details",
@@ -144,6 +147,7 @@ function stringList(raw: unknown, fallback: string[]): string[] {
 
 function extendedEndpoints(raw: unknown): SongstatsExtendedEndpoint[] {
   const endpoints = stringList(raw, [
+    "info",
     "historic",
     "audience",
     "audience_details",
@@ -496,8 +500,9 @@ router.get("/admin/songstats/extended-coverage", async (req, res) => {
   res.json(await getSongstatsExtendedCoverage());
 });
 
-// ADMIN: inspect any of the five licensed artist endpoints for one already
-// verified catalog artist. Raw responses remain behind the admin key.
+// ADMIN: inspect the licensed analytics endpoints plus the supporting Artist
+// Info endpoint Evan instructed Mexico Charts to use for source verification.
+// Raw responses remain behind the admin key.
 router.get("/admin/songstats/live/:artistKey", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const artistKey = String(req.params["artistKey"] ?? "").trim().toLowerCase();
@@ -537,6 +542,9 @@ router.get("/admin/songstats/live/:artistKey", async (req, res) => {
       : 20;
 
     const endpointRequests = include.map(async endpoint => {
+      if (endpoint === "info") {
+        return [endpoint, await getSongstatsArtistInfo(identifier)] as const;
+      }
       if (endpoint === "current") {
         return [endpoint, await getSongstatsArtistCurrentStats(identifier, source)] as const;
       }

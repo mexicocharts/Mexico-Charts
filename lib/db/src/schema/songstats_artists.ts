@@ -56,6 +56,7 @@ export const songstatsArtistExtendedData = pgTable("songstats_artist_extended_da
   artistKey:                 text("artist_key").primaryKey(),
   spotifyArtistId:           text("spotify_artist_id").notNull(),
   songstatsArtistId:         text("songstats_artist_id"),
+  artistInfo:                jsonb("artist_info").$type<Record<string, unknown>>(),
   historyStartDate:          text("history_start_date"),
   historyEndDate:            text("history_end_date"),
   historicStats:             jsonb("historic_stats").$type<Record<string, unknown>>(),
@@ -67,6 +68,7 @@ export const songstatsArtistExtendedData = pgTable("songstats_artist_extended_da
   audienceFetchedAt:         timestamp("audience_fetched_at", { withTimezone: true }),
   audienceDetailsFetchedAt:  timestamp("audience_details_fetched_at", { withTimezone: true }),
   catalogFetchedAt:          timestamp("catalog_fetched_at", { withTimezone: true }),
+  infoFetchedAt:             timestamp("info_fetched_at", { withTimezone: true }),
   createdAt:                 timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:                 timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

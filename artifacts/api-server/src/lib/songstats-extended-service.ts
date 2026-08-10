@@ -4,6 +4,7 @@ import {
   getSongstatsArtistAudienceDetails,
   getSongstatsArtistCatalog,
   getSongstatsArtistHistoricStats,
+  getSongstatsArtistInfo,
   type SongstatsArtistInfo,
   type SongstatsSource,
 } from "./songstats-client";
@@ -17,8 +18,13 @@ import {
   type SongstatsCatalogArtist,
 } from "./songstats-snapshot-service";
 import { logger } from "./logger";
+import {
+  artistInfoFromPayload,
+  sourceIdsFromInfoPayload,
+} from "./songstats-info";
 
 export type SongstatsExtendedEndpoint =
+  | "info"
   | "historic"
   | "audience"
   | "audience_details"
@@ -47,6 +53,7 @@ export interface SongstatsExtendedSyncSummary {
 }
 
 interface ExtendedPayloads {
+  info?: Record<string, unknown>;
   historic?: Record<string, unknown>;
   audience?: Record<string, unknown>;
   audienceDetails?: Record<string, unknown>;
@@ -70,14 +77,13 @@ function configuredExtendedConcurrency(): number {
 
 function artistInfoFromPayloads(payloads: ExtendedPayloads): SongstatsArtistInfo | undefined {
   for (const payload of [
+    payloads.info,
     payloads.historic,
     payloads.audience,
     payloads.catalog,
   ]) {
-    const info = payload?.["artist_info"];
-    if (info && typeof info === "object") {
-      return info as SongstatsArtistInfo;
-    }
+    const info = artistInfoFromPayload(payload);
+    if (info) return info;
   }
 
   const detailSources = payloads.audienceDetails?.["sources"];
@@ -100,6 +106,7 @@ export async function ensureSongstatsExtendedTable(): Promise<void> {
       artist_key text PRIMARY KEY,
       spotify_artist_id text NOT NULL,
       songstats_artist_id text,
+      artist_info jsonb,
       history_start_date text,
       history_end_date text,
       historic_stats jsonb,
@@ -111,9 +118,15 @@ export async function ensureSongstatsExtendedTable(): Promise<void> {
       audience_fetched_at timestamptz,
       audience_details_fetched_at timestamptz,
       catalog_fetched_at timestamptz,
+      info_fetched_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     )
+  `);
+  await pool.query(`
+    ALTER TABLE songstats_artist_extended_data
+      ADD COLUMN IF NOT EXISTS artist_info jsonb,
+      ADD COLUMN IF NOT EXISTS info_fetched_at timestamptz
   `);
   await pool.query(`
     CREATE INDEX IF NOT EXISTS songstats_artist_extended_data_spotify_idx
@@ -147,6 +160,9 @@ async function listExtendedSyncArtists(options: {
 
   const params: unknown[] = [candidates.map(artist => artist.artistKey)];
   const completeConditions: string[] = [];
+  if (options.endpoints.includes("info")) {
+    completeConditions.push(`artist_info IS NOT NULL`);
+  }
   if (options.endpoints.includes("historic")) {
     completeConditions.push(
       `historic_stats IS NOT NULL`,
@@ -197,6 +213,9 @@ async function fetchExtendedPayloads(
   const errors: Record<string, string> = {};
 
   const requests = options.endpoints.map(async endpoint => {
+    if (endpoint === "info") {
+      return [endpoint, await getSongstatsArtistInfo(identifier)] as const;
+    }
     if (endpoint === "historic") {
       return [
         endpoint,
@@ -258,6 +277,7 @@ async function fetchExtendedPayloads(
       continue;
     }
     const payload = result.value[1] as Record<string, unknown>;
+    if (endpoint === "info") payloads.info = payload;
     if (endpoint === "historic") payloads.historic = payload;
     if (endpoint === "audience") payloads.audience = payload;
     if (endpoint === "audience_details") {
@@ -288,6 +308,7 @@ async function saveExtendedPayloads(
   const artistInfo = artistInfoFromPayloads(payloads);
   const songstatsArtistId = artistInfo?.songstats_artist_id;
   const savedEndpoints = options.endpoints.filter(endpoint => {
+    if (endpoint === "info") return payloads.info != null;
     if (endpoint === "historic") return payloads.historic != null;
     if (endpoint === "audience") return payloads.audience != null;
     if (endpoint === "audience_details") return payloads.audienceDetails != null;
@@ -300,6 +321,7 @@ async function saveExtendedPayloads(
         artist_key,
         spotify_artist_id,
         songstats_artist_id,
+        artist_info,
         history_start_date,
         history_end_date,
         historic_stats,
@@ -311,18 +333,23 @@ async function saveExtendedPayloads(
         audience_fetched_at,
         audience_details_fetched_at,
         catalog_fetched_at,
+        info_fetched_at,
         updated_at
       )
       VALUES (
-        $1, $2, $3, $4, $5,
-        $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb,
-        $11, $12, $13, $14, $15
+        $1, $2, $3, $4::jsonb, $5, $6,
+        $7::jsonb, $8::jsonb, $9::jsonb, $10::jsonb, $11::jsonb,
+        $12, $13, $14, $15, $16, $17
       )
       ON CONFLICT (artist_key) DO UPDATE SET
         spotify_artist_id = EXCLUDED.spotify_artist_id,
         songstats_artist_id = COALESCE(
           EXCLUDED.songstats_artist_id,
           songstats_artist_extended_data.songstats_artist_id
+        ),
+        artist_info = COALESCE(
+          EXCLUDED.artist_info,
+          songstats_artist_extended_data.artist_info
         ),
         history_start_date = CASE
           WHEN EXCLUDED.historic_stats IS NOT NULL THEN EXCLUDED.history_start_date
@@ -365,12 +392,17 @@ async function saveExtendedPayloads(
           EXCLUDED.catalog_fetched_at,
           songstats_artist_extended_data.catalog_fetched_at
         ),
+        info_fetched_at = COALESCE(
+          EXCLUDED.info_fetched_at,
+          songstats_artist_extended_data.info_fetched_at
+        ),
         updated_at = EXCLUDED.updated_at
     `,
     [
       artist.artistKey,
       artist.spotifyArtistId,
       songstatsArtistId ?? null,
+      payloads.info ? JSON.stringify(payloads.info) : null,
       options.historyStartDate,
       options.historyEndDate,
       payloads.historic ? JSON.stringify(payloads.historic) : null,
@@ -382,9 +414,39 @@ async function saveExtendedPayloads(
       payloads.audience ? fetchedAt : null,
       payloads.audienceDetails ? fetchedAt : null,
       payloads.catalog ? fetchedAt : null,
+      payloads.info ? fetchedAt : null,
       fetchedAt,
     ],
   );
+
+  if (payloads.info) {
+    const sourceIds = sourceIdsFromInfoPayload(payloads.info);
+    await pool.query(
+      `
+        UPDATE songstats_artists
+        SET
+          songstats_artist_id = COALESCE($2, songstats_artist_id),
+          songstats_name = COALESCE($3, songstats_name),
+          avatar_url = COALESCE($4, avatar_url),
+          site_url = COALESCE($5, site_url),
+          source_ids = CASE
+            WHEN cardinality($6::text[]) > 0 THEN to_jsonb($6::text[])
+            ELSE source_ids
+          END,
+          last_synced_at = $7
+        WHERE artist_key = $1
+      `,
+      [
+        artist.artistKey,
+        songstatsArtistId ?? null,
+        artistInfo?.name ?? null,
+        artistInfo?.avatar ?? null,
+        artistInfo?.site_url ?? null,
+        sourceIds,
+        fetchedAt,
+      ],
+    );
+  }
 
   const status = savedEndpoints.length === 0
     ? "failed"
@@ -483,6 +545,7 @@ export async function getSongstatsExtendedCoverage() {
     with_audience: string;
     with_audience_details: string;
     with_catalog: string;
+    with_info: string;
     stored_bytes: string;
   }>(`
     SELECT
@@ -491,6 +554,7 @@ export async function getSongstatsExtendedCoverage() {
       count(audience)::text AS with_audience,
       count(audience_details)::text AS with_audience_details,
       count(catalog)::text AS with_catalog,
+      count(artist_info)::text AS with_info,
       COALESCE(sum(pg_column_size(row_value)), 0)::text AS stored_bytes
     FROM songstats_artist_extended_data row_value
   `);
@@ -501,6 +565,7 @@ export async function getSongstatsExtendedCoverage() {
     withAudience: Number(row.with_audience),
     withAudienceDetails: Number(row.with_audience_details),
     withCatalog: Number(row.with_catalog),
+    withInfo: Number(row.with_info),
     storedBytes: Number(row.stored_bytes),
   };
 }

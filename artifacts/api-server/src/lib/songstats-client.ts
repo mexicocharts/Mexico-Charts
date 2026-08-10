@@ -40,6 +40,14 @@ export interface SongstatsArtistInfo {
   links?: unknown[];
 }
 
+export interface SongstatsArtistInfoResponse {
+  result?: string;
+  message?: string;
+  artist_info?: SongstatsArtistInfo;
+  source_ids?: string[] | null;
+  [key: string]: unknown;
+}
+
 export interface SongstatsSourceStats {
   source: string;
   data: Record<string, unknown>;
@@ -190,6 +198,14 @@ export async function getSongstatsArtistCurrentStats(
   return songstatsGet<SongstatsCurrentStatsResponse>("/artists/stats", {
     ...identifierParams(identifier),
     source,
+  }, identifier);
+}
+
+export async function getSongstatsArtistInfo(
+  identifier: SongstatsArtistIdentifier,
+): Promise<SongstatsArtistInfoResponse> {
+  return songstatsGet<SongstatsArtistInfoResponse>("/artists/info", {
+    ...identifierParams(identifier),
   }, identifier);
 }
 
