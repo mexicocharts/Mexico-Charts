@@ -91,6 +91,7 @@ export default function Monitoreo() {
   }, [artists, query]);
   const selectedArtist = artists.find(artist => artist.artistKey === selectedKey) ?? null;
   const previewArtist = selectedArtist
+    ?? [...byKey.values()].find(artist => artist.displayName.toLocaleLowerCase() === "luis miguel")
     ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "peso pluma")
     ?? null;
   const readyArtistCount = artists.length;
@@ -249,97 +250,68 @@ export default function Monitoreo() {
             <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-black/50">{pick("Elige un artista y sigue su evolución día a día. Su historial crecerá con cada actualización.", "Choose an artist and open their daily dashboard; history grows with every new snapshot.")}</p>
           </div>
 
-          <div className="mx-auto mt-10 grid max-w-6xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] lg:grid-cols-[minmax(0,1fr)_430px]">
-            <div className="relative overflow-hidden bg-[#070807] p-5 text-white sm:p-7 lg:p-8">
-              <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)] [background-size:32px_32px]" />
-              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#39FF14]/10 blur-[90px]" />
+          <div className="mx-auto mt-10 max-w-6xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div className="relative overflow-hidden bg-[#060706] p-3 text-white sm:p-5 lg:p-7">
+              <div className="pointer-events-none absolute right-[-8%] top-[-24%] h-96 w-96 rounded-full bg-[#39FF14]/10 blur-[110px]" />
 
-              <div className="relative overflow-hidden rounded-xl border border-white/[0.09] bg-[#0b0d0b]/95 shadow-2xl shadow-black/60">
-                <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-4 sm:px-5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#39FF14]/30 bg-[#39FF14]/10 text-[11px] font-black text-[#39FF14]">
-                      {(previewArtist?.displayName ?? "LM").slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black sm:text-base">{previewArtist?.displayName ?? "Luis Miguel"}</p>
-                      <p className="mt-0.5 text-[7px] font-black uppercase tracking-[0.18em] text-white/25">Mexico Charts Monitor</p>
-                    </div>
+              <div className="relative overflow-hidden rounded-xl border border-white/[0.09] bg-[#080908] shadow-2xl shadow-black/70">
+                <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5 sm:px-6">
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-2 w-2 rounded-full bg-[#39FF14] shadow-[0_0_10px_#39FF14]" />
+                    <p className="text-[8px] font-black uppercase tracking-[0.18em]">Mexico Charts <span className="text-[#39FF14]">Monitor</span></p>
                   </div>
-                  <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#39FF14]/20 bg-[#39FF14]/[0.07] px-2.5 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#39FF14]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#39FF14] shadow-[0_0_8px_#39FF14]" /> {pick("Actualizado hoy", "Updated today")}
-                  </span>
+                  <span className="rounded-full border border-white/10 px-3 py-1.5 text-[7px] font-black uppercase tracking-[0.15em] text-white/35">{pick("Vista previa", "Preview")}</span>
                 </div>
 
-                <div className="flex gap-5 overflow-hidden border-b border-white/[0.06] px-4 sm:px-5">
-                  {[pick("Resumen", "Overview"), pick("Canciones", "Songs"), pick("Álbumes", "Albums"), pick("Audiencia", "Audience")].map((tab, index) => (
-                    <span key={tab} className={`relative py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-white" : "text-white/25"}`}>
-                      {tab}{index === 0 && <span className="absolute inset-x-0 bottom-0 h-px bg-[#39FF14]" />}
+                <div className="flex gap-6 overflow-hidden border-b border-white/[0.07] px-4 sm:px-6">
+                  {[pick("Resumen", "Overview"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience"), pick("Alertas", "Alerts")].map((tab, index) => (
+                    <span key={tab} className={`relative shrink-0 py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-black" : "text-white/25"}`}>
+                      {index === 0 && <span className="absolute -inset-x-3 inset-y-0 bg-[#39FF14]" />}
+                      <span className="relative">{tab}</span>
                     </span>
                   ))}
                 </div>
 
-                <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.35fr)_minmax(150px,.65fr)] sm:p-4">
-                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-[7px] font-black uppercase tracking-[0.17em] text-white/30">{pick("Oyentes mensuales", "Monthly listeners")}</p>
-                        <p className="mt-2 text-3xl font-black tracking-[-0.05em] sm:text-4xl">{previewArtist?.spotifyListenersFmt || pick("Disponible", "Available")}</p>
+                <div className="p-4 sm:p-6">
+                  <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[linear-gradient(135deg,#101210,#0a0b0a)] p-5 sm:p-7">
+                    <div className="pointer-events-none absolute right-0 top-0 h-52 w-52 rounded-full bg-[#39FF14]/[0.055] blur-3xl" />
+                    <div className="relative flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                      <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+                        <img src="https://i.scdn.co/image/ab676161000051746481401e529e475116702a29" alt="Luis Miguel" loading="lazy" className="h-20 w-20 shrink-0 rounded-xl object-cover sm:h-24 sm:w-24" />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-[#39FF14]/10 px-2.5 py-1 text-[7px] font-black uppercase tracking-[0.14em] text-[#39FF14]">{pick("Monitoreo activo", "Active monitoring")}</span>
+                            <span className="text-[7px] font-bold text-white/25">{pick("Actualizado hoy", "Updated today")}</span>
+                          </div>
+                          <h3 className="mt-3 truncate text-3xl font-black tracking-[-0.05em] sm:text-5xl">{previewArtist?.displayName ?? "Luis Miguel"}</h3>
+                          <p className="mt-2 text-[10px] font-medium text-white/35 sm:text-xs">{pick("Audiencia, streaming y rendimiento del catálogo en un solo lugar", "Audience, streaming and catalog performance in one place")}</p>
+                        </div>
                       </div>
-                      <span className="rounded-md bg-[#39FF14]/10 px-2 py-1 text-[7px] font-black text-[#39FF14]">Spotify</span>
+                      <button type="button" className="hidden h-9 shrink-0 items-center gap-2 rounded-full bg-[#39FF14] px-4 text-[8px] font-black uppercase tracking-[0.13em] text-black sm:inline-flex"><FileDown className="h-3.5 w-3.5" /> {pick("Reporte", "Report")}</button>
                     </div>
-                    <div className="mt-5 flex items-center justify-between">
-                      <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/20">{pick("Últimos 30 días", "Last 30 days")}</p>
-                      <p className="flex items-center gap-1 text-[8px] font-black text-[#39FF14]"><TrendingUp className="h-3 w-3" /> {pick("Tendencia", "Trend")}</p>
-                    </div>
-                    <svg className="mt-3 h-24 w-full overflow-visible" viewBox="0 0 420 96" preserveAspectRatio="none" aria-hidden="true">
-                      <defs>
-                        <linearGradient id="monitor-chart-fill" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#39FF14" stopOpacity="0.3" />
-                          <stop offset="100%" stopColor="#39FF14" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <path d="M0 79 C30 75 42 82 67 68 S105 72 132 58 S170 66 198 46 S238 55 268 37 S312 45 341 25 S382 34 420 10 L420 96 L0 96 Z" fill="url(#monitor-chart-fill)" />
-                      <path d="M0 79 C30 75 42 82 67 68 S105 72 132 58 S170 66 198 46 S238 55 268 37 S312 45 341 25 S382 34 420 10" fill="none" stroke="#39FF14" strokeWidth="2" vectorEffect="non-scaling-stroke" />
-                    </svg>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
-                    <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4">
-                      <BellRing className="h-4 w-4 text-[#39FF14]" />
-                      <p className="mt-4 text-[7px] font-black uppercase tracking-[0.15em] text-white/25">YouTube</p>
-                      <p className="mt-1 text-base font-black sm:text-lg">{previewArtist?.youtubeSubscribersFmt || pick("Disponible", "Available")}</p>
-                      <p className="mt-1 text-[7px] font-bold text-white/20">{pick("Suscriptores", "Subscribers")}</p>
-                    </div>
-                    <div className="rounded-lg border border-white/[0.07] bg-[#39FF14]/[0.045] p-4">
-                      <MapPin className="h-4 w-4 text-[#39FF14]" />
-                      <p className="mt-4 text-[7px] font-black uppercase tracking-[0.15em] text-white/25">{pick("México", "Mexico")}</p>
-                      <p className="mt-1 text-base font-black sm:text-lg">{pick("Audiencia", "Audience")}</p>
-                      <p className="mt-1 text-[7px] font-bold text-white/20">{pick("Ciudades principales", "Top cities")}</p>
-                    </div>
+                  <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {[
+                      { icon: BarChart3, label: pick("Oyentes mensuales", "Monthly listeners"), value: previewArtist?.spotifyListenersFmt || pick("Datos disponibles", "Data available") },
+                      { icon: BellRing, label: pick("Suscriptores YouTube", "YouTube subscribers"), value: previewArtist?.youtubeSubscribersFmt || pick("Datos disponibles", "Data available") },
+                      { icon: Disc3, label: pick("Discografía", "Catalog"), value: pick("Streams diarios", "Daily streams") },
+                      { icon: CalendarDays, label: pick("Historial", "History"), value: pick("Día, mes y año", "Day, month and year") },
+                    ].map(({ icon: PreviewIcon, label, value }) => (
+                      <div key={label} className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
+                        <PreviewIcon className="h-4 w-4 text-[#39FF14]" />
+                        <p className="mt-5 text-[7px] font-black uppercase tracking-[0.15em] text-white/25">{label}</p>
+                        <p className="mt-1 text-sm font-black sm:text-lg">{value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                <div className="grid border-t border-white/[0.06] sm:grid-cols-3">
-                  {[
-                    { icon: Disc3, label: pick("Discografía", "Catalog"), value: pick("Streams diarios", "Daily streams") },
-                    { icon: CalendarDays, label: pick("Historial", "History"), value: pick("Día, mes y año", "Day, month and year") },
-                    { icon: BellRing, label: pick("Alertas", "Alerts"), value: pick("Nuevos eventos", "New events") },
-                  ].map(({ icon: PreviewIcon, label, value }, index) => (
-                    <div key={label} className={`flex items-center gap-3 px-4 py-3.5 ${index ? "border-t border-white/[0.06] sm:border-l sm:border-t-0" : ""}`}>
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.045]"><PreviewIcon className="h-3.5 w-3.5 text-[#39FF14]" /></div>
-                      <div>
-                        <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/25">{label}</p>
-                        <p className="mt-1 text-[9px] font-bold text-white/65">{value}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <div className="h-10 bg-gradient-to-b from-transparent to-black/50" />
               </div>
-
-              <p className="relative mt-3 text-center text-[7px] font-black uppercase tracking-[0.16em] text-white/20">{pick("Vista del producto", "Product preview")}</p>
             </div>
 
-            <div className="p-6 sm:p-9 lg:p-10">
+            <div className="mx-auto max-w-2xl p-6 sm:p-9 lg:p-12">
               <span className="inline-block rounded-full bg-[#39FF14] px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em]">{pick("Precio de lanzamiento", "Launch price")}</span>
               <h3 className="mt-5 text-2xl font-black uppercase tracking-[-0.025em]">{pick("Monitor completo", "Complete monitor")}</h3>
               <div className="mt-4 flex items-end gap-2">
