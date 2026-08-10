@@ -250,56 +250,93 @@ export default function Monitoreo() {
           </div>
 
           <div className="mx-auto mt-10 grid max-w-6xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] lg:grid-cols-[minmax(0,1fr)_430px]">
-            <div className="relative overflow-hidden bg-[#090909] p-6 text-white sm:p-9 lg:p-10">
-              <div className="pointer-events-none absolute right-[-15%] top-[-10%] h-72 w-72 rounded-full bg-[#39FF14]/10 blur-3xl" />
-              <div className="relative flex items-center justify-between border-b border-white/10 pb-5">
-                <div>
-                  <p className="text-[8px] font-black uppercase tracking-[0.22em] text-[#39FF14]">Mexico Charts · Monitor</p>
-                  <h3 className="mt-2 text-2xl font-black uppercase tracking-[-0.03em]">{previewArtist?.displayName ?? pick("Tu artista", "Your artist")}</h3>
-                </div>
-                <span className="rounded-full border border-white/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.15em] text-white/35">{pick("Vista previa", "Preview")}</span>
-              </div>
+            <div className="relative overflow-hidden bg-[#070807] p-5 text-white sm:p-7 lg:p-8">
+              <div className="pointer-events-none absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)] [background-size:32px_32px]" />
+              <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[#39FF14]/10 blur-[90px]" />
 
-              <div className="relative mt-6 grid grid-cols-2 gap-3">
-                {[
-                  { label: pick("Oyentes mensuales", "Monthly listeners"), value: previewArtist?.spotifyListenersFmt || "—", icon: BarChart3 },
-                  { label: pick("Suscriptores YouTube", "YouTube subscribers"), value: previewArtist?.youtubeSubscribersFmt || "—", icon: BellRing },
-                  { label: pick("Crecimiento", "Growth"), value: "7D · 30D · 90D", icon: TrendingUp },
-                  { label: pick("Audiencia en México", "Mexico audience"), value: pick("Ciudades y audiencia", "Cities + signals"), icon: MapPin },
-                ].map(({ label, value, icon: MetricIcon }) => (
-                  <div key={label} className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
-                    <MetricIcon className="h-4 w-4 text-[#39FF14]" />
-                    <p className="mt-5 text-[8px] font-black uppercase tracking-[0.16em] text-white/30">{label}</p>
-                    <p className="mt-1 text-base font-black text-white sm:text-lg">{value}</p>
+              <div className="relative overflow-hidden rounded-xl border border-white/[0.09] bg-[#0b0d0b]/95 shadow-2xl shadow-black/60">
+                <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-4 sm:px-5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#39FF14]/30 bg-[#39FF14]/10 text-[11px] font-black text-[#39FF14]">
+                      {(previewArtist?.displayName ?? "LM").slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-black sm:text-base">{previewArtist?.displayName ?? "Luis Miguel"}</p>
+                      <p className="mt-0.5 text-[7px] font-black uppercase tracking-[0.18em] text-white/25">Mexico Charts Monitor</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="relative mt-3 rounded-lg border border-white/[0.08] bg-white/[0.025] p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-[8px] font-black uppercase tracking-[0.16em] text-white/35">{pick("Tendencia de audiencia", "Audience trend")}</p>
-                  <TrendingUp className="h-4 w-4 text-[#39FF14]" />
+                  <span className="flex shrink-0 items-center gap-1.5 rounded-full border border-[#39FF14]/20 bg-[#39FF14]/[0.07] px-2.5 py-1.5 text-[7px] font-black uppercase tracking-[0.14em] text-[#39FF14]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#39FF14] shadow-[0_0_8px_#39FF14]" /> {pick("Actualizado hoy", "Updated today")}
+                  </span>
                 </div>
-                <div className="mt-5 flex h-20 items-end gap-2">
-                  {[28, 37, 31, 48, 43, 58, 54, 70, 66, 82, 75, 92].map((height, index) => (
-                    <span key={index} className="flex-1 rounded-t-sm bg-[#39FF14]" style={{ height: `${height}%`, opacity: 0.22 + index * 0.055 }} />
+
+                <div className="flex gap-5 overflow-hidden border-b border-white/[0.06] px-4 sm:px-5">
+                  {[pick("Resumen", "Overview"), pick("Canciones", "Songs"), pick("Álbumes", "Albums"), pick("Audiencia", "Audience")].map((tab, index) => (
+                    <span key={tab} className={`relative py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-white" : "text-white/25"}`}>
+                      {tab}{index === 0 && <span className="absolute inset-x-0 bottom-0 h-px bg-[#39FF14]" />}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,1.35fr)_minmax(150px,.65fr)] sm:p-4">
+                  <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-[7px] font-black uppercase tracking-[0.17em] text-white/30">{pick("Oyentes mensuales", "Monthly listeners")}</p>
+                        <p className="mt-2 text-3xl font-black tracking-[-0.05em] sm:text-4xl">{previewArtist?.spotifyListenersFmt || pick("Disponible", "Available")}</p>
+                      </div>
+                      <span className="rounded-md bg-[#39FF14]/10 px-2 py-1 text-[7px] font-black text-[#39FF14]">Spotify</span>
+                    </div>
+                    <div className="mt-5 flex items-center justify-between">
+                      <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/20">{pick("Últimos 30 días", "Last 30 days")}</p>
+                      <p className="flex items-center gap-1 text-[8px] font-black text-[#39FF14]"><TrendingUp className="h-3 w-3" /> {pick("Tendencia", "Trend")}</p>
+                    </div>
+                    <svg className="mt-3 h-24 w-full overflow-visible" viewBox="0 0 420 96" preserveAspectRatio="none" aria-hidden="true">
+                      <defs>
+                        <linearGradient id="monitor-chart-fill" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#39FF14" stopOpacity="0.3" />
+                          <stop offset="100%" stopColor="#39FF14" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M0 79 C30 75 42 82 67 68 S105 72 132 58 S170 66 198 46 S238 55 268 37 S312 45 341 25 S382 34 420 10 L420 96 L0 96 Z" fill="url(#monitor-chart-fill)" />
+                      <path d="M0 79 C30 75 42 82 67 68 S105 72 132 58 S170 66 198 46 S238 55 268 37 S312 45 341 25 S382 34 420 10" fill="none" stroke="#39FF14" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    </svg>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-1">
+                    <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4">
+                      <BellRing className="h-4 w-4 text-[#39FF14]" />
+                      <p className="mt-4 text-[7px] font-black uppercase tracking-[0.15em] text-white/25">YouTube</p>
+                      <p className="mt-1 text-base font-black sm:text-lg">{previewArtist?.youtubeSubscribersFmt || pick("Disponible", "Available")}</p>
+                      <p className="mt-1 text-[7px] font-bold text-white/20">{pick("Suscriptores", "Subscribers")}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/[0.07] bg-[#39FF14]/[0.045] p-4">
+                      <MapPin className="h-4 w-4 text-[#39FF14]" />
+                      <p className="mt-4 text-[7px] font-black uppercase tracking-[0.15em] text-white/25">{pick("México", "Mexico")}</p>
+                      <p className="mt-1 text-base font-black sm:text-lg">{pick("Audiencia", "Audience")}</p>
+                      <p className="mt-1 text-[7px] font-bold text-white/20">{pick("Ciudades principales", "Top cities")}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid border-t border-white/[0.06] sm:grid-cols-3">
+                  {[
+                    { icon: Disc3, label: pick("Discografía", "Catalog"), value: pick("Streams diarios", "Daily streams") },
+                    { icon: CalendarDays, label: pick("Historial", "History"), value: pick("Día, mes y año", "Day, month and year") },
+                    { icon: BellRing, label: pick("Alertas", "Alerts"), value: pick("Nuevos eventos", "New events") },
+                  ].map(({ icon: PreviewIcon, label, value }, index) => (
+                    <div key={label} className={`flex items-center gap-3 px-4 py-3.5 ${index ? "border-t border-white/[0.06] sm:border-l sm:border-t-0" : ""}`}>
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-white/[0.045]"><PreviewIcon className="h-3.5 w-3.5 text-[#39FF14]" /></div>
+                      <div>
+                        <p className="text-[7px] font-black uppercase tracking-[0.14em] text-white/25">{label}</p>
+                        <p className="mt-1 text-[9px] font-bold text-white/65">{value}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
 
-              <div className="relative mt-3 grid gap-3 sm:grid-cols-3">
-                {[
-                  { icon: Disc3, label: pick("Canciones", "Songs"), value: pick("Streams por día", "Streams by day") },
-                  { icon: LibraryBig, label: pick("Álbumes", "Albums"), value: pick("Historial completo", "Complete history") },
-                  { icon: CalendarDays, label: pick("Historial", "Archive"), value: pick("Día · Mes · Año", "Day · Month · Year") },
-                ].map(({ icon: PreviewIcon, label, value }) => (
-                  <div key={label} className="rounded-lg border border-white/[0.08] bg-black/30 p-3.5">
-                    <PreviewIcon className="h-3.5 w-3.5 text-[#39FF14]" />
-                    <p className="mt-4 text-[7px] font-black uppercase tracking-[0.16em] text-white/25">{label}</p>
-                    <p className="mt-1 text-[10px] font-bold text-white/65">{value}</p>
-                  </div>
-                ))}
-              </div>
+              <p className="relative mt-3 text-center text-[7px] font-black uppercase tracking-[0.16em] text-white/20">{pick("Vista del producto", "Product preview")}</p>
             </div>
 
             <div className="p-6 sm:p-9 lg:p-10">
