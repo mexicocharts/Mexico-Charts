@@ -23,6 +23,7 @@ const { ParquetSchema, ParquetWriter } = require("parquetjs-lite") as {
 type PoolLike = InstanceType<typeof Pool>;
 type ItemType = "track" | "album";
 type StorageMode = "postgres" | "parquet" | "hybrid";
+type EligibilityMode = "mapped" | "complete";
 
 const ARTIST_METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
@@ -104,12 +105,19 @@ function parseArgs() {
     storage: (args.get("storage") ?? "postgres") as StorageMode,
     archiveDir: args.get("archiveDir") ?? "/tmp/mexico-charts-stream-archive",
     uploadR2: args.get("uploadR2") === "true",
+    eligibility: (args.get("eligibility") ?? (args.get("all") === "true" ? "complete" : "mapped")) as EligibilityMode,
   };
 }
 
 function assertStorageMode(value: string): asserts value is StorageMode {
   if (!(["postgres", "parquet", "hybrid"] as string[]).includes(value)) {
     throw new Error(`Invalid --storage=${value}. Use postgres, parquet, or hybrid.`);
+  }
+}
+
+function assertEligibilityMode(value: string): asserts value is EligibilityMode {
+  if (!(["mapped", "complete"] as string[]).includes(value)) {
+    throw new Error(`Invalid --eligibility=${value}. Use mapped or complete.`);
   }
 }
 
@@ -482,9 +490,13 @@ async function uploadArchiveToR2(path: string, objectKey: string) {
 async function main() {
   const {
     artistKeys: requestedArtistKeys, all, offset, limit, snapshotDate, write,
-    storage, archiveDir, uploadR2,
+    storage, archiveDir, uploadR2, eligibility,
   } = parseArgs();
   assertStorageMode(storage);
+  assertEligibilityMode(eligibility);
+  if (all && eligibility !== "complete") {
+    throw new Error("Full-catalog archive runs require --eligibility=complete. Partial-data artists must not enter the paid archive.");
+  }
   const databaseUrl = process.env["DATABASE_URL"];
   if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
   if (!all && !requestedArtistKeys.length) throw new Error("Provide --artistKey/--artistKeys or --all=true.");
@@ -507,10 +519,25 @@ async function main() {
               COALESCE(c.spotify_id, s.spotify_artist_id) AS spotify_artist_id
        FROM kworb_coverage c
        LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
+       LEFT JOIN songstats_artist_extended_data e ON e.artist_key = c.artist_key
        WHERE lower(c.artist_key) = ANY($1::text[])
          AND COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
+         AND (
+           $2::boolean = false
+           OR (
+             e.historic_stats IS NOT NULL
+             AND e.audience IS NOT NULL
+             AND e.audience_details IS NOT NULL
+             AND e.catalog IS NOT NULL
+             AND EXISTS (
+               SELECT 1
+               FROM songstats_artist_daily_snapshots current_snapshot
+               WHERE current_snapshot.artist_key = c.artist_key
+             )
+           )
+         )
        ORDER BY c.artist_key`,
-      [[...requestedByCandidate.keys()]],
+      [[...requestedByCandidate.keys()], eligibility === "complete"],
     );
 
     const resolved = new Map<string, ArtistRow>();
@@ -538,7 +565,9 @@ async function main() {
         ]);
         const tracks = parseMonitoringCatalog(tracksHtml, "track");
         const albums = parseMonitoringCatalog(albumsHtml, "album");
-        if (!tracks.length && !albums.length) throw new Error("empty_catalog");
+        if (!tracks.length || !albums.length) {
+          throw new Error(`incomplete_stream_catalog:tracks=${tracks.length},albums=${albums.length}`);
+        }
         const items = [...tracks, ...albums];
         const fetchedAt = new Date().toISOString();
         if (write && (storage === "postgres" || storage === "hybrid")) {
