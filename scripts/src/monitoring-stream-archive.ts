@@ -1,4 +1,7 @@
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -7,9 +10,19 @@ const { Pool } = require("../../lib/db/node_modules/pg") as {
     end: () => Promise<void>;
   };
 };
+const { ParquetSchema, ParquetWriter } = require("parquetjs-lite") as {
+  ParquetSchema: new (fields: Record<string, Record<string, unknown>>) => unknown;
+  ParquetWriter: {
+    openFile: (schema: unknown, path: string, options?: Record<string, unknown>) => Promise<{
+      appendRow: (row: Record<string, unknown>) => Promise<void>;
+      close: () => Promise<void>;
+    }>;
+  };
+};
 
 type PoolLike = InstanceType<typeof Pool>;
 type ItemType = "track" | "album";
+type StorageMode = "postgres" | "parquet" | "hybrid";
 
 const ARTIST_METADATA_URL =
   "https://docs.google.com/spreadsheets/d/18urSUcuMeQxpKvS0gwg5Irz3TSC9zpHJ/gviz/tq?tqx=out:csv&sheet=artist_metadata_active";
@@ -37,6 +50,40 @@ export interface MonitoringStreamItem {
   compilation: boolean;
 }
 
+export interface ArchiveRow extends MonitoringStreamItem {
+  artistKey: string;
+  artistName: string;
+  snapshotDate: string;
+  fetchedAt: string;
+}
+
+interface ArtistSummary {
+  artistKey: string;
+  snapshotDate: string;
+  trackCount: number;
+  albumCount: number;
+  trackDailyStreams: number;
+  albumDailyStreams: number;
+  trackTotalStreams: number;
+  albumTotalStreams: number;
+}
+
+interface ArchiveManifest {
+  schemaVersion: 1;
+  snapshotDate: string;
+  generatedAt: string;
+  requestedArtists: number;
+  resolvedArtists: number;
+  archivedArtists: number;
+  rowCount: number;
+  trackCount: number;
+  albumCount: number;
+  parquetBytes: number;
+  sha256: string;
+  objectKey: string;
+  unavailableArtists: string[];
+}
+
 function parseArgs() {
   const args = new Map<string, string>();
   for (const arg of process.argv.slice(2)) {
@@ -54,7 +101,16 @@ function parseArgs() {
     limit: Math.max(1, Math.min(Number(args.get("limit") ?? 529), 529)),
     snapshotDate: args.get("date") ?? new Date().toISOString().slice(0, 10),
     write: args.get("write") === "true",
+    storage: (args.get("storage") ?? "postgres") as StorageMode,
+    archiveDir: args.get("archiveDir") ?? "/tmp/mexico-charts-stream-archive",
+    uploadR2: args.get("uploadR2") === "true",
   };
+}
+
+function assertStorageMode(value: string): asserts value is StorageMode {
+  if (!(["postgres", "parquet", "hybrid"] as string[]).includes(value)) {
+    throw new Error(`Invalid --storage=${value}. Use postgres, parquet, or hybrid.`);
+  }
 }
 
 function parseCsv(text: string): string[][] {
@@ -180,6 +236,34 @@ async function ensureTables(pool: PoolLike) {
     CREATE INDEX IF NOT EXISTS monitoring_stream_daily_item_date_idx
     ON monitoring_stream_daily_snapshots (artist_key, item_type, item_key, snapshot_date DESC)
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitoring_stream_daily_artist_summaries (
+      artist_key text NOT NULL,
+      snapshot_date date NOT NULL,
+      track_count integer NOT NULL,
+      album_count integer NOT NULL,
+      track_daily_streams bigint NOT NULL,
+      album_daily_streams bigint NOT NULL,
+      track_total_streams bigint NOT NULL,
+      album_total_streams bigint NOT NULL,
+      fetched_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (artist_key, snapshot_date)
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS monitoring_stream_archive_manifests (
+      snapshot_date date NOT NULL,
+      object_key text NOT NULL,
+      schema_version integer NOT NULL,
+      row_count integer NOT NULL,
+      artist_count integer NOT NULL,
+      parquet_bytes bigint NOT NULL,
+      sha256 text NOT NULL,
+      storage_provider text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (snapshot_date, object_key)
+    )
+  `);
 }
 
 async function fetchPage(spotifyArtistId: string, itemType: ItemType): Promise<string> {
@@ -257,8 +341,150 @@ async function saveItems(pool: PoolLike, artistKey: string, snapshotDate: string
   );
 }
 
+function summarizeArtist(artistKey: string, snapshotDate: string, items: MonitoringStreamItem[]): ArtistSummary {
+  const tracks = items.filter(item => item.itemType === "track");
+  const albums = items.filter(item => item.itemType === "album");
+  const sum = (values: MonitoringStreamItem[], field: "dailyStreams" | "totalStreams") =>
+    values.reduce((total, item) => total + item[field], 0);
+  return {
+    artistKey,
+    snapshotDate,
+    trackCount: tracks.length,
+    albumCount: albums.length,
+    trackDailyStreams: sum(tracks, "dailyStreams"),
+    albumDailyStreams: sum(albums, "dailyStreams"),
+    trackTotalStreams: sum(tracks, "totalStreams"),
+    albumTotalStreams: sum(albums, "totalStreams"),
+  };
+}
+
+async function saveSummaries(pool: PoolLike, summaries: ArtistSummary[]) {
+  if (!summaries.length) return;
+  const payload = JSON.stringify(summaries.map(summary => ({
+    artist_key: summary.artistKey,
+    snapshot_date: summary.snapshotDate,
+    track_count: summary.trackCount,
+    album_count: summary.albumCount,
+    track_daily_streams: summary.trackDailyStreams,
+    album_daily_streams: summary.albumDailyStreams,
+    track_total_streams: summary.trackTotalStreams,
+    album_total_streams: summary.albumTotalStreams,
+  })));
+  await pool.query(
+    `WITH incoming AS (
+       SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
+         artist_key text, snapshot_date date, track_count integer, album_count integer,
+         track_daily_streams bigint, album_daily_streams bigint,
+         track_total_streams bigint, album_total_streams bigint
+       )
+     )
+     INSERT INTO monitoring_stream_daily_artist_summaries (
+       artist_key, snapshot_date, track_count, album_count,
+       track_daily_streams, album_daily_streams, track_total_streams, album_total_streams, fetched_at
+     )
+     SELECT artist_key, snapshot_date, track_count, album_count,
+            track_daily_streams, album_daily_streams, track_total_streams, album_total_streams, now()
+     FROM incoming
+     ON CONFLICT (artist_key, snapshot_date) DO UPDATE SET
+       track_count=excluded.track_count,
+       album_count=excluded.album_count,
+       track_daily_streams=excluded.track_daily_streams,
+       album_daily_streams=excluded.album_daily_streams,
+       track_total_streams=excluded.track_total_streams,
+       album_total_streams=excluded.album_total_streams,
+       fetched_at=excluded.fetched_at`,
+    [payload],
+  );
+}
+
+function archiveObjectKey(snapshotDate: string): string {
+  const [year, month, day] = snapshotDate.split("-");
+  return `stream-history/year=${year}/month=${month}/day=${day}/catalog.parquet`;
+}
+
+export async function writeParquetArchive(
+  archiveDir: string,
+  snapshotDate: string,
+  rows: ArchiveRow[],
+): Promise<{ path: string; bytes: number; sha256: string; objectKey: string }> {
+  const objectKey = archiveObjectKey(snapshotDate);
+  const outputPath = join(archiveDir, objectKey);
+  const temporaryPath = `${outputPath}.tmp-${process.pid}`;
+  await mkdir(dirname(outputPath), { recursive: true });
+  const schema = new ParquetSchema({
+    schema_version: { type: "INT32", compression: "GZIP" },
+    snapshot_date: { type: "UTF8", compression: "GZIP" },
+    fetched_at: { type: "UTF8", compression: "GZIP" },
+    artist_key: { type: "UTF8", compression: "GZIP" },
+    artist_name: { type: "UTF8", compression: "GZIP" },
+    item_type: { type: "UTF8", compression: "GZIP" },
+    item_key: { type: "UTF8", compression: "GZIP" },
+    title: { type: "UTF8", compression: "GZIP" },
+    spotify_url: { type: "UTF8", optional: true, compression: "GZIP" },
+    total_streams: { type: "INT64", compression: "GZIP" },
+    daily_streams: { type: "INT64", compression: "GZIP" },
+    compilation: { type: "BOOLEAN", compression: "GZIP" },
+  });
+  const writer = await ParquetWriter.openFile(schema, temporaryPath, { rowGroupSize: 10_000 });
+  try {
+    for (const row of rows) {
+      await writer.appendRow({
+        schema_version: 1,
+        snapshot_date: row.snapshotDate,
+        fetched_at: row.fetchedAt,
+        artist_key: row.artistKey,
+        artist_name: row.artistName,
+        item_type: row.itemType,
+        item_key: row.itemKey,
+        title: row.title,
+        spotify_url: row.spotifyUrl ?? undefined,
+        total_streams: row.totalStreams,
+        daily_streams: row.dailyStreams,
+        compilation: row.compilation,
+      });
+    }
+  } finally {
+    await writer.close();
+  }
+  await rename(temporaryPath, outputPath);
+  const [contents, fileStats] = await Promise.all([readFile(outputPath), stat(outputPath)]);
+  return {
+    path: outputPath,
+    bytes: fileStats.size,
+    sha256: createHash("sha256").update(contents).digest("hex"),
+    objectKey,
+  };
+}
+
+async function uploadArchiveToR2(path: string, objectKey: string) {
+  const accountId = process.env["R2_ACCOUNT_ID"];
+  const accessKeyId = process.env["R2_ACCESS_KEY_ID"];
+  const secretAccessKey = process.env["R2_SECRET_ACCESS_KEY"];
+  const bucket = process.env["R2_BUCKET"];
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+    throw new Error("R2 upload requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.");
+  }
+  const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+  const client = new S3Client({
+    region: "auto",
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+  await client.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: objectKey,
+    Body: await readFile(path),
+    ContentType: "application/vnd.apache.parquet",
+    Metadata: { schemaVersion: "1" },
+  }));
+}
+
 async function main() {
-  const { artistKeys: requestedArtistKeys, all, offset, limit, snapshotDate, write } = parseArgs();
+  const {
+    artistKeys: requestedArtistKeys, all, offset, limit, snapshotDate, write,
+    storage, archiveDir, uploadR2,
+  } = parseArgs();
+  assertStorageMode(storage);
   const databaseUrl = process.env["DATABASE_URL"];
   if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
   if (!all && !requestedArtistKeys.length) throw new Error("Provide --artistKey/--artistKeys or --all=true.");
@@ -296,6 +522,8 @@ async function main() {
     }
     const failures: string[] = [];
     let savedItems = 0;
+    const archiveRows: ArchiveRow[] = [];
+    const summaries: ArtistSummary[] = [];
     for (const [index, artistKey] of artistKeys.entries()) {
       const artist = resolved.get(artistKey);
       if (!artist) {
@@ -311,7 +539,21 @@ async function main() {
         const tracks = parseMonitoringCatalog(tracksHtml, "track");
         const albums = parseMonitoringCatalog(albumsHtml, "album");
         if (!tracks.length && !albums.length) throw new Error("empty_catalog");
-        if (write) await saveItems(pool, artist.artist_key, snapshotDate, [...tracks, ...albums]);
+        const items = [...tracks, ...albums];
+        const fetchedAt = new Date().toISOString();
+        if (write && (storage === "postgres" || storage === "hybrid")) {
+          await saveItems(pool, artist.artist_key, snapshotDate, items);
+        }
+        if (storage === "parquet" || storage === "hybrid") {
+          archiveRows.push(...items.map(item => ({
+            ...item,
+            artistKey: artist.artist_key,
+            artistName: artist.artist_name,
+            snapshotDate,
+            fetchedAt,
+          })));
+          summaries.push(summarizeArtist(artist.artist_key, snapshotDate, items));
+        }
         savedItems += tracks.length + albums.length;
         console.log(`${write ? "SAVED" : "PREVIEW"},${index + 1}/${artistKeys.length},${artist.artist_key},date=${snapshotDate},tracks=${tracks.length},albums=${albums.length}`);
       } catch (error) {
@@ -319,6 +561,43 @@ async function main() {
         failures.push(`${artistKey}:${reason}`);
         console.error(`FAILED,${index + 1}/${artistKeys.length},${artistKey},reason=${reason}`);
       }
+    }
+    if (write && (storage === "parquet" || storage === "hybrid")) {
+      if (!archiveRows.length) throw new Error("Refusing to create an empty Parquet archive.");
+      const archive = await writeParquetArchive(archiveDir, snapshotDate, archiveRows);
+      if (uploadR2) await uploadArchiveToR2(archive.path, archive.objectKey);
+      await saveSummaries(pool, summaries);
+      const manifest: ArchiveManifest = {
+        schemaVersion: 1,
+        snapshotDate,
+        generatedAt: new Date().toISOString(),
+        requestedArtists: artistKeys.length,
+        resolvedArtists: resolved.size,
+        archivedArtists: summaries.length,
+        rowCount: archiveRows.length,
+        trackCount: archiveRows.filter(row => row.itemType === "track").length,
+        albumCount: archiveRows.filter(row => row.itemType === "album").length,
+        parquetBytes: archive.bytes,
+        sha256: archive.sha256,
+        objectKey: archive.objectKey,
+        unavailableArtists: failures.map(value => value.split(":")[0]),
+      };
+      await writeFile(`${archive.path}.manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
+      await pool.query(
+        `INSERT INTO monitoring_stream_archive_manifests (
+           snapshot_date, object_key, schema_version, row_count, artist_count,
+           parquet_bytes, sha256, storage_provider, created_at
+         ) VALUES ($1::date, $2, 1, $3, $4, $5, $6, $7, now())
+         ON CONFLICT (snapshot_date, object_key) DO UPDATE SET
+           row_count=excluded.row_count,
+           artist_count=excluded.artist_count,
+           parquet_bytes=excluded.parquet_bytes,
+           sha256=excluded.sha256,
+           storage_provider=excluded.storage_provider,
+           created_at=excluded.created_at`,
+        [snapshotDate, archive.objectKey, archiveRows.length, summaries.length, archive.bytes, archive.sha256, uploadR2 ? "r2" : "local"],
+      );
+      console.log(`ARCHIVE,path=${archive.path},objectKey=${archive.objectKey},bytes=${archive.bytes},sha256=${archive.sha256},uploaded=${uploadR2}`);
     }
     console.log(`SUMMARY,date=${snapshotDate},requested=${artistKeys.length},resolved=${artists.rows.length},items=${savedItems},failures=${failures.length}`);
     if (failures.length) console.log(`RETRY_KEYS=${failures.map(value => value.split(":")[0]).join(",")}`);

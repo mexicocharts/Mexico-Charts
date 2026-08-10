@@ -11,6 +11,7 @@
     "youtube-channel-daily-snapshots": "tsx ./src/youtube-channel-daily-snapshots.ts --write=true",
     "spotify-kworb-daily-snapshots": "tsx ./src/spotify-kworb-daily-snapshots.ts --write=true",
     "monitoring-stream-archive": "tsx ./src/monitoring-stream-archive.ts",
+    "test:monitoring-stream-archive": "tsx --test ./src/monitoring-stream-archive.test.ts",
     "youtube-channel-candidates": "tsx ./src/youtube-channel-candidates.ts",
     "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
     "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",
@@ -32,5 +33,9 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "tsx": "catalog:"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1106.0",
+    "parquetjs-lite": "^0.8.7"
   }
 }
