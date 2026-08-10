@@ -30,11 +30,25 @@ const Metodologia = lazy(() => import("@/pages/Metodologia"));
 const FuentesDatos = lazy(() => import("@/pages/FuentesDatos"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const Terminos = lazy(() => import("@/pages/Terminos"));
+// Vite serves these source modules directly in development. The ignored
+// imports prevent the private preview code from being emitted in production.
+const monitoringPreviewPage = "./pages/Monitoreo.tsx";
+const monitoringSuccessPage = "./pages/MonitoringSuccess.tsx";
+const monitoringDashboardPage = "./pages/MonitoringDashboard.tsx";
+const Monitoreo = lazy(() => import(/* @vite-ignore */ monitoringPreviewPage));
+const MonitoringSuccess = lazy(() => import(/* @vite-ignore */ monitoringSuccessPage));
+const MonitoringDashboard = lazy(() => import(/* @vite-ignore */ monitoringDashboardPage));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
 const DiscoveryReview = lazy(() => import("@/pages/DiscoveryReview"));
 const Cuenta = lazy(() => import("@/pages/Cuenta"));
+
+// Fail closed: monitoring previews can only be enabled in a development build.
+// They are intentionally absent from production routing, navigation, sitemaps,
+// and prerendering until the product is explicitly approved for launch.
+const MONITORING_PREVIEW_ENABLED =
+  import.meta.env.DEV && import.meta.env.VITE_ENABLE_MONITORING_PREVIEW === "true";
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -140,6 +154,15 @@ function Router() {
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route path="/admin/discovery-review" component={DiscoveryReview} />
+          {MONITORING_PREVIEW_ENABLED && (
+            <Route path="/internal/monitoring" component={Monitoreo} />
+          )}
+          {MONITORING_PREVIEW_ENABLED && (
+            <Route path="/internal/monitoring/dashboard" component={MonitoringDashboard} />
+          )}
+          {MONITORING_PREVIEW_ENABLED && (
+            <Route path="/internal/monitoring/success" component={MonitoringSuccess} />
+          )}
           <Route path="/admin" component={AdminHub} />
           <Route component={NotFound} />
         </Switch>
