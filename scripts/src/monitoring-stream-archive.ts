@@ -106,6 +106,7 @@ function parseArgs() {
     archiveDir: args.get("archiveDir") ?? "/tmp/mexico-charts-stream-archive",
     uploadR2: args.get("uploadR2") === "true",
     eligibility: (args.get("eligibility") ?? (args.get("all") === "true" ? "complete" : "mapped")) as EligibilityMode,
+    auditEligibility: args.get("auditEligibility") === "true",
   };
 }
 
@@ -490,7 +491,7 @@ async function uploadArchiveToR2(path: string, objectKey: string) {
 async function main() {
   const {
     artistKeys: requestedArtistKeys, all, offset, limit, snapshotDate, write,
-    storage, archiveDir, uploadR2, eligibility,
+    storage, archiveDir, uploadR2, eligibility, auditEligibility,
   } = parseArgs();
   assertStorageMode(storage);
   assertEligibilityMode(eligibility);
@@ -546,6 +547,12 @@ async function main() {
         .map(candidate => requestedByCandidate.get(candidate))
         .find((candidate): candidate is string => Boolean(candidate));
       if (activeKey && !resolved.has(activeKey)) resolved.set(activeKey, artist);
+    }
+    if (auditEligibility) {
+      const ineligible = artistKeys.filter(artistKey => !resolved.has(artistKey));
+      console.log(`ELIGIBILITY,mode=${eligibility},requested=${artistKeys.length},eligible=${resolved.size},ineligible=${ineligible.length}`);
+      if (ineligible.length) console.log(`INELIGIBLE_KEYS=${ineligible.join(",")}`);
+      return;
     }
     const failures: string[] = [];
     let savedItems = 0;
