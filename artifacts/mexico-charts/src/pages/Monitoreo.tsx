@@ -137,17 +137,17 @@ export default function Monitoreo() {
   }
 
   const features = [
-    { icon: BarChart3, title: pick("Métricas actuales", "Current metrics"), body: pick("Audiencia disponible de Spotify, YouTube y plataformas sociales en un solo resumen.", "Available Spotify, YouTube and social-platform audiences in one summary.") },
-    { icon: TrendingUp, title: pick("Cambios por periodo", "Period changes"), body: pick("Crecimiento de 7, 30 y 90 días, además del historial disponible del artista.", "7-, 30- and 90-day growth plus the artist's available history.") },
-    { icon: MapPin, title: pick("Señales de México", "Mexico signals"), body: pick("Ciudades y datos de audiencia mexicana cuando la fuente los ofrece.", "Mexican audience and city information when available from the source.") },
-    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Consulta el monitor cada día y conserva el historial acumulado.", "Open the monitor every day and keep its accumulated history.") },
+    { icon: BarChart3, title: pick("Métricas actuales", "Current metrics"), body: pick("Audiencia de Spotify, YouTube y plataformas sociales en un solo resumen", "Available Spotify, YouTube and social-platform audiences in one summary") },
+    { icon: TrendingUp, title: pick("Evolución por periodo", "Period changes"), body: pick("Crecimiento de 7, 30 y 90 días, además del historial disponible del artista", "7-, 30- and 90-day growth plus the artist's available history") },
+    { icon: MapPin, title: pick("Audiencia en México", "Mexico audience"), body: pick("Ciudades y datos de audiencia mexicana cuando la fuente los ofrece", "Mexican audience and city information when available from the source") },
+    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Consulta el monitor cada día y conserva el historial acumulado", "Open the monitor every day and keep its accumulated history") },
   ];
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#070707] text-white">
       <PageSEO
         title={pick("Monitoreo de artistas — Mexico Charts", "Artist monitoring — Mexico Charts")}
-        description={pick("Monitorea diariamente el streaming, el catálogo y la audiencia de un artista por $6 USD al mes.", "Monitor one artist's streaming, catalog and audience every day for $6 USD per month.")}
+        description={pick("Sigue diariamente los streams, la discografía y la audiencia de un artista por $6 USD al mes.", "Monitor one artist's streaming, catalog and audience every day for $6 USD per month.")}
         path="/monitoreo"
         jsonLd={{
           "@context": "https://schema.org",
@@ -173,10 +173,10 @@ export default function Monitoreo() {
               <BellRing className="h-3.5 w-3.5" /> {pick("Mexico Charts Monitor", "Mexico Charts Monitor")}
             </span>
             <h1 className="mx-auto mt-7 max-w-4xl text-balance font-sans text-[clamp(2.8rem,6.5vw,6rem)] font-semibold leading-[0.98] tracking-[-0.055em]">
-              {pick("Entiende el crecimiento de tu artista.", "Understand your artist's growth.")}
+              {pick("Sigue el crecimiento de tu artista", "Understand your artist's growth")}
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-white/50 sm:text-xl sm:leading-8">
-              {pick("Streaming diario, discografía, audiencia e historial permanente reunidos en un solo panel.", "Daily streaming, discography, audience and permanent history brought together in one dashboard.")}
+              {pick("Streams diarios, discografía, audiencia e historial permanente reunidos en un solo panel", "Daily streaming, discography, audience and permanent history brought together in one dashboard")}
             </p>
             <a href="#suscripcion" className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#39FF14] px-7 text-[10px] font-black uppercase tracking-[0.16em] text-black">
               {pick("Elegir artista", "Choose an artist")} <ArrowRight className="h-4 w-4" />
@@ -185,7 +185,7 @@ export default function Monitoreo() {
             <div className="mx-auto mt-8 flex w-fit flex-wrap items-center justify-center gap-x-5 gap-y-2 rounded-full border border-white/[0.07] bg-black/25 px-5 py-3 text-[8px] font-black uppercase tracking-[0.15em] text-white/35 backdrop-blur-sm">
               <span className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-[#39FF14] shadow-[0_0_10px_#39FF14]" />{availabilityLoading ? pick("Verificando catálogo", "Checking catalog") : `${readyArtistCount.toLocaleString(language === "es" ? "es-MX" : "en-US")} ${pick("artistas disponibles", "artists available")}`}</span>
               <span className="hidden h-3 w-px bg-white/10 sm:block" />
-              <span>{pick("Solo cobertura completa", "Complete coverage only")}</span>
+              <span>{pick("Solo artistas con cobertura completa", "Complete coverage only")}</span>
             </div>
           </div>
         </section>
@@ -193,7 +193,7 @@ export default function Monitoreo() {
         <section className="px-6 py-16 sm:py-20 lg:px-10">
           <div className="mx-auto mb-12 max-w-2xl text-center">
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#39FF14]">{pick("Todo en un lugar", "Everything in one place")}</p>
-            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{pick("Datos que se convierten en historia.", "Data that becomes history.")}</h2>
+            <h2 className="mt-3 text-balance text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">{pick("Cada día suma a su historia", "Data that becomes history")}</h2>
           </div>
           <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map(({ icon: Icon, title }, index) => (
@@ -207,7 +207,7 @@ export default function Monitoreo() {
                 </div>
                 <h2 className="mt-8 text-sm font-black uppercase tracking-[0.08em]">{title}</h2>
                 <p className="mt-3 text-xs font-medium leading-5 text-white/35">
-                  {[pick("Las cifras importantes, juntas.", "The important figures, together."), pick("Mira qué cambió y cuándo.", "See what changed and when."), pick("Contexto de audiencia en México.", "Mexican audience context."), pick("Listo para guardar y compartir.", "Ready to save and share.")][index]}
+                  {[pick("Las métricas clave en un solo lugar", "The important figures, together"), pick("Descubre qué cambió y cuándo", "See what changed and when"), pick("Conoce dónde está su audiencia mexicana", "Mexican audience context"), pick("Consulta, guarda y comparte", "Ready to save and share")][index]}
                 </p>
               </article>
             ))}
@@ -218,8 +218,8 @@ export default function Monitoreo() {
           <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
             <div>
               <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#39FF14]"><Sparkles className="h-3.5 w-3.5" /> {pick("Más que una cifra", "More than a number")}</span>
-              <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente. Monitor conserva la historia.", "The profile shows today. Monitor keeps the history.")}</h2>
-              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su movimiento, consultar la discografía completa y regresar a cualquier día guardado.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
+              <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente; el Monitor conserva el historial", "The profile shows today; Monitor keeps the history")}</h2>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su evolución, consultar la discografía completa y volver a cualquier fecha guardada.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
             </div>
 
             <div className="grid overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] sm:grid-cols-2">
@@ -227,7 +227,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">{pick("Perfil gratuito", "Free profile")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La foto de hoy", "Today's snapshot")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/40">
-                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Resumen general del artista", "General artist overview"), pick("Contexto visible disponible", "Available visible context")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
+                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Resumen general del artista", "General artist overview"), pick("Datos públicos disponibles", "Available visible context")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
                 </ul>
               </div>
               <div className="relative overflow-hidden bg-[linear-gradient(145deg,rgba(57,255,20,0.10),rgba(57,255,20,0.015)_62%)] p-6 sm:p-8">
@@ -235,7 +235,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Streams diarios por canción y álbum", "Daily streams by song and album"), pick("Historial permanente por fecha", "Permanent history by date"), pick("Cambios, tendencias y comparaciones", "Changes, trends and comparisons"), pick("Alertas y resumen descargable", "Alerts and downloadable summary")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Streams diarios por canción y álbum", "Daily streams by song and album"), pick("Historial permanente por fecha", "Permanent history by date"), pick("Cambios, tendencias y comparaciones", "Changes, trends and comparisons"), pick("Alertas y reportes descargables", "Alerts and downloadable summary")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
@@ -244,9 +244,9 @@ export default function Monitoreo() {
 
         <section id="suscripcion" className="scroll-mt-24 bg-[#f2f1ed] px-4 py-16 text-[#111] sm:px-6 sm:py-20 lg:px-10 lg:py-24">
           <div className="mx-auto max-w-7xl text-center">
-            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#198d0b]">{pick("Un plan. Sin complicaciones.", "One plan. No complications.")}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#198d0b]">{pick("Un solo plan, sin complicaciones", "One plan, no complications")}</p>
             <h2 className="mt-3 font-sans text-4xl font-semibold tracking-[-0.045em] sm:text-5xl">{pick("Empieza a monitorear", "Start monitoring")}</h2>
-            <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-black/50">{pick("Elige un artista y consulta su panel diario; el historial crece con cada nueva captura.", "Choose an artist and open their daily dashboard; history grows with every new snapshot.")}</p>
+            <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-black/50">{pick("Elige un artista y consulta su panel todos los días. Su historial crecerá con cada actualización.", "Choose an artist and open their daily dashboard; history grows with every new snapshot.")}</p>
           </div>
 
           <div className="mx-auto mt-10 grid max-w-6xl overflow-hidden rounded-2xl bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] lg:grid-cols-[minmax(0,1fr)_430px]">
@@ -265,7 +265,7 @@ export default function Monitoreo() {
                   { label: pick("Oyentes mensuales", "Monthly listeners"), value: previewArtist?.spotifyListenersFmt || "—", icon: BarChart3 },
                   { label: pick("Suscriptores YouTube", "YouTube subscribers"), value: previewArtist?.youtubeSubscribersFmt || "—", icon: BellRing },
                   { label: pick("Crecimiento", "Growth"), value: "7D · 30D · 90D", icon: TrendingUp },
-                  { label: pick("Audiencia México", "Mexico audience"), value: pick("Ciudades + señales", "Cities + signals"), icon: MapPin },
+                  { label: pick("Audiencia en México", "Mexico audience"), value: pick("Ciudades y audiencia", "Cities + signals"), icon: MapPin },
                 ].map(({ label, value, icon: MetricIcon }) => (
                   <div key={label} className="rounded-lg border border-white/[0.08] bg-white/[0.035] p-4">
                     <MetricIcon className="h-4 w-4 text-[#39FF14]" />
@@ -291,7 +291,7 @@ export default function Monitoreo() {
                 {[
                   { icon: Disc3, label: pick("Canciones", "Songs"), value: pick("Streams por día", "Streams by day") },
                   { icon: LibraryBig, label: pick("Álbumes", "Albums"), value: pick("Historial completo", "Complete history") },
-                  { icon: CalendarDays, label: pick("Archivo", "Archive"), value: pick("Día · Mes · Año", "Day · Month · Year") },
+                  { icon: CalendarDays, label: pick("Historial", "Archive"), value: pick("Día · Mes · Año", "Day · Month · Year") },
                 ].map(({ icon: PreviewIcon, label, value }) => (
                   <div key={label} className="rounded-lg border border-white/[0.08] bg-black/30 p-3.5">
                     <PreviewIcon className="h-3.5 w-3.5 text-[#39FF14]" />
@@ -320,7 +320,7 @@ export default function Monitoreo() {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#111] text-[#39FF14]"><FileDown className="h-4 w-4" /></div>
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-[0.12em]">{pick("Tu historial no desaparece", "Your history does not disappear")}</p>
-                  <p className="mt-1 text-[9px] font-semibold leading-4 text-black/40">{pick("Cada captura amplía tu archivo privado.", "Every snapshot expands your private archive.")}</p>
+                  <p className="mt-1 text-[9px] font-semibold leading-4 text-black/40">{pick("Cada actualización amplía tu historial privado", "Every snapshot expands your private archive")}</p>
                 </div>
               </div>
 
@@ -342,7 +342,7 @@ export default function Monitoreo() {
                     </button>
                   );
                 }) : query.trim() ? (
-                  <div className="px-3 py-3 text-xs font-bold text-black/35">{pick("Este artista no está disponible para monitoreo completo.", "This artist is not available for complete monitoring.")}</div>
+                  <div className="px-3 py-3 text-xs font-bold text-black/35">{pick("Este artista aún no cuenta con la cobertura necesaria para el Monitor.", "This artist is not available for complete monitoring.")}</div>
                 ) : null}
               </div>
 
