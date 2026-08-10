@@ -39,6 +39,12 @@ export interface MonitoringReadyArtist {
   readiness: MonitoringReadinessResult;
 }
 
+const READINESS_CACHE_MS = 15 * 60 * 1000;
+let completeCatalogCache: {
+  expiresAt: number;
+  value: Awaited<ReturnType<typeof runMonitoringReadinessAudit>>;
+} | null = null;
+
 function numeric(value: string | number | null): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -72,7 +78,7 @@ function evaluateRow(row: ReadinessRow): MonitoringReadinessResult {
   });
 }
 
-export async function auditMonitoringReadiness(options: {
+async function runMonitoringReadinessAudit(options: {
   artistKeys?: string[];
   readyOnly?: boolean;
 } = {}): Promise<{
@@ -146,6 +152,21 @@ export async function auditMonitoringReadiness(options: {
     ready,
     unavailable: options.readyOnly ? [] : evaluated.filter(artist => !artist.readiness.ready),
   };
+}
+
+export async function auditMonitoringReadiness(options: {
+  artistKeys?: string[];
+  readyOnly?: boolean;
+} = {}): ReturnType<typeof runMonitoringReadinessAudit> {
+  const cacheable = options.readyOnly === true && !(options.artistKeys?.length);
+  if (cacheable && completeCatalogCache && completeCatalogCache.expiresAt > Date.now()) {
+    return completeCatalogCache.value;
+  }
+  const value = await runMonitoringReadinessAudit(options);
+  if (cacheable) {
+    completeCatalogCache = { expiresAt: Date.now() + READINESS_CACHE_MS, value };
+  }
+  return value;
 }
 
 export async function getMonitoringReadyArtist(artistKey: string): Promise<MonitoringReadyArtist | null> {
