@@ -8,10 +8,7 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 type AccountPayload = {
-  plan: string;
-  subscriptionStatus: string | null;
   savedArtists: Array<{ artistKey: string; artistName: string; alertsEnabled: boolean }>;
-  monitoringSubscriptions: Array<{ stripeSubscriptionId: string; artistKey: string; artistName: string; status: string }>;
 };
 
 export default function Cuenta() {
@@ -59,10 +56,9 @@ export default function Cuenta() {
               <button onClick={() => void auth.signOut()} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/40 hover:text-white"><LogOut className="h-4 w-4" />{pick("Cerrar sesión", "Sign out")}</button>
             </header>
 
-            <section className="mt-10 grid gap-4 sm:grid-cols-3">
+            <section className="mt-10 grid gap-4 sm:grid-cols-2">
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bookmark className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Artistas guardados", "Saved artists")}</p></article>
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bell className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.filter(a => a.alertsEnabled).length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Alertas activas", "Active alerts")}</p></article>
-              <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Sparkles className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.monitoringSubscriptions.filter(item => item.status === "active" || item.status === "trialing").length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Monitoreos activos", "Active monitoring")}</p></article>
             </section>
 
             <section className="mt-12">

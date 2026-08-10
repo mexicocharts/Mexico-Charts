@@ -30,9 +30,6 @@ const Metodologia = lazy(() => import("@/pages/Metodologia"));
 const FuentesDatos = lazy(() => import("@/pages/FuentesDatos"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const Terminos = lazy(() => import("@/pages/Terminos"));
-const Monitoreo = lazy(() => import("@/pages/Monitoreo"));
-const MonitoringSuccess = lazy(() => import("@/pages/MonitoringSuccess"));
-const MonitoringDashboard = lazy(() => import("@/pages/MonitoringDashboard"));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
@@ -138,14 +135,11 @@ function Router() {
           <Route path="/fuentes-de-datos" component={FuentesDatos} />
           <Route path="/privacidad" component={Privacidad} />
           <Route path="/terminos" component={Terminos} />
-          <Route path="/monitoreo/exito" component={MonitoringSuccess} />
-          <Route path="/monitoreo" component={Monitoreo} />
           <Route path="/cuenta" component={Cuenta} />
           <Route path="/admin/social-templates" component={SocialTemplates} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route path="/admin/discovery-review" component={DiscoveryReview} />
-          <Route path="/admin/monitoring-demo" component={MonitoringDashboard} />
           <Route path="/admin" component={AdminHub} />
           <Route component={NotFound} />
         </Switch>

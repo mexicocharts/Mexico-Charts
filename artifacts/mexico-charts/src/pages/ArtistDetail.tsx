@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink, BellRing } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
@@ -1037,14 +1037,6 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             <p className="max-w-xl text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
               {wikiBio?.bio ?? artist.bio}
             </p>
-            <Link
-              href={`/monitoreo?artist=${encodeURIComponent(canonicalArtistKey || slugAsKey)}`}
-              className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-3 text-[10px] font-black uppercase tracking-[0.16em] text-black"
-              style={{ background: artist.accent, boxShadow: `0 12px 36px ${artist.accent}20` }}
-            >
-              <BellRing className="h-4 w-4" />
-              Monitorear por $6/mes
-            </Link>
             {wikiBio?.pageUrl && (
               <a
                 href={wikiBio.pageUrl}

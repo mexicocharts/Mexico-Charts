@@ -210,8 +210,8 @@ export default function FuentesDatos() {
       title: pick("Streaming de canciones y álbumes", "Song and album streaming"),
       body: pick("Seguimiento del catálogo completo, desde el total histórico hasta el movimiento diario.", "Complete catalog tracking, from lifetime totals to daily movement."),
       items: [pick("Streams acumulados y diarios", "Lifetime and daily streams"), pick("Canciones y álbumes", "Songs and albums"), pick("Orden por rendimiento", "Performance sorting"), pick("Archivo histórico continuo", "Continuous historical archive")],
-      href: "/monitoreo",
-      action: pick("Ver monitoreo", "View monitoring"),
+      href: null,
+      action: pick("Archivo en desarrollo", "Archive in development"),
       accent: "#8D7CFF",
     },
     {
