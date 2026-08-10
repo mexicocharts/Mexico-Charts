@@ -27,6 +27,7 @@ const SocialTemplates = lazy(() => import("@/pages/SocialTemplates"));
 const AcercaDe = lazy(() => import("@/pages/AcercaDe"));
 const Contacto = lazy(() => import("@/pages/Contacto"));
 const Metodologia = lazy(() => import("@/pages/Metodologia"));
+const FuentesDatos = lazy(() => import("@/pages/FuentesDatos"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const Terminos = lazy(() => import("@/pages/Terminos"));
 const Monitoreo = lazy(() => import("@/pages/Monitoreo"));
@@ -133,6 +134,7 @@ function Router() {
           <Route path="/acerca-de" component={AcercaDe} />
           <Route path="/contacto" component={Contacto} />
           <Route path="/metodologia" component={Metodologia} />
+          <Route path="/fuentes-de-datos" component={FuentesDatos} />
           <Route path="/privacidad" component={Privacidad} />
           <Route path="/terminos" component={Terminos} />
           <Route path="/monitoreo/exito" component={MonitoringSuccess} />

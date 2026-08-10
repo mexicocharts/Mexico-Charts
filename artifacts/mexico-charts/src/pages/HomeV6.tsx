@@ -1402,6 +1402,7 @@ export default function HomeV6() {
               { title:pick("Compañía", "Company"), links:[
                 { label:pick("Acerca de", "About"),   href:"/acerca-de" },
                 { label:pick("Metodología", "Methodology"), href:"/metodologia" },
+                { label:pick("Fuentes de datos", "Data sources"), href:"/fuentes-de-datos" },
                 { label:pick("Contacto", "Contact"),    href:"/contacto" },
                 { label:pick("Privacidad", "Privacy"),  href:"/privacidad" },
               ]},

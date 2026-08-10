@@ -15,6 +15,7 @@ const ARTISTAS_ITEMS = [
 
 const INDUSTRIA_ITEMS = [
   { es: "Industria", en: "Industry", href: "/industria", descriptionEs: "Mercado, reportes y contexto", descriptionEn: "Market, reports and context" },
+  { es: "Fuentes de datos", en: "Data sources", href: "/fuentes-de-datos", descriptionEs: "Métricas, plataformas y cobertura", descriptionEn: "Metrics, platforms and coverage" },
   { es: "Certificaciones", en: "Certifications", href: "/industry/certifications", descriptionEs: "Oro, Platino y Diamante", descriptionEn: "Gold, Platinum and Diamond" },
   { es: "Música Grabada", en: "Recorded Music", href: "/insights/mexico-top-10-ifpi-2026", descriptionEs: "IFPI y crecimiento global", descriptionEn: "IFPI and global growth" },
 ];
@@ -53,7 +54,7 @@ export default function SiteNav({ homeActive = false }: Props) {
     closeTimer.current = setTimeout(() => setDropOpen(null), 120);
   }
 
-  const industryActive = location.startsWith("/industria") || location.startsWith("/industry");
+  const industryActive = location.startsWith("/industria") || location.startsWith("/industry") || location === "/fuentes-de-datos";
   const isActive = (href: string) => {
     if (homeActive) return href === "/";
     if (href === "/") return location === "/";

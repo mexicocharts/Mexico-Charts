@@ -22,6 +22,7 @@ const STATIC_RESULTS = [
   { label: "Giras", href: "/touring", type: "Touring", detail: "Próximas fechas y perfiles" },
   { label: "Certificaciones", href: "/industry/certifications", type: "Industria", detail: "AMPROFON organizado por Mexico Charts" },
   { label: "Industria", href: "/industria", type: "Industria", detail: "Mercado, reportes y contexto" },
+  { label: "Fuentes de datos", href: "/fuentes-de-datos", type: "Confianza", detail: "Métricas, plataformas y cobertura" },
   { label: "Metodología", href: "/metodologia", type: "Confianza", detail: "Fuentes, límites y criterio editorial" },
   { label: "Contacto", href: "/contacto", type: "Sitio", detail: "Correcciones, alianzas y contacto" },
 ] as const;
@@ -152,6 +153,7 @@ const ENGLISH_SEARCH_TEXT: Record<string, string> = {
   "Giras": "Touring",
   "Certificaciones": "Certifications",
   "Industria": "Industry",
+  "Fuentes de datos": "Data sources",
   "Metodología": "Methodology",
   "Contacto": "Contact",
   "Ranking editorial de artistas": "Editorial artist ranking",
@@ -163,6 +165,7 @@ const ENGLISH_SEARCH_TEXT: Record<string, string> = {
   "Próximas fechas y perfiles": "Upcoming dates and profiles",
   "AMPROFON organizado por Mexico Charts": "AMPROFON organized by Mexico Charts",
   "Mercado, reportes y contexto": "Market, reports and context",
+  "Métricas, plataformas y cobertura": "Metrics, platforms and coverage",
   "Fuentes, límites y criterio editorial": "Sources, limitations and editorial criteria",
   "Correcciones, alianzas y contacto": "Corrections, partnerships and contact",
   "Artista": "Artist",
