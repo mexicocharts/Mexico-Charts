@@ -164,7 +164,7 @@ export default function FuentesDatos() {
       </div>
 
       <main>
-        <section className="relative overflow-hidden border-b border-white/[0.06] px-6 pb-20 pt-16 sm:pt-20 lg:px-10 lg:pb-28">
+        <section className="relative overflow-hidden border-b border-white/[0.06] px-6 pb-16 pt-12 sm:pt-16 lg:px-10 lg:pb-20">
           <div className="pointer-events-none absolute left-1/2 top-[-300px] h-[720px] w-[920px] -translate-x-1/2 rounded-full opacity-20 blur-[120px]" style={{ background: "radial-gradient(circle, rgba(57,255,20,0.35), transparent 68%)" }} />
           <div className="relative mx-auto max-w-[1280px]">
             <div className="flex flex-wrap gap-2">
@@ -180,8 +180,8 @@ export default function FuentesDatos() {
               ))}
             </div>
 
-            <p className="mt-14 text-[10px] font-black uppercase tracking-[0.32em]" style={{ color: G }}>Mexico Charts / Data</p>
-            <h1 className="mt-5 max-w-[930px] text-balance font-black uppercase leading-[0.82] tracking-[-0.065em]" style={{ fontSize: "clamp(1.85rem, 7.8vw, 8.5rem)", overflowWrap: "anywhere" }}>
+            <p className="mt-10 text-[10px] font-black uppercase tracking-[0.32em]" style={{ color: G }}>Mexico Charts / Data</p>
+            <h1 className="mt-5 max-w-[880px] text-balance font-black uppercase leading-[0.9] tracking-[-0.05em]" style={{ fontSize: "clamp(2.15rem, 5vw, 4.25rem)", overflowWrap: "anywhere" }}>
               {pick("Datos de artistas, con contexto", "Artist data, with context")}
             </h1>
             <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,720px)_1fr] lg:items-end">
@@ -214,12 +214,12 @@ export default function FuentesDatos() {
           </div>
         </section>
 
-        <section id="estadisticas" className="scroll-mt-24 px-6 py-20 lg:px-10 lg:py-28">
+        <section id="estadisticas" className="scroll-mt-24 px-6 py-16 lg:px-10 lg:py-20">
           <div className="mx-auto max-w-[1280px]">
             <div className="grid gap-7 lg:grid-cols-[1fr_520px] lg:items-end">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Estadísticas de artistas", "Artist statistics")}</p>
-                <h2 className="mt-5 max-w-3xl text-balance font-black uppercase leading-[0.9] tracking-[-0.05em]" style={{ fontSize: "clamp(1.75rem, 7vw, 3.75rem)", overflowWrap: "anywhere" }}>
+                <h2 className="mt-4 max-w-3xl text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>
                   {pick("Una lectura unificada entre plataformas", "One view across platforms")}
                 </h2>
               </div>
@@ -240,10 +240,10 @@ export default function FuentesDatos() {
           </div>
         </section>
 
-        <section id="proceso" className="scroll-mt-24 border-y border-white/[0.06] bg-white/[0.012] px-6 py-20 lg:px-10 lg:py-28">
+        <section id="proceso" className="scroll-mt-24 border-y border-white/[0.06] bg-white/[0.012] px-6 py-16 lg:px-10 lg:py-20">
           <div className="mx-auto max-w-[1280px]">
             <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Del origen al perfil", "From source to profile")}</p>
-            <h2 className="mt-5 max-w-4xl text-balance font-black uppercase leading-[0.9] tracking-[-0.05em]" style={{ fontSize: "clamp(1.75rem, 7vw, 3.75rem)", overflowWrap: "anywhere" }}>{pick("Cómo convertimos cifras aisladas en contexto", "How isolated figures become context")}</h2>
+            <h2 className="mt-4 max-w-4xl text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>{pick("Cómo convertimos cifras aisladas en contexto", "How isolated figures become context")}</h2>
             <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.07] lg:grid-cols-3">
               {process.map(({ icon: Icon, number, title, body }) => (
                 <article key={number} className="bg-[#080808] p-7 sm:p-9">
@@ -259,11 +259,11 @@ export default function FuentesDatos() {
           </div>
         </section>
 
-        <section id="cobertura" className="scroll-mt-24 px-6 py-20 lg:px-10 lg:py-28">
+        <section id="cobertura" className="scroll-mt-24 px-6 py-16 lg:px-10 lg:py-20">
           <div className="mx-auto grid max-w-[1280px] gap-12 lg:grid-cols-[1fr_1fr] lg:items-center">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Cobertura responsable", "Responsible coverage")}</p>
-              <h2 className="mt-5 text-balance font-black uppercase leading-[0.9] tracking-[-0.05em]" style={{ fontSize: "clamp(1.75rem, 7vw, 3.75rem)", overflowWrap: "anywhere" }}>{pick("Sin rellenar vacíos con ceros", "No filling gaps with zeroes")}</h2>
+              <h2 className="mt-4 text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>{pick("Sin rellenar vacíos con ceros", "No filling gaps with zeroes")}</h2>
               <p className="mt-7 max-w-xl text-base leading-8 text-white/48">{pick("No todos los artistas tienen las mismas fuentes conectadas ni el mismo historial. Mexico Charts distingue entre cero, dato no disponible y dato pendiente de actualización.", "Not every artist has the same connected sources or historical depth. Mexico Charts distinguishes between zero, unavailable data and data awaiting an update.")}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -283,11 +283,11 @@ export default function FuentesDatos() {
           </div>
         </section>
 
-        <section className="border-t border-white/[0.06] px-6 py-20 lg:px-10">
+        <section className="border-t border-white/[0.06] px-6 py-16 lg:px-10">
           <div className="mx-auto flex max-w-[1280px] flex-col gap-8 rounded-3xl p-8 sm:p-12 lg:flex-row lg:items-center lg:justify-between" style={{ background: "linear-gradient(125deg, rgba(57,255,20,0.11), rgba(255,255,255,0.025) 65%)", border: "1px solid rgba(57,255,20,0.18)" }}>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Más transparencia", "More transparency")}</p>
-              <h2 className="mt-4 max-w-2xl font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.5rem, 6vw, 3rem)", overflowWrap: "anywhere" }}>{pick("Consulta la metodología completa", "Read the full methodology")}</h2>
+              <h2 className="mt-4 max-w-2xl font-black uppercase leading-[0.98] tracking-[-0.035em]" style={{ fontSize: "clamp(1.5rem, 3.4vw, 2.25rem)", overflowWrap: "anywhere" }}>{pick("Consulta la metodología completa", "Read the full methodology")}</h2>
             </div>
             <Link href="/metodologia">
               <span className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-white/15 px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#39FF14]/50 hover:text-[#39FF14]">
