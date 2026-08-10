@@ -16,6 +16,15 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - Songstats extended artist data is synced with `POST /api/admin/songstats/sync-extended`. It stores a bounded historical window plus audience, country/source audience details, and catalog payloads. The safe defaults are 90 history days, Mexico (`MX`), Spotify audience details, and 100 catalog tracks.
 - Extended syncs are resumable: artists that already have every requested endpoint for the requested historical window are skipped. Inspect progress without contacting Songstats at `GET /api/admin/songstats/extended-coverage`.
 
+### Artist monitoring subscriptions
+
+- `/monitoreo` sells one monthly artist-monitoring report for `$6 USD` per artist. The report is delivered to the email used during checkout.
+- When `STRIPE_SECRET_KEY` is configured, `POST /api/monitoring/checkout` creates a real recurring Stripe Checkout subscription. Without the key, the page clearly switches to an email-request flow and does not imitate a successful payment.
+- Stripe Checkout and subscription metadata include `artist_key`, `artist_name`, and `product=artist_monitoring`. Use those fields in Stripe when reconciling subscribers and preparing each monthly report.
+- Version 1 is intentionally a curated email-report service. It does not promise a customer dashboard, real-time alerts, or unrestricted access to raw provider data.
+- Cancellation requests are handled through the current Mexico Charts contact email before the next renewal. Keep the public terms and fulfillment process aligned if cancellation or delivery becomes automated later.
+- Never expose the Stripe secret, provider credentials, raw provider responses, or internal admin endpoints to the browser.
+
 ## Required Environment
 
 - `DATABASE_URL` — PostgreSQL connection string.
@@ -35,6 +44,8 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `SONGSTATS_EXTENDED_SYNC_CONCURRENCY` — concurrent extended artist workers, default `2` and hard-capped at `5`.
 - `SONGSTATS_SNAPSHOT_AUTOMATION` — optional; must be exactly `true` to enable daily Songstats snapshots.
 - `SONGSTATS_SNAPSHOT_HOUR_UTC` — optional UTC hour for the daily Songstats snapshot, default `11`.
+- `STRIPE_SECRET_KEY` — server-only Stripe secret used to create recurring artist-monitoring Checkout sessions. Never expose this as a `VITE_` variable.
+- `PUBLIC_SITE_URL` — public HTTPS origin used by Stripe success and cancellation redirects; defaults to `https://mexicochart.com`.
 
 ## Stack
 

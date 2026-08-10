@@ -15,6 +15,7 @@ import youtubeRouter from "./youtube";
 import newsletterRouter from "./newsletter";
 import artistDiscoveryRouter from "./artist-discovery";
 import songstatsRouter from "./songstats";
+import monitoringRouter from "./monitoring";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(youtubeRouter);
 router.use(newsletterRouter);
 router.use(artistDiscoveryRouter);
 router.use(songstatsRouter);
+router.use(monitoringRouter);
 
 export default router;

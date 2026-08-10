@@ -16,7 +16,7 @@ export default function Privacidad() {
     { title: pick("Cookies y analítica", "Cookies and analytics"), body: pick("El sitio utiliza Google Analytics para medir tráfico y navegación de forma agregada. Google puede emplear cookies o tecnologías similares de acuerdo con sus propias políticas.", "The site uses Google Analytics to measure traffic and navigation in aggregate. Google may use cookies or similar technologies under its own policies."), icon: Cookie },
     { title: pick("Servicios de terceros", "Third-party services"), body: pick("Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.", "Mexico Charts may link to or integrate content from external platforms such as Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster and others. Each external platform has its own privacy policies."), icon: ExternalLink },
     { title: pick("Datos personales", "Personal data"), body: pick("Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar la consulta.", "Mexico Charts does not sell users' personal information. If someone contacts us by email or social media, the information shared is used only to respond to or manage the inquiry."), icon: UserRound },
-    { title: pick("Publicidad", "Advertising"), body: pick("En el futuro, Mexico Charts podría utilizar publicidad, patrocinios o herramientas de monetización. Si se implementan, esta página deberá actualizarse.", "In the future, Mexico Charts may use advertising, sponsorships or monetization tools. If implemented, this page will be updated."), icon: Megaphone },
+    { title: pick("Pagos y suscripciones", "Payments and subscriptions"), body: pick("Cuando una persona contrata el monitoreo de un artista, el proveedor de pagos procesa los datos de facturación y comparte con Mexico Charts la información necesaria para identificar la suscripción, el email de entrega y el artista seleccionado. Mexico Charts no almacena números completos de tarjeta.", "When someone purchases artist monitoring, the payment provider processes billing details and shares the information Mexico Charts needs to identify the subscription, delivery email and selected artist. Mexico Charts does not store complete card numbers."), icon: Megaphone },
     { title: pick("Cambios", "Changes"), body: pick("Esta política puede actualizarse conforme el sitio evolucione.", "This policy may be updated as the site evolves."), icon: MousePointer2 },
   ];
   const privacyJsonLd = {
@@ -120,7 +120,7 @@ export default function Privacidad() {
         </section>
 
         <p className="mt-8 max-w-3xl text-xs font-medium leading-6 text-zinc-700">
-          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 8 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 8, 2026.")}
+          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 9 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 9, 2026.")}
         </p>
       </div>
 

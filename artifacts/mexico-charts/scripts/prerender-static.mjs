@@ -316,6 +316,32 @@ const routes = [
       ["/contacto", "Contacto"],
     ],
   },
+  {
+    path: "/terminos",
+    title: "Términos del servicio — Mexico Charts",
+    description: "Términos aplicables al monitoreo mensual de artistas de Mexico Charts.",
+    eyebrow: "Mexico Charts",
+    heading: "Términos del servicio",
+    body: "Condiciones de precio, renovación, entrega y uso del monitoreo mensual de artistas.",
+    links: [
+      ["/monitoreo", "Monitoreo"],
+      ["/privacidad", "Privacidad"],
+      ["/contacto", "Contacto"],
+    ],
+  },
+  {
+    path: "/monitoreo",
+    title: "Monitoreo de artistas — Mexico Charts",
+    description: "Monitorea el crecimiento y la audiencia de un artista por $6 USD al mes con reportes curados de Mexico Charts.",
+    eyebrow: "Mexico Charts",
+    heading: "Sigue su crecimiento",
+    body: "Selecciona un artista del catálogo activo y recibe un reporte mensual de audiencia, crecimiento e historial disponible.",
+    links: [
+      ["/artists", "Artistas"],
+      ["/terminos", "Términos"],
+      ["/privacidad", "Privacidad"],
+    ],
+  },
 ];
 
 routes.push(
