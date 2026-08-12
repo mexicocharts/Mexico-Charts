@@ -39,10 +39,10 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `VITE_SOCIAL_TEMPLATES_ACCESS_CODE` — private access code for `/social-templates`.
 - `SONGSTATS_API_KEY` — server-only Songstats Enterprise API key. Never expose this as a `VITE_` variable.
 - `SONGSTATS_ADMIN_KEY` — optional admin key for Songstats routes; falls back to the existing Spotify or YouTube admin key.
-- `SONGSTATS_SYNC_MAX_ARTISTS` — maximum unique artists one sync can request; keep at `25` for the free test key and raise deliberately for production.
+- `SONGSTATS_SYNC_MAX_ARTISTS` — maximum artists one sync can request; production defaults to the contract ceiling of `529` and the billing guard rejects any 530th unique artist.
 - `SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS` — maximum artists accepted by one extended-data request, default `5` and hard-capped at `25`.
 - `SONGSTATS_EXTENDED_SYNC_CONCURRENCY` — concurrent extended artist workers, default `2` and hard-capped at `5`.
-- `SONGSTATS_SNAPSHOT_AUTOMATION` — optional; must be exactly `true` to enable daily Songstats snapshots.
+- `SONGSTATS_SNAPSHOT_AUTOMATION` — daily Songstats snapshots are enabled unless this is explicitly set to `false`.
 - `SONGSTATS_SNAPSHOT_HOUR_UTC` — optional UTC hour for the daily Songstats snapshot, default `11`.
 - `STRIPE_SECRET_KEY` — server-only Stripe secret used to create recurring artist-monitoring Checkout sessions. Never expose this as a `VITE_` variable.
 - `PUBLIC_SITE_URL` — public HTTPS origin used by Stripe success and cancellation redirects; defaults to `https://mexicochart.com`.

@@ -100,13 +100,13 @@ function requireAdmin(req: Request, res: Response): boolean {
 }
 
 function configuredSyncLimit(): number {
-  const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "25");
+  const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "529");
   return Number.isFinite(parsed)
     ? Math.max(
       1,
       Math.min(configuredSongstatsMonthlyArtistLimit(), Math.floor(parsed)),
     )
-    : 25;
+    : 529;
 }
 
 function requestedLimit(raw: unknown): number {
@@ -398,8 +398,8 @@ router.get("/admin/songstats/billing-usage", async (req, res) => {
 });
 
 // ADMIN: calls the Current Stats endpoint and saves one daily snapshot per
-// artist. The default and maximum are both 25 until SONGSTATS_SYNC_MAX_ARTISTS
-// is deliberately raised for the production key.
+// artist. The configured limit is always capped by the 529-artist contract
+// guard, while repeat requests for the same artist remain allowed.
 router.post("/admin/songstats/sync-current", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const limit = requestedLimit(req.query["limit"]);

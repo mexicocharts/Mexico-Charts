@@ -346,9 +346,6 @@ export async function syncSongstatsCurrentStats(options: {
     limit,
     artistKeys: options.artistKeys,
     excludeSnapshotDate: options.artistKeys?.length ? undefined : snapshotDate,
-    excludeBillingMonth: options.artistKeys?.length
-      ? undefined
-      : new Date().toISOString().slice(0, 7),
   });
   const results: SongstatsSyncResult[] = [];
 

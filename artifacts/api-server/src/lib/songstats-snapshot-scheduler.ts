@@ -11,14 +11,12 @@ const LOCK_KEY = 831_905_224;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 let schedulerStarted = false;
-let lastAttemptDate: string | null = null;
-
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 function automationEnabled(): boolean {
-  return process.env["SONGSTATS_SNAPSHOT_AUTOMATION"] === "true";
+  return process.env["SONGSTATS_SNAPSHOT_AUTOMATION"] !== "false";
 }
 
 function scheduledHourUtc(): number {
@@ -27,13 +25,13 @@ function scheduledHourUtc(): number {
 }
 
 function syncLimit(): number {
-  const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "25");
+  const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "529");
   return Number.isFinite(parsed)
     ? Math.max(
       1,
       Math.min(configuredSongstatsMonthlyArtistLimit(), Math.floor(parsed)),
     )
-    : 25;
+    : 529;
 }
 
 async function snapshotProgress(
@@ -109,11 +107,9 @@ export async function runScheduledSongstatsSnapshot(): Promise<
 }
 
 async function scheduledCheck(): Promise<void> {
-  const snapshotDate = todayIso();
-  if (lastAttemptDate === snapshotDate || new Date().getUTCHours() < scheduledHourUtc()) {
+  if (new Date().getUTCHours() < scheduledHourUtc()) {
     return;
   }
-  lastAttemptDate = snapshotDate;
 
   try {
     await runScheduledSongstatsSnapshot();
