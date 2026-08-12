@@ -1,27 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
-import { Link } from "wouter";
 import SiteNav from "@/components/SiteNav";
 import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
 
 const HERO_BG = "/touring-hero.png";
-
-const PROFILE_SLUGS: Record<string, string> = {
-  "junior-h":    "junior-h",
-  "luis-miguel": "luis-miguel",
-  "peso-pluma":  "peso-pluma",
-};
-
-const profileCards = [
-  { artist: "Peso Pluma",   subtitle: "Doble P · Éxodo · 2023–2026", gross: "$192.4M", tickets: "1.55M", shows: 124, slug: "peso-pluma", signal: "Arenas, festivales y salto global" },
-  { artist: "Junior H",    subtitle: "Sad Boyz · 2022–2025",         gross: "$90.4M",  tickets: "758K",  shows: 69,  slug: "junior-h", signal: "La base sierreña más fuerte en vivo" },
-  { artist: "Luis Miguel", subtitle: "Tour 2023–2024 · Siglo XXI",   gross: "$786.4M", tickets: "7.32M", shows: 796, slug: "luis-miguel", signal: "El estándar histórico del mercado latino" },
-];
-
-const PROFILE_CARD_NAMES = profileCards.map((p) => p.artist);
 
 
 function formatDate(iso: string): string {
@@ -64,7 +49,6 @@ function ShelfCard({
   deezerPhoto: string | null;
 }) {
   const photo = artist.events[0]?.img ?? deezerPhoto ?? null;
-  const profileSlug = PROFILE_SLUGS[artist.id];
   const nextEv = artist.events[0];
   const accent = idx === 0 ? "#39FF14" : idx === 1 ? "rgba(57,255,20,0.7)" : "rgba(57,255,20,0.45)";
 
@@ -114,9 +98,6 @@ function ShelfCard({
     </motion.div>
   );
 
-  if (profileSlug) {
-    return <Link href={`/touring/${profileSlug}`}>{inner}</Link>;
-  }
   if (nextEv?.url) {
     return <a href={nextEv.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>{inner}</a>;
   }
@@ -215,7 +196,7 @@ export default function TouringHub() {
   });
 
   const allImageNames = useMemo(() => {
-    const names = new Set<string>(PROFILE_CARD_NAMES);
+    const names = new Set<string>();
     sortedArtists.forEach((a) => names.add(a.name));
     return [...names];
   }, [sortedArtists]);
@@ -226,7 +207,7 @@ export default function TouringHub() {
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <PageSEO
         title="Touring — Artistas mexicanos en vivo"
-        description="Conciertos y giras de artistas mexicanos. Fechas, ciudades y recaudación de Peso Pluma, Junior H, Luis Miguel, Fuerza Regida, Grupo Frontera, Carin León y más."
+        description="Conciertos y giras de artistas mexicanos. Consulta fechas, ciudades, recintos y enlaces oficiales de boletos para próximos eventos."
         path="/touring"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -316,19 +297,6 @@ export default function TouringHub() {
           display: flex;
           flex-direction: column;
           gap: 1px;
-        }
-
-        .th-profile-card {
-          border: 1px solid #181818;
-          overflow: hidden;
-          cursor: pointer;
-          background: #090909;
-          position: relative;
-          transition: border-color 0.22s, box-shadow 0.22s;
-        }
-        .th-profile-card:hover {
-          border-color: rgba(57,255,20,0.45);
-          box-shadow: 0 0 0 0px transparent, 0 12px 48px rgba(0,0,0,0.85);
         }
 
         .th-insight-card {
@@ -574,8 +542,6 @@ export default function TouringHub() {
             letter-spacing: 0.12em !important;
           }
           .th-ticket-cta { display: none !important; }
-          .th-profile-grid { grid-template-columns: 1fr !important; }
-          .th-profile-image { height: 220px !important; }
           .th-newsletter {
             align-items: stretch !important;
             flex-direction: column;
@@ -633,11 +599,11 @@ export default function TouringHub() {
                 </div>
               </div>
             )}
-            <Link href="/touring/peso-pluma">
+            <a href="#agenda">
               <button className="th-outline-btn">
-                Explorar perfiles <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
+                Explorar fechas <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
               </button>
-            </Link>
+            </a>
           </motion.div>
         </div>
       </section>
@@ -689,7 +655,7 @@ export default function TouringHub() {
 
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
       {!isLoading && !isError && (
-        <section className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111" }}>
+        <section id="agenda" className="th-content-section" style={{ padding: "44px 32px", borderBottom: "1px solid #111", scrollMarginTop: 96 }}>
           <div className="th-section-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
             <div>
               <SectionEyebrow>Agenda</SectionEyebrow>
@@ -800,74 +766,6 @@ export default function TouringHub() {
           )}
         </section>
       )}
-
-      <hr className="th-divider" />
-
-      {/* ── Perfiles de touring ── */}
-      <section className="th-content-section" style={{ padding: "48px 32px 52px", borderBottom: "1px solid #111", background: "linear-gradient(180deg, #080808 0%, #060806 100%)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 24, marginBottom: 28 }}>
-          <div>
-            <SectionEyebrow>Perfiles de touring</SectionEyebrow>
-            <SectionHeading white="Historias" green="de taquilla" />
-            <p style={{ margin: "12px 0 0", maxWidth: 620, color: "rgba(255,255,255,0.52)", fontSize: 12, lineHeight: 1.7 }}>
-              Una lectura editorial de giras mexicanas con taquilla, boletos, mercados clave y contexto de carrera
-            </p>
-          </div>
-          <div style={{ border: "1px solid rgba(57,255,20,0.22)", background: "rgba(57,255,20,0.055)", color: "rgba(57,255,20,0.78)", padding: "10px 12px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", whiteSpace: "nowrap" }}>
-            Fuente: Pollstar Research
-          </div>
-        </div>
-        <div className="th-profile-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-          {profileCards.map((p, i) => {
-            const img = deezerImages[p.artist] ?? null;
-            return (
-              <motion.div key={p.artist}
-                className="th-profile-card"
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-32px" }}
-                transition={{ delay: i * 0.07, duration: 0.55, ease: [0.16,1,0.3,1] }}>
-                <div className="th-profile-image" style={{ position: "relative", height: 168, overflow: "hidden", background: "#0a0a0a" }}>
-                  {img ? (
-                    <img src={img} alt="" width={320} height={220} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center top", filter: "brightness(0.55) grayscale(0.15)", transition: "filter 0.4s" }} />
-                  ) : (
-                    <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0d0d0d 0%, #111 100%)" }} />
-                  )}
-                  <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 15%, rgba(9,9,9,0.97) 100%)" }} />
-                  <div style={{ position: "absolute", bottom: 14, left: 14, right: 14 }}>
-                    <div className="th-anton" style={{ color: "#fff", fontSize: 21, textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.01em" }}>{p.artist}</div>
-                    <div style={{ color: "rgba(57,255,20,0.75)", fontSize: 10, fontWeight: 600, marginTop: 4, letterSpacing: "0.04em" }}>{p.subtitle}</div>
-                  </div>
-                </div>
-                <div style={{ padding: "14px 14px 16px" }}>
-                  <div style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, lineHeight: 1.55, minHeight: 32, marginBottom: 12 }}>
-                    {p.signal}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", paddingBottom: 12, borderBottom: "1px solid #161616" }}>
-                    <div>
-                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.gross}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Taquilla</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.tickets}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Boletos</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ color: "#e8e8e8", fontWeight: 700, fontSize: 17, letterSpacing: "-0.01em" }}>{p.shows}</div>
-                      <div style={{ color: "#777", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", marginTop: 2 }}>Fechas</div>
-                    </div>
-                  </div>
-                  <Link href={`/touring/${p.slug}`}>
-                    <span aria-label={`Ver perfil completo de ${p.artist}`} style={{ marginTop: 12, color: "rgba(57,255,20,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.16em", display: "flex", alignItems: "center", gap: 4, width: "100%", cursor: "pointer", transition: "color 0.2s" }}>
-                      Ver perfil completo →
-                    </span>
-                  </Link>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      </section>
 
       {/* ── NEWSLETTER ── */}
       <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>

@@ -195,12 +195,6 @@ const CHART_POSITION_PLATFORMS = [
   { key: "deezerMx", label: "Deezer", short: "DZ", color: "#A238FF" },
 ] as const;
 
-const TOURING_PROFILE_SLUGS: Record<string, string> = {
-  "peso-pluma": "peso-pluma",
-  "junior-h": "junior-h",
-  "luis-miguel": "luis-miguel",
-};
-
 type ChartPositionPlatformKey = typeof CHART_POSITION_PLATFORMS[number]["key"];
 type ChartPositionFilter = "all" | ChartPositionPlatformKey;
 
@@ -653,8 +647,6 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const nextTourEvent = useMemo(() => {
     return artistTouring?.events?.[0] ?? null;
   }, [artistTouring]);
-  const touringProfileSlug = TOURING_PROFILE_SLUGS[slug];
-
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
   const spotifyKworbDailyTrend = useMemo(
@@ -1130,40 +1122,6 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   Boletos →
                 </span>
               </a>
-            )}
-
-            {touringProfileSlug && (
-              <Link href={`/touring/${touringProfileSlug}`}>
-                <span
-                  className="mt-3 flex w-full max-w-xl items-center gap-3 rounded-xl p-3.5 transition-all duration-200 hover:border-white/20 sm:p-4"
-                  style={{
-                    background: "linear-gradient(135deg, rgba(255,255,255,0.055), rgba(57,255,20,0.035))",
-                    border: "1px solid rgba(255,255,255,0.10)",
-                  }}
-                  data-testid="link-touring-profile"
-                >
-                  <div
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg"
-                    style={{ background: "rgba(255,255,255,0.06)", color: artist.accent }}
-                  >
-                    <ExternalLink className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: artist.accent }}>
-                      Perfil de touring
-                    </div>
-                    <div className="mt-1 text-sm font-black uppercase tracking-[0.06em] text-white">
-                      Ver taquilla, boletos y timeline
-                    </div>
-                    <div className="mt-0.5 text-xs font-medium text-zinc-500">
-                      Reporte editorial de giras en Mexico Charts
-                    </div>
-                  </div>
-                  <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] sm:block" style={{ color: artist.accent }}>
-                    Abrir →
-                  </span>
-                </span>
-              </Link>
             )}
 
             {(enrichment?.spotify?.url || itunesData?.appleUrl) && (

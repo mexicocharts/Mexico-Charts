@@ -370,9 +370,9 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
       ? touringArtists.flatMap(artist => {
         const artistRow: SearchCandidate = {
           label: artist.name,
-          href: `/touring/${artist.id || slugify(artist.name)}`,
+          href: "/touring",
           type: "Gira",
-          detail: artist.events.length ? `${artist.events.length} fechas activas` : "Perfil de touring",
+          detail: artist.events.length ? `${artist.events.length} fechas activas` : "Agenda de touring",
           score: 0,
           baseScore: 58,
           category: "touring",
@@ -381,7 +381,7 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
         };
         const eventRows = artist.events.slice(0, 3).map(event => ({
           label: `${event.city || event.venue} · ${artist.name}`,
-          href: `/touring/${artist.id || slugify(artist.name)}`,
+          href: event.url || "/touring",
           type: "Concierto",
           detail: [artist.name, event.venue, event.state, event.date].filter(Boolean).join(" · "),
           score: 0,

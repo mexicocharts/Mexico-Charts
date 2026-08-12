@@ -16,7 +16,7 @@ const routes = [
     path: "/",
     title: "Mexico Charts — Datos, charts y contexto de la musica mexicana",
     description:
-      "Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster.",
+      "Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON y Ticketmaster.",
     eyebrow: "Mexico Charts",
     heading: "Datos, charts y contexto de la musica mexicana",
     body:
@@ -184,62 +184,14 @@ const routes = [
     path: "/touring",
     title: "Touring Mexico — artistas mexicanos en gira",
     description:
-      "Conciertos, giras y perfiles de touring de artistas mexicanos con fechas de Ticketmaster y datos de Pollstar cuando están disponibles.",
+      "Conciertos y giras de artistas mexicanos con fechas, ciudades, recintos y enlaces oficiales de boletos.",
     eyebrow: "Touring",
     heading: "La musica mexicana en vivo",
     body:
-      "Agenda de shows, artistas en gira y perfiles editoriales de touring. Mexico Charts usa Ticketmaster para fechas públicas y Pollstar para perfiles históricos cuando hay datos disponibles.",
+      "Agenda de shows y artistas en gira. Mexico Charts presenta fechas públicas y enlaces oficiales de boletos de Ticketmaster.",
     links: [
       ["/touring", "Touring"],
-      ["/touring/peso-pluma", "Peso Pluma"],
-      ["/touring/junior-h", "Junior H"],
-      ["/touring/luis-miguel", "Luis Miguel"],
       ["/metodologia", "Metodologia"],
-    ],
-  },
-  {
-    path: "/touring/peso-pluma",
-    title: "Peso Pluma Touring — Mexico Charts",
-    description:
-      "Perfil de touring de Peso Pluma con contexto editorial de giras, mercado en vivo y señales de música mexicana.",
-    eyebrow: "Touring",
-    heading: "Peso Pluma en vivo",
-    body:
-      "Perfil editorial de touring para Peso Pluma dentro de Mexico Charts, con contexto de fechas, mercado en vivo y señales de crecimiento.",
-    links: [
-      ["/touring", "Touring"],
-      ["/touring/junior-h", "Junior H"],
-      ["/touring/luis-miguel", "Luis Miguel"],
-    ],
-  },
-  {
-    path: "/touring/junior-h",
-    title: "Junior H Touring — Mexico Charts",
-    description:
-      "Perfil de touring de Junior H con contexto editorial de giras, fechas activas y señales del mercado en vivo.",
-    eyebrow: "Touring",
-    heading: "Junior H en vivo",
-    body:
-      "Perfil editorial de touring para Junior H dentro de Mexico Charts, con contexto de fechas, mercado en vivo y señales de la escena sierreña.",
-    links: [
-      ["/touring", "Touring"],
-      ["/touring/peso-pluma", "Peso Pluma"],
-      ["/touring/luis-miguel", "Luis Miguel"],
-    ],
-  },
-  {
-    path: "/touring/luis-miguel",
-    title: "Luis Miguel Touring — Mexico Charts",
-    description:
-      "Perfil de touring de Luis Miguel con contexto editorial de giras, mercado en vivo y datos históricos del espectáculo latino.",
-    eyebrow: "Touring",
-    heading: "Luis Miguel en vivo",
-    body:
-      "Perfil editorial de touring para Luis Miguel dentro de Mexico Charts, con contexto de giras, recintos, taquilla y mercado latino en vivo.",
-    links: [
-      ["/touring", "Touring"],
-      ["/touring/peso-pluma", "Peso Pluma"],
-      ["/touring/junior-h", "Junior H"],
     ],
   },
   {
