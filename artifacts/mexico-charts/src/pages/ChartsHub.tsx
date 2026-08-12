@@ -135,7 +135,7 @@ const COLS: Record<string, ColDef[]> = {
   Spotify_Artists_Daily: [
     { key: "Artist",     label: "Artista",  align: "left",  mobile: true,  isArtist: true },
     { key: "Peak",       label: "Pico",     align: "right", mobile: false },
-    { key: "Previous",   label: "Anterior", align: "right", mobile: false },
+    { key: "Prev",       label: "Anterior", align: "right", mobile: false },
     { key: "Streak",     label: "Racha",    align: "right", mobile: false },
     { key: "Chart Date", label: "Fecha",    align: "right", mobile: false },
   ],
@@ -266,7 +266,7 @@ function rankKey(row: Row): string {
   return (row["Rank"] ?? row["rank"] ?? "").trim();
 }
 function prevKey(row: Row): string {
-  return (row["Previous Rank"] ?? row["previous_rank"] ?? "").trim();
+  return (row["Previous Rank"] ?? row["previous_rank"] ?? row["Prev"] ?? row["Previous"] ?? "").trim();
 }
 function movKey(row: Row): string {
   return (row["Movement"] ?? "").trim();
