@@ -6,6 +6,7 @@ import {
   syncSongstatsCurrentStats,
   type SongstatsSyncSummary,
 } from "./songstats-snapshot-service";
+import { syncSongstatsExtendedData } from "./songstats-extended-service";
 
 const LOCK_KEY = 831_905_224;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -13,6 +14,12 @@ const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 let schedulerStarted = false;
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function daysBefore(date: string, days: number): string {
+  const value = new Date(`${date}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() - days);
+  return value.toISOString().slice(0, 10);
 }
 
 function automationEnabled(): boolean {
@@ -77,21 +84,46 @@ export async function runScheduledSongstatsSnapshot(): Promise<
 
     const limit = syncLimit();
     const progress = await snapshotProgress(snapshotDate, limit);
-    if (progress.target > 0 && progress.saved >= progress.target) {
-      return { snapshotDate, status: "already_complete" };
+    const currentComplete = progress.target > 0 && progress.saved >= progress.target;
+    const summary = currentComplete
+      ? null
+      : await syncSongstatsCurrentStats({ limit, snapshotDate });
+    if (summary) {
+      logger.info(
+        {
+          snapshotDate,
+          requested: summary.requested,
+          saved: summary.saved,
+          failed: summary.failed,
+        },
+        "[songstats] daily current-stats snapshot complete",
+      );
     }
 
-    const summary = await syncSongstatsCurrentStats({ limit, snapshotDate });
+    // The public growth cards are calculated from historic_stats. Refresh the
+    // same 90-day series every day so their headline value and the audience
+    // cards are based on one synchronized Songstats response for every artist.
+    const historic = await syncSongstatsExtendedData({
+      limit,
+      endpoints: ["historic"],
+      historyStartDate: daysBefore(snapshotDate, 90),
+      historyEndDate: snapshotDate,
+      countryCode: "MX",
+      audienceDetailsSources: [],
+      catalogLimit: 1,
+    });
     logger.info(
       {
         snapshotDate,
-        requested: summary.requested,
-        saved: summary.saved,
-        failed: summary.failed,
+        requested: historic.requested,
+        saved: historic.saved,
+        partial: historic.partial,
+        failed: historic.failed,
       },
-      "[songstats] daily current-stats snapshot complete",
+      "[songstats] daily historic-stats refresh complete",
     );
-    return summary;
+
+    return summary ?? { snapshotDate, status: "already_complete" };
   } finally {
     if (locked) {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => undefined);
