@@ -25,13 +25,7 @@ function scheduledHourUtc(): number {
 }
 
 function syncLimit(): number {
-  const parsed = Number(process.env["SONGSTATS_SYNC_MAX_ARTISTS"] ?? "529");
-  return Number.isFinite(parsed)
-    ? Math.max(
-      1,
-      Math.min(configuredSongstatsMonthlyArtistLimit(), Math.floor(parsed)),
-    )
-    : 529;
+  return configuredSongstatsMonthlyArtistLimit();
 }
 
 async function snapshotProgress(

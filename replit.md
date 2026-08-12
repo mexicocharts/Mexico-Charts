@@ -39,7 +39,7 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `VITE_SOCIAL_TEMPLATES_ACCESS_CODE` — private access code for `/social-templates`.
 - `SONGSTATS_API_KEY` — server-only Songstats Enterprise API key. Never expose this as a `VITE_` variable.
 - `SONGSTATS_ADMIN_KEY` — optional admin key for Songstats routes; falls back to the existing Spotify or YouTube admin key.
-- `SONGSTATS_SYNC_MAX_ARTISTS` — maximum artists one sync can request; production defaults to the contract ceiling of `529` and the billing guard rejects any 530th unique artist.
+- Songstats current-stat syncs always target the configured contract ceiling; the billing guard rejects any 530th unique artist.
 - `SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS` — maximum artists accepted by one extended-data request, default `5` and hard-capped at `25`.
 - `SONGSTATS_EXTENDED_SYNC_CONCURRENCY` — concurrent extended artist workers, default `2` and hard-capped at `5`.
 - `SONGSTATS_SNAPSHOT_AUTOMATION` — daily Songstats snapshots are enabled unless this is explicitly set to `false`.
