@@ -591,7 +591,9 @@ export default function ChartsHub() {
 
   function getRowImg(row: Row): string | null {
     if (!imgCfg) return null;
-    if (imgCfg.source === "youtube") return ytThumb(row[imgCfg.field] ?? "");
+    if (imgCfg.source === "youtube") {
+      return row["Thumbnail URL"] || ytThumb(row[imgCfg.field] ?? "");
+    }
     const name = firstArtist(row[imgCfg.field] ?? "");
     return name ? (artistImgData?.[name] ?? null) : null;
   }
@@ -607,6 +609,7 @@ export default function ChartsHub() {
   }
 
   function previewImg(sheetId: string, row: Row): string | null {
+    if (sheetId.startsWith("YT_") && row["Thumbnail URL"]) return row["Thumbnail URL"];
     if (sheetId.startsWith("YT_") && row["YouTube URL"]) return ytThumb(row["YouTube URL"] ?? "");
     if (sheetId === "YT_Artists_Weekly") return getArtistPreviewImg(row["Artist Name"] ?? "");
     if (sheetId.startsWith("Spotify_Artists")) return getArtistPreviewImg(row["Artist"] ?? "");
