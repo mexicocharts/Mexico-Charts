@@ -40,8 +40,8 @@ const PLATFORMS = [
     charts: [
       { id: "Spotify_Artists_Daily",   label: "Artistas",     period: "Diario"  },
       { id: "Spotify_Artists_Weekly",  label: "Artistas",     period: "Semanal" },
-      { id: "Spotify_Regional_Daily",  label: "Regional",     period: "Diario"  },
-      { id: "Spotify_Regional_Weekly", label: "Regional",     period: "Semanal" },
+      { id: "Spotify_Regional_Daily",  label: "Canciones",   period: "Diario"  },
+      { id: "Spotify_Regional_Weekly", label: "Canciones",   period: "Semanal" },
       { id: "Spotify_Viral_Daily",     label: "Viral",        period: "Diario"  },
     ],
   },
