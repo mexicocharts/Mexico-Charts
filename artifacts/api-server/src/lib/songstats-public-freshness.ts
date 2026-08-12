@@ -32,6 +32,18 @@ export function chooseFreshSongstatsMetric(
   return currentValue;
 }
 
+/**
+ * Keeps the headline audience reading consistent with the historic series
+ * used to calculate growth. The dedicated current-stats snapshot remains a
+ * fallback for metrics that Songstats does not include in that series.
+ */
+export function chooseCanonicalSongstatsMetric(
+  currentSnapshot: DatedMetric,
+  historicSnapshot: DatedMetric,
+): number | null {
+  return historicSnapshot.value ?? currentSnapshot.value ?? null;
+}
+
 export function newestSongstatsDate(
   ...dates: Array<string | null | undefined>
 ): string | null {

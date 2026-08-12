@@ -1,9 +1,24 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  chooseCanonicalSongstatsMetric,
   chooseFreshSongstatsMetric,
   newestSongstatsDate,
 } from "./songstats-public-freshness";
+
+test("uses the historic-series reading as the canonical public value", () => {
+  assert.equal(chooseCanonicalSongstatsMetric(
+    { value: 45_081_578, date: "2026-08-12" },
+    { value: 45_124_214, date: "2026-08-08" },
+  ), 45_124_214);
+});
+
+test("falls back to current stats when a metric has no historic series", () => {
+  assert.equal(chooseCanonicalSongstatsMetric(
+    { value: 502_743, date: "2026-08-12" },
+    { value: null, date: "2026-08-08" },
+  ), 502_743);
+});
 
 test("prefers a newer current snapshot over stale historic data", () => {
   assert.equal(chooseFreshSongstatsMetric(
