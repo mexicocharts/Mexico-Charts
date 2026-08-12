@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const router = Router();
 const SHEET_ID = "1pmfNth0H5qlXXs-6ZfYMC57YQXCoRQTk3_3NB8scHl4";
-const CACHE_TTL    = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL    = 2 * 60 * 1000; // chart editions can change during the day
 const MASTER_TTL   =  6 * 60 * 60 * 1000; // 6 hours
 
 /* ── Sheet manifest (matches Chart_Manifest) ────────────────────────────── */
@@ -32,6 +32,7 @@ type Row = Record<string, string>;
 interface SheetData {
   headers: string[];
   rows: Row[];
+  chartDate: string | null;
 }
 
 interface CacheSlot {
@@ -76,6 +77,28 @@ function parseCSV(text: string): { headers: string[]; rows: Row[] } {
     rows.push(row);
   }
   return { headers, rows };
+}
+
+function chartDateFromSheet(data: { rows: Row[] }): string | null {
+  const first = data.rows[0];
+  if (!first) return null;
+
+  for (const key of ["Chart Date", "chart_date", "Date", "date", "Week Ending", "week_ending"]) {
+    const value = first[key]?.trim();
+    if (!value) continue;
+    const iso = value.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
+    if (iso) return iso;
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  }
+
+  for (const key of ["Source File", "source_file"]) {
+    const value = first[key]?.trim() ?? "";
+    const iso = value.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
+    if (iso) return iso;
+  }
+
+  return null;
 }
 
 /* ── Normalise movement values (Google Sheets adds leading ' to + values) ── */
@@ -168,6 +191,7 @@ function enrichSheet(
   return {
     headers: [...data.headers, "Contains Mexican Artist", "Matched Mexican Artists"],
     rows,
+    chartDate: data.chartDate,
   };
 }
 
@@ -187,7 +211,7 @@ async function fetchSheet(name: SheetName): Promise<SheetData> {
     parsed.rows = parsed.rows.map(r => ({ ...r, [movKey]: cleanMovement(r[movKey] ?? "") }));
   }
 
-  return parsed;
+  return { ...parsed, chartDate: chartDateFromSheet(parsed) };
 }
 
 /* ── Fetch all sheets + enrich with Mexican artist flags ─────────────────── */
@@ -222,7 +246,7 @@ router.get("/charts/hub", async (_req, res) => {
         }
       }
     }
-    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+    res.setHeader("Cache-Control", "no-store");
     res.json({ lastUpdated: cache!.lastUpdated, sheets: cache!.data });
   } catch (err) {
     res.status(502).json({ error: "Chart data unavailable", detail: String(err) });

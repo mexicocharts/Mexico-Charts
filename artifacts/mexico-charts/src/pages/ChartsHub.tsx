@@ -208,7 +208,7 @@ const COLS: Record<string, ColDef[]> = {
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Row = Record<string, string>;
-interface SheetData { headers: string[]; rows: Row[] }
+interface SheetData { headers: string[]; rows: Row[]; chartDate?: string | null }
 interface HubData { lastUpdated: string; sheets: Record<string, SheetData> }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -490,11 +490,13 @@ export default function ChartsHub() {
   const { data, isLoading, isError } = useQuery<HubData>({
     queryKey: ["charts-hub"],
     queryFn: async () => {
-      const resp = await fetch("/api/charts/hub");
+      const resp = await fetch("/api/charts/hub", { cache: "no-store" });
       if (!resp.ok) throw new Error("Failed to fetch charts");
       return resp.json();
     },
-    staleTime: 30 * 60 * 1000,
+    staleTime: 60 * 1000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     retry: 2,
   });
 
@@ -665,11 +667,11 @@ export default function ChartsHub() {
   }, []);
 
   const updatedShortFmt = useMemo(() => {
-    if (!data?.lastUpdated) return "—";
-    return new Date(data.lastUpdated).toLocaleDateString("es-MX", {
+    if (!sheetData?.chartDate) return "Fecha no disponible";
+    return new Date(`${sheetData.chartDate}T12:00:00Z`).toLocaleDateString("es-MX", {
       day: "numeric", month: "short",
     });
-  }, [data]);
+  }, [sheetData?.chartDate]);
 
   const currentChartMeta = platform.charts.find(c => c.id === activeSheet) ?? platform.charts[0];
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
@@ -681,7 +683,7 @@ export default function ChartsHub() {
     { label: "Entradas", value: fmtCount(rows.length), tone: G },
     { label: "Base original", value: fmtCount(totalEntries), tone: "rgba(255,255,255,0.72)" },
     { label: "Mexicanos", value: fmtCount(mexicanEntries), tone: G },
-    { label: "Actualizado", value: updatedShortFmt, tone: "rgba(255,255,255,0.72)" },
+    { label: "Datos del", value: updatedShortFmt, tone: "rgba(255,255,255,0.72)" },
   ];
   const detailKind = entryKindForSheet(activeSheet);
   const detailHeader = entryKindLabel(detailKind);
