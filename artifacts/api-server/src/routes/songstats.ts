@@ -36,7 +36,8 @@ import {
   type SongstatsPublicMetricKey,
 } from "../lib/songstats-public-service";
 import {
-  chooseCanonicalSongstatsMetric,
+  chooseFreshSongstatsMetric,
+  newestSongstatsDate,
 } from "../lib/songstats-public-freshness";
 
 const router = Router();
@@ -290,14 +291,14 @@ router.get("/providers/songstats/artist", async (req, res) => {
     const snapshotMetric = (
       key: SongstatsPublicMetricKey,
       savedValue: number | null | undefined,
-    ) => chooseCanonicalSongstatsMetric(
+    ) => chooseFreshSongstatsMetric(
       { value: savedValue, date: savedSnapshot?.snapshotDate },
       { value: current?.[key], date: insight?.snapshotDate },
     );
-    // Growth cards are calculated from the historic series. Use that same
-    // series as the canonical current reading so the audience and growth
-    // sections cannot show two different "current" values for one metric.
-    const snapshotDate = insight?.snapshotDate ?? savedSnapshot?.snapshotDate ?? null;
+    const snapshotDate = newestSongstatsDate(
+      savedSnapshot?.snapshotDate,
+      insight?.snapshotDate,
+    );
 
     res.json({
       artistKey: extended?.artist_key ?? artist?.artistKey ?? artistKey,
@@ -346,8 +347,8 @@ router.get("/providers/songstats/artist", async (req, res) => {
           "deezerFollowers",
           savedSnapshot?.deezerFollowers,
         ),
-        fetchedAt: extended?.updated_at?.toISOString()
-          ?? savedSnapshot?.fetchedAt?.toISOString()
+        fetchedAt: savedSnapshot?.fetchedAt?.toISOString()
+          ?? extended?.updated_at?.toISOString()
           ?? null,
       },
       growth: insight?.growth ?? {},

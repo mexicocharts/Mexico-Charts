@@ -636,9 +636,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
     return cards.flatMap(card => {
       const points = songstatsArtist?.trends[card.key] ?? [];
       const growth = songstatsArtist?.growth[card.key];
-      const latest = points.at(-1)?.value;
-      if (points.length < 2 || latest == null) return [];
-      return [{ ...card, points, growth, latest }];
+      const current = songstatsArtist?.snapshot[card.key];
+      const historyDate = points.at(-1)?.date ?? null;
+      if (points.length < 2 || current == null) return [];
+      return [{ ...card, points, growth, current, historyDate }];
     });
   }, [songstatsArtist]);
   const topMexicoCities = songstatsArtist?.topMexicoCities ?? [];
@@ -1329,7 +1330,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   </span>
                                 </div>
                                 <div className="mt-2 text-xl font-black leading-none text-white">
-                                  {formatExactCount(card.latest)}
+                                  {formatExactCount(card.current)}
                                 </div>
                               </div>
                               {growth30 && (
@@ -1356,6 +1357,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                 ariaLabel={`Tendencia reciente de ${card.label}`}
                               />
                             </div>
+                            {card.historyDate && (
+                              <div className="mt-2 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">
+                                Histórico hasta {formatShortDateEs(card.historyDate)}
+                              </div>
+                            )}
                             <div className="mt-3 grid grid-cols-3 gap-1.5">
                               {([
                                 ["7 días", card.growth?.days7],
