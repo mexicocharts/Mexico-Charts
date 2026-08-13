@@ -214,10 +214,109 @@ async function fetchSheet(name: SheetName): Promise<SheetData> {
   return { ...parsed, chartDate: chartDateFromSheet(parsed) };
 }
 
+interface AppleChartResult {
+  artistName?: string;
+  id?: string;
+  name?: string;
+  url?: string;
+}
+
+async function fetchAppleAlbums(): Promise<SheetData> {
+  const resp = await fetch(
+    "https://rss.marketingtools.apple.com/api/v2/mx/music/most-played/100/albums.json",
+    { signal: AbortSignal.timeout(15000) },
+  );
+  if (!resp.ok) throw new Error(`Apple Albums: HTTP ${resp.status}`);
+
+  const payload = await resp.json() as { feed?: { results?: AppleChartResult[] } };
+  const results = payload.feed?.results ?? [];
+  if (results.length < 1) throw new Error("Apple Albums: empty official feed");
+
+  const chartDate = new Date().toISOString().slice(0, 10);
+  const headers = [
+    "Rank", "Movement", "Artist Names", "Title", "Platform", "Chart",
+    "Geography", "Chart Source URL", "Chart Date",
+  ];
+  const rows = results.map((item, index) => ({
+    "Rank": String(index + 1),
+    "Movement": "",
+    "Artist Names": item.artistName ?? "",
+    "Title": item.name ?? "",
+    "Platform": "Apple Music",
+    "Chart": "Top Albums MX",
+    "Geography": "Mexico",
+    "Chart Source URL": item.url ?? (item.id ? `https://music.apple.com/mx/album/${item.id}` : ""),
+    "Chart Date": chartDate,
+  }));
+
+  return { headers, rows, chartDate };
+}
+
+interface DeezerPlaylistTrack {
+  id?: number;
+  title?: string;
+  duration?: number;
+  explicit_lyrics?: boolean;
+  preview?: string;
+  link?: string;
+  artist?: { id?: number; name?: string };
+  album?: { id?: number; title?: string };
+}
+
+async function fetchDeezerTopMexico(): Promise<SheetData> {
+  const resp = await fetch(
+    "https://api.deezer.com/playlist/1111142361?limit=100",
+    { signal: AbortSignal.timeout(15000) },
+  );
+  if (!resp.ok) throw new Error(`Deezer Top Mexico: HTTP ${resp.status}`);
+
+  const payload = await resp.json() as { tracks?: { data?: DeezerPlaylistTrack[] } };
+  const tracks = payload.tracks?.data ?? [];
+  if (tracks.length < 1) throw new Error("Deezer Top Mexico: empty official playlist");
+
+  const chartDate = new Date().toISOString().slice(0, 10);
+  const fetchedAt = new Date().toISOString();
+  const headers = [
+    "Rank", "Title", "Artist", "Album", "Duration Seconds", "Duration",
+    "Explicit", "Track ID", "Artist ID", "Album ID", "Preview URL",
+    "Track Link", "Source", "Fetched At", "Chart Date",
+  ];
+  const rows = tracks.map((track, index) => {
+    const duration = Math.max(0, Math.floor(track.duration ?? 0));
+    return {
+      "Rank": String(index + 1),
+      "Title": track.title ?? "",
+      "Artist": track.artist?.name ?? "",
+      "Album": track.album?.title ?? "",
+      "Duration Seconds": String(duration),
+      "Duration": `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, "0")}`,
+      "Explicit": track.explicit_lyrics ? "TRUE" : "FALSE",
+      "Track ID": track.id ? String(track.id) : "",
+      "Artist ID": track.artist?.id ? String(track.artist.id) : "",
+      "Album ID": track.album?.id ? String(track.album.id) : "",
+      "Preview URL": track.preview ?? "",
+      "Track Link": track.link ?? (track.id ? `https://www.deezer.com/track/${track.id}` : ""),
+      "Source": "Deezer Top Mexico playlist",
+      "Fetched At": fetchedAt,
+      "Chart Date": chartDate,
+    };
+  });
+
+  return { headers, rows, chartDate };
+}
+
 /* ── Fetch all sheets + enrich with Mexican artist flags ─────────────────── */
 async function fetchAll(): Promise<CacheSlot> {
   const [results, masterNorms] = await Promise.all([
-    Promise.all(SHEETS.map(s => fetchSheet(s))),
+    Promise.all(SHEETS.map(async s => {
+      try {
+        if (s === "Apple_Albums") return await fetchAppleAlbums();
+        if (s === "Deezer_Top_Mexico") return await fetchDeezerTopMexico();
+      } catch (error) {
+        console.warn(`[charts-hub] Live ${s} fetch failed; using sheet fallback`, error);
+      }
+      return fetchSheet(s);
+    })),
     fetchMasterNorms().catch(() => {
       console.warn("[charts-hub] Could not fetch Mexican_Artist_Master — filter will be limited");
       return new Set<string>();
