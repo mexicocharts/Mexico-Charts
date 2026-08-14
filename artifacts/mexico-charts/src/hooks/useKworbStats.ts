@@ -136,14 +136,24 @@ export function useKworbStats(artistName: string) {
 
 /* ── Refresh status (last scheduler run) ─────────────────────────────── */
 export interface KworbRefreshStatus {
-  lastRefreshedAt:  number | null;
-  lastRefreshedFmt: string | null;
-  nextPollAt:       number | null;
-  nextPollFmt:      string | null;
-  todayUpdated:     boolean;
-  artistsUpdated:   number;
-  inProgress:       boolean;
-  totalArtists:     number;
+  /** Kept optional for compatibility with older API deployments. */
+  lastRefreshedFmt?: string | null;
+  lastRefreshedAt: number | null;
+  artistsUpdated24h: number;
+  workerActive: boolean;
+  fetchingEnabled: boolean;
+  requestsToday: number;
+  requestsThisHour: number;
+  caps: { daily: number; hourly: number };
+  jobs: { pending: string; running: string; done: string };
+  queue: {
+    updatingNow: string;
+    dueNow: string;
+    scheduledLater: string;
+    stalled: string;
+  };
+  totalArtists: number;
+  sentinelLastAt: string | null;
 }
 
 export function useRefreshStatus() {

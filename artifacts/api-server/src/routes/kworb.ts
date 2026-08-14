@@ -1085,7 +1085,8 @@ async function claimNextJob(): Promise<KworbJobRow | null> {
          updated_at   = now()
     WHERE id = (
       SELECT id FROM kworb_jobs
-      WHERE  status = 'pending' AND due_at <= now()
+      WHERE  (status = 'pending' AND due_at <= now())
+         OR  (status = 'running' AND (locked_until IS NULL OR locked_until < now()))
       ORDER  BY priority ASC, due_at ASC
       LIMIT  1
       FOR    UPDATE SKIP LOCKED
@@ -1865,20 +1866,57 @@ router.get("/kworb/known-slugs", (_req, res) => {
 
 /* GET /api/kworb/refresh-status */
 router.get("/kworb/refresh-status", async (_req, res) => {
-  const qr = await pool.query<{ pending: string; running: string; done: string }>(`
+  const [qr, freshness] = await Promise.all([pool.query<{
+    pending: string;
+    running: string;
+    done: string;
+    due: string;
+    scheduled: string;
+    running_active: string;
+    stalled: string;
+  }>(`
     SELECT
       COUNT(*) FILTER (WHERE status='pending') AS pending,
       COUNT(*) FILTER (WHERE status='running') AS running,
-      COUNT(*) FILTER (WHERE status='done')    AS done
+      COUNT(*) FILTER (WHERE status='done')    AS done,
+      COUNT(*) FILTER (WHERE status='pending' AND due_at <= now()) AS due,
+      COUNT(*) FILTER (WHERE status='pending' AND due_at > now()) AS scheduled,
+      COUNT(*) FILTER (
+        WHERE status='running' AND locked_until >= now()
+      ) AS running_active,
+      COUNT(*) FILTER (
+        WHERE status='running' AND (locked_until IS NULL OR locked_until < now())
+      ) AS stalled
     FROM kworb_jobs
-  `);
+  `), pool.query<{ last_refreshed_at: Date | null; artists_updated_24h: string }>(`
+    SELECT
+      MAX(fetched_at) AS last_refreshed_at,
+      COUNT(DISTINCT artist_key) FILTER (
+        WHERE fetched_at >= now() - interval '24 hours'
+      ) AS artists_updated_24h
+    FROM kworb_snapshots
+  `)]);
+  const row = qr.rows[0];
+  const fresh = freshness.rows[0];
   res.json({
     workerActive: activeWorkers > 0,
     fetchingEnabled:  FETCHING_ENABLED(),
     requestsToday,
     requestsThisHour,
     caps:             { daily: DAILY_CAP, hourly: HOURLY_CAP },
-    jobs:             qr.rows[0] ?? {},
+    jobs: row ? {
+      pending: row.pending,
+      running: row.running,
+      done: row.done,
+    } : {},
+    queue: row ? {
+      updatingNow: row.running_active,
+      dueNow: row.due,
+      scheduledLater: row.scheduled,
+      stalled: row.stalled,
+    } : {},
+    lastRefreshedAt: fresh?.last_refreshed_at?.getTime() ?? null,
+    artistsUpdated24h: Number(fresh?.artists_updated_24h ?? 0),
     totalArtists:     ALL_ARTIST_SLUGS.length,
     sentinelLastAt:   sentinelLastAt ? new Date(sentinelLastAt).toISOString() : null,
   });
