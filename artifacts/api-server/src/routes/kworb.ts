@@ -1927,9 +1927,9 @@ router.get("/kworb/refresh-status", async (_req, res) => {
     FROM kworb_jobs
   `), pool.query<{ last_refreshed_at: Date | null; artists_updated_24h: string }>(`
     SELECT
-      MAX(fetched_at) AS last_refreshed_at,
-      COUNT(DISTINCT artist_key) FILTER (
-        WHERE fetched_at >= now() - interval '24 hours'
+      MAX(s.fetched_at) AS last_refreshed_at,
+      COUNT(DISTINCT s.artist_key) FILTER (
+        WHERE s.fetched_at >= now() - interval '24 hours'
       ) AS artists_updated_24h
     FROM kworb_snapshots s
     INNER JOIN kworb_coverage c ON c.artist_key = s.artist_key
