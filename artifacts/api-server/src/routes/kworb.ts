@@ -56,12 +56,12 @@ const WORKER_CONCURRENCY = 15;  // parallel workers
 const PACE_MIN_MS    = 0;
 const PACE_JITTER_MS = 0;
 
-// Tier refresh intervals (ms) — ±20% jitter is added at enqueue time
+// Every active site artist is refreshed daily. Tiers only control ordering.
 const TIER_INTERVAL_MS: Record<string, number> = {
   A: 24 * 3_600_000,         // daily
-  B: 2.5 * 24 * 3_600_000,  // ~2.5 days
-  C: 7 * 24 * 3_600_000,    // weekly
-  D: 21 * 24 * 3_600_000,   // ~3 weeks (rare retry for not_found)
+  B: 24 * 3_600_000,         // daily
+  C: 24 * 3_600_000,         // daily
+  D: 24 * 3_600_000,         // daily retry when a provider page is missing
 };
 
 // Job priority — lower number = runs sooner
@@ -70,9 +70,9 @@ const TIER_PRIORITY: Record<string, number> = { A: 10, B: 30, C: 50, D: 80 };
 // How long before a snapshot is considered stale (still served, flagged in admin)
 const SNAPSHOT_TTL_MS: Record<string, number> = {
   A: 26 * 3_600_000,
-  B: 3.5 * 24 * 3_600_000,
-  C: 8 * 24 * 3_600_000,
-  D: 30 * 24 * 3_600_000,
+  B: 26 * 3_600_000,
+  C: 26 * 3_600_000,
+  D: 26 * 3_600_000,
 };
 
 const BLOCKED_ARTIST_KEYS = new Set([
@@ -860,7 +860,9 @@ let ALL_ARTIST_SLUGS: string[] = [...Object.keys(SPOTIFY_ID_SEED)];
 
 async function loadSlugListFromCoverage(): Promise<void> {
   try {
-    const rows = await db.select({ slug: kworbCoverage.artistKey }).from(kworbCoverage);
+    const rows = await db.select({ slug: kworbCoverage.artistKey })
+      .from(kworbCoverage)
+      .where(sql`status != 'inactive'`);
     if (rows.length > 0) ALL_ARTIST_SLUGS = rows.map(r => r.slug);
   } catch { /* fall back to seed list */ }
 }
@@ -1085,8 +1087,15 @@ async function claimNextJob(): Promise<KworbJobRow | null> {
          updated_at   = now()
     WHERE id = (
       SELECT id FROM kworb_jobs
-      WHERE  (status = 'pending' AND due_at <= now())
-         OR  (status = 'running' AND (locked_until IS NULL OR locked_until < now()))
+      WHERE (
+          (status = 'pending' AND due_at <= now())
+          OR (status = 'running' AND (locked_until IS NULL OR locked_until < now()))
+        )
+        AND EXISTS (
+          SELECT 1 FROM kworb_coverage c
+          WHERE c.artist_key = kworb_jobs.artist_key
+            AND c.status != 'inactive'
+        )
       ORDER  BY priority ASC, due_at ASC
       LIMIT  1
       FOR    UPDATE SKIP LOCKED
@@ -1225,6 +1234,11 @@ async function runWorker(workerId: number): Promise<void> {
         .where(eq(kworbCoverage.artistKey, job.artist_key))
         .limit(1);
 
+      if (cov?.status === "inactive") {
+        await pool.query(`UPDATE kworb_jobs SET status='done', updated_at=now() WHERE id=$1`, [job.id]);
+        continue;
+      }
+
       const tier      = cov?.tier      ?? (TIER_A_SLUGS.has(job.artist_key) ? "A" : "B");
       const spotifyId = cov?.spotifyId ?? spotifyIdMap.get(job.artist_key)  ?? null;
 
@@ -1277,12 +1291,10 @@ async function runWorker(workerId: number): Promise<void> {
           await db.update(kworbCoverage)
             .set({ status: "not_found" })
             .where(eq(kworbCoverage.artistKey, job.artist_key));
-          // Rare retry ~3 weeks out with random spread
-          const retryDue = new Date(
-            Date.now() + 21 * 24 * 3_600_000 + Math.random() * 7 * 24 * 3_600_000,
-          );
+          // Keep active site artists on the daily cycle even when Kworb has no page yet.
+          const retryDue = new Date(Date.now() + 24 * 3_600_000);
           await enqueueJob(job.artist_key, "all", TIER_PRIORITY.D, retryDue);
-          console.log(`[kworb:worker] ${job.artist_key}: not found after ${failures} attempts — retry in ~3w`);
+          console.log(`[kworb:worker] ${job.artist_key}: not found after ${failures} attempts — retry tomorrow`);
         } else {
           const backoffMs = BACKOFF_MS[Math.min(failures - 1, BACKOFF_MS.length - 1)] ?? BACKOFF_MS[4];
           const nextDue   = new Date(Date.now() + backoffMs);
@@ -1357,7 +1369,7 @@ async function runSentinel(): Promise<void> {
     const allRows = await db
       .select({ artistKey: kworbCoverage.artistKey, tier: kworbCoverage.tier })
       .from(kworbCoverage)
-      .where(sql`tier IN ('A','B','C')`);
+      .where(sql`status != 'inactive'`);
 
     for (const { artistKey, tier } of allRows) {
       await enqueueJob(artistKey, "all", TIER_PRIORITY[tier] ?? 30, new Date());
@@ -1514,6 +1526,21 @@ async function syncCoverage(): Promise<SyncResult> {
     .select({ artistKey: kworbCoverage.artistKey })
     .from(kworbCoverage);
   const existingKeys = new Set(existingRows.map(r => r.artistKey));
+  const metadataKeys = [...new Set(metadataArtists.map(a => a.slug))];
+
+  // The public active-artist sheet is the source of truth. Preserve historical
+  // coverage/snapshots, but stop removed artists from being counted or fetched.
+  await pool.query(`
+    UPDATE kworb_coverage
+    SET status = 'inactive'
+    WHERE NOT (artist_key = ANY($1::text[]))
+  `, [metadataKeys]);
+  await pool.query(`
+    UPDATE kworb_jobs j
+    SET status = 'done', locked_until = NULL, updated_at = now()
+    WHERE j.status IN ('pending','running')
+      AND NOT (j.artist_key = ANY($1::text[]))
+  `, [metadataKeys]);
 
   const result: SyncResult = {
     metadataTotal:     metadataArtists.length,
@@ -1538,12 +1565,19 @@ async function syncCoverage(): Promise<SyncResult> {
   // 3 — Insert missing artists into coverage (one by one for clean conflict handling)
   for (const { name, slug } of metadataArtists) {
     if (existingKeys.has(slug)) {
+      await pool.query(`
+        UPDATE kworb_coverage
+        SET artist_name = $2,
+            tier = 'A',
+            status = CASE WHEN status = 'inactive' THEN 'pending' ELSE status END
+        WHERE artist_key = $1
+      `, [slug, name]);
       result.alreadyInCoverage++;
       continue;
     }
 
     try {
-      const tier      = TIER_A_SLUGS.has(slug) ? "A" : "B";
+      const tier      = "A";
       const spotifyId = spotifyIdMap.get(slug) ?? null;
 
       // onConflictDoNothing = idempotent; second run skips cleanly
@@ -1572,30 +1606,26 @@ async function syncCoverage(): Promise<SyncResult> {
     }
   }
 
-  // 4 — Enqueue jobs for newly added artists (light stagger for initial discovery only)
-  //     Tier A: due now  |  Tier B/C: spread over 0–6 h so the first discovery
-  //     pass doesn't collide with an ongoing daily refresh batch.
-  //     Normal daily batches are enqueued by the sentinel with no spread.
-  for (const slug of newSlugs) {
+  // 4 — Ensure every active site artist has a job due now. Existing pending
+  //     jobs are pulled forward; missing jobs are created. Fifteen workers
+  //     process the batch concurrently and future runs return to the 24 h cycle.
+  await pool.query(`
+    UPDATE kworb_jobs
+    SET due_at = now(), priority = 10, updated_at = now()
+    WHERE status = 'pending' AND artist_key = ANY($1::text[])
+  `, [metadataKeys]);
+
+  for (const slug of metadataKeys) {
     try {
-      const tier = TIER_A_SLUGS.has(slug) ? "A" : "B";
-      const spreadMs = tier === "A"
-        ? 0
-        : Math.random() * 6 * 3_600_000; // 0–6 h initial-discovery stagger only
-      await enqueueJob(
-        slug,
-        "all",
-        TIER_PRIORITY[tier] ?? 30,
-        new Date(Date.now() + spreadMs),
-      );
+      await enqueueJob(slug, "all", 10, new Date());
       result.jobsEnqueued++;
     } catch (err) {
       result.errors.push(`enqueue ${slug}: ${String(err)}`);
     }
   }
 
-  // 5 — Refresh in-memory slug list so /known-slugs reflects new artists
-  await loadSlugListFromCoverage();
+  // 5 — Refresh in-memory slug list from the public active set only.
+  ALL_ARTIST_SLUGS = metadataKeys;
 
   // 6 — Post-insert per-source summary (full coverage table, not just new adds)
   //     This reflects what the worker has already confirmed, not just what the
@@ -1627,6 +1657,7 @@ async function syncCoverage(): Promise<SyncResult> {
         COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND  has_itunes)            AS it_only,
         COUNT(*) FILTER (WHERE NOT has_spotify AND NOT has_youtube AND NOT has_itunes)         AS none
       FROM kworb_coverage
+      WHERE status != 'inactive'
     `);
     const r = coverageRow.rows[0];
     if (r) {
@@ -1676,7 +1707,13 @@ async function syncCoverage(): Promise<SyncResult> {
 ══════════════════════════════════════════════════════════════════════════ */
 async function startup(): Promise<void> {
   await ingestKworbArtistsIndex();
-  await loadSlugListFromCoverage();
+  try {
+    const synced = await syncCoverage();
+    console.log(`[kworb] Active-site reconciliation complete: ${synced.metadataTotal} artists`);
+  } catch (err) {
+    console.error("[kworb] Active-site reconciliation failed; using last saved active set:", err);
+    await loadSlugListFromCoverage();
+  }
   startWorkers();
   void startSentinelLoop();
   console.log("[kworb] Startup complete — workers running, sentinel active");
@@ -1894,7 +1931,9 @@ router.get("/kworb/refresh-status", async (_req, res) => {
       COUNT(DISTINCT artist_key) FILTER (
         WHERE fetched_at >= now() - interval '24 hours'
       ) AS artists_updated_24h
-    FROM kworb_snapshots
+    FROM kworb_snapshots s
+    INNER JOIN kworb_coverage c ON c.artist_key = s.artist_key
+    WHERE c.status != 'inactive'
   `)]);
   const row = qr.rows[0];
   const fresh = freshness.rows[0];
