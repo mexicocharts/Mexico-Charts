@@ -39,11 +39,38 @@ export interface SongstatsPublicCity {
 export interface SongstatsPublicInsight {
   name: string | null;
   avatarUrl: string | null;
+  platformLinks: Array<{ source: string; url: string }>;
   snapshotDate: string | null;
   current: Record<SongstatsPublicMetricKey, number | null>;
   growth: Partial<Record<SongstatsPublicMetricKey, SongstatsPublicMetricGrowth>>;
   trends: Partial<Record<SongstatsPublicMetricKey, SongstatsPublicTrendPoint[]>>;
   topMexicoCities: SongstatsPublicCity[];
+}
+
+function normalizedPlatformLinks(artistInfo: JsonObject | null) {
+  const links = arrayValue(artistInfo?.["links"]);
+  const seen = new Set<string>();
+  return links.flatMap(rawLink => {
+    const link = objectValue(rawLink);
+    const url = stringValue(link?.["url"] ?? link?.["href"] ?? link?.["link"]);
+    if (!url || !/^https?:\/\//i.test(url) || seen.has(url)) return [];
+    const explicitSource = stringValue(link?.["source"] ?? link?.["platform"] ?? link?.["name"]);
+    let source = explicitSource?.toLowerCase().replace(/[^a-z0-9]+/g, "_") ?? "website";
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host.includes("spotify")) source = "spotify";
+      else if (host.includes("youtube") || host.includes("youtu.be")) source = "youtube";
+      else if (host.includes("music.apple")) source = "apple_music";
+      else if (host.includes("instagram")) source = "instagram";
+      else if (host.includes("tiktok")) source = "tiktok";
+      else if (host.includes("deezer")) source = "deezer";
+      else if (host.includes("musicbrainz")) source = "musicbrainz";
+    } catch {
+      return [];
+    }
+    seen.add(url);
+    return [{ source, url }];
+  });
 }
 
 const METRICS: Array<{
@@ -292,6 +319,7 @@ export function buildSongstatsPublicInsight(input: {
   return {
     name: stringValue(artistInfo?.["name"]),
     avatarUrl: stringValue(artistInfo?.["avatar"]),
+    platformLinks: normalizedPlatformLinks(artistInfo),
     snapshotDate,
     current,
     growth,

@@ -1,9 +1,8 @@
 import { type FormEvent, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   BadgeCheck,
-  Check,
-  ChevronDown,
   CircleHelp,
   ExternalLink,
   Flag,
@@ -17,15 +16,33 @@ import {
 } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { useArtistImages } from "@/hooks/useArtistImages";
+import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
+import { lookupArtistMetadata, useArtistMetadata } from "@/services/dataProvider";
 
 const G = "#39FF14";
 
-const platforms = [
-  { name: "Spotify", handle: "open.spotify.com/artist/2nszmSgqreHSdJA3zWPyrW", status: "Verificado", color: "#1ed760" },
-  { name: "YouTube", handle: "youtube.com/@luismiguel", status: "Verificado", color: "#ff3b30" },
-  { name: "Apple Music", handle: "music.apple.com/mx/artist/luis-miguel/336904", status: "Verificado", color: "#fa596f" },
-  { name: "Instagram", handle: "instagram.com/luismiguel", status: "Revisar", color: "#ff4f9a" },
+const platformCatalog = [
+  { key: "spotify", name: "Spotify", color: "#1ed760" },
+  { key: "youtube", name: "YouTube", color: "#ff3b30" },
+  { key: "musicbrainz", name: "MusicBrainz", color: "#8cc63f" },
+  { key: "apple", name: "Apple Music", color: "#fa596f" },
+  { key: "instagram", name: "Instagram", color: "#ff4f9a" },
+  { key: "tiktok", name: "TikTok", color: "#ffffff" },
+  { key: "deezer", name: "Deezer", color: "#a238ff" },
 ] as const;
+
+type PublicArtistRecord = {
+  avatarUrl?: string | null;
+  platformLinks?: Array<{ source: string; url: string }>;
+  snapshot?: Record<string, unknown>;
+};
+
+async function fetchPublicArtistRecord(artistKey: string): Promise<PublicArtistRecord | null> {
+  if (!artistKey) return null;
+  const response = await fetch(`/api/providers/songstats/artist?artistKey=${encodeURIComponent(artistKey)}`);
+  return response.ok ? response.json() as Promise<PublicArtistRecord> : null;
+}
 
 type Mode = "correct" | "request";
 
@@ -39,6 +56,50 @@ export default function CommunityContributePreview() {
   const query = useMemo(() => new URLSearchParams(window.location.search), []);
   const artistKey = query.get("artist")?.trim() ?? "";
   const selectedArtistName = query.get("name")?.trim() || (artistKey ? artistKey.replace(/[-_]+/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()) : "Luis Miguel");
+  const { byKey, byName } = useArtistMetadata();
+  const metadataArtist = useMemo(
+    () => lookupArtistMetadata(artistKey, selectedArtistName, byKey, byName),
+    [artistKey, selectedArtistName, byKey, byName],
+  );
+  const canonicalArtistKey = metadataArtist?.artistKey || artistKey;
+  const enrichment = useArtistEnrichment(canonicalArtistKey);
+  const { data: publicArtistRecord } = useQuery({
+    queryKey: ["community-public-artist", canonicalArtistKey],
+    queryFn: () => fetchPublicArtistRecord(canonicalArtistKey),
+    enabled: Boolean(canonicalArtistKey),
+    staleTime: 15 * 60 * 1000,
+  });
+  const artistImages = useArtistImages([selectedArtistName]);
+  const artistPhoto = publicArtistRecord?.avatarUrl
+    || artistImages[selectedArtistName]
+    || enrichment?.spotify?.imageUrl
+    || enrichment?.youtube?.thumbnailUrl
+    || null;
+  const profilePlatforms = useMemo(() => platformCatalog.map(platform => {
+    let url: string | null = null;
+    const savedLink = publicArtistRecord?.platformLinks?.find(link => {
+      const source = link.source.toLowerCase();
+      return source === platform.key || (platform.key === "apple" && source === "apple_music");
+    });
+    url = savedLink?.url ?? null;
+    if (platform.key === "spotify") url = enrichment?.spotify?.url ?? url;
+    if (platform.key === "youtube") url = enrichment?.youtube?.channelUrl ?? url;
+    if (platform.key === "musicbrainz") url = enrichment?.musicbrainz?.url ?? url;
+    const snapshot = publicArtistRecord?.snapshot ?? {};
+    const hasSavedData = platform.key === "spotify"
+      ? Boolean(snapshot["spotifyFollowers"] || snapshot["spotifyMonthlyListeners"])
+      : platform.key === "youtube"
+        ? Boolean(snapshot["youtubeSubscribers"] || snapshot["youtubeChannelViews"])
+        : platform.key === "instagram"
+          ? Boolean(snapshot["instagramFollowers"])
+          : platform.key === "tiktok"
+            ? Boolean(snapshot["tiktokFollowers"])
+            : platform.key === "deezer"
+              ? Boolean(snapshot["deezerFollowers"])
+              : false;
+    return { ...platform, url, connected: Boolean(url), hasSavedData };
+  }), [enrichment, publicArtistRecord]);
+  const connectedPlatformCount = profilePlatforms.filter(platform => platform.connected).length;
   const [requestName, setRequestName] = useState("");
   const [requestPrimaryLink, setRequestPrimaryLink] = useState("");
   const [requestSecondaryLink, setRequestSecondaryLink] = useState("");
@@ -101,15 +162,15 @@ export default function CommunityContributePreview() {
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[540px] bg-[radial-gradient(circle_at_18%_10%,rgba(57,255,20,.16),transparent_34%),radial-gradient(circle_at_86%_16%,rgba(35,92,255,.10),transparent_30%)]" />
         <div className="pointer-events-none absolute inset-0 -z-20 opacity-[.035] [background-image:linear-gradient(rgba(255,255,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.12)_1px,transparent_1px)] [background-size:48px_48px]" />
 
-        <section className="mx-auto max-w-7xl px-5 pb-10 pt-10 sm:px-8 lg:px-10 lg:pb-16 lg:pt-16">
-          <div className="grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-end">
+        <section className="mx-auto max-w-7xl px-5 pb-8 pt-8 sm:px-8 lg:px-10 lg:pb-10 lg:pt-10">
+          <div className="grid gap-7 lg:grid-cols-[1.35fr_.65fr] lg:items-end">
             <div>
               <div className="mb-5 flex flex-wrap items-center gap-2">
                 <span className="rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[.17em] text-[#39FF14] sm:px-3 sm:text-[9px] sm:tracking-[.2em]">Comunidad Mexico Charts</span>
                 <span className="rounded-full border border-white/10 bg-white/[.035] px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[.15em] text-white/45 sm:px-3 sm:text-[9px] sm:tracking-[.18em]">Aportes de la comunidad</span>
               </div>
-              <h1 className="max-w-3xl font-black uppercase leading-[.9] tracking-[-.05em] text-white text-[clamp(2.55rem,6vw,5.8rem)]">
-                Ayúdanos a<br /><span className="text-[#39FF14]">hacerlo mejor</span>
+              <h1 className="max-w-3xl text-[clamp(2.1rem,4.2vw,4.25rem)] font-black uppercase leading-[.92] tracking-[-.045em] text-white">
+                Mejoremos juntos<br /><span className="text-[#39FF14]">cada perfil</span>
               </h1>
               <p className="mt-6 max-w-2xl text-base font-medium leading-7 text-white/52 sm:text-lg">
                 Los fans conocen a sus artistas mejor que nadie. Comparte enlaces oficiales, corrige datos o solicita un perfil nuevo. Cada aporte pasa por revisión editorial.
@@ -131,7 +192,7 @@ export default function CommunityContributePreview() {
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-7xl gap-6 px-5 pb-24 sm:px-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)] lg:px-10">
+        <section className="mx-auto max-w-7xl px-5 pb-24 sm:px-8 lg:px-10">
           <div className="overflow-hidden rounded-[28px] border border-white/[.09] bg-[#090909]/95 shadow-[0_40px_120px_rgba(0,0,0,.55)]">
             <div className="grid grid-cols-2 border-b border-white/[.08] bg-white/[.018] p-2">
               <button type="button" onClick={() => setMode("correct")} className={`flex items-center justify-center gap-2 rounded-2xl px-4 py-4 text-[10px] font-black uppercase tracking-[.15em] transition ${mode === "correct" ? "bg-[#39FF14] text-black" : "text-white/38 hover:bg-white/[.04] hover:text-white"}`}>
@@ -145,9 +206,9 @@ export default function CommunityContributePreview() {
             <div className="p-5 sm:p-8 lg:p-10">
               {mode === "correct" ? (
                 <>
-                  <div className="flex flex-col gap-5 border-b border-white/[.07] pb-8 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-5 border-b border-white/[.07] pb-7 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-4">
-                      {selectedArtistName === "Luis Miguel" ? <img src="https://i.scdn.co/image/ab676161000051746481401e529e475116702a29" alt={selectedArtistName} className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10" /> : <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#39FF14]/10 text-xl font-black text-[#39FF14] ring-1 ring-[#39FF14]/20">{selectedArtistName.charAt(0)}</div>}
+                      {artistPhoto ? <img src={artistPhoto} alt={selectedArtistName} className="h-16 w-16 rounded-2xl object-cover ring-1 ring-white/10" /> : <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#39FF14]/10 text-xl font-black text-[#39FF14] ring-1 ring-[#39FF14]/20">{selectedArtistName.charAt(0)}</div>}
                       <div>
                         <div className="flex items-center gap-2 text-xl font-black uppercase tracking-tight">{selectedArtistName} <BadgeCheck className="h-5 w-5 text-[#39FF14]" /></div>
                         <div className="mt-1 text-[9px] font-black uppercase tracking-[.16em] text-white/32">Perfil seleccionado · Mexico Charts</div>
@@ -163,7 +224,29 @@ export default function CommunityContributePreview() {
                     </div>
                   </div>
 
-                  <div className="pt-8">
+                  <div className="pt-7">
+                    <div className="mb-8 rounded-2xl border border-white/[.08] bg-white/[.018] p-4 sm:p-5">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                          <h2 className="text-base font-black uppercase tracking-tight sm:text-lg">Estado de enlaces</h2>
+                          <p className="mt-1 text-xs leading-5 text-white/42">Mira qué perfiles ya tenemos y cuáles todavía necesitan ayuda.</p>
+                        </div>
+                        <div className="text-[9px] font-black uppercase tracking-[.14em] text-[#39FF14]">{connectedPlatformCount} de {profilePlatforms.length} vinculados</div>
+                      </div>
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {profilePlatforms.map(platform => (
+                          <div key={platform.key} className={`flex min-w-0 items-center gap-3 rounded-xl border p-3 ${platform.connected || platform.hasSavedData ? "border-white/[.08] bg-black/35" : "border-dashed border-white/[.09] bg-white/[.012]"}`}>
+                            <PlatformMark color={platform.color} />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[10px] font-black uppercase tracking-[.08em]">{platform.name}</div>
+                              <div className={`mt-0.5 truncate text-[9px] ${platform.connected || platform.hasSavedData ? "text-white/38" : "text-amber-300/70"}`}>{platform.connected ? "Enlace disponible" : platform.hasSavedData ? "Datos disponibles · falta enlace" : "Enlace faltante"}</div>
+                            </div>
+                            {platform.url ? <a href={platform.url} target="_blank" rel="noreferrer" aria-label={`Abrir ${platform.name}`} className="rounded-lg p-2 text-white/30 transition hover:bg-white/[.06] hover:text-[#39FF14]"><ExternalLink className="h-3.5 w-3.5" /></a> : <Plus className="h-3.5 w-3.5 text-amber-300/55" />}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex items-start justify-between gap-5">
                       <div>
                         <h2 className="text-xl font-black uppercase tracking-tight sm:text-2xl">Envía cualquier enlace oficial</h2>
@@ -186,20 +269,6 @@ export default function CommunityContributePreview() {
                     </div>
 
                     {submitMessage && <p className={`mt-4 text-xs font-bold ${submitState === "success" ? "text-[#39FF14]" : "text-red-400"}`}>{submitMessage}</p>}
-                    {selectedArtistName === "Luis Miguel" && <><div className="mt-8 flex items-center justify-between">
-                      <h3 className="text-[10px] font-black uppercase tracking-[.18em] text-white/55">Enlaces del perfil</h3>
-                      <button type="button" className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[.14em] text-[#39FF14]">Todos <ChevronDown className="h-3.5 w-3.5" /></button>
-                    </div>
-                    <div className="mt-3 divide-y divide-white/[.06] overflow-hidden rounded-2xl border border-white/[.07]">
-                      {platforms.map((platform) => (
-                        <button type="button" key={platform.name} className="group grid w-full gap-3 bg-white/[.012] p-4 text-left transition hover:bg-white/[.035] sm:grid-cols-[150px_minmax(0,1fr)_auto] sm:items-center">
-                          <div className="flex items-center gap-3"><PlatformMark color={platform.color} /><span className="text-xs font-black uppercase tracking-[.08em]">{platform.name}</span></div>
-                          <span className="truncate text-xs text-white/35">{platform.handle}</span>
-                          <span className={`flex items-center gap-1.5 text-[8px] font-black uppercase tracking-[.13em] ${platform.status === "Verificado" ? "text-[#39FF14]" : "text-amber-300"}`}>{platform.status === "Verificado" && <Check className="h-3 w-3" />}{platform.status}<ExternalLink className="ml-1 h-3 w-3 opacity-0 transition group-hover:opacity-70" /></span>
-                        </button>
-                      ))}
-                    </div>
-                    </>}
                   </div>
                 </>
               ) : (
@@ -223,11 +292,11 @@ export default function CommunityContributePreview() {
             </div>
           </div>
 
-          <aside className="space-y-5">
+          <aside className="mt-6 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
             <div className="rounded-[28px] border border-[#39FF14]/20 bg-[linear-gradient(145deg,rgba(57,255,20,.10),rgba(8,8,8,.96)_48%)] p-6 sm:p-8">
               <ShieldCheck className="h-7 w-7 text-[#39FF14]" />
-              <h2 className="mt-7 text-2xl font-black uppercase leading-none tracking-tight">Tú propones<br />Nosotros verificamos</h2>
-              <div className="mt-7 space-y-5">
+              <h2 className="mt-5 text-xl font-black uppercase leading-none tracking-tight">Tú propones, nosotros verificamos</h2>
+              <div className="mt-6 grid gap-5 sm:grid-cols-3">
                 {[
                   ["01", "Recibimos el aporte", "Guardamos el enlace o la corrección enviada"],
                   ["02", "Comprobamos la fuente", "Confirmamos que la información sea oficial y corresponda al artista"],

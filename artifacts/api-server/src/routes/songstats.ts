@@ -320,6 +320,7 @@ router.get("/providers/songstats/artist", async (req, res) => {
       artistKey: extended?.artist_key ?? artist?.artistKey ?? artistKey,
       name: insight?.name ?? artist?.songstatsName ?? null,
       avatarUrl: insight?.avatarUrl ?? artist?.avatarUrl ?? null,
+      platformLinks: insight?.platformLinks ?? [],
       snapshot: {
         snapshotDate,
         spotifyFollowers: snapshotMetric(
