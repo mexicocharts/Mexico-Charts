@@ -254,6 +254,20 @@ const routes = [
     ],
   },
   {
+    path: "/contribuir",
+    title: "Contribuye — Corrige perfiles y solicita artistas | Mexico Charts",
+    description:
+      "Ayuda a Mexico Charts a verificar enlaces oficiales, corregir perfiles y priorizar nuevos artistas relacionados con la música mexicana.",
+    eyebrow: "Comunidad Mexico Charts",
+    heading: "Ayúdanos a hacerlo mejor",
+    body:
+      "Envía enlaces oficiales, corrige información de un perfil o solicita la incorporación de un artista. Cada aporte pasa por revisión editorial.",
+    links: [
+      ["/artists", "Artistas"],
+      ["/contacto", "Contacto"],
+    ],
+  },
+  {
     path: "/privacidad",
     title: "Privacidad — Mexico Charts",
     description:

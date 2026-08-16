@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink, PencilLine } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
@@ -1005,7 +1005,17 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               </div>
             )}
             {canonicalArtistKey && (
-              <div className="mb-5"><SaveArtistButton artistKey={canonicalArtistKey} artistName={artist.name} /></div>
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                <SaveArtistButton artistKey={canonicalArtistKey} artistName={artist.name} />
+                  <Link
+                    href={`/contribuir?artist=${encodeURIComponent(canonicalArtistKey)}&name=${encodeURIComponent(artist.name)}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#39FF14]/35 hover:text-[#39FF14]"
+                    data-testid="artist-edit-profile"
+                  >
+                    <PencilLine className="h-3.5 w-3.5" />
+                    Editar perfil
+                  </Link>
+              </div>
             )}
             <div className="mb-5 flex max-w-3xl flex-wrap gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">

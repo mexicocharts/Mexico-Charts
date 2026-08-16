@@ -2721,6 +2721,11 @@
     <priority>0.4</priority>
   </url>
   <url>
+    <loc>https://mexicochart.com/contribuir</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.55</priority>
+  </url>
+  <url>
     <loc>https://mexicochart.com/fuentes-de-datos</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

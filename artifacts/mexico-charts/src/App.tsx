@@ -26,6 +26,7 @@ const Metodologia = lazy(() => import("@/pages/Metodologia"));
 const FuentesDatos = lazy(() => import("@/pages/FuentesDatos"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const Terminos = lazy(() => import("@/pages/Terminos"));
+const CommunityContribute = lazy(() => import("@/pages/CommunityContributePreview"));
 // Vite serves these source modules directly in development. The ignored
 // imports prevent the private preview code from being emitted in production.
 const monitoringPreviewPage = "./pages/Monitoreo.tsx";
@@ -141,6 +142,7 @@ function Router() {
           <Route path="/fuentes-de-datos" component={FuentesDatos} />
           <Route path="/privacidad" component={Privacidad} />
           <Route path="/terminos" component={Terminos} />
+          <Route path="/contribuir" component={CommunityContribute} />
           <Route path="/cuenta" component={Cuenta} />
           <Route path="/admin/social-templates" component={SocialTemplates} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />

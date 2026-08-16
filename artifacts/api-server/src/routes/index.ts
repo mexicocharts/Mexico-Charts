@@ -17,6 +17,7 @@ import artistDiscoveryRouter from "./artist-discovery";
 import songstatsRouter from "./songstats";
 import monitoringRouter from "./monitoring";
 import accountRouter from "./account";
+import communityContributionsRouter from "./community-contributions";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use(artistDiscoveryRouter);
 router.use(songstatsRouter);
 router.use(monitoringRouter);
 router.use(accountRouter);
+router.use(communityContributionsRouter);
 
 export default router;
