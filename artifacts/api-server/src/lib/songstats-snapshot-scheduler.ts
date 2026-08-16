@@ -205,6 +205,13 @@ async function scheduledCheck(): Promise<void> {
   }
 }
 
+export function kickSongstatsSnapshotScheduler(): void {
+  if (schedulerRunning || !automationEnabled() || !process.env["SONGSTATS_API_KEY"]) {
+    return;
+  }
+  void scheduledCheck();
+}
+
 export function startSongstatsSnapshotScheduler(): void {
   if (schedulerStarted || !automationEnabled()) return;
   if (!process.env["SONGSTATS_API_KEY"]) {
@@ -218,6 +225,6 @@ export function startSongstatsSnapshotScheduler(): void {
     "[songstats] daily snapshot scheduler started",
   );
 
-  setTimeout(() => void scheduledCheck(), 5_000);
+  setTimeout(() => kickSongstatsSnapshotScheduler(), 5_000);
   setInterval(() => void scheduledCheck(), CHECK_INTERVAL_MS);
 }

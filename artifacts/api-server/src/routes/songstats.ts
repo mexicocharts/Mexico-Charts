@@ -39,12 +39,16 @@ import {
   chooseFreshSongstatsMetric,
   newestSongstatsDate,
 } from "../lib/songstats-public-freshness";
-import { getSongstatsSchedulerStatus } from "../lib/songstats-snapshot-scheduler";
+import {
+  getSongstatsSchedulerStatus,
+  kickSongstatsSnapshotScheduler,
+} from "../lib/songstats-snapshot-scheduler";
 
 const router = Router();
 
 router.get("/providers/songstats/status", async (_req, res) => {
   try {
+    kickSongstatsSnapshotScheduler();
     res.setHeader("Cache-Control", "no-store");
     res.json(await getSongstatsSchedulerStatus());
   } catch (error) {
@@ -221,6 +225,7 @@ function dateFromQuery(raw: unknown, name: string): string | undefined {
 // PUBLIC: only returns normalized, saved display metrics. Raw Songstats payloads
 // stay server-side and are never exposed by this route.
 router.get("/providers/songstats/artist", async (req, res) => {
+  kickSongstatsSnapshotScheduler();
   const artistKey = String(req.query["artistKey"] ?? "").trim().toLowerCase();
   if (!artistKey) {
     res.status(400).json({ error: "artistKey is required" });
