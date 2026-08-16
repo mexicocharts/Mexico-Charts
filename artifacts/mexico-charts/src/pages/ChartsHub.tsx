@@ -42,7 +42,6 @@ const PLATFORMS = [
       { id: "Spotify_Artists_Weekly",  label: "Artistas",     period: "Semanal" },
       { id: "Spotify_Regional_Daily",  label: "Canciones",   period: "Diario"  },
       { id: "Spotify_Regional_Weekly", label: "Canciones",   period: "Semanal" },
-      { id: "Spotify_Viral_Daily",     label: "Viral",        period: "Diario"  },
     ],
   },
   {
@@ -52,10 +51,10 @@ const PLATFORMS = [
     color: "#fc3c44",
     source: "Apple Music",
     sourceUrl: "https://music.apple.com/mx/room/1108041827",
-    meta: "Apple Music · México · Diario",
+    meta: "Apple Music · México · Actualización intradía",
     charts: [
-      { id: "Apple_Songs",  label: "Canciones", period: "Diario" },
-      { id: "Apple_Albums", label: "Álbumes",   period: "Diario" },
+      { id: "Apple_Songs",  label: "Canciones", period: "Intradía" },
+      { id: "Apple_Albums", label: "Álbumes",   period: "Intradía" },
     ],
   },
   {
@@ -208,7 +207,7 @@ const COLS: Record<string, ColDef[]> = {
 
 /* ── Types ───────────────────────────────────────────────────────────────── */
 type Row = Record<string, string>;
-interface SheetData { headers: string[]; rows: Row[]; chartDate?: string | null }
+interface SheetData { headers: string[]; rows: Row[]; chartDate?: string | null; fetchedAt?: string | null }
 interface HubData { lastUpdated: string; sheets: Record<string, SheetData> }
 
 /* ── Helpers ─────────────────────────────────────────────────────────────── */
@@ -670,11 +669,20 @@ export default function ChartsHub() {
   }, []);
 
   const updatedShortFmt = useMemo(() => {
+    if (activePlatform === "Apple Music" && sheetData?.fetchedAt) {
+      return new Date(sheetData.fetchedAt).toLocaleString("es-MX", {
+        timeZone: "America/Mexico_City",
+        day: "numeric",
+        month: "short",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
     if (!sheetData?.chartDate) return "Fecha no disponible";
     return new Date(`${sheetData.chartDate}T12:00:00Z`).toLocaleDateString("es-MX", {
       day: "numeric", month: "short",
     });
-  }, [sheetData?.chartDate]);
+  }, [activePlatform, sheetData?.chartDate, sheetData?.fetchedAt]);
 
   const currentChartMeta = platform.charts.find(c => c.id === activeSheet) ?? platform.charts[0];
   const activeMeta = `${platform.label} · México · ${currentChartMeta.period || "Diario"}`;
@@ -686,7 +694,7 @@ export default function ChartsHub() {
     { label: "Entradas", value: fmtCount(rows.length), tone: G },
     { label: "Base original", value: fmtCount(totalEntries), tone: "rgba(255,255,255,0.72)" },
     { label: "Mexicanos", value: fmtCount(mexicanEntries), tone: G },
-    { label: "Datos del", value: updatedShortFmt, tone: "rgba(255,255,255,0.72)" },
+    { label: activePlatform === "Apple Music" ? "Consultado" : "Datos del", value: updatedShortFmt, tone: "rgba(255,255,255,0.72)" },
   ];
   const detailKind = entryKindForSheet(activeSheet);
   const detailHeader = entryKindLabel(detailKind);

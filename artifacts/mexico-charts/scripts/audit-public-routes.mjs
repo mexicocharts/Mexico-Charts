@@ -116,6 +116,16 @@ const sitemapRoutes = new Set(
     .map((match) => normalizeRoute(match[1]))
     .filter(Boolean),
 );
+const sitemapLocs = [...sitemapSource.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1].trim());
+const duplicateSitemapRoutes = sorted(
+  [...new Set(sitemapLocs.filter((loc, index) => sitemapLocs.indexOf(loc) !== index))],
+);
+const invalidSitemapUrls = sorted(sitemapLocs.filter((loc) => !loc.startsWith(`${siteUrl}/`) && loc !== siteUrl));
+const invalidLastmods = sorted(
+  [...sitemapSource.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)]
+    .map((match) => match[1].trim())
+    .filter((value) => !/^20\d{2}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))),
+);
 
 const prerenderRoutes = new Set(
   [
@@ -150,6 +160,9 @@ const failures = [
   unroutableSitemapRoutes,
   unroutableInternalLinks,
   privateSitemapRoutes,
+  duplicateSitemapRoutes,
+  invalidSitemapUrls,
+  invalidLastmods,
 ].some((list) => list.length > 0);
 
 if (failures) {
@@ -159,6 +172,9 @@ if (failures) {
   reportList("Sitemap routes that are not handled by App routes", unroutableSitemapRoutes);
   reportList("Literal internal links that are not handled by App routes", unroutableInternalLinks);
   reportList("Robots-disallowed routes present in sitemap", privateSitemapRoutes);
+  reportList("Duplicate URLs present in sitemap", duplicateSitemapRoutes);
+  reportList("Sitemap URLs outside the canonical origin", invalidSitemapUrls);
+  reportList("Invalid sitemap lastmod values", invalidLastmods);
   process.exit(1);
 }
 

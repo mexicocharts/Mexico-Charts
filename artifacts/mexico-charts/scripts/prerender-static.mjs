@@ -226,22 +226,6 @@ const routes = [
     ],
   },
   {
-    path: "/tavus-preview",
-    title: "Video Tavus — Mexico Charts",
-    description:
-      "Vista editorial de un video Tavus integrado dentro de Mexico Charts como resumen semanal de charts, artistas y señales de música mexicana.",
-    eyebrow: "Video editorial",
-    heading: "Mexico Charts en video",
-    body:
-      "Preview interno de un módulo de video narrado para Mexico Charts, pensado como resumen semanal con señales de Spotify, YouTube, artistas y contexto editorial.",
-    links: [
-      ["/", "Inicio"],
-      ["/charts", "Charts"],
-      ["/artist-momentum", "Momentum"],
-      ["/touring", "Touring"],
-    ],
-  },
-  {
     path: "/acerca-de",
     title: "Acerca de Mexico Charts — Datos y cultura de la música mexicana",
     description:

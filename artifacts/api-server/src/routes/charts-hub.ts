@@ -33,6 +33,7 @@ interface SheetData {
   headers: string[];
   rows: Row[];
   chartDate: string | null;
+  fetchedAt: string | null;
 }
 
 interface CacheSlot {
@@ -192,6 +193,7 @@ function enrichSheet(
     headers: [...data.headers, "Contains Mexican Artist", "Matched Mexican Artists"],
     rows,
     chartDate: data.chartDate,
+    fetchedAt: data.fetchedAt,
   };
 }
 
@@ -211,7 +213,7 @@ async function fetchSheet(name: SheetName): Promise<SheetData> {
     parsed.rows = parsed.rows.map(r => ({ ...r, [movKey]: cleanMovement(r[movKey] ?? "") }));
   }
 
-  return { ...parsed, chartDate: chartDateFromSheet(parsed) };
+  return { ...parsed, chartDate: chartDateFromSheet(parsed), fetchedAt: null };
 }
 
 interface AppleChartResult {
@@ -221,21 +223,34 @@ interface AppleChartResult {
   url?: string;
 }
 
-async function fetchAppleAlbums(): Promise<SheetData> {
+function mexicoDate(instant = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(instant);
+}
+
+async function fetchAppleChart(kind: "songs" | "albums"): Promise<SheetData> {
   const resp = await fetch(
-    "https://rss.marketingtools.apple.com/api/v2/mx/music/most-played/100/albums.json",
+    `https://rss.marketingtools.apple.com/api/v2/mx/music/most-played/100/${kind}.json`,
     { signal: AbortSignal.timeout(15000) },
   );
-  if (!resp.ok) throw new Error(`Apple Albums: HTTP ${resp.status}`);
+  if (!resp.ok) throw new Error(`Apple ${kind}: HTTP ${resp.status}`);
 
   const payload = await resp.json() as { feed?: { results?: AppleChartResult[] } };
   const results = payload.feed?.results ?? [];
-  if (results.length < 1) throw new Error("Apple Albums: empty official feed");
+  if (results.length !== 100) {
+    throw new Error(`Apple ${kind}: expected 100 official rows, received ${results.length}`);
+  }
 
-  const chartDate = new Date().toISOString().slice(0, 10);
+  const fetchedAt = new Date().toISOString();
+  const chartDate = mexicoDate(new Date(fetchedAt));
+  const isAlbums = kind === "albums";
   const headers = [
     "Rank", "Movement", "Artist Names", "Title", "Platform", "Chart",
-    "Geography", "Chart Source URL", "Chart Date",
+    "Geography", "Chart Source URL", "Fetched At", "Chart Date",
   ];
   const rows = results.map((item, index) => ({
     "Rank": String(index + 1),
@@ -243,13 +258,14 @@ async function fetchAppleAlbums(): Promise<SheetData> {
     "Artist Names": item.artistName ?? "",
     "Title": item.name ?? "",
     "Platform": "Apple Music",
-    "Chart": "Top Albums MX",
+    "Chart": isAlbums ? "Top Albums MX" : "Top Songs MX",
     "Geography": "Mexico",
-    "Chart Source URL": item.url ?? (item.id ? `https://music.apple.com/mx/album/${item.id}` : ""),
+    "Chart Source URL": item.url ?? (item.id ? `https://music.apple.com/mx/${isAlbums ? "album" : "song"}/${item.id}` : ""),
+    "Fetched At": fetchedAt,
     "Chart Date": chartDate,
   }));
 
-  return { headers, rows, chartDate };
+  return { headers, rows, chartDate, fetchedAt };
 }
 
 interface DeezerPlaylistTrack {
@@ -302,7 +318,7 @@ async function fetchDeezerTopMexico(): Promise<SheetData> {
     };
   });
 
-  return { headers, rows, chartDate };
+  return { headers, rows, chartDate, fetchedAt };
 }
 
 /* ── Fetch all sheets + enrich with Mexican artist flags ─────────────────── */
@@ -310,7 +326,8 @@ async function fetchAll(): Promise<CacheSlot> {
   const [results, masterNorms] = await Promise.all([
     Promise.all(SHEETS.map(async s => {
       try {
-        if (s === "Apple_Albums") return await fetchAppleAlbums();
+        if (s === "Apple_Songs") return await fetchAppleChart("songs");
+        if (s === "Apple_Albums") return await fetchAppleChart("albums");
         if (s === "Deezer_Top_Mexico") return await fetchDeezerTopMexico();
       } catch (error) {
         console.warn(`[charts-hub] Live ${s} fetch failed; using sheet fallback`, error);
