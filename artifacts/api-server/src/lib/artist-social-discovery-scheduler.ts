@@ -1,6 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
-import { runArtistSocialDiscovery } from "./artist-social-discovery-service";
+import { runArtistSocialDiscovery, seedVerifiedArtistSocialAccounts } from "./artist-social-discovery-service";
 
 const LOCK_KEY = 831_905_225;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -18,6 +18,7 @@ export async function runScheduledArtistSocialDiscovery() {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     locked = lock.rows[0]?.locked === true;
     if (!locked) return { date, status: "locked" as const };
+    await seedVerifiedArtistSocialAccounts();
     await client.query(`CREATE TABLE IF NOT EXISTS artist_social_discovery_runs (
       run_date text PRIMARY KEY, completed_at timestamptz NOT NULL DEFAULT now(), summary jsonb NOT NULL DEFAULT '{}'::jsonb
     )`);
