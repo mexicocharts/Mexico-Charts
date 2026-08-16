@@ -59,29 +59,47 @@ function syncLimit(): number {
 async function snapshotProgress(
   snapshotDate: string,
   limit: number,
-): Promise<{ saved: number; target: number }> {
+): Promise<{ saved: number; target: number; remainingArtistKeys: string[] }> {
   await ensureSongstatsTables();
-  const result = await pool.query<{ saved: number; target: number }>(
+  const result = await pool.query<{
+    saved: number;
+    target: number;
+    remaining_artist_keys: string[] | null;
+  }>(
     `
+      WITH target_artists AS (
+        SELECT c.artist_key
+        FROM kworb_coverage c
+        LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
+        WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
+          AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
+        ORDER BY c.tier, c.artist_key
+        LIMIT $2
+      ), completed AS (
+        SELECT DISTINCT snapshots.artist_key
+        FROM songstats_artist_daily_snapshots snapshots
+        INNER JOIN target_artists targets ON targets.artist_key = snapshots.artist_key
+        WHERE snapshots.snapshot_date = $1
+      )
       SELECT
-        (
-          SELECT count(DISTINCT artist_key)::int
-          FROM songstats_artist_daily_snapshots
-          WHERE snapshot_date = $1
-        ) AS saved,
-        (
-          SELECT least(count(*)::int, $2)
-          FROM kworb_coverage c
-          LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
-          WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
-            AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
-        ) AS target
+        (SELECT count(*)::int FROM completed) AS saved,
+        (SELECT count(*)::int FROM target_artists) AS target,
+        COALESCE(
+          (
+            SELECT json_agg(targets.artist_key ORDER BY targets.artist_key)
+            FROM target_artists targets
+            LEFT JOIN completed ON completed.artist_key = targets.artist_key
+            WHERE completed.artist_key IS NULL
+          ),
+          '[]'::json
+        ) AS remaining_artist_keys
     `,
     [snapshotDate, limit],
   );
   return {
     saved: result.rows[0]?.saved ?? 0,
     target: result.rows[0]?.target ?? 0,
+    remainingArtistKeys: result.rows[0]?.remaining_artist_keys ?? [],
   };
 }
 
@@ -148,14 +166,31 @@ export async function runScheduledSongstatsSnapshot(): Promise<
     );
 
     const result = summary ?? { snapshotDate, status: "already_complete" as const };
-    lastResult = summary
-      ? {
-          snapshotDate,
-          requested: summary.requested,
-          saved: summary.saved,
-          failed: summary.failed,
-        }
-      : result;
+    const finalProgress = await snapshotProgress(snapshotDate, limit);
+    lastResult = {
+      snapshotDate,
+      current: {
+        status: summary ? "processed" : "already_complete",
+        requested: summary?.requested ?? 0,
+        saved: finalProgress.saved,
+        target: finalProgress.target,
+        remaining: finalProgress.remainingArtistKeys.length,
+        remainingArtistKeys: finalProgress.remainingArtistKeys,
+        failedThisAttempt: summary?.failed ?? 0,
+        failedArtistKeys: summary?.results
+          .filter(item => item.status === "failed")
+          .map(item => item.artistKey) ?? [],
+      },
+      historic: {
+        requested: historic.requested,
+        saved: historic.saved,
+        partial: historic.partial,
+        failed: historic.failed,
+        incompleteArtistKeys: historic.results
+          .filter(item => item.status !== "saved")
+          .map(item => item.artistKey),
+      },
+    };
     return result;
   } catch (error) {
     lastError = error instanceof Error ? error.message : String(error);
@@ -186,6 +221,7 @@ export async function getSongstatsSchedulerStatus(): Promise<Record<string, unkn
     target: progress.target,
     saved: progress.saved,
     remaining: Math.max(0, progress.target - progress.saved),
+    remainingArtistKeys: progress.remainingArtistKeys,
     lastStartedAt,
     lastFinishedAt,
     lastError,
