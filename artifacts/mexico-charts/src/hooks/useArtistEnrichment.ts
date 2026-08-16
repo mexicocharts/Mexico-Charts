@@ -46,6 +46,12 @@ export interface ArtistEnrichment {
     channelUrl: string;
     cachedAt: string;
   } | null;
+  socialAccounts: Array<{
+    platform: "instagram" | "facebook" | "tiktok" | "twitter";
+    url: string;
+    confidence: number;
+    verifiedAt: string;
+  }>;
 }
 
 export interface VerifiedArtistSummary {

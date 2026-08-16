@@ -29,6 +29,8 @@ const platformCatalog = [
   { key: "apple", name: "Apple Music", color: "#fa596f" },
   { key: "instagram", name: "Instagram", color: "#ff4f9a" },
   { key: "tiktok", name: "TikTok", color: "#ffffff" },
+  { key: "facebook", name: "Facebook", color: "#1877f2" },
+  { key: "twitter", name: "X", color: "#d4d4d4" },
   { key: "deezer", name: "Deezer", color: "#a238ff" },
 ] as const;
 
@@ -85,6 +87,9 @@ export default function CommunityContributePreview() {
     if (platform.key === "spotify") url = enrichment?.spotify?.url ?? url;
     if (platform.key === "youtube") url = enrichment?.youtube?.channelUrl ?? url;
     if (platform.key === "musicbrainz") url = enrichment?.musicbrainz?.url ?? url;
+    if (platform.key === "instagram" || platform.key === "tiktok" || platform.key === "facebook" || platform.key === "twitter") {
+      url = enrichment?.socialAccounts?.find(account => account.platform === platform.key)?.url ?? url;
+    }
     const snapshot = publicArtistRecord?.snapshot ?? {};
     const hasSavedData = platform.key === "spotify"
       ? Boolean(snapshot["spotifyFollowers"] || snapshot["spotifyMonthlyListeners"])
@@ -94,6 +99,10 @@ export default function CommunityContributePreview() {
           ? Boolean(snapshot["instagramFollowers"])
           : platform.key === "tiktok"
             ? Boolean(snapshot["tiktokFollowers"])
+            : platform.key === "facebook"
+              ? Boolean(snapshot["facebookFollowers"])
+              : platform.key === "twitter"
+                ? Boolean(snapshot["twitterFollowers"])
             : platform.key === "deezer"
               ? Boolean(snapshot["deezerFollowers"])
               : false;

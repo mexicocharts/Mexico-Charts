@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, pool } from "@workspace/db";
 import {
   deezerTrackCovers,
+  artistSocialAccountCandidates,
   musicbrainzArtistCandidates,
   musicbrainzArtists,
   spotifyArtistCandidates,
@@ -401,10 +402,16 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
 
   try {
     const lookupKeys = artistLookupKeys(artistKey);
-    const [spotifyRows, musicbrainzRows, youtubeRows] = await Promise.all([
+    const [spotifyRows, musicbrainzRows, youtubeRows, socialRows] = await Promise.all([
       db.select().from(spotifyArtists).where(inArray(spotifyArtists.artistKey, lookupKeys)),
       db.select().from(musicbrainzArtists).where(inArray(musicbrainzArtists.artistKey, lookupKeys)),
       db.select().from(youtubeChannels).where(inArray(youtubeChannels.artistKey, lookupKeys)),
+      db.select({
+        platform: artistSocialAccountCandidates.platform,
+        url: artistSocialAccountCandidates.canonicalUrl,
+        confidence: artistSocialAccountCandidates.confidence,
+        verifiedAt: artistSocialAccountCandidates.verifiedAt,
+      }).from(artistSocialAccountCandidates).where(inArray(artistSocialAccountCandidates.artistKey, lookupKeys)),
     ]);
     const spotify = pickArtistRow(spotifyRows, artistKey);
     const musicbrainz = pickArtistRow(musicbrainzRows, artistKey);
@@ -457,6 +464,15 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
         channelUrl: `https://www.youtube.com/channel/${youtube.channelId}`,
         cachedAt: youtube.cachedAt.toISOString(),
       } : null,
+      socialAccounts: socialRows
+        .filter(row => row.confidence >= 90 && row.verifiedAt != null)
+        .sort((a, b) => a.platform.localeCompare(b.platform))
+        .map(row => ({
+          platform: row.platform,
+          url: row.url,
+          confidence: row.confidence,
+          verifiedAt: row.verifiedAt!.toISOString(),
+        })),
     });
   } catch (err) {
     logger.error({ err, artistKey }, "[artists] enrichment unavailable");

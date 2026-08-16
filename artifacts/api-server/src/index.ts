@@ -4,6 +4,7 @@ import { startYoutubeChannelSnapshotScheduler } from "./lib/youtube-channel-snap
 import { startSpotifyKworbSnapshotScheduler } from "./lib/spotify-kworb-snapshot-scheduler";
 import { startYoutubeVideoTrackerScheduler } from "./lib/youtube-video-tracker-scheduler";
 import { startSongstatsSnapshotScheduler } from "./lib/songstats-snapshot-scheduler";
+import { startArtistSocialDiscoveryScheduler } from "./lib/artist-social-discovery-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -30,4 +31,5 @@ app.listen(port, (err) => {
   startSpotifyKworbSnapshotScheduler();
   startYoutubeVideoTrackerScheduler();
   startSongstatsSnapshotScheduler();
+  startArtistSocialDiscoveryScheduler();
 });

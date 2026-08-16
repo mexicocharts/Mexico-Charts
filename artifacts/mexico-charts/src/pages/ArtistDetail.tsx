@@ -1135,7 +1135,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               </a>
             )}
 
-            {(enrichment?.spotify?.url || itunesData?.appleUrl) && (
+            {(enrichment?.spotify?.url || itunesData?.appleUrl || enrichment?.socialAccounts?.length) && (
                 <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                 {enrichment?.spotify?.url && (
                   <a
@@ -1181,6 +1181,30 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     Escuchar en Apple Music
                   </a>
                 )}
+                {(enrichment?.socialAccounts ?? []).map(account => {
+                  const social = {
+                    instagram: { label: "Instagram oficial", icon: SiInstagram, color: "#E4405F" },
+                    facebook: { label: "Facebook oficial", icon: SiFacebook, color: "#1877F2" },
+                    tiktok: { label: "TikTok oficial", icon: SiTiktok, color: "#FFFFFF" },
+                    twitter: { label: "X oficial", icon: SiX, color: "#D4D4D4" },
+                  }[account.platform];
+                  if (!social) return null;
+                  const Icon = social.icon;
+                  return (
+                    <a
+                      key={`${account.platform}-${account.url}`}
+                      href={account.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[.04] px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] transition hover:bg-white/[.09]"
+                      style={{ color: social.color }}
+                      data-testid={`link-social-${account.platform}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {social.label}
+                    </a>
+                  );
+                })}
               </div>
             )}
           </motion.div>
