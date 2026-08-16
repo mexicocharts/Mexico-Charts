@@ -14,7 +14,7 @@ export function useDeezerArtist(name: string): DeezerArtistResult | null {
     if (!name) return;
     let cancelled = false;
 
-    fetch(`/api/providers/deezer/artist?name=${encodeURIComponent(name)}`)
+    fetch(`/api/providers/deezer/artist?name=${encodeURIComponent(name)}`, { cache: "no-store" })
       .then(response => response.ok ? response.json() : null)
       .then((data: { result?: DeezerArtistResult | null } | null) => {
         if (!cancelled) setResult(data?.result ?? null);
