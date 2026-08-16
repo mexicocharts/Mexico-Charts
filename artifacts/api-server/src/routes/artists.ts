@@ -464,8 +464,10 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
         channelUrl: `https://www.youtube.com/channel/${youtube.channelId}`,
         cachedAt: youtube.cachedAt.toISOString(),
       } : null,
-      socialAccounts: socialRows
+      socialAccounts: [...new Map(socialRows
         .filter(row => row.confidence >= 90 && row.verifiedAt != null)
+        .sort((a, b) => Number(a.url.startsWith("https://x.com/")) - Number(b.url.startsWith("https://x.com/")))
+        .map(row => [row.platform, row] as const)).values()]
         .sort((a, b) => a.platform.localeCompare(b.platform))
         .map(row => ({
           platform: row.platform,
