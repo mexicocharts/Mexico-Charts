@@ -14,6 +14,10 @@ const imageCache = new Map<string, string>();
 const missCache  = new Map<string, number>();
 const MISS_TTL   = 5 * 60 * 1000; // 5 minutes before retrying a null result
 
+function normalizeExactArtistName(value: string): string {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
 /* ── Helpers ── */
 function getCached(key: string): string | null | undefined {
   if (imageCache.has(key)) return imageCache.get(key)!;                // real URL
@@ -306,6 +310,44 @@ router.get("/spotify/artist-images", async (req, res) => {
 
   res.setHeader("Cache-Control", "no-store");
   res.json(results);
+});
+
+// Public metadata lookup used only to expose an unambiguous Deezer artist URL.
+// Fuzzy and partial matches are deliberately ignored.
+router.get("/providers/deezer/artist", async (req, res) => {
+  const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
+  if (!name) {
+    res.status(400).json({ provider: "deezer", result: null });
+    return;
+  }
+
+  try {
+    const response = await fetch(`https://api.deezer.com/search/artist?q=${encodeURIComponent(name)}&limit=25`);
+    if (!response.ok) {
+      res.status(502).json({ provider: "deezer", result: null });
+      return;
+    }
+    const payload = await response.json() as {
+      data?: Array<{ id?: number; name?: string; link?: string }>;
+    };
+    const target = normalizeExactArtistName(name);
+    const exactMatches = (payload.data ?? []).filter(item =>
+      item.id != null && item.name != null && normalizeExactArtistName(item.name) === target
+    );
+    const match = exactMatches.length === 1 ? exactMatches[0] : null;
+    const result = match
+      ? {
+          deezerId: String(match.id),
+          deezerUrl: match.link || `https://www.deezer.com/artist/${match.id}`,
+          artistName: match.name,
+        }
+      : null;
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.json({ provider: "deezer", result });
+  } catch (err) {
+    logger.warn({ err, name }, "[deezer] exact artist lookup failed");
+    res.status(502).json({ provider: "deezer", result: null });
+  }
 });
 
 export default router;
