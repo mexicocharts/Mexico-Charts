@@ -14,6 +14,12 @@ const imageCache = new Map<string, string>();
 const missCache  = new Map<string, number>();
 const MISS_TTL   = 5 * 60 * 1000; // 5 minutes before retrying a null result
 
+// Curated provider IDs backed by the repository's existing stable Deezer CDN
+// mappings. These resolve same-name collisions without guessing.
+const VERIFIED_DEEZER_ARTIST_IDS: Record<string, string> = {
+  "peso pluma": "80365122",
+};
+
 function normalizeExactArtistName(value: string): string {
   return value.toLowerCase().trim().replace(/\s+/g, " ");
 }
@@ -318,6 +324,20 @@ router.get("/providers/deezer/artist", async (req, res) => {
   const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
   if (!name) {
     res.status(400).json({ provider: "deezer", result: null });
+    return;
+  }
+
+  const verifiedId = VERIFIED_DEEZER_ARTIST_IDS[normalizeExactArtistName(name)];
+  if (verifiedId) {
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.json({
+      provider: "deezer",
+      result: {
+        deezerId: verifiedId,
+        deezerUrl: `https://www.deezer.com/artist/${verifiedId}`,
+        artistName: name,
+      },
+    });
     return;
   }
 
