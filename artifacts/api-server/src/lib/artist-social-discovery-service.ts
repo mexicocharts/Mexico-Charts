@@ -1,4 +1,5 @@
 import { canonicalizeSocialUrl, mergeSocialEvidence, type SocialEvidence } from "./artist-social-discovery-policy";
+import verifiedSocialAccountsCsv from "../../../../scripts/data/verified-artist-social-accounts.csv";
 
 type LinkRecord = { type?: unknown; source?: unknown; url?: unknown };
 type ArtistRow = {
@@ -16,6 +17,70 @@ export interface ArtistSocialDiscoverySummary {
   candidates: number;
   verified: number;
   review: number;
+}
+
+function parseCsvLine(line: string): string[] {
+  const values: string[] = [];
+  let value = "";
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === '"' && quoted && line[index + 1] === '"') { value += '"'; index += 1; }
+    else if (char === '"') quoted = !quoted;
+    else if (char === "," && !quoted) { values.push(value); value = ""; }
+    else value += char;
+  }
+  values.push(value);
+  return values;
+}
+
+export async function seedVerifiedArtistSocialAccounts(): Promise<number> {
+  const { pool } = await import("@workspace/db");
+  await ensureArtistSocialDiscoveryTable();
+  const lines = verifiedSocialAccountsCsv.trim().split(/\r?\n/);
+  const columns = parseCsvLine(lines.shift() ?? "");
+  const rows = lines
+    .map(line => {
+      const values = parseCsvLine(line);
+      return Object.fromEntries(columns.map((column, index) => [column, values[index] ?? ""]));
+    })
+    .filter(row => row["status"] === "verified" && Number(row["confidence"]) >= 90)
+    .map(row => ({
+      artistKey: row["artist_key"],
+      platform: row["platform"],
+      canonicalUrl: row["canonical_url"],
+      evidenceSources: String(row["evidence_sources"] ?? "").split("+").filter(Boolean),
+      confidence: Number(row["confidence"]),
+      discoveredAt: row["discovery_date"],
+      verifiedAt: row["verification_date"] || row["discovery_date"],
+    }));
+  await pool.query(`
+    INSERT INTO artist_social_account_candidates (
+      artist_key, platform, canonical_url, evidence_sources, confidence, status,
+      discovered_at, verified_at, last_checked_at, created_at, updated_at
+    )
+    SELECT artist_key, platform, canonical_url, evidence_sources, confidence, 'verified',
+      discovered_at::date, verified_at::date, now(), now(), now()
+    FROM jsonb_to_recordset($1::jsonb) AS seed(
+      artist_key text, platform text, canonical_url text, evidence_sources jsonb,
+      confidence integer, discovered_at text, verified_at text
+    )
+    ON CONFLICT (artist_key, platform, canonical_url) DO UPDATE SET
+      evidence_sources = excluded.evidence_sources,
+      confidence = excluded.confidence,
+      status = CASE WHEN artist_social_account_candidates.status = 'rejected' THEN 'rejected' ELSE 'verified' END,
+      verified_at = CASE WHEN artist_social_account_candidates.status = 'rejected' THEN artist_social_account_candidates.verified_at ELSE excluded.verified_at END,
+      last_checked_at = now(), updated_at = now()
+  `, [JSON.stringify(rows.map(row => ({
+    artist_key: row.artistKey,
+    platform: row.platform,
+    canonical_url: row.canonicalUrl,
+    evidence_sources: row.evidenceSources,
+    confidence: row.confidence,
+    discovered_at: row.discoveredAt,
+    verified_at: row.verifiedAt,
+  })))]);
+  return rows.length;
 }
 
 function linksFrom(value: unknown): string[] {
