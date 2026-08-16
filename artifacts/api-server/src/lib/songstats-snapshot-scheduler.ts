@@ -39,9 +39,17 @@ function automationEnabled(): boolean {
   return process.env["SONGSTATS_SNAPSHOT_AUTOMATION_DISABLED"] !== "true";
 }
 
-function scheduledHourUtc(): number {
-  const parsed = Number(process.env["SONGSTATS_SNAPSHOT_HOUR_UTC"] ?? "11");
-  return Number.isFinite(parsed) ? Math.max(0, Math.min(23, Math.floor(parsed))) : 11;
+function scheduledHourEt(): number {
+  const parsed = Number(process.env["SONGSTATS_SNAPSHOT_HOUR_ET"] ?? "7");
+  return Number.isFinite(parsed) ? Math.max(0, Math.min(23, Math.floor(parsed))) : 7;
+}
+
+function currentHourEt(): number {
+  return Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date()));
 }
 
 function syncLimit(): number {
@@ -81,7 +89,7 @@ export async function runScheduledSongstatsSnapshot(): Promise<
   SongstatsSyncSummary | { snapshotDate: string; status: "already_complete" | "locked" | "too_early" }
 > {
   const snapshotDate = todayIso();
-  if (new Date().getUTCHours() < scheduledHourUtc()) {
+  if (currentHourEt() < scheduledHourEt()) {
     return { snapshotDate, status: "too_early" };
   }
 
@@ -173,7 +181,7 @@ export async function getSongstatsSchedulerStatus(): Promise<Record<string, unkn
     apiKeyConfigured: Boolean(process.env["SONGSTATS_API_KEY"]),
     running: schedulerRunning,
     snapshotDate,
-    scheduledHourUtc: scheduledHourUtc(),
+    scheduledHourEt: scheduledHourEt(),
     checkIntervalMinutes: CHECK_INTERVAL_MS / 60_000,
     target: progress.target,
     saved: progress.saved,
@@ -186,7 +194,7 @@ export async function getSongstatsSchedulerStatus(): Promise<Record<string, unkn
 }
 
 async function scheduledCheck(): Promise<void> {
-  if (new Date().getUTCHours() < scheduledHourUtc()) {
+  if (currentHourEt() < scheduledHourEt()) {
     return;
   }
 
@@ -206,7 +214,7 @@ export function startSongstatsSnapshotScheduler(): void {
 
   schedulerStarted = true;
   logger.info(
-    { hourUtc: scheduledHourUtc(), maxArtists: syncLimit() },
+    { hourEt: scheduledHourEt(), maxArtists: syncLimit() },
     "[songstats] daily snapshot scheduler started",
   );
 
