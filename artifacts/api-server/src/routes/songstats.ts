@@ -39,8 +39,19 @@ import {
   chooseFreshSongstatsMetric,
   newestSongstatsDate,
 } from "../lib/songstats-public-freshness";
+import { getSongstatsSchedulerStatus } from "../lib/songstats-snapshot-scheduler";
 
 const router = Router();
+
+router.get("/providers/songstats/status", async (_req, res) => {
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await getSongstatsSchedulerStatus());
+  } catch (error) {
+    logger.error({ error }, "[songstats] scheduler status failed");
+    res.status(500).json({ error: "Unable to read Songstats scheduler status" });
+  }
+});
 
 const ALLOWED_SOURCES = new Set<SongstatsSource>([
   "all",

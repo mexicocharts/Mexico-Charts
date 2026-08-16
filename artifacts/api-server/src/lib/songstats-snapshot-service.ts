@@ -347,30 +347,41 @@ export async function syncSongstatsCurrentStats(options: {
     artistKeys: options.artistKeys,
     excludeSnapshotDate: options.artistKeys?.length ? undefined : snapshotDate,
   });
-  const results: SongstatsSyncResult[] = [];
+  const results = new Array<SongstatsSyncResult>(artists.length);
+  let nextArtistIndex = 0;
+  const configuredConcurrency = Number(
+    process.env["SONGSTATS_CURRENT_SYNC_CONCURRENCY"] ?? "8",
+  );
+  const concurrency = Number.isFinite(configuredConcurrency)
+    ? Math.max(1, Math.min(12, Math.floor(configuredConcurrency)))
+    : 8;
+  const workers = Array.from({ length: Math.min(concurrency, artists.length) }, async () => {
+    while (nextArtistIndex < artists.length) {
+      const index = nextArtistIndex++;
+      const artist = artists[index]!;
+      try {
+        const response = await getSongstatsArtistCurrentStats({
+          spotifyArtistId: artist.spotifyArtistId,
+        });
+        results[index] = await saveCurrentStats(artist, response, snapshotDate);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown Songstats error";
+        logger.warn(
+          { artistKey: artist.artistKey, spotifyArtistId: artist.spotifyArtistId, error: message },
+          "[songstats] artist current stats sync failed",
+        );
+        results[index] = {
+          artistKey: artist.artistKey,
+          spotifyArtistId: artist.spotifyArtistId,
+          status: "failed",
+          error: message,
+        };
+      }
 
-  for (const artist of artists) {
-    try {
-      const response = await getSongstatsArtistCurrentStats({
-        spotifyArtistId: artist.spotifyArtistId,
-      });
-      results.push(await saveCurrentStats(artist, response, snapshotDate));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown Songstats error";
-      logger.warn(
-        { artistKey: artist.artistKey, spotifyArtistId: artist.spotifyArtistId, error: message },
-        "[songstats] artist current stats sync failed",
-      );
-      results.push({
-        artistKey: artist.artistKey,
-        spotifyArtistId: artist.spotifyArtistId,
-        status: "failed",
-        error: message,
-      });
+      if (artists.length > 1) await sleep(125);
     }
-
-    if (artists.length > 1) await sleep(125);
-  }
+  });
+  await Promise.all(workers);
 
   return {
     snapshotDate,

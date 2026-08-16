@@ -9,11 +9,21 @@ import {
 import { syncSongstatsExtendedData } from "./songstats-extended-service";
 
 const LOCK_KEY = 831_905_224;
-const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 
 let schedulerStarted = false;
+let schedulerRunning = false;
+let lastStartedAt: string | null = null;
+let lastFinishedAt: string | null = null;
+let lastError: string | null = null;
+let lastResult: unknown = null;
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 function daysBefore(date: string, days: number): string {
@@ -81,6 +91,9 @@ export async function runScheduledSongstatsSnapshot(): Promise<
     );
     locked = lock.rows[0]?.locked === true;
     if (!locked) return { snapshotDate, status: "locked" };
+    schedulerRunning = true;
+    lastStartedAt = new Date().toISOString();
+    lastError = null;
 
     const limit = syncLimit();
     const progress = await snapshotProgress(snapshotDate, limit);
@@ -123,13 +136,50 @@ export async function runScheduledSongstatsSnapshot(): Promise<
       "[songstats] daily historic-stats refresh complete",
     );
 
-    return summary ?? { snapshotDate, status: "already_complete" };
+    const result = summary ?? { snapshotDate, status: "already_complete" as const };
+    lastResult = summary
+      ? {
+          snapshotDate,
+          requested: summary.requested,
+          saved: summary.saved,
+          failed: summary.failed,
+        }
+      : result;
+    return result;
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : String(error);
+    throw error;
   } finally {
+    if (locked) {
+      schedulerRunning = false;
+      lastFinishedAt = new Date().toISOString();
+    }
     if (locked) {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => undefined);
     }
     client.release();
   }
+}
+
+export async function getSongstatsSchedulerStatus(): Promise<Record<string, unknown>> {
+  const snapshotDate = todayIso();
+  const limit = syncLimit();
+  const progress = await snapshotProgress(snapshotDate, limit);
+  return {
+    enabled: automationEnabled(),
+    apiKeyConfigured: Boolean(process.env["SONGSTATS_API_KEY"]),
+    running: schedulerRunning,
+    snapshotDate,
+    scheduledHourUtc: scheduledHourUtc(),
+    checkIntervalMinutes: CHECK_INTERVAL_MS / 60_000,
+    target: progress.target,
+    saved: progress.saved,
+    remaining: Math.max(0, progress.target - progress.saved),
+    lastStartedAt,
+    lastFinishedAt,
+    lastError,
+    lastResult,
+  };
 }
 
 async function scheduledCheck(): Promise<void> {
