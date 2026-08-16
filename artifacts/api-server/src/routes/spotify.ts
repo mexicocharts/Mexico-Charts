@@ -329,7 +329,7 @@ router.get("/providers/deezer/artist", async (req, res) => {
 
   const verifiedId = VERIFIED_DEEZER_ARTIST_IDS[normalizeExactArtistName(name)];
   if (verifiedId) {
-    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("Cache-Control", "no-store");
     res.json({
       provider: "deezer",
       result: {
@@ -362,7 +362,7 @@ router.get("/providers/deezer/artist", async (req, res) => {
           artistName: match.name,
         }
       : null;
-    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.setHeader("Cache-Control", "no-store");
     res.json({ provider: "deezer", result });
   } catch (err) {
     logger.warn({ err, name }, "[deezer] exact artist lookup failed");
