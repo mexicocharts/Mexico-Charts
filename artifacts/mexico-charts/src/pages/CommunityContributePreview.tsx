@@ -19,6 +19,7 @@ import PageSEO from "@/components/PageSEO";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
+import { useDeezerArtist } from "@/hooks/useDeezerArtist";
 import { lookupArtistMetadata, useArtistMetadata } from "@/services/dataProvider";
 
 const G = "#39FF14";
@@ -67,6 +68,7 @@ export default function CommunityContributePreview() {
   const canonicalArtistKey = metadataArtist?.artistKey || artistKey;
   const enrichment = useArtistEnrichment(canonicalArtistKey);
   const appleMusic = useItunesArtist(selectedArtistName);
+  const deezer = useDeezerArtist(selectedArtistName);
   const { data: publicArtistRecord } = useQuery({
     queryKey: ["community-public-artist", canonicalArtistKey],
     queryFn: () => fetchPublicArtistRecord(canonicalArtistKey),
@@ -88,6 +90,7 @@ export default function CommunityContributePreview() {
     url = savedLink?.url ?? null;
     if (platform.key === "spotify") url = enrichment?.spotify?.url ?? url;
     if (platform.key === "apple") url = appleMusic?.appleUrl ?? url;
+    if (platform.key === "deezer") url = deezer?.deezerUrl ?? url;
     if (platform.key === "youtube") url = enrichment?.youtube?.channelUrl ?? url;
     if (platform.key === "musicbrainz") url = enrichment?.musicbrainz?.url ?? url;
     if (platform.key === "instagram" || platform.key === "tiktok" || platform.key === "facebook" || platform.key === "twitter") {
@@ -110,7 +113,7 @@ export default function CommunityContributePreview() {
               ? Boolean(snapshot["deezerFollowers"])
               : false;
     return { ...platform, url, connected: Boolean(url), hasSavedData };
-  }), [appleMusic, enrichment, publicArtistRecord]);
+  }), [appleMusic, deezer, enrichment, publicArtistRecord]);
   const connectedPlatformCount = profilePlatforms.filter(platform => platform.connected).length;
   const [requestName, setRequestName] = useState("");
   const [requestPrimaryLink, setRequestPrimaryLink] = useState("");
