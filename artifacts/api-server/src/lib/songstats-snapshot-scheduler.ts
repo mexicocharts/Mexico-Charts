@@ -10,6 +10,8 @@ import { syncSongstatsExtendedData } from "./songstats-extended-service";
 
 const LOCK_KEY = 831_905_224;
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
+const RETRY_INTERVAL_MINUTES = 60;
+const MAX_DAILY_ATTEMPTS = 6;
 
 let schedulerStarted = false;
 let schedulerRunning = false;
@@ -103,8 +105,72 @@ async function snapshotProgress(
   };
 }
 
+async function claimDailyAttempt(snapshotDate: string): Promise<{
+  claimed: boolean;
+  attempts: number;
+  nextRetryAt: string | null;
+  reason?: "cooldown" | "attempts_exhausted";
+}> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS songstats_snapshot_scheduler_runs (
+      snapshot_date text PRIMARY KEY,
+      attempt_count integer NOT NULL DEFAULT 0,
+      last_attempt_at timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  const existing = await pool.query<{
+    attempt_count: number;
+    last_attempt_at: Date | null;
+  }>(
+    `SELECT attempt_count, last_attempt_at
+     FROM songstats_snapshot_scheduler_runs
+     WHERE snapshot_date = $1`,
+    [snapshotDate],
+  );
+  const attempts = existing.rows[0]?.attempt_count ?? 0;
+  const lastAttemptAt = existing.rows[0]?.last_attempt_at ?? null;
+  const nextRetryAt = lastAttemptAt
+    ? new Date(lastAttemptAt.getTime() + RETRY_INTERVAL_MINUTES * 60_000)
+    : null;
+  if (attempts >= MAX_DAILY_ATTEMPTS) {
+    return {
+      claimed: false,
+      attempts,
+      nextRetryAt: null,
+      reason: "attempts_exhausted",
+    };
+  }
+  if (nextRetryAt && nextRetryAt.getTime() > Date.now()) {
+    return {
+      claimed: false,
+      attempts,
+      nextRetryAt: nextRetryAt.toISOString(),
+      reason: "cooldown",
+    };
+  }
+  const claimed = await pool.query<{ attempt_count: number }>(
+    `
+      INSERT INTO songstats_snapshot_scheduler_runs (
+        snapshot_date, attempt_count, last_attempt_at, updated_at
+      ) VALUES ($1, 1, now(), now())
+      ON CONFLICT (snapshot_date) DO UPDATE SET
+        attempt_count = songstats_snapshot_scheduler_runs.attempt_count + 1,
+        last_attempt_at = now(),
+        updated_at = now()
+      RETURNING attempt_count
+    `,
+    [snapshotDate],
+  );
+  return {
+    claimed: true,
+    attempts: claimed.rows[0]?.attempt_count ?? attempts + 1,
+    nextRetryAt: null,
+  };
+}
+
 export async function runScheduledSongstatsSnapshot(): Promise<
-  SongstatsSyncSummary | { snapshotDate: string; status: "already_complete" | "locked" | "too_early" }
+  SongstatsSyncSummary | { snapshotDate: string; status: "already_complete" | "locked" | "too_early" | "cooldown" | "attempts_exhausted" }
 > {
   const snapshotDate = todayIso();
   if (currentHourEt() < scheduledHourEt()) {
@@ -120,6 +186,16 @@ export async function runScheduledSongstatsSnapshot(): Promise<
     );
     locked = lock.rows[0]?.locked === true;
     if (!locked) return { snapshotDate, status: "locked" };
+    const attempt = await claimDailyAttempt(snapshotDate);
+    if (!attempt.claimed) {
+      lastResult = {
+        snapshotDate,
+        status: attempt.reason,
+        attempts: attempt.attempts,
+        nextRetryAt: attempt.nextRetryAt,
+      };
+      return { snapshotDate, status: attempt.reason! };
+    }
     schedulerRunning = true;
     lastStartedAt = new Date().toISOString();
     lastError = null;
@@ -218,6 +294,8 @@ export async function getSongstatsSchedulerStatus(): Promise<Record<string, unkn
     snapshotDate,
     scheduledHourEt: scheduledHourEt(),
     checkIntervalMinutes: CHECK_INTERVAL_MS / 60_000,
+    retryIntervalMinutes: RETRY_INTERVAL_MINUTES,
+    maxDailyAttempts: MAX_DAILY_ATTEMPTS,
     target: progress.target,
     saved: progress.saved,
     remaining: Math.max(0, progress.target - progress.saved),
