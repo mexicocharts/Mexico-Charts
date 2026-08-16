@@ -33,7 +33,10 @@ function daysBefore(date: string, days: number): string {
 }
 
 function automationEnabled(): boolean {
-  return process.env["SONGSTATS_SNAPSHOT_AUTOMATION"] !== "false";
+  // The old deployment carried SONGSTATS_SNAPSHOT_AUTOMATION=false from the
+  // one-time/manual-sync phase. Daily refresh is now the production default;
+  // keep a deliberately named emergency kill switch for incident response.
+  return process.env["SONGSTATS_SNAPSHOT_AUTOMATION_DISABLED"] !== "true";
 }
 
 function scheduledHourUtc(): number {
