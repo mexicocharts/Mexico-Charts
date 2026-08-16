@@ -400,7 +400,10 @@ export default function TouringHub() {
           .th-city-select {
             width: 100%;
             max-width: none;
+            min-width: 0;
+            box-sizing: border-box;
           }
+          .th-filter-controls { width: 100%; min-width: 0; }
           .th-show-row {
             min-height: 68px;
           }
@@ -493,7 +496,10 @@ export default function TouringHub() {
           .th-city-select {
             width: 100%;
             max-width: none;
+            min-width: 0;
+            box-sizing: border-box;
           }
+          .th-filter-controls { width: 100%; min-width: 0; }
           .th-show-row {
             align-items: stretch;
             min-height: 106px;
@@ -661,7 +667,7 @@ export default function TouringHub() {
               <SectionEyebrow>Agenda</SectionEyebrow>
               <SectionHeading white="Todas las" green="Fechas" />
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            <div className="th-filter-controls" style={{ display: "flex", alignItems: "flex-end", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <div className="th-filter-group" style={{ display: "flex", gap: 3 }}>
                 {(["ALL", "US", "MX", "OTHER"] as CountryFilter[]).map(f => {
                   const isActive = countryFilter === f;

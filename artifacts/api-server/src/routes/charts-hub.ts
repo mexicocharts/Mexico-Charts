@@ -116,6 +116,21 @@ function normName(s: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+// Spotify/YouTube sometimes interchange an ampersand with the Spanish
+// conjunction in an otherwise identical official group name (for example,
+// "Julion Alvarez & Su Norteño Banda" vs "... y Su Norteño Banda").
+// Keep the strict form first, then use this connector-neutral form only for
+// comparing the complete credit so collaborations are not over-matched.
+function normCredit(s: string): string {
+  return normName(
+    s
+      .replace(/\s+(?:&|y|and)\s+/gi, " ")
+      // Official platform credits append these band-leader qualifiers while
+      // the approved master stores the established group name.
+      .replace(/\s+de\s+(?:ren[eé]\s+camacho|humberto\s+pab[oó]n)\s*$/gi, ""),
+  );
+}
+
 /* ── Split artist credit string into individual names ───────────────────── */
 function splitCredit(credit: string): string[] {
   return credit
@@ -144,8 +159,14 @@ async function fetchMasterNorms(): Promise<Set<string>> {
   for (const row of rows) {
     const name = row[nameKey] ?? "";
     const normalized = row[normKey] ?? "";
-    if (name) norms.add(normName(name));
-    if (normalized) norms.add(normName(normalized));
+    if (name) {
+      norms.add(normName(name));
+      norms.add(normCredit(name));
+    }
+    if (normalized) {
+      norms.add(normName(normalized));
+      norms.add(normCredit(normalized));
+    }
   }
   masterCache = { norms, fetchedAt: Date.now() };
   console.log(`[charts-hub] Mexican_Artist_Master loaded — ${norms.size} normalised entries`);
@@ -180,8 +201,13 @@ function enrichSheet(
 
   const rows = data.rows.map(row => {
     const credit = row[artistField] ?? "";
-    const parts  = splitCredit(credit);
-    const matched = parts.filter(p => masterNorms.has(normName(p)));
+    const strictCredit = normName(credit);
+    const looseCredit = normCredit(credit);
+    const fullMatch = masterNorms.has(strictCredit) || masterNorms.has(looseCredit);
+    const parts = splitCredit(credit);
+    const matched = fullMatch
+      ? [credit.trim()]
+      : parts.filter(p => masterNorms.has(normName(p)));
     return {
       ...row,
       "Contains Mexican Artist":  matched.length ? "TRUE" : "FALSE",
