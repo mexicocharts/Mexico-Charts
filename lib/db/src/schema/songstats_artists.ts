@@ -78,6 +78,17 @@ export const songstatsArtistExtendedData = pgTable("songstats_artist_extended_da
     .on(table.songstatsArtistId),
 ]);
 
+// The autoscale scheduler creates and updates this coordination row at runtime.
+// Declaring it here prevents deployment schema reconciliation from treating the
+// live scheduler table as orphaned data and proposing a destructive DROP TABLE.
+export const songstatsSnapshotSchedulerRuns = pgTable("songstats_snapshot_scheduler_runs", {
+  snapshotDate:  text("snapshot_date").primaryKey(),
+  attemptCount:  integer("attempt_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+  updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export type SongstatsArtist = typeof songstatsArtists.$inferSelect;
 export type SongstatsArtistDailySnapshot = typeof songstatsArtistDailySnapshots.$inferSelect;
 export type SongstatsArtistExtendedData = typeof songstatsArtistExtendedData.$inferSelect;
+export type SongstatsSnapshotSchedulerRun = typeof songstatsSnapshotSchedulerRuns.$inferSelect;
