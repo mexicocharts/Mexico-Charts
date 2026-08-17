@@ -38,3 +38,4 @@ export * from "./social_template_artwork";
 export * from "./songstats_artists";
 export * from "./user_accounts";
 export * from "./artist_social_accounts";
+export * from "./mexican_artist_identities";
