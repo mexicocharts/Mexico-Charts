@@ -129,9 +129,15 @@ async function wikidataEvidence(name: string, linkedQid: string | null): Promise
   };
 }
 
-async function upsertCandidate(name: string, evidence: IdentityEvidence[]): Promise<"verified" | "review" | "rejected"> {
+type IdentityDb = Pick<typeof pool, "query">;
+
+async function upsertCandidate(
+  name: string,
+  evidence: IdentityEvidence[],
+  db: IdentityDb = pool,
+): Promise<"verified" | "review" | "rejected"> {
   const decision = decideMexicanIdentity(evidence);
-  await pool.query(`
+  await db.query(`
     INSERT INTO mexican_artist_identity_candidates (
       artist_name, normalized_name, evidence, confidence, status, verification_date, last_checked_at, updated_at
     ) VALUES ($1,$2,$3::jsonb,$4,$5,CASE WHEN $5 = 'verified' THEN CURRENT_DATE ELSE NULL END,now(),now())
@@ -150,7 +156,10 @@ async function upsertCandidate(name: string, evidence: IdentityEvidence[]): Prom
   return decision.status;
 }
 
-export async function runMexicanIdentityDiscovery(limit = 40): Promise<MexicanIdentityDiscoverySummary> {
+export async function runMexicanIdentityDiscovery(
+  limit = 40,
+  db: IdentityDb = pool,
+): Promise<MexicanIdentityDiscoverySummary> {
   await ensureMexicanIdentityTables();
   const credits = await getOfficialChartArtistCredits();
   const verifiedNorms = await getVerifiedMexicanIdentityNorms();
@@ -173,7 +182,7 @@ export async function runMexicanIdentityDiscovery(limit = 40): Promise<MexicanId
     const wd = await wikidataEvidence(name, mb?.wikidataQid ?? null).catch(() => null);
     if (mb) evidence.push(mb.evidence);
     if (wd) evidence.push(wd);
-    const status = await upsertCandidate(name, evidence);
+    const status = await upsertCandidate(name, evidence, db);
     status === "verified" ? verified += 1 : review += 1;
   }
   const alreadyVerified = credits.filter(name => verifiedNorms.has(normalizeArtistIdentity(name))).length;
