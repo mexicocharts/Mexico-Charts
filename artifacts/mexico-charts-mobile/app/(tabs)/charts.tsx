@@ -472,6 +472,14 @@ export default function ChartsScreen() {
         </TouchableOpacity>
       </View>
 
+      {filterMex && (
+        <View style={styles.mexFilterNotice}>
+          <Text style={styles.mexFilterNoticeText}>
+            Artistas mexicanos identificados en esta lista oficial. La clasificación mexicana se basa en identidad y nacionalidad verificadas. Las posiciones originales se conservan.
+          </Text>
+        </View>
+      )}
+
       {/* Platform tabs */}
       <ScrollView
         horizontal
@@ -634,6 +642,22 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   mexToggleTextActive: { color: NEON },
+  mexFilterNotice: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: `${NEON}28`,
+    borderRadius: 8,
+    backgroundColor: `${NEON}0D`,
+  },
+  mexFilterNoticeText: {
+    color: "rgba(255,255,255,0.58)",
+    fontFamily: "Inter_500Medium",
+    fontSize: 10,
+    lineHeight: 15,
+  },
   platformTabScroll: {
     maxHeight: 46,
     borderBottomWidth: 1,

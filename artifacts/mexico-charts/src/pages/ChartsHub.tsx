@@ -1057,6 +1057,10 @@ export default function ChartsHub() {
         {/* ── MEXICO CHARTS ──────────────────────────────────────────────── */}
         <section id="mexico-charts" className="relative overflow-hidden"
           style={{ border: `1px solid ${G}28`, borderRadius: 8, background: "radial-gradient(circle at 9% 5%, rgba(57,255,20,0.16), transparent 34%), rgba(255,255,255,0.018)" }}>
+          <div className="border-b px-4 py-3 text-[10px] leading-relaxed sm:px-6 md:px-9"
+            style={{ borderColor: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+            Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts. No representa necesariamente la totalidad de artistas mexicanos.
+          </div>
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
             <Link href="/mx100">
               <motion.article whileHover={{ y: -2 }}
@@ -1329,8 +1333,8 @@ export default function ChartsHub() {
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
                     className="px-4 py-3 text-[11px] leading-relaxed"
                     style={{ background: `${G}0d`, border: `1px solid ${G}25`, borderRadius: 8, color: "rgba(255,255,255,0.5)" }}>
-                    <span style={{ color: G, fontWeight: 900 }}>Vista filtrada por Mexico Charts · </span>
-                    Se muestran filas con artistas mexicanos o colaboraciones con participación mexicana. Las posiciones originales del chart se conservan
+                    <span style={{ color: G, fontWeight: 900 }}>Artistas mexicanos identificados en esta lista oficial. </span>
+                    La clasificación mexicana se basa en identidad y nacionalidad verificadas. Las posiciones originales del chart se conservan.
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1545,9 +1549,7 @@ export default function ChartsHub() {
                   )}
                 </div>
                 <p className="px-1 text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.48)", maxWidth: "65ch" }}>
-                  Mexico Charts organiza y presenta datos de plataformas musicales para mostrar listas en México
-                  La vista «Solo artistas mexicanos» es un filtro editorial aplicado a las listas originales y conserva las posiciones originales de cada plataforma
-                  La identificación de artistas mexicanos se realiza únicamente contra la base de datos de Mexico Charts y el listado Mexican_Artist_Master; no se infiere la nacionalidad por género, idioma ni popularidad regional
+                  Mexico Charts organiza y presenta datos de plataformas musicales para mostrar listas en México. La vista «Solo artistas mexicanos» conserva las posiciones originales de cada plataforma. La clasificación mexicana se basa en identidad y nacionalidad verificadas; no se infiere por género, idioma ni popularidad regional.
                 </p>
               </div>
             )}
