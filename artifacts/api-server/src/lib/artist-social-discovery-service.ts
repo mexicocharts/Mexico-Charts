@@ -140,6 +140,15 @@ export async function ensureArtistSocialDiscoveryTable(): Promise<void> {
 export async function runArtistSocialDiscovery(): Promise<ArtistSocialDiscoverySummary> {
   const { pool } = await import("@workspace/db");
   await ensureArtistSocialDiscoveryTable();
+  // Generic Facebook shells are not artist accounts. Preserve the audit row,
+  // but make the editorial decision explicit and permanent.
+  await pool.query(`
+    UPDATE artist_social_account_candidates
+    SET status='rejected', confidence=0, verified_at=NULL,
+      last_checked_at=now(), updated_at=now()
+    WHERE platform='facebook'
+      AND canonical_url ~* 'facebook\\.com/(profile\\.php|share|watch|groups)(/|\\?|$)'
+  `);
   const result = await pool.query<ArtistRow>(`
     SELECT c.artist_key,
       COALESCE(s.spotify_artist_id, c.spotify_id) AS spotify_artist_id,

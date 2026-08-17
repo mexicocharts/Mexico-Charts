@@ -51,6 +51,8 @@ export function canonicalizeSocialUrl(raw: string): { platform: SocialPlatform; 
     if (platform === "youtube" && host === "youtu.be") return null; // video links are not artist accounts
     if (platform === "spotify" && !/^\/artist\/[A-Za-z0-9]+$/.test(path)) return null;
     if (platform === "youtube" && !/^\/(channel\/UC[A-Za-z0-9_-]+|@[A-Za-z0-9._-]+|c\/[A-Za-z0-9._-]+|user\/[A-Za-z0-9._-]+)$/.test(path)) return null;
+    if (platform === "facebook" && /^\/(profile\.php|share|watch|groups)(\/|$)/i.test(path)) return null;
+    if ((platform === "instagram" || platform === "tiktok" || platform === "twitter") && !/^\/@?[A-Za-z0-9._-]+$/.test(path)) return null;
     path = path.split("/").map((part, index) => index === 0 ? part : encodeURIComponent(decodeURIComponent(part))).join("/");
     return { platform, canonicalUrl: `https://${host}${path}` };
   } catch {

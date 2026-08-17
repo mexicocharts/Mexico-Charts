@@ -4,7 +4,7 @@ import { runArtistSocialDiscovery, seedVerifiedArtistSocialAccounts } from "./ar
 
 const LOCK_KEY = 831_905_225;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const RUN_VERSION = 2;
+const RUN_VERSION = 3;
 let started = false;
 
 function dateEt(): string {
