@@ -36,6 +36,10 @@ const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
   "banda el recodo de cruz lizarraga": "banda el recodo",
   "banda sinaloense ms de sergio lizarraga": "banda ms de sergio lizarraga",
   "banda tito y su torbellino": "tito torbellino",
+  "elrabbanito": "el rabbanito",
+  "herenciadegrandes": "herencia de grandes",
+  "laarrolladorabandaellimonderenecamacho": "la arrolladora banda el limón de rene camacho",
+  "omarcamacho": "omar camacho",
   "ramon ayala y sus bravos del norte": "ramon ayala",
 };
 
@@ -620,6 +624,10 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
     const spotify = pickArtistRow(spotifyRows, artistKey);
     const musicbrainz = pickArtistRow(musicbrainzRows, artistKey);
     const youtube = pickArtistRow(youtubeRows, artistKey);
+    const supplementalSpotify = SUPPLEMENTAL_ARTISTS.find(artist =>
+      artistLookupKeys(artist.artistKey).includes(artistKey)
+      || toKworbArtistKey(artist.artistName) === toKworbArtistKey(artistKey)
+    );
 
     res.setHeader("Cache-Control", "public, max-age=600, stale-while-revalidate=3600");
     res.json({
@@ -639,6 +647,20 @@ router.get("/artists/enrichment/:artistKey", async (req, res) => {
         notes: spotify.notes,
         verified: spotify.verified,
         lastUpdated: spotify.spotifyLastUpdated.toISOString(),
+      } : supplementalSpotify ? {
+        artistId: supplementalSpotify.spotifyArtistId,
+        name: supplementalSpotify.artistName,
+        url: `https://open.spotify.com/artist/${supplementalSpotify.spotifyArtistId}`,
+        imageUrl: null,
+        uri: `spotify:artist:${supplementalSpotify.spotifyArtistId}`,
+        followers: null,
+        followersFmt: null,
+        popularity: null,
+        genres: [supplementalSpotify.genre, supplementalSpotify.subgenre],
+        capability: "link_only",
+        notes: "Provider-verified supplemental mapping",
+        verified: true,
+        lastUpdated: null,
       } : null,
       musicbrainz: musicbrainz ? {
         mbid: musicbrainz.mbid,
