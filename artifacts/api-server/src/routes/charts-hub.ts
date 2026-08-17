@@ -172,9 +172,21 @@ async function fetchMasterNorms(): Promise<Set<string>> {
       norms.add(normCredit(normalized));
     }
   }
+  try {
+    const { loadVerifiedDiscoveredIdentityNorms } = await import("../lib/mexican-identity-discovery-service");
+    const discovered = await loadVerifiedDiscoveredIdentityNorms();
+    for (const norm of discovered) norms.add(norm);
+  } catch {
+    // The sheet remains the safe baseline while the optional discovery table
+    // is unavailable or being created during a first deployment.
+  }
   masterCache = { norms, fetchedAt: Date.now() };
   console.log(`[charts-hub] Mexican_Artist_Master loaded — ${norms.size} normalised entries`);
   return norms;
+}
+
+export async function getVerifiedMexicanIdentityNorms(): Promise<Set<string>> {
+  return new Set(await fetchMasterNorms());
 }
 
 /* ── Artist column name per sheet ────────────────────────────────────────── */
@@ -188,6 +200,8 @@ const ARTIST_FIELD: Partial<Record<SheetName, string>> = {
   Spotify_Regional_Daily:  "artist_names",
   Spotify_Regional_Weekly: "artist_names",
   Spotify_Viral_Daily:     "artist_names",
+  Apple_Songs:             "Artist",
+  Apple_Albums:            "Artist",
   Deezer_Top_Mexico:       "Artist",
 };
 
@@ -376,6 +390,22 @@ async function fetchAll(): Promise<CacheSlot> {
   });
 
   return { data, lastUpdated: new Date().toISOString(), fetchedAt: Date.now() };
+}
+
+export async function getOfficialChartArtistCredits(): Promise<string[]> {
+  const slot = await fetchAll();
+  const names = new Map<string, string>();
+  for (const sheetName of SHEETS) {
+    const field = ARTIST_FIELD[sheetName];
+    if (!field) continue;
+    for (const row of slot.data[sheetName].rows) {
+      for (const part of splitCredit(row[field] ?? "")) {
+        const norm = normName(part);
+        if (norm && !names.has(norm)) names.set(norm, part.trim());
+      }
+    }
+  }
+  return [...names.values()].sort((a, b) => a.localeCompare(b));
 }
 
 /* ── Route: GET /api/charts/hub ──────────────────────────────────────────── */
