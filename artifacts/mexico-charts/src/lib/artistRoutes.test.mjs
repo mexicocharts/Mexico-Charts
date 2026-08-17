@@ -6,8 +6,8 @@ import {
   resolveCanonicalArtist,
 } from "./artistRoutes.mjs";
 
-test("catalog contains the 529 active master artists", () => {
-  assert.equal(artistCatalogCount, 529);
+test("catalog contains the legacy roster plus 30 provider-backed artists", () => {
+  assert.equal(artistCatalogCount, 559);
 });
 
 test("canonical and compact artist identifiers resolve to one profile", () => {
@@ -31,4 +31,10 @@ test("unknown URL strings do not create artist records", () => {
   assert.equal(resolveCanonicalArtist("definitely-not-a-real-master-artist"), null);
   assert.equal(canonicalArtistHref("definitely-not-a-real-master-artist"), null);
   assert.equal(resolveCanonicalArtist("bad-%E0%A4%A-url"), null);
+});
+
+test("supplemental provider-backed artists resolve to canonical profiles", () => {
+  assert.equal(resolveCanonicalArtist("gera-mx")?.name, "Gera MX");
+  assert.equal(resolveCanonicalArtist("Jósean Log")?.path, "/artist/josean-log");
+  assert.equal(resolveCanonicalArtist("5050 Flow Malandro")?.path, "/artist/5050-flow-malandro");
 });

@@ -5,6 +5,7 @@ import { startSpotifyKworbSnapshotScheduler } from "./lib/spotify-kworb-snapshot
 import { startYoutubeVideoTrackerScheduler } from "./lib/youtube-video-tracker-scheduler";
 import { startSongstatsSnapshotScheduler } from "./lib/songstats-snapshot-scheduler";
 import { startArtistSocialDiscoveryScheduler } from "./lib/artist-social-discovery-scheduler";
+import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog";
 
 const rawPort = process.env["PORT"];
 
@@ -32,4 +33,7 @@ app.listen(port, (err) => {
   startYoutubeVideoTrackerScheduler();
   startSongstatsSnapshotScheduler();
   startArtistSocialDiscoveryScheduler();
+  void seedSupplementalArtistCatalog().catch(err => {
+    logger.error({ err }, "[artists] supplemental catalog seed failed");
+  });
 });
