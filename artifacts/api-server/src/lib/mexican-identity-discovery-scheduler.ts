@@ -4,6 +4,7 @@ import { ensureMexicanIdentityTables, runMexicanIdentityDiscovery } from "./mexi
 
 const LOCK_KEY = 831_905_226;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const RETRY_INTERVAL_MS = 60 * 1000;
 let started = false;
 
 function dateEt(): string {
@@ -44,7 +45,11 @@ export async function runScheduledMexicanIdentityDiscovery() {
 
 async function check() {
   try { await runScheduledMexicanIdentityDiscovery(); }
-  catch (error) { logger.error({ error }, "[mexican-identity-discovery] daily run failed"); }
+  catch (error) {
+    logger.error({ error }, "[mexican-identity-discovery] daily run failed; retrying soon");
+    const retry = setTimeout(() => void check(), RETRY_INTERVAL_MS);
+    retry.unref();
+  }
 }
 
 export function startMexicanIdentityDiscoveryScheduler(): void {
