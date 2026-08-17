@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { spotifyArtistCandidates, spotifyArtists } from "@workspace/db/schema";
 import { asc, eq, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { SUPPLEMENTAL_ARTISTS } from "../lib/supplemental-artist-data";
 
 const router = Router();
 
@@ -306,10 +307,20 @@ router.get("/providers/spotify/artist", async (req, res) => {
   const artistKey = (req.query["artistKey"] as string | undefined)?.trim().toLowerCase();
   if (!artistKey) { res.status(400).json({ error: "artistKey is required" }); return; }
 
-  const [row] = await db.select().from(spotifyArtists).where(eq(spotifyArtists.artistKey, artistKey));
+  let [row] = await db.select().from(spotifyArtists).where(eq(spotifyArtists.artistKey, artistKey));
+  if (!row) {
+    // Some approved profiles are display aliases for an existing canonical
+    // artist row. Reuse only the catalog's exact verified provider ID; never
+    // search Spotify or infer a handle from the artist name.
+    const supplemental = SUPPLEMENTAL_ARTISTS.find(artist => artist.artistKey === artistKey);
+    if (supplemental) {
+      [row] = await db.select().from(spotifyArtists)
+        .where(eq(spotifyArtists.spotifyArtistId, supplemental.spotifyArtistId));
+    }
+  }
   if (!row) { res.status(404).json({ error: "No verified Spotify artist linked for this artist" }); return; }
 
-  res.json(spotifyDbToResponse(row));
+  res.json({ ...spotifyDbToResponse(row), artistKey });
 });
 
 // ADMIN: GET /api/admin/spotify/artists

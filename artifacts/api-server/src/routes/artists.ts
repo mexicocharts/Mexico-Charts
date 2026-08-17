@@ -418,7 +418,7 @@ router.get("/artists/admin/provider-profile-readiness", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
     const keys = SUPPLEMENTAL_ARTISTS.map(artist => toKworbArtistKey(artist.artistName));
-    const result = await pool.query<{
+    const [result, providerOwners] = await Promise.all([pool.query<{
       artist_key: string; artist_name: string; coverage_status: string;
       spotify_snapshot: boolean; youtube_snapshot: boolean; itunes_snapshot: boolean;
       job_status: string | null; verified_socials: string; review_socials: string;
@@ -435,17 +435,25 @@ router.get("/artists/admin/provider-profile-readiness", async (req, res) => {
       WHERE c.artist_key = ANY($1::text[])
       GROUP BY c.artist_key, c.artist_name, c.status
       ORDER BY c.artist_name
-    `, [keys]);
+    `, [keys]), pool.query<{ artist_key: string; spotify_artist_id: string }>(`
+      SELECT artist_key, spotify_artist_id
+      FROM spotify_artists
+      WHERE spotify_artist_id = ANY($1::text[])
+    `, [SUPPLEMENTAL_ARTISTS.map(artist => artist.spotifyArtistId)])]);
     const byKey = new Map(result.rows.map(row => [row.artist_key, row]));
+    const ownerBySpotifyId = new Map(providerOwners.rows.map(row => [row.spotify_artist_id, row.artist_key]));
     const artists = SUPPLEMENTAL_ARTISTS.map(artist => {
       const key = toKworbArtistKey(artist.artistName);
       const row = byKey.get(key);
+      const providerOwnerKey = ownerBySpotifyId.get(artist.spotifyArtistId) ?? null;
       return {
         artistKey: artist.artistKey,
         kworbKey: key,
         artistName: artist.artistName,
-        exactSpotifyMapping: true,
+        exactSpotifyMapping: providerOwnerKey !== null,
         spotifyArtistId: artist.spotifyArtistId,
+        providerOwnerKey,
+        providerAliasConflict: providerOwnerKey !== null && providerOwnerKey !== artist.artistKey,
         coverageStatus: row?.coverage_status ?? "missing",
         kworb: {
           spotify: row?.spotify_snapshot ?? false,
@@ -467,6 +475,7 @@ router.get("/artists/admin/provider-profile-readiness", async (req, res) => {
         withItunesKworb: artists.filter(artist => artist.kworb.itunes).length,
         awaitingAnyKworb: artists.filter(artist => !artist.kworb.spotify && !artist.kworb.youtube && !artist.kworb.itunes).length,
         withVerifiedSocials: artists.filter(artist => artist.verifiedSocialPlatforms > 0).length,
+        providerAliasConflicts: artists.filter(artist => artist.providerAliasConflict).length,
       },
       artists,
     });
