@@ -30,7 +30,7 @@ export const SUPPLEMENTAL_ARTISTS: SupplementalArtist[] = [
   { artistKey: "dani flow", artistName: "Dani Flow", spotifyArtistId: "1yX62RHdYysNcIrO33WQxJ", genre: "Urbano", subgenre: "reggaetón", kworbItunes: true },
   { artistKey: "dj aza", artistName: "Dj Aza", spotifyArtistId: "2qsETcaDdvTRTaL3nU4zNK", genre: "Urbano", subgenre: "reggaetón" },
   { artistKey: "duelo", artistName: "Duelo", spotifyArtistId: "0nnp7oJpY2J6yZOqtdKaWq", genre: "Regional Mexicano", subgenre: "norteño" },
-  { artistKey: "edwin luna", artistName: "Edwin Luna", spotifyArtistId: "4LFOoXhMhnq9U8VsZkSwxl", genre: "Regional Mexicano", subgenre: "banda", kworbYoutube: true },
+  { artistKey: "edwin luna", artistName: "Edwin Luna", spotifyArtistId: "10tyI6ROBsJJ6lBi3m5iph", genre: "Regional Mexicano", subgenre: "banda" },
   { artistKey: "el coyote", artistName: "El Coyote", spotifyArtistId: "7sQ3Q6yYyg0SdpEezJN8UT", genre: "Regional Mexicano", subgenre: "banda" },
   { artistKey: "el malilla", artistName: "El Malilla", spotifyArtistId: "6BV37tKh6pY97mnNdTCzly", genre: "Urbano", subgenre: "reggaetón" },
   { artistKey: "gala montes", artistName: "Gala Montes", spotifyArtistId: "0qcbuRzAu4q1oHX66qFlPJ", genre: "Pop", subgenre: "pop", kworbItunes: true },

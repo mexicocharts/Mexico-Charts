@@ -1677,6 +1677,16 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
           </motion.section>
         )}
 
+        {kworbStats?._status === "pending" && !kworbStats.spotify && !kworbStats.youtube && !kworbStats.chartPositions && (
+          <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5" data-testid="section-kworb-pending">
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Datos de streaming</div>
+            <div className="mt-2 text-lg font-black text-white">Importación en proceso</div>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+              El perfil está vinculado, pero Kworb todavía no ha publicado o procesado métricas compatibles para este artista. No mostramos cifras estimadas.
+            </p>
+          </section>
+        )}
+
         {/* ══════════════════════════════════════════════════════════
             VERIFIED API LINKS — Spotify / YouTube / MusicBrainz
         ══════════════════════════════════════════════════════════ */}

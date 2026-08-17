@@ -31,6 +31,55 @@ export interface MexicanIdentityDiscoverySummary {
   checked: number;
   verified: number;
   review: number;
+  profilesProvisioned?: number;
+}
+
+function profileArtistKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Turns only already-verified chart identities into lightweight profiles.
+ * This deliberately creates no Songstats rows and no guessed provider links.
+ */
+export async function provisionVerifiedMexicanProfiles(db: IdentityDb = pool): Promise<number> {
+  const result = await db.query<{ artist_name: string; normalized_name: string }>(`
+    SELECT artist_name, normalized_name
+    FROM mexican_artist_identity_candidates
+    WHERE status = 'verified'
+    ORDER BY normalized_name
+  `);
+  let provisioned = 0;
+  for (const row of result.rows) {
+    const artistKey = profileArtistKey(row.artist_name);
+    await db.query(`
+      INSERT INTO official_artists (artist_key, artist_name, normalized_name, source, notes, updated_at)
+      VALUES ($1,$2,$3,'verified_chart_identity','Verified Mexican identity discovered on an official chart; no automatic Songstats enrollment',now())
+      ON CONFLICT (artist_key) DO UPDATE SET
+        artist_name = excluded.artist_name,
+        normalized_name = excluded.normalized_name,
+        notes = excluded.notes,
+        updated_at = now()
+      WHERE official_artists.source = 'verified_chart_identity'
+    `, [artistKey, row.artist_name, row.normalized_name]);
+    await db.query(`
+      INSERT INTO kworb_coverage (artist_key, artist_name, tier, status, last_discovered_at)
+      VALUES ($1,$2,'B','pending',now())
+      ON CONFLICT (artist_key) DO UPDATE SET
+        artist_name = excluded.artist_name,
+        status = CASE WHEN kworb_coverage.status = 'inactive' THEN 'pending' ELSE kworb_coverage.status END,
+        last_discovered_at = now()
+    `, [row.normalized_name, row.artist_name]);
+    await db.query(`
+      INSERT INTO kworb_jobs (artist_key, metric_type, priority, due_at, status)
+      SELECT $1,'all',15,now(),'pending'
+      WHERE NOT EXISTS (
+        SELECT 1 FROM kworb_jobs WHERE artist_key=$1 AND metric_type='all' AND status IN ('pending','running')
+      )
+    `, [row.normalized_name]);
+    provisioned += 1;
+  }
+  return provisioned;
 }
 
 export async function ensureMexicanIdentityTables(): Promise<void> {
@@ -186,5 +235,6 @@ export async function runMexicanIdentityDiscovery(
     status === "verified" ? verified += 1 : review += 1;
   }
   const alreadyVerified = credits.filter(name => verifiedNorms.has(normalizeArtistIdentity(name))).length;
-  return { chartArtists: credits.length, alreadyVerified, checked: pending.length, verified, review };
+  const profilesProvisioned = await provisionVerifiedMexicanProfiles(db);
+  return { chartArtists: credits.length, alreadyVerified, checked: pending.length, verified, review, profilesProvisioned };
 }

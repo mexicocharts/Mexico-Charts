@@ -4,6 +4,7 @@ import { runArtistSocialDiscovery, seedVerifiedArtistSocialAccounts } from "./ar
 
 const LOCK_KEY = 831_905_225;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const RUN_VERSION = 2;
 let started = false;
 
 function dateEt(): string {
@@ -12,6 +13,7 @@ function dateEt(): string {
 
 export async function runScheduledArtistSocialDiscovery() {
   const date = dateEt();
+  const runKey = `${date}:v${RUN_VERSION}`;
   const client = await pool.connect();
   let locked = false;
   try {
@@ -22,11 +24,11 @@ export async function runScheduledArtistSocialDiscovery() {
     await client.query(`CREATE TABLE IF NOT EXISTS artist_social_discovery_runs (
       run_date text PRIMARY KEY, completed_at timestamptz NOT NULL DEFAULT now(), summary jsonb NOT NULL DEFAULT '{}'::jsonb
     )`);
-    const prior = await client.query("SELECT 1 FROM artist_social_discovery_runs WHERE run_date = $1", [date]);
+    const prior = await client.query("SELECT 1 FROM artist_social_discovery_runs WHERE run_date = $1", [runKey]);
     if ((prior.rowCount ?? 0) > 0) return { date, status: "already_complete" as const };
     const summary = await runArtistSocialDiscovery();
     await client.query(`INSERT INTO artist_social_discovery_runs(run_date, summary) VALUES ($1,$2::jsonb)
-      ON CONFLICT (run_date) DO NOTHING`, [date, JSON.stringify(summary)]);
+      ON CONFLICT (run_date) DO NOTHING`, [runKey, JSON.stringify(summary)]);
     return { date, status: "complete" as const, summary };
   } finally {
     if (locked) await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => undefined);

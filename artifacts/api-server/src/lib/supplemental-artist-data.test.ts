@@ -8,6 +8,14 @@ test("supplemental provider catalog contains the 30 approved artists", () => {
   assert.ok(SUPPLEMENTAL_ARTISTS.every(row => /^[A-Za-z0-9]{22}$/.test(row.spotifyArtistId)));
 });
 
+test("solo Edwin Luna is not mapped to La Trakalosa's provider identity", () => {
+  const edwin = SUPPLEMENTAL_ARTISTS.find(row => row.artistKey === "edwin luna");
+  const trakalosa = SUPPLEMENTAL_ARTISTS.find(row => row.artistKey === "la trakalosa de monterrey");
+  assert.equal(edwin?.spotifyArtistId, "10tyI6ROBsJJ6lBi3m5iph");
+  assert.notEqual(edwin?.spotifyArtistId, trakalosa?.spotifyArtistId);
+  assert.notEqual(edwin?.kworbYoutube, true);
+});
+
 test("supplemental artists use the compact keys expected by Kworb routes", () => {
   assert.equal(toKworbArtistKey("Gera MX"), "geramx");
   assert.equal(toKworbArtistKey("Grupo Cañaveral De Humberto Pabón"), "grupocanaveraldehumbertopabon");
