@@ -44,32 +44,40 @@ export async function seedSupplementalArtistCatalog() {
   // Exact mappings are verified against Spotify/Kworb. Update an existing
   // artist-key mapping so corrected provider identities repair production.
   for (const artist of SUPPLEMENTAL_ARTISTS) {
-    await db.insert(spotifyArtists).values({
-      artistKey: artist.artistKey,
-      spotifyArtistId: artist.spotifyArtistId,
-      spotifyName: artist.artistName,
-      spotifyUrl: `https://open.spotify.com/artist/${artist.spotifyArtistId}`,
-      spotifyUri: `spotify:artist:${artist.spotifyArtistId}`,
-      spotifyGenres: [],
-      notes: "Verified exact provider mapping from supplemental catalog",
-      verified: true,
-      verifiedAt: now,
-      spotifyLastUpdated: now,
-      linkedAt: now,
-    }).onConflictDoUpdate({
-      target: spotifyArtists.artistKey,
-      set: {
+    try {
+      await db.insert(spotifyArtists).values({
+        artistKey: artist.artistKey,
         spotifyArtistId: artist.spotifyArtistId,
         spotifyName: artist.artistName,
         spotifyUrl: `https://open.spotify.com/artist/${artist.spotifyArtistId}`,
         spotifyUri: `spotify:artist:${artist.spotifyArtistId}`,
+        spotifyGenres: [],
         notes: "Verified exact provider mapping from supplemental catalog",
         verified: true,
         verifiedAt: now,
         spotifyLastUpdated: now,
         linkedAt: now,
-      },
-    });
+      }).onConflictDoUpdate({
+        target: spotifyArtists.artistKey,
+        set: {
+          spotifyArtistId: artist.spotifyArtistId,
+          spotifyName: artist.artistName,
+          spotifyUrl: `https://open.spotify.com/artist/${artist.spotifyArtistId}`,
+          spotifyUri: `spotify:artist:${artist.spotifyArtistId}`,
+          notes: "Verified exact provider mapping from supplemental catalog",
+          verified: true,
+          verifiedAt: now,
+          spotifyLastUpdated: now,
+          linkedAt: now,
+        },
+      });
+    } catch (err) {
+      // A legacy duplicate provider ID must not prevent every later verified
+      // artist from being repaired. Keep the conflicting row untouched and
+      // make the exact artist visible in logs for editorial resolution.
+      logger.warn({ err, artistKey: artist.artistKey, spotifyArtistId: artist.spotifyArtistId },
+        "[artists] supplemental Spotify mapping skipped");
+    }
   }
 
   logger.info({ artists: SUPPLEMENTAL_ARTISTS.length }, "[artists] supplemental catalog seeded");
