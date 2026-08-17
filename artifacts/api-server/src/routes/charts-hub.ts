@@ -139,7 +139,11 @@ function splitCredit(credit: string): string[] {
     .filter(s => s.length > 1);
 }
 
-/* ── Mexican_Artist_Master cache ─────────────────────────────────────────── */
+/* ── Verified Mexican-identity registry cache ──────────────────────────────
+ * This lightweight registry is intentionally independent of artist profile
+ * enrollment and provider monitoring. It can classify an official chart row
+ * without creating a Songstats artist or a full Mexico Charts profile.
+ */
 let masterCache: { norms: Set<string>; fetchedAt: number } | null = null;
 
 async function fetchMasterNorms(): Promise<Set<string>> {
@@ -361,7 +365,7 @@ async function fetchAll(): Promise<CacheSlot> {
       return fetchSheet(s);
     })),
     fetchMasterNorms().catch(() => {
-      console.warn("[charts-hub] Could not fetch Mexican_Artist_Master — filter will be limited");
+      console.warn("[charts-hub] Could not fetch verified Mexican-identity registry — filter will be limited");
       return new Set<string>();
     }),
   ]);

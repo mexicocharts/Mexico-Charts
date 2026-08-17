@@ -401,7 +401,7 @@ export default function LegacyActs() {
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 border border-white/[0.08] bg-[#0a0a0a] p-4" style={{ borderRadius: 8 }}>
             <p className="text-xs leading-5 text-zinc-400">
-              Ranking editorial de legacy acts en la base activa de Mexico Charts. La elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden prioriza consumo histórico verificado en snapshots de artistas, audiencia actual, seguidores y presencia social
+              Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts. No representa necesariamente la totalidad de artistas mexicanos. Para legacy acts, la elegibilidad usa carreras históricas o catálogo cultural consolidado; el orden prioriza consumo histórico verificado en snapshots de artistas, audiencia actual, seguidores y presencia social.
             </p>
           </div>
 

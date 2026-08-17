@@ -445,8 +445,7 @@ export default function Mx100() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Mexico Charts Top 100 mide a los artistas más exitosos desde la base activa de Mexico Charts
-                  Consumo manda con Spotify semanal México y vistas semanales de YouTube México, con fanbase y giras como señales secundarias
+                  Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts. No representa necesariamente la totalidad de artistas mexicanos. El consumo manda con Spotify semanal México y vistas semanales de YouTube México, con fanbase y giras como señales secundarias.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
