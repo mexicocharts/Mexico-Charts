@@ -408,6 +408,57 @@ export async function getOfficialChartArtistCredits(): Promise<string[]> {
   return [...names.values()].sort((a, b) => a.localeCompare(b));
 }
 
+export type CurrentMexicanChartArtist = {
+  artistKey: string;
+  artistName: string;
+  bestRank: number;
+  chartSources: number;
+  chartAppearances: number;
+  latestChartDate: string | null;
+};
+
+export async function getCurrentMexicanChartArtists(): Promise<CurrentMexicanChartArtist[]> {
+  if (!cache || Date.now() - cache.fetchedAt > CACHE_TTL) cache = await fetchAll();
+  const artists = new Map<string, {
+    artistName: string; bestRank: number; sources: Set<string>;
+    appearances: number; latestChartDate: string | null;
+  }>();
+
+  for (const sheetName of SHEETS) {
+    const sheet = cache.data[sheetName];
+    for (const row of sheet.rows) {
+      if ((row["Contains Mexican Artist"] ?? "").toUpperCase() !== "TRUE") continue;
+      const matched = (row["Matched Mexican Artists"] ?? "")
+        .split(",").map(value => value.trim()).filter(Boolean);
+      const rank = Number.parseInt(row["Rank"] ?? row["rank"] ?? "", 10);
+      for (const artistName of matched) {
+        const artistKey = normName(artistName);
+        if (!artistKey) continue;
+        const current = artists.get(artistKey) ?? {
+          artistName, bestRank: Number.isFinite(rank) ? rank : 9999,
+          sources: new Set<string>(), appearances: 0, latestChartDate: null,
+        };
+        current.bestRank = Math.min(current.bestRank, Number.isFinite(rank) ? rank : 9999);
+        current.sources.add(sheetName);
+        current.appearances += 1;
+        if (sheet.chartDate && (!current.latestChartDate || sheet.chartDate > current.latestChartDate)) {
+          current.latestChartDate = sheet.chartDate;
+        }
+        artists.set(artistKey, current);
+      }
+    }
+  }
+
+  return [...artists.entries()].map(([artistKey, artist]) => ({
+    artistKey,
+    artistName: artist.artistName,
+    bestRank: artist.bestRank === 9999 ? 999 : artist.bestRank,
+    chartSources: artist.sources.size,
+    chartAppearances: artist.appearances,
+    latestChartDate: artist.latestChartDate,
+  }));
+}
+
 /* ── Route: GET /api/charts/hub ──────────────────────────────────────────── */
 router.get("/charts/hub", async (_req, res) => {
   try {
