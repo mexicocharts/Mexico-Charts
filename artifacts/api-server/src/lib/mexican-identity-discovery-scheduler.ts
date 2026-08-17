@@ -31,7 +31,7 @@ export async function runScheduledMexicanIdentityDiscovery() {
       return { date, status: "already_complete" as const };
     }
     const limit = Math.max(1, Number(process.env["MEXICAN_IDENTITY_DAILY_LIMIT"] ?? 500));
-    const summary = await runMexicanIdentityDiscovery(limit);
+    const summary = await runMexicanIdentityDiscovery(limit, client);
     const completedSummary = { ...summary, catalogComplete: summary.checked < limit };
     await client.query(`INSERT INTO mexican_identity_discovery_runs(run_date, summary) VALUES ($1,$2::jsonb)
       ON CONFLICT (run_date) DO UPDATE SET completed_at = now(), summary = excluded.summary`,
