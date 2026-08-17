@@ -18,6 +18,7 @@ import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot
 import { ensureYoutubeVideoTrackerTables, runDailyYoutubeVideoSnapshots } from "../lib/youtube-video-tracker-scheduler";
 import { mergeSupplementalMetadata } from "../lib/supplemental-artist-catalog";
 import { SUPPLEMENTAL_ARTISTS, toKworbArtistKey } from "../lib/supplemental-artist-data";
+import { scoreArtistProfilePriority } from "../lib/artist-profile-priority-policy";
 
 const router = Router();
 
@@ -514,6 +515,99 @@ router.get("/artists/admin/social-discovery-readiness", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[artists] social discovery readiness unavailable");
     res.status(500).json({ error: "Social discovery readiness unavailable" });
+  }
+});
+
+router.get("/artists/admin/profile-priority-queue", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const requestedLimit = Number.parseInt(String(req.query["limit"] ?? "30"), 10);
+  const limit = Math.min(100, Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : 30));
+
+  try {
+    const result = await pool.query<{
+      artist_key: string; artist_name: string; best_rank: string | null;
+      chart_sources: string; chart_appearances: string; latest_chart_date: string;
+      spotify: boolean; youtube: boolean; apple_music: boolean; deezer: boolean;
+      musicbrainz: boolean; verified_socials: string;
+    }>(`
+      WITH latest_charts AS (
+        SELECT DISTINCT ON (source, chart_type, country)
+          id, source, chart_type, chart_date
+        FROM chart_snapshots
+        WHERE country = 'MX'
+        ORDER BY source, chart_type, country, chart_date DESC, imported_at DESC
+      ), chart_artists AS (
+        SELECT
+          regexp_replace(translate(lower(name), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') AS compact_key,
+          MIN(r.rank) AS best_rank,
+          COUNT(DISTINCT l.source)::int AS chart_sources,
+          COUNT(*)::int AS chart_appearances,
+          MAX(l.chart_date) AS latest_chart_date
+        FROM latest_charts l
+        JOIN chart_snapshot_rows r ON r.snapshot_id = l.id
+        CROSS JOIN LATERAL jsonb_array_elements_text(r.artist_names) artist_name(name)
+        GROUP BY compact_key
+      )
+      SELECT c.artist_key, c.artist_name, a.best_rank::text, a.chart_sources::text,
+        a.chart_appearances::text, a.latest_chart_date,
+        EXISTS (SELECT 1 FROM spotify_artists p WHERE regexp_replace(translate(lower(p.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=c.artist_key) AS spotify,
+        EXISTS (SELECT 1 FROM youtube_channels y WHERE regexp_replace(translate(lower(y.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=c.artist_key) AS youtube,
+        (c.has_itunes OR EXISTS (SELECT 1 FROM kworb_snapshots s WHERE s.artist_key=c.artist_key AND s.metric_type='itunes')) AS apple_music,
+        EXISTS (SELECT 1 FROM deezer_track_covers d WHERE regexp_replace(translate(lower(d.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=c.artist_key AND d.deezer_url IS NOT NULL) AS deezer,
+        EXISTS (SELECT 1 FROM musicbrainz_artists m WHERE regexp_replace(translate(lower(m.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=c.artist_key) AS musicbrainz,
+        (SELECT COUNT(DISTINCT s.platform) FROM artist_social_account_candidates s
+          WHERE regexp_replace(translate(lower(s.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=c.artist_key AND s.status='verified')::text AS verified_socials
+      FROM chart_artists a
+      JOIN kworb_coverage c ON c.artist_key=a.compact_key AND c.status='active'
+      ORDER BY a.best_rank ASC, a.chart_sources DESC, a.chart_appearances DESC
+    `);
+
+    const artists = result.rows.map(row => {
+      const coverage = {
+        spotify: row.spotify,
+        youtube: row.youtube,
+        appleMusic: row.apple_music,
+        deezer: row.deezer,
+        musicbrainz: row.musicbrainz,
+        verifiedSocials: Number(row.verified_socials),
+      };
+      const chart = {
+        bestRank: row.best_rank == null ? null : Number(row.best_rank),
+        sources: Number(row.chart_sources),
+        appearances: Number(row.chart_appearances),
+        latestDate: row.latest_chart_date,
+      };
+      return {
+        artistKey: row.artist_key,
+        artistName: row.artist_name,
+        chart,
+        coverage,
+        ...scoreArtistProfilePriority({
+          bestRank: chart.bestRank,
+          chartSources: chart.sources,
+          chartAppearances: chart.appearances,
+          coverage,
+        }),
+      };
+    }).sort((a, b) => b.priorityScore - a.priorityScore || (a.chart.bestRank ?? 9999) - (b.chart.bestRank ?? 9999));
+
+    const incomplete = artists.filter(artist => !artist.complete);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      generatedAt: new Date().toISOString(),
+      scope: "latest Mexico chart snapshot per source and chart type; active verified catalog artists only",
+      summary: {
+        chartingArtists: artists.length,
+        complete: artists.length - incomplete.length,
+        incomplete: incomplete.length,
+        urgent: incomplete.filter(artist => artist.priorityBand === "urgent").length,
+        high: incomplete.filter(artist => artist.priorityBand === "high").length,
+      },
+      queue: incomplete.slice(0, limit),
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] profile priority queue unavailable");
+    res.status(500).json({ error: "Artist profile priority queue unavailable" });
   }
 });
 
