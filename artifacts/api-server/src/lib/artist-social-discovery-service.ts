@@ -149,10 +149,10 @@ export async function runArtistSocialDiscovery(): Promise<ArtistSocialDiscoveryS
       se.artist_info,
       mb.relations
     FROM kworb_coverage c
-    LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
-    LEFT JOIN youtube_channels y ON y.artist_key = c.artist_key
-    LEFT JOIN songstats_artist_extended_data se ON se.artist_key = c.artist_key
-    LEFT JOIN musicbrainz_artists mb ON mb.artist_key = c.artist_key
+    LEFT JOIN spotify_artists s ON regexp_replace(lower(s.artist_key), '[^a-z0-9]', '', 'g') = c.artist_key
+    LEFT JOIN youtube_channels y ON regexp_replace(lower(y.artist_key), '[^a-z0-9]', '', 'g') = c.artist_key
+    LEFT JOIN songstats_artist_extended_data se ON regexp_replace(lower(se.artist_key), '[^a-z0-9]', '', 'g') = c.artist_key
+    LEFT JOIN musicbrainz_artists mb ON regexp_replace(lower(mb.artist_key), '[^a-z0-9]', '', 'g') = c.artist_key
     WHERE c.status = 'active'
     ORDER BY c.artist_key
   `);

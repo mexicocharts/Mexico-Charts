@@ -1531,6 +1531,22 @@ async function syncCoverage(): Promise<SyncResult> {
     }
   }
 
+  // Artists independently verified as Mexican from current official-chart
+  // credits also belong in the lightweight provider pipeline. They do not
+  // need Songstats enrollment or a legacy metadata-sheet row.
+  const verifiedIdentityRows = await pool.query<{ artist_name: string }>(`
+    SELECT artist_name
+    FROM mexican_artist_identity_candidates
+    WHERE status = 'verified'
+      AND nationality = 'mexican'
+  `);
+  for (const row of verifiedIdentityRows.rows) {
+    const slug = toSlug(row.artist_name);
+    if (slug && !BLOCKED_ARTIST_KEYS.has(slug)) {
+      metadataArtists.push({ name: row.artist_name, slug });
+    }
+  }
+
   // 2 — Load existing coverage keys (single query)
   const existingRows = await db
     .select({ artistKey: kworbCoverage.artistKey })

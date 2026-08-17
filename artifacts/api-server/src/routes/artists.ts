@@ -8,6 +8,7 @@ import {
   spotifyArtistCandidates,
   spotifyArtists,
   youtubeChannels,
+  officialArtists,
 } from "@workspace/db/schema";
 import { asc, eq, inArray } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -16,6 +17,7 @@ import { runDailySpotifyKworbSnapshots } from "../lib/spotify-kworb-snapshot-sch
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 import { ensureYoutubeVideoTrackerTables, runDailyYoutubeVideoSnapshots } from "../lib/youtube-video-tracker-scheduler";
 import { mergeSupplementalMetadata } from "../lib/supplemental-artist-catalog";
+import { SUPPLEMENTAL_ARTISTS, toKworbArtistKey } from "../lib/supplemental-artist-data";
 
 const router = Router();
 
@@ -47,7 +49,8 @@ function canonicalArtistKey(value: string | null | undefined) {
 function artistLookupKeys(value: string) {
   const key = normalizeArtistKey(value);
   const canonical = canonicalArtistKey(key);
-  return key === canonical ? [key] : [key, canonical];
+  const compact = key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  return [...new Set([key, canonical, compact].filter(Boolean))];
 }
 
 function pickArtistRow<T extends { artistKey: string }>(rows: T[], requestedKey: string) {
@@ -364,10 +367,27 @@ async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata_active: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
-  return mergeSupplementalMetadata(rows
+  const baseline = mergeSupplementalMetadata(rows
     .map(sanitizeRow)
     .map(applySubgenreFallback)
     .filter((r) => !BLOCKED_ARTIST_KEYS.has((r.artist_key ?? r.artist_name ?? "").toLowerCase().trim())));
+  const discovered = await db.select({
+    artistKey: officialArtists.artistKey,
+    artistName: officialArtists.artistName,
+  }).from(officialArtists).where(eq(officialArtists.source, "verified_chart_identity"));
+  const existing = new Set(baseline.map(row => normalizeArtistKey(row.artist_key || row.artist_name)));
+  return [
+    ...baseline,
+    ...discovered.filter(row => !existing.has(normalizeArtistKey(row.artistKey))).map(row => ({
+      artist_key: row.artistKey,
+      artist_name: row.artistName,
+      source_country: "Mexico",
+      genre: "Música mexicana",
+      subgenre: "por clasificar",
+      eligibility_type: "verified_chart_identity",
+      eligibility_reason: "Identidad mexicana verificada desde listas oficiales",
+    })),
+  ];
 }
 
 router.get("/artists/metadata", async (_req, res) => {
@@ -391,6 +411,100 @@ router.get("/artists/metadata", async (_req, res) => {
   } catch (err) {
     logger.error({ err }, "[artists] metadata unavailable");
     res.status(502).json({ error: "Artist metadata unavailable", detail: String(err) });
+  }
+});
+
+router.get("/artists/admin/provider-profile-readiness", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const keys = SUPPLEMENTAL_ARTISTS.map(artist => toKworbArtistKey(artist.artistName));
+    const result = await pool.query<{
+      artist_key: string; artist_name: string; coverage_status: string;
+      spotify_snapshot: boolean; youtube_snapshot: boolean; itunes_snapshot: boolean;
+      job_status: string | null; verified_socials: string; review_socials: string;
+    }>(`
+      SELECT c.artist_key, c.artist_name, c.status AS coverage_status,
+        EXISTS (SELECT 1 FROM kworb_snapshots s WHERE s.artist_key=c.artist_key AND s.metric_type='spotify') AS spotify_snapshot,
+        EXISTS (SELECT 1 FROM kworb_snapshots s WHERE s.artist_key=c.artist_key AND s.metric_type='youtube') AS youtube_snapshot,
+        EXISTS (SELECT 1 FROM kworb_snapshots s WHERE s.artist_key=c.artist_key AND s.metric_type='itunes') AS itunes_snapshot,
+        (SELECT j.status FROM kworb_jobs j WHERE j.artist_key=c.artist_key ORDER BY j.updated_at DESC LIMIT 1) AS job_status,
+        COUNT(DISTINCT a.platform) FILTER (WHERE a.status='verified')::text AS verified_socials,
+        COUNT(DISTINCT a.platform) FILTER (WHERE a.status='review')::text AS review_socials
+      FROM kworb_coverage c
+      LEFT JOIN artist_social_account_candidates a ON regexp_replace(lower(a.artist_key), '[^a-z0-9]', '', 'g')=c.artist_key
+      WHERE c.artist_key = ANY($1::text[])
+      GROUP BY c.artist_key, c.artist_name, c.status
+      ORDER BY c.artist_name
+    `, [keys]);
+    const byKey = new Map(result.rows.map(row => [row.artist_key, row]));
+    const artists = SUPPLEMENTAL_ARTISTS.map(artist => {
+      const key = toKworbArtistKey(artist.artistName);
+      const row = byKey.get(key);
+      return {
+        artistKey: artist.artistKey,
+        kworbKey: key,
+        artistName: artist.artistName,
+        exactSpotifyMapping: true,
+        spotifyArtistId: artist.spotifyArtistId,
+        coverageStatus: row?.coverage_status ?? "missing",
+        kworb: {
+          spotify: row?.spotify_snapshot ?? false,
+          youtube: row?.youtube_snapshot ?? false,
+          itunes: row?.itunes_snapshot ?? false,
+        },
+        queueStatus: row?.job_status ?? null,
+        verifiedSocialPlatforms: Number(row?.verified_socials ?? 0),
+        reviewSocialPlatforms: Number(row?.review_socials ?? 0),
+      };
+    });
+    res.json({
+      generatedAt: new Date().toISOString(),
+      summary: {
+        artists: artists.length,
+        exactSpotifyMappings: artists.filter(artist => artist.exactSpotifyMapping).length,
+        withSpotifyKworb: artists.filter(artist => artist.kworb.spotify).length,
+        withYoutubeKworb: artists.filter(artist => artist.kworb.youtube).length,
+        withItunesKworb: artists.filter(artist => artist.kworb.itunes).length,
+        awaitingAnyKworb: artists.filter(artist => !artist.kworb.spotify && !artist.kworb.youtube && !artist.kworb.itunes).length,
+        withVerifiedSocials: artists.filter(artist => artist.verifiedSocialPlatforms > 0).length,
+      },
+      artists,
+    });
+  } catch (err) {
+    logger.error({ err }, "[artists] provider profile readiness unavailable");
+    res.status(500).json({ error: "Provider profile readiness unavailable" });
+  }
+});
+
+router.get("/artists/admin/social-discovery-readiness", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const [summary, platforms] = await Promise.all([
+      pool.query(`
+        SELECT
+          COUNT(DISTINCT c.artist_key)::int AS active_artists,
+          COUNT(DISTINCT c.artist_key) FILTER (WHERE a.status='verified')::int AS artists_with_verified_accounts,
+          COUNT(DISTINCT c.artist_key) FILTER (WHERE a.status='review')::int AS artists_with_review_candidates,
+          COUNT(*) FILTER (WHERE a.status='verified')::int AS verified_candidates,
+          COUNT(*) FILTER (WHERE a.status='review')::int AS review_candidates,
+          COUNT(*) FILTER (WHERE a.status='rejected')::int AS rejected_candidates
+        FROM kworb_coverage c
+        LEFT JOIN artist_social_account_candidates a
+          ON regexp_replace(lower(a.artist_key), '[^a-z0-9]', '', 'g')=c.artist_key
+        WHERE c.status='active'
+      `).then(result => result.rows[0]),
+      pool.query(`
+        SELECT platform, status, COUNT(*)::int AS candidates,
+          COUNT(DISTINCT regexp_replace(lower(artist_key), '[^a-z0-9]', '', 'g'))::int AS artists
+        FROM artist_social_account_candidates
+        GROUP BY platform, status
+        ORDER BY platform, status
+      `).then(result => result.rows),
+    ]);
+    res.json({ generatedAt: new Date().toISOString(), summary, platforms });
+  } catch (err) {
+    logger.error({ err }, "[artists] social discovery readiness unavailable");
+    res.status(500).json({ error: "Social discovery readiness unavailable" });
   }
 });
 

@@ -41,8 +41,8 @@ export async function seedSupplementalArtistCatalog() {
     },
   });
 
-  // Exact mappings are verified against Spotify/Kworb. A shared provider ID
-  // (Edwin Luna / La Trakalosa) is safely ignored by the unique constraint.
+  // Exact mappings are verified against Spotify/Kworb. Update an existing
+  // artist-key mapping so corrected provider identities repair production.
   for (const artist of SUPPLEMENTAL_ARTISTS) {
     await db.insert(spotifyArtists).values({
       artistKey: artist.artistKey,
@@ -56,7 +56,20 @@ export async function seedSupplementalArtistCatalog() {
       verifiedAt: now,
       spotifyLastUpdated: now,
       linkedAt: now,
-    }).onConflictDoNothing();
+    }).onConflictDoUpdate({
+      target: spotifyArtists.artistKey,
+      set: {
+        spotifyArtistId: artist.spotifyArtistId,
+        spotifyName: artist.artistName,
+        spotifyUrl: `https://open.spotify.com/artist/${artist.spotifyArtistId}`,
+        spotifyUri: `spotify:artist:${artist.spotifyArtistId}`,
+        notes: "Verified exact provider mapping from supplemental catalog",
+        verified: true,
+        verifiedAt: now,
+        spotifyLastUpdated: now,
+        linkedAt: now,
+      },
+    });
   }
 
   logger.info({ artists: SUPPLEMENTAL_ARTISTS.length }, "[artists] supplemental catalog seeded");

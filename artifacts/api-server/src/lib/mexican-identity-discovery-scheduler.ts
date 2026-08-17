@@ -5,6 +5,7 @@ import { ensureMexicanIdentityTables, runMexicanIdentityDiscovery } from "./mexi
 const LOCK_KEY = 831_905_226;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const RETRY_INTERVAL_MS = 60 * 1000;
+const RUN_VERSION = 2;
 let started = false;
 
 function dateEt(): string {
@@ -13,6 +14,7 @@ function dateEt(): string {
 
 export async function runScheduledMexicanIdentityDiscovery() {
   const date = dateEt();
+  const runKey = `${date}:v${RUN_VERSION}`;
   const client = await pool.connect();
   let locked = false;
   try {
@@ -25,7 +27,7 @@ export async function runScheduledMexicanIdentityDiscovery() {
     )`);
     const prior = await client.query<{ summary: { catalogComplete?: boolean } }>(
       "SELECT summary FROM mexican_identity_discovery_runs WHERE run_date = $1",
-      [date],
+      [runKey],
     );
     if (prior.rows[0]?.summary?.catalogComplete === true) {
       return { date, status: "already_complete" as const };
@@ -35,7 +37,7 @@ export async function runScheduledMexicanIdentityDiscovery() {
     const completedSummary = { ...summary, catalogComplete: summary.checked < limit };
     await client.query(`INSERT INTO mexican_identity_discovery_runs(run_date, summary) VALUES ($1,$2::jsonb)
       ON CONFLICT (run_date) DO UPDATE SET completed_at = now(), summary = excluded.summary`,
-      [date, JSON.stringify(completedSummary)]);
+      [runKey, JSON.stringify(completedSummary)]);
     return { date, status: "complete" as const, summary: completedSummary };
   } finally {
     if (locked) await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => undefined);

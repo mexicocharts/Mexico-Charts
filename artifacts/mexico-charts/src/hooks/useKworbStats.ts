@@ -111,6 +111,7 @@ export interface KworbStats {
   spotify: KworbSpotifyStats | null;
   youtube: KworbYouTubeStats | null;
   chartPositions: KworbChartPosition[] | null;
+  _status?: "cached" | "pending";
 }
 
 /* ── Single artist full stats (for artist detail page) ────────────────── */
@@ -124,8 +125,6 @@ export function useKworbStats(artistName: string) {
       );
       if (!resp.ok) return null;
       const data = await resp.json() as KworbStats;
-      // Return null if absolutely no useful data
-      if (!data.spotify && !data.youtube && !data.chartPositions) return null;
       return data;
     },
     staleTime: 15 * 60 * 1000,
