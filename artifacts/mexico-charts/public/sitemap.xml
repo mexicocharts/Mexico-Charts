@@ -2670,6 +2670,37 @@
     <changefreq>weekly</changefreq>
     <priority>0.65</priority>
   </url>
+  <!-- Supplemental provider-backed artist profiles -->
+  <url><loc>https://mexicochart.com/artist/5050-flow-malandro</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/caztro</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/charles-ans</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/contacto-norte</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/cornelio-vega</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/cri-cri</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/cuisillos-de-arturo-macias</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/daaz</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/dani-flow</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/dj-aza</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/duelo</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/edwin-luna</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/el-coyote</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/el-malilla</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/gala-montes</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/gera-mx</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/grupo-canaveral-de-humberto-pabon</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/grupo-quintanna</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/joy</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/josean-log</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/la-arrolladora-banda-el-limon-de-rene-camacho</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/la-rondalla-de-saltillo</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/la-trakalosa-de-monterrey</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/luis-alfonso-partida-el-yaki</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/makabelico</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/millonario</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/pedrito-fernandez</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/pequenos-musical</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/sabino</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
+  <url><loc>https://mexicochart.com/artist/yubeili</loc><changefreq>weekly</changefreq><priority>0.65</priority></url>
   <url>
     <loc>https://mexicochart.com/compare</loc>
     <changefreq>weekly</changefreq>
