@@ -15,6 +15,7 @@ import { ensureDailySnapshotRunLogTable } from "../lib/daily-snapshot-run-log";
 import { runDailySpotifyKworbSnapshots } from "../lib/spotify-kworb-snapshot-scheduler";
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 import { ensureYoutubeVideoTrackerTables, runDailyYoutubeVideoSnapshots } from "../lib/youtube-video-tracker-scheduler";
+import { mergeSupplementalMetadata } from "../lib/supplemental-artist-catalog";
 
 const router = Router();
 
@@ -363,10 +364,10 @@ async function fetchMetadata(): Promise<Record<string, string>[]> {
   const resp = await fetch(METADATA_URL, { signal: AbortSignal.timeout(15000) });
   if (!resp.ok) throw new Error(`artist_metadata_active: HTTP ${resp.status}`);
   const { rows } = parseCSV(await resp.text());
-  return rows
+  return mergeSupplementalMetadata(rows
     .map(sanitizeRow)
     .map(applySubgenreFallback)
-    .filter((r) => !BLOCKED_ARTIST_KEYS.has((r.artist_key ?? r.artist_name ?? "").toLowerCase().trim()));
+    .filter((r) => !BLOCKED_ARTIST_KEYS.has((r.artist_key ?? r.artist_name ?? "").toLowerCase().trim())));
 }
 
 router.get("/artists/metadata", async (_req, res) => {

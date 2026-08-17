@@ -1,7 +1,10 @@
+import { supplementalArtistRoutes } from "./supplemental-artist-routes.mjs";
+
 // Generated from artist_metadata_active for static artist profile SEO.
 // Regenerate when the public artist roster changes.
 
 export const artistProfileRoutes = [
+  ...supplementalArtistRoutes,
   {
     "path": "/artist/hupe",
     "name": "$HUPE",

@@ -353,7 +353,16 @@ export async function fetchArtistMetadata(url: string): Promise<{
   byName: Map<string, ArtistMetadata>;
   configured: boolean;
 }> {
-  const result = await fetchSheetCSV<RawArtistMetadata>(url);
+  let result;
+  try {
+    const response = await fetch("/api/artists/metadata");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json() as { artists?: RawArtistMetadata[] };
+    result = { rows: payload.artists ?? [], configured: true, error: null };
+  } catch {
+    // The published sheet remains a safe fallback for static/local builds.
+    result = await fetchSheetCSV<RawArtistMetadata>(url);
+  }
 
   if (result.configured && result.error) {
     throw new Error(result.error);
