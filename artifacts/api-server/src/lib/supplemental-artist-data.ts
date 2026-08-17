@@ -43,7 +43,7 @@ export const SUPPLEMENTAL_ARTISTS: SupplementalArtist[] = [
   { artistKey: "grupo quintanna", artistName: "Grupo Quintanna", spotifyArtistId: "17jlmfAaFHbfrauHk2HiNc", genre: "Regional Mexicano", subgenre: "regional mexicano" },
   { artistKey: "joy", artistName: "Joy", spotifyArtistId: "6iH6aIbOCOdO3Ja6JeyOm1", genre: "Pop", subgenre: "pop" },
   { artistKey: "josean log", artistName: "Jósean Log", spotifyArtistId: "1LMyTeRhjaitILs98h3MaF", genre: "Alternativo", subgenre: "indie pop", kworbItunes: true },
-  { artistKey: "la arrolladora banda el limon de rene camacho", artistName: "La Arrolladora Banda El Limón De René Camacho", spotifyArtistId: "5bSfBBCxY8QAk4Pifveisz", genre: "Regional Mexicano", subgenre: "banda" },
+  { artistKey: "la arrolladora banda el limon de rene camacho", artistName: "La Arrolladora Banda El Limón De René Camacho", spotifyArtistId: "5bSfBBCxY8QAk4Pifveisz", genre: "Regional Mexicano", subgenre: "banda", kworbYoutube: true },
   { artistKey: "latinmafia", artistName: "LATIN MAFIA", spotifyArtistId: "6XTGKOV9jceQ6f67lnhpbF", genre: "Alternativo", subgenre: "alternativo" },
   { artistKey: "la rondalla de saltillo", artistName: "La Rondalla De Saltillo", spotifyArtistId: "65wmIidwFZCCoT1BUewp5P", genre: "Balada", subgenre: "rondalla", kworbItunes: true },
   { artistKey: "la trakalosa de monterrey", artistName: "La Trakalosa de Monterrey", spotifyArtistId: "4LFOoXhMhnq9U8VsZkSwxl", genre: "Regional Mexicano", subgenre: "banda", kworbYoutube: true },

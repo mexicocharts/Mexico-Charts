@@ -36,6 +36,10 @@ const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
   "banda el recodo de cruz lizarraga": "banda el recodo",
   "banda sinaloense ms de sergio lizarraga": "banda ms de sergio lizarraga",
   "banda tito y su torbellino": "tito torbellino",
+  "elrabbanito": "el rabbanito",
+  "herenciadegrandes": "herencia de grandes",
+  "laarrolladorabandaellimonderenecamacho": "la arrolladora banda el limón de rene camacho",
+  "omarcamacho": "omar camacho",
   "ramon ayala y sus bravos del norte": "ramon ayala",
 };
 
