@@ -6,6 +6,7 @@ import { startYoutubeVideoTrackerScheduler } from "./lib/youtube-video-tracker-s
 import { startSongstatsSnapshotScheduler } from "./lib/songstats-snapshot-scheduler";
 import { startArtistSocialDiscoveryScheduler } from "./lib/artist-social-discovery-scheduler";
 import { startMexicanIdentityDiscoveryScheduler } from "./lib/mexican-identity-discovery-scheduler";
+import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog";
 
 const rawPort = process.env["PORT"];
 
@@ -34,4 +35,7 @@ app.listen(port, (err) => {
   startSongstatsSnapshotScheduler();
   startArtistSocialDiscoveryScheduler();
   startMexicanIdentityDiscoveryScheduler();
+  void seedSupplementalArtistCatalog().catch(err => {
+    logger.error({ err }, "[artists] supplemental catalog seed failed");
+  });
 });
