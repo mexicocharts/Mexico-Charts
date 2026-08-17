@@ -9,6 +9,7 @@ import {
   youtubeKworbDailySnapshots,
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { SUPPLEMENTAL_ARTISTS } from "../lib/supplemental-artist-data";
 
 const router = Router();
 
@@ -1518,6 +1519,15 @@ async function syncCoverage(): Promise<SyncResult> {
     if (name) {
       const slug = toSlug(name);
       if (slug && !BLOCKED_ARTIST_KEYS.has(slug)) metadataArtists.push({ name, slug });
+    }
+  }
+
+  // Provider-backed profiles live outside the legacy metadata sheet but must
+  // participate in the same Kworb coverage, queue, and daily refresh cycle.
+  for (const artist of SUPPLEMENTAL_ARTISTS) {
+    const slug = toSlug(artist.artistName);
+    if (slug && !BLOCKED_ARTIST_KEYS.has(slug)) {
+      metadataArtists.push({ name: artist.artistName, slug });
     }
   }
 

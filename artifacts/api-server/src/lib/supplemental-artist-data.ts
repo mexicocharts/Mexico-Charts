@@ -8,6 +8,15 @@ export type SupplementalArtist = {
   kworbItunes?: boolean;
 };
 
+/** Kworb keys are compact ASCII slugs (for example, "Gera MX" -> "geramx"). */
+export function toKworbArtistKey(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 /** Provider-verified Mexican artists approved from the official-chart review. */
 export const SUPPLEMENTAL_ARTISTS: SupplementalArtist[] = [
   { artistKey: "5050 flow malandro", artistName: "5050 Flow Malandro", spotifyArtistId: "77XFXNr9l7yMoIhzCRK9Ta", genre: "Hip-Hop", subgenre: "hip-hop", kworbItunes: true },

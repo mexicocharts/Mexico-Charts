@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { kworbCoverage, officialArtists, spotifyArtists } from "@workspace/db/schema";
 import { logger } from "./logger";
-import { SUPPLEMENTAL_ARTISTS } from "./supplemental-artist-data";
+import { SUPPLEMENTAL_ARTISTS, toKworbArtistKey } from "./supplemental-artist-data";
 
 export { mergeSupplementalMetadata, supplementalMetadataRows } from "./supplemental-artist-data";
 
@@ -19,7 +19,7 @@ export async function seedSupplementalArtistCatalog() {
   }))).onConflictDoNothing();
 
   await db.insert(kworbCoverage).values(SUPPLEMENTAL_ARTISTS.map(artist => ({
-    artistKey: artist.artistKey,
+    artistKey: toKworbArtistKey(artist.artistName),
     artistName: artist.artistName,
     spotifyId: artist.spotifyArtistId,
     hasSpotify: true,
