@@ -11,6 +11,11 @@ test("canonicalizes account URLs and rejects non-account or unknown links", () =
   assert.equal(canonicalizeSocialUrl("https://example.com/@artist"), null);
 });
 
+test("rejects generic Facebook redirects and profile shells", () => {
+  assert.equal(canonicalizeSocialUrl("https://www.facebook.com/profile.php?id=123"), null);
+  assert.equal(canonicalizeSocialUrl("https://m.facebook.com/profile.php"), null);
+});
+
 test("only exact mappings or independent corroboration auto-verify", () => {
   const candidates = mergeSocialEvidence([
     { platform: "spotify", canonicalUrl: "https://open.spotify.com/artist/abc", source: "spotify_verified_mapping", exactProviderMapping: true },
