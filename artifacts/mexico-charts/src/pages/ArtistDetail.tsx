@@ -1710,7 +1710,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
                     </div>
                     <p className="max-w-xl text-xs font-bold leading-relaxed text-zinc-600">
-                      Enlaces verificados para confirmar la identidad del perfil y consultar la fuente original.
+                      Enlaces verificados para confirmar la identidad del perfil y abrir la fuente original.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

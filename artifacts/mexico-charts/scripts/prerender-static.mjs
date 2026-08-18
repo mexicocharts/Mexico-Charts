@@ -14,11 +14,11 @@ const ogImage = `${siteUrl}/opengraph.jpg`;
 const routes = [
   {
     path: "/",
-    title: "Mexico Charts — Datos, charts y contexto de la musica mexicana",
+    title: "Charts de música mexicana, artistas e industria | Mexico Charts",
     description:
-      "Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON y Ticketmaster.",
+      "Descubre quién lidera la música mexicana con charts de Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, giras y certificaciones.",
     eyebrow: "Mexico Charts",
-    heading: "Datos, charts y contexto de la musica mexicana",
+    heading: "La industria de la música mexicana, en movimiento",
     body:
       "Una plataforma independiente sobre música mexicana: charts de Spotify, YouTube, Apple Music y Deezer; perfiles de artistas; industria; touring; certificaciones y metodología.",
     links: [
@@ -173,7 +173,7 @@ const routes = [
     eyebrow: "Certificaciones",
     heading: "Certificaciones de musica en Mexico",
     body:
-      "Consulta certificaciones de álbumes y sencillos en México con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
+      "Explora certificaciones de álbumes y sencillos en México con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
     links: [
       ["/industry/certifications", "Certificaciones"],
       ["/industria", "Industria"],
@@ -372,12 +372,20 @@ function updateHead(html, route) {
       {
         "@context": "https://schema.org",
         "@type": route.path === "/" ? "WebSite" : "WebPage",
-        name: route.title,
+        name: route.path === "/" ? "Mexico Charts" : route.title,
         url,
         description: route.description,
         inLanguage: "es-MX",
         ...(route.path === "/"
           ? {
+              image: `${siteUrl}/mexico-charts-logo.png`,
+              alternateName: "Mexico Charts México",
+              publisher: {
+                "@type": "Organization",
+                name: "Mexico Charts",
+                url: `${siteUrl}/`,
+                logo: `${siteUrl}/mexico-charts-logo.png`,
+              },
               potentialAction: {
                 "@type": "SearchAction",
                 target: {

@@ -221,7 +221,7 @@ export default function Monitoreo() {
     { icon: BarChart3, title: pick("Métricas actuales", "Current metrics"), body: pick("Audiencia de Spotify, YouTube y plataformas sociales en un solo resumen", "Available Spotify, YouTube and social-platform audiences in one summary") },
     { icon: TrendingUp, title: pick("Evolución por periodo", "Period changes"), body: pick("Crecimiento de 7, 30 y 90 días, además del historial disponible del artista", "7-, 30- and 90-day growth plus the artist's available history") },
     { icon: MapPin, title: pick("Audiencia en México", "Mexico audience"), body: pick("Ciudades y datos de audiencia mexicana cuando la fuente los ofrece", "Mexican audience and city information when available from the source") },
-    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Consulta el monitor cada día y conserva el historial acumulado", "Open the monitor every day and keep its accumulated history") },
+    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Revisa el monitor cada día y conserva el historial acumulado", "Open the monitor every day and keep its accumulated history") },
   ];
 
   return (
@@ -288,7 +288,7 @@ export default function Monitoreo() {
                 </div>
                 <h2 className="mt-8 text-sm font-black uppercase tracking-[0.08em]">{title}</h2>
                 <p className="mt-3 text-xs font-medium leading-5 text-white/35">
-                  {[pick("Las métricas clave en un solo lugar", "The important figures, together"), pick("Descubre qué cambió y cuándo", "See what changed and when"), pick("Conoce dónde está su audiencia mexicana", "Mexican audience context"), pick("Consulta, guarda y comparte", "Ready to save and share")][index]}
+                  {[pick("Las métricas clave en un solo lugar", "The important figures, together"), pick("Descubre qué cambió y cuándo", "See what changed and when"), pick("Conoce dónde está su audiencia mexicana", "Mexican audience context"), pick("Revisa, guarda y comparte", "Ready to save and share")][index]}
                 </p>
               </article>
             ))}

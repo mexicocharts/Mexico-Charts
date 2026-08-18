@@ -189,7 +189,7 @@ export default function FuentesDatos() {
     {
       icon: MapPin,
       title: pick("Entender a México", "Understand Mexico"),
-      body: pick("Consulta la presencia del artista en ciudades mexicanas cuando la plataforma ofrece información geográfica.", "Explore an artist's presence in Mexican cities when geographic information is available."),
+      body: pick("Explora la presencia del artista en ciudades mexicanas cuando la plataforma ofrece información geográfica.", "Explore an artist's presence in Mexican cities when geographic information is available."),
     },
   ];
 
@@ -491,7 +491,7 @@ export default function FuentesDatos() {
           <div className="mx-auto flex max-w-[1280px] flex-col gap-8 rounded-3xl p-8 sm:p-12 lg:flex-row lg:items-center lg:justify-between" style={{ background: "linear-gradient(125deg, rgba(57,255,20,0.11), rgba(255,255,255,0.025) 65%)", border: "1px solid rgba(57,255,20,0.18)" }}>
             <div>
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}><Sparkles className="h-3.5 w-3.5" />{pick("Más transparencia", "More transparency")}</p>
-              <h2 className="mt-4 max-w-2xl font-black uppercase leading-[0.98] tracking-[-0.035em]" style={{ fontSize: "clamp(1.5rem, 3.4vw, 2.25rem)", overflowWrap: "anywhere" }}>{pick("Consulta la metodología completa", "Read the full methodology")}</h2>
+              <h2 className="mt-4 max-w-2xl font-black uppercase leading-[0.98] tracking-[-0.035em]" style={{ fontSize: "clamp(1.5rem, 3.4vw, 2.25rem)", overflowWrap: "anywhere" }}>{pick("Conoce la metodología completa", "Read the full methodology")}</h2>
             </div>
             <Link href="/metodologia">
               <span className="inline-flex cursor-pointer items-center gap-3 rounded-full border border-white/15 px-6 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-white transition-colors hover:border-[#39FF14]/50 hover:text-[#39FF14]">
