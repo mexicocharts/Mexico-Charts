@@ -13,6 +13,11 @@ const ARTISTAS_ITEMS = [
   { es: "Comparar artistas", en: "Compare artists", href: "/compare", descriptionEs: "Dos perfiles, señales lado a lado", descriptionEn: "Two profiles, side by side" },
 ];
 
+const CHARTS_ITEMS = [
+  { es: "Todas las listas", en: "All charts", href: "/charts", descriptionEs: "Spotify, YouTube, Apple Music y Deezer", descriptionEn: "Spotify, YouTube, Apple Music and Deezer" },
+  { es: "Esta semana", en: "This week", href: "/esta-semana", descriptionEs: "Los mexicanos destacados por plataforma", descriptionEn: "Mexican highlights by platform" },
+];
+
 const INDUSTRIA_ITEMS = [
   { es: "Industria", en: "Industry", href: "/industria", descriptionEs: "Mercado, reportes y contexto", descriptionEn: "Market, reports and context" },
   { es: "Certificaciones", en: "Certifications", href: "/industry/certifications", descriptionEs: "Oro, Platino y Diamante", descriptionEn: "Gold, Platinum and Diamond" },
@@ -23,7 +28,7 @@ const NAV = [
   { es: "INICIO",    en: "HOME",    href: "/" },
   { es: "ARTISTAS",  en: "ARTISTS", href: "/artists", dropdown: ARTISTAS_ITEMS },
   { es: "MX100",     en: "MX100",   href: "/mx100" },
-  { es: "LISTAS",    en: "CHARTS",  href: "/charts" },
+  { es: "LISTAS",    en: "CHARTS",  href: "/charts", dropdown: CHARTS_ITEMS },
   { es: "GÉNEROS",   en: "GENRES",  href: "/generos" },
   { es: "INDUSTRIA", en: "INDUSTRY", href: "/industria", dropdown: INDUSTRIA_ITEMS },
   { es: "GIRAS",     en: "TOURING", href: "/touring" },
@@ -58,7 +63,7 @@ export default function SiteNav({ homeActive = false }: Props) {
     if (homeActive) return href === "/";
     if (href === "/") return location === "/";
     if (href === "/artists") return location === "/artists" || location.startsWith("/artist/") || location === "/compare";
-    if (href === "/charts") return location === "/charts";
+    if (href === "/charts") return location === "/charts" || location === "/esta-semana";
     if (href === "/touring") return location === "/touring" || location.startsWith("/touring/");
     if (href === "/industria") return industryActive || location.startsWith("/insights/");
     return location === href || location.startsWith(href + "/");
