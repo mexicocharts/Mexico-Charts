@@ -5,6 +5,7 @@ import {
   normalizeChartArtistName,
   splitChartArtistCredit,
 } from "../lib/mexican-chart-credit-matching";
+import { archiveOfficialCharts, ensureOfficialChartArchive } from "../lib/official-chart-archive";
 
 const router = Router();
 const SHEET_ID = "1pmfNth0H5qlXXs-6ZfYMC57YQXCoRQTk3_3NB8scHl4";
@@ -466,8 +467,57 @@ router.get("/charts/hub", async (_req, res) => {
     }
     res.setHeader("Cache-Control", "no-store");
     res.json({ lastUpdated: cache!.lastUpdated, sheets: cache!.data });
+    void archiveOfficialCharts(cache!.data).catch(error => {
+      console.warn("[charts-hub] official chart archive unavailable", error);
+    });
   } catch (err) {
     res.status(502).json({ error: "Chart data unavailable", detail: String(err) });
+  }
+});
+
+router.get("/charts/history", async (req, res) => {
+  const chartKey = String(req.query["chart"] ?? "").trim();
+  const requestedLimit = Number.parseInt(String(req.query["limit"] ?? "30"), 10);
+  const limit = Math.min(365, Math.max(1, Number.isFinite(requestedLimit) ? requestedLimit : 30));
+  try {
+    await ensureOfficialChartArchive();
+    const params: Array<string | number> = [];
+    const where = chartKey ? `WHERE chart_key = $${params.push(chartKey)}` : "";
+    params.push(limit);
+    const result = await (await import("@workspace/db")).pool.query<{
+      chart_key: string; chart_date: string; fetched_at: string; row_count: number;
+    }>(`
+      SELECT chart_key, chart_date, fetched_at::text, row_count
+      FROM official_chart_snapshots
+      ${where}
+      ORDER BY chart_date DESC, chart_key ASC
+      LIMIT $${params.length}
+    `, params);
+    res.setHeader("Cache-Control", "public, max-age=300, stale-while-revalidate=3600");
+    res.json({ generatedAt: new Date().toISOString(), chart: chartKey || null, editions: result.rows.map(row => ({
+      chartKey: row.chart_key, chartDate: row.chart_date, fetchedAt: row.fetched_at, rowCount: row.row_count,
+    })) });
+  } catch (error) {
+    res.status(500).json({ error: "Chart history unavailable", detail: String(error) });
+  }
+});
+
+router.get("/charts/history/:chartKey/:chartDate", async (req, res) => {
+  try {
+    await ensureOfficialChartArchive();
+    const result = await (await import("@workspace/db")).pool.query<{
+      chart_key: string; chart_date: string; fetched_at: string; row_count: number; payload: { headers: string[]; rows: Row[] };
+    }>(`
+      SELECT chart_key, chart_date, fetched_at::text, row_count, payload
+      FROM official_chart_snapshots WHERE chart_key=$1 AND chart_date=$2 LIMIT 1
+    `, [req.params["chartKey"], req.params["chartDate"]]);
+    const edition = result.rows[0];
+    if (!edition) { res.status(404).json({ error: "Chart edition not found" }); return; }
+    res.setHeader("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400");
+    res.json({ chartKey: edition.chart_key, chartDate: edition.chart_date, fetchedAt: edition.fetched_at,
+      rowCount: edition.row_count, ...edition.payload });
+  } catch (error) {
+    res.status(500).json({ error: "Chart edition unavailable", detail: String(error) });
   }
 });
 
