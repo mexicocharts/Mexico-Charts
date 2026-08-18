@@ -5,7 +5,7 @@ import {
   normalizeChartArtistName,
   splitChartArtistCredit,
 } from "../lib/mexican-chart-credit-matching";
-import { archiveOfficialCharts, ensureOfficialChartArchive } from "../lib/official-chart-archive";
+import { archiveOfficialCharts, compareChartEditions, ensureOfficialChartArchive } from "../lib/official-chart-archive";
 
 const router = Router();
 const SHEET_ID = "1pmfNth0H5qlXXs-6ZfYMC57YQXCoRQTk3_3NB8scHl4";
@@ -518,6 +518,35 @@ router.get("/charts/history/:chartKey/:chartDate", async (req, res) => {
       rowCount: edition.row_count, ...edition.payload });
   } catch (error) {
     res.status(500).json({ error: "Chart edition unavailable", detail: String(error) });
+  }
+});
+
+router.get("/charts/editorial/weekly", async (_req, res) => {
+  try {
+    await ensureOfficialChartArchive();
+    const { pool } = await import("@workspace/db");
+    const chartKeys = ["Spotify_Artists_Weekly", "YT_Artists_Weekly", "YT_Songs_Weekly"];
+    const result = await pool.query<{
+      chart_key: string; chart_date: string; payload: { rows?: Row[] };
+    }>(`
+      SELECT chart_key, chart_date, payload FROM (
+        SELECT chart_key, chart_date, payload,
+          row_number() OVER (PARTITION BY chart_key ORDER BY chart_date DESC) AS edition_number
+        FROM official_chart_snapshots WHERE chart_key=ANY($1::text[])
+      ) editions WHERE edition_number <= 2 ORDER BY chart_key, chart_date DESC
+    `, [chartKeys]);
+    const charts = chartKeys.flatMap(chartKey => {
+      const editions = result.rows.filter(row => row.chart_key === chartKey);
+      const current = editions[0];
+      if (!current) return [];
+      const previous = editions[1];
+      return [{ chartKey, chartDate: current.chart_date, previousChartDate: previous?.chart_date ?? null,
+        comparisonReady: Boolean(previous), ...compareChartEditions(current.payload.rows ?? [], previous?.payload.rows ?? []) }];
+    });
+    res.setHeader("Cache-Control", "public, max-age=900, stale-while-revalidate=86400");
+    res.json({ generatedAt: new Date().toISOString(), methodology: "Exact rank movement between saved official chart editions; no estimated positions.", charts });
+  } catch (error) {
+    res.status(500).json({ error: "Weekly editorial summary unavailable", detail: String(error) });
   }
 });
 
