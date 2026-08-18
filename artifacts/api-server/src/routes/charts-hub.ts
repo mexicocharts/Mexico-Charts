@@ -1,4 +1,10 @@
 import { Router } from "express";
+import {
+  matchedMexicanArtists,
+  normalizeChartArtistCredit,
+  normalizeChartArtistName,
+  splitChartArtistCredit,
+} from "../lib/mexican-chart-credit-matching";
 
 const router = Router();
 const SHEET_ID = "1pmfNth0H5qlXXs-6ZfYMC57YQXCoRQTk3_3NB8scHl4";
@@ -109,11 +115,7 @@ function cleanMovement(val: string): string {
 
 /* ── Mexican artist normalisation (identical to kworb's toSlug) ─────────── */
 function normName(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, "");
+  return normalizeChartArtistName(s);
 }
 
 // Spotify/YouTube sometimes interchange an ampersand with the Spanish
@@ -122,21 +124,7 @@ function normName(s: string): string {
 // Keep the strict form first, then use this connector-neutral form only for
 // comparing the complete credit so collaborations are not over-matched.
 function normCredit(s: string): string {
-  return normName(
-    s
-      .replace(/\s+(?:&|y|and)\s+/gi, " ")
-      // Official platform credits append these band-leader qualifiers while
-      // the approved master stores the established group name.
-      .replace(/\s+de\s+(?:ren[eé]\s+camacho|humberto\s+pab[oó]n)\s*$/gi, ""),
-  );
-}
-
-/* ── Split artist credit string into individual names ───────────────────── */
-function splitCredit(credit: string): string[] {
-  return credit
-    .split(/,|&|\/|\s+feat\.?\s+|\s+ft\.?\s+|\s+x\s+|\s+and\s+|\s+y\s+|\s+junto\s+a\s+/gi)
-    .map(s => s.trim())
-    .filter(s => s.length > 1);
+  return normalizeChartArtistCredit(s);
 }
 
 /* ── Verified Mexican-identity registry cache ──────────────────────────────
@@ -211,30 +199,33 @@ function enrichSheet(
   data: SheetData,
   masterNorms: Set<string>,
 ): SheetData {
-  // Already pre-computed in the sheet (Apple Music sheets)
-  if (data.headers.includes("Contains Mexican Artist")) return data;
-
   const artistField = ARTIST_FIELD[sheetName];
   if (!artistField || !data.headers.includes(artistField)) return data;
 
+  const alreadyHasFlag = data.headers.includes("Contains Mexican Artist");
+  const alreadyHasMatches = data.headers.includes("Matched Mexican Artists");
   const rows = data.rows.map(row => {
     const credit = row[artistField] ?? "";
-    const strictCredit = normName(credit);
-    const looseCredit = normCredit(credit);
-    const fullMatch = masterNorms.has(strictCredit) || masterNorms.has(looseCredit);
-    const parts = splitCredit(credit);
-    const matched = fullMatch
-      ? [credit.trim()]
-      : parts.filter(p => masterNorms.has(normName(p)));
+    const dynamicallyMatched = matchedMexicanArtists(credit, masterNorms);
+    const existingMatched = (row["Matched Mexican Artists"] ?? "")
+      .split(",")
+      .map(value => value.trim())
+      .filter(Boolean);
+    const matched = [...new Set([...existingMatched, ...dynamicallyMatched])];
+    const existingTrue = /^(?:true|yes|1)$/i.test(row["Contains Mexican Artist"] ?? "");
     return {
       ...row,
-      "Contains Mexican Artist":  matched.length ? "TRUE" : "FALSE",
+      "Contains Mexican Artist":  existingTrue || matched.length ? "TRUE" : "FALSE",
       "Matched Mexican Artists":  matched.join(", "),
     };
   });
 
   return {
-    headers: [...data.headers, "Contains Mexican Artist", "Matched Mexican Artists"],
+    headers: [
+      ...data.headers,
+      ...(alreadyHasFlag ? [] : ["Contains Mexican Artist"]),
+      ...(alreadyHasMatches ? [] : ["Matched Mexican Artists"]),
+    ],
     rows,
     chartDate: data.chartDate,
     fetchedAt: data.fetchedAt,
@@ -399,7 +390,7 @@ export async function getOfficialChartArtistCredits(): Promise<string[]> {
     const field = ARTIST_FIELD[sheetName];
     if (!field) continue;
     for (const row of slot.data[sheetName].rows) {
-      for (const part of splitCredit(row[field] ?? "")) {
+      for (const part of splitChartArtistCredit(row[field] ?? "")) {
         const norm = normName(part);
         if (norm && !names.has(norm)) names.set(norm, part.trim());
       }

@@ -116,6 +116,7 @@ export async function listSongstatsCatalogArtists(options: {
       LEFT JOIN spotify_artists s ON s.artist_key = c.artist_key
       WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
         AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
+        AND COALESCE(c.songstats_eligible, true) = true
         ${requestedFilter}
         ${snapshotFilter}
         ${billingFilter}
