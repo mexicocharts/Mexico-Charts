@@ -58,26 +58,36 @@ export default function WeeklyCharts() {
     <PageSEO title={pick("Esta semana — artistas mexicanos en las listas", "This week — Mexican artists on the charts")} description={pick("Los artistas mexicanos destacados esta semana en Spotify, YouTube, Apple Music y Deezer.", "Mexican artists highlighted this week on Spotify, YouTube, Apple Music and Deezer.")} path="/esta-semana" />
     <SiteNav />
     <main className="mx-auto max-w-[1380px] px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
-      <header className="grid gap-7 border-b border-white/10 pb-9 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-        <div>
-          <div className="flex items-center gap-3">
-            <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" className="h-11 w-11 object-contain" />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>Mexico Charts · Editorial</span>
+      <header className="relative overflow-hidden border border-white/10 bg-[#090909] px-5 py-7 sm:px-8 sm:py-9 lg:px-10">
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 opacity-60" style={{ background: "radial-gradient(circle at 85% 20%, rgba(57,255,20,.13), transparent 58%)" }} />
+        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-end">
+          <div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex items-center gap-3">
+                <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" className="h-9 w-9 object-contain" />
+                <span className="text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>Mexico Charts · Editorial</span>
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-600">{dateLabel(chartDate)}</span>
+            </div>
+            <h1 className="mt-7 text-[clamp(3.2rem,7vw,6.8rem)] font-black uppercase leading-[0.84] tracking-[-0.065em]">Esta <span style={{ color: G }}>semana</span></h1>
+            <p className="mt-5 max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">{pick("Los mexicanos que están marcando las listas oficiales, plataforma por plataforma.", "The Mexican artists making their mark on the official charts, platform by platform.")}</p>
           </div>
-          <h1 className="mt-6 text-[clamp(3.6rem,10vw,9rem)] font-black uppercase leading-[0.82] tracking-[-0.07em]">Esta<br/><span style={{ color: G }}>semana</span></h1>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">{pick("Los mexicanos que están marcando las listas oficiales, plataforma por plataforma.", "The Mexican artists making their mark on the official charts, platform by platform.")}</p>
+          <div className="grid grid-cols-2 border border-white/10 bg-black/40">
+            <div className="border-b border-r border-white/10 p-4"><strong className="block text-3xl font-black" style={{ color: G }}>4</strong><span className="mt-2 block text-[8px] font-black uppercase tracking-[.18em] text-zinc-500">{pick("Plataformas", "Platforms")}</span></div>
+            <div className="border-b border-white/10 p-4"><strong className="block text-3xl font-black">MX</strong><span className="mt-2 block text-[8px] font-black uppercase tracking-[.18em] text-zinc-500">{pick("Participación", "Participation")}</span></div>
+            <div className="col-span-2 p-4 text-[9px] font-black uppercase leading-relaxed tracking-[.16em] text-zinc-500">{pick("Posiciones originales · identidad verificada", "Original positions · verified identity")}</div>
+          </div>
         </div>
-        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">{dateLabel(chartDate)}</div>
       </header>
 
-      <div className="my-7 flex flex-wrap gap-2" role="tablist" aria-label={pick("Plataforma", "Platform")}>
-        {platforms.map(item => <button key={item.id} type="button" role="tab" aria-selected={active === item.id} onClick={() => setActive(item.id)} className="flex items-center gap-2 border px-4 py-3 text-[10px] font-black uppercase tracking-[0.16em] transition" style={{ borderColor: active === item.id ? item.color : "rgba(255,255,255,.12)", background: active === item.id ? item.color : "transparent", color: active === item.id ? "#050505" : "rgba(255,255,255,.62)" }}><item.Icon className="h-4 w-4" />{item.label}</button>)}
+      <div className="my-5 grid grid-cols-2 gap-px border border-white/10 bg-white/10 p-px sm:flex sm:flex-wrap" role="tablist" aria-label={pick("Plataforma", "Platform")}>
+        {platforms.map(item => <button key={item.id} type="button" role="tab" aria-selected={active === item.id} onClick={() => setActive(item.id)} className="flex items-center justify-center gap-2 px-4 py-3.5 text-[9px] font-black uppercase tracking-[0.16em] transition sm:justify-start sm:text-[10px]" style={{ background: active === item.id ? item.color : "#080808", color: active === item.id ? "#050505" : "rgba(255,255,255,.58)" }}><item.Icon className="h-4 w-4" />{item.label}</button>)}
       </div>
 
       {loading ? <div className="grid gap-4 lg:grid-cols-[1.35fr_.85fr]">{[1,2].map(i => <div key={i} className="h-[420px] animate-pulse bg-white/[.04]" />)}</div> : !leader ? <div className="border border-white/10 p-10 text-zinc-500">{pick("No hay entradas mexicanas verificadas en esta edición.", "There are no verified Mexican entries in this edition.")}</div> : <>
         <section className="grid gap-4 lg:grid-cols-[1.35fr_.85fr]">
           <article className="overflow-hidden border border-white/10 bg-[#0b0b0b]">
-            <div className="h-[280px] overflow-hidden bg-white/[.04] sm:h-[360px]">{images.data?.[leaderName] ? <img src={images.data[leaderName]!} alt={leaderName} className="h-full w-full object-cover object-top" /> : null}</div>
+            <div className="h-[250px] overflow-hidden bg-white/[.04] sm:h-[330px]">{images.data?.[leaderName] ? <img src={images.data[leaderName]!} alt={leaderName} className="h-full w-full object-cover object-top" /> : null}</div>
             <div className="p-6 sm:p-8">
               <div className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: platform.color }}>{pick("Artista mexicano destacado", "Featured Mexican artist")}</div>
               <div className="mt-5 text-sm font-black uppercase text-zinc-500">#{rank(leader, 0)} {pick("en México", "in Mexico")}</div>

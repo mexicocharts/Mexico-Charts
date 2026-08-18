@@ -189,8 +189,8 @@ const ARTIST_FIELD: Partial<Record<SheetName, string>> = {
   Spotify_Regional_Daily:  "artist_names",
   Spotify_Regional_Weekly: "artist_names",
   Spotify_Viral_Daily:     "artist_names",
-  Apple_Songs:             "Artist",
-  Apple_Albums:            "Artist",
+  Apple_Songs:             "Artist Names",
+  Apple_Albums:            "Artist Names",
   Deezer_Top_Mexico:       "Artist",
 };
 
