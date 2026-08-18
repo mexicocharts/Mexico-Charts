@@ -7,6 +7,9 @@ export const kworbCoverage = pgTable("kworb_coverage", {
   hasSpotify:          boolean("has_spotify").notNull().default(false),
   hasYoutube:          boolean("has_youtube").notNull().default(false),
   hasItunes:           boolean("has_itunes").notNull().default(false),
+  // Songstats is a separately licensed, explicitly approved catalog. New
+  // chart-discovered/provider-only profiles must never opt themselves in.
+  songstatsEligible:   boolean("songstats_eligible").notNull().default(true),
   tier:                text("tier").notNull().default("B"),
   status:              text("status").notNull().default("pending"),
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),

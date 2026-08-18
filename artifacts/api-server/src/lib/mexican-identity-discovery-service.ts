@@ -63,10 +63,11 @@ export async function provisionVerifiedMexicanProfiles(db: IdentityDb = pool): P
       WHERE official_artists.source = 'verified_chart_identity'
     `, [artistKey, row.artist_name, row.normalized_name]);
     await db.query(`
-      INSERT INTO kworb_coverage (artist_key, artist_name, tier, status, last_discovered_at)
-      VALUES ($1,$2,'B','pending',now())
+      INSERT INTO kworb_coverage (artist_key, artist_name, tier, status, songstats_eligible, last_discovered_at)
+      VALUES ($1,$2,'B','pending',false,now())
       ON CONFLICT (artist_key) DO UPDATE SET
         artist_name = excluded.artist_name,
+        songstats_eligible = false,
         status = CASE WHEN kworb_coverage.status = 'inactive' THEN 'pending' ELSE kworb_coverage.status END,
         last_discovered_at = now()
     `, [row.normalized_name, row.artist_name]);
