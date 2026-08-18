@@ -17,6 +17,7 @@ const InsightIFPI2026 = lazy(() => import("@/pages/InsightIFPI2026"));
 const IndustryLanding = lazy(() => import("@/pages/IndustryLanding"));
 const Certifications = lazy(() => import("@/pages/Certifications"));
 const ChartsHub = lazy(() => import("@/pages/ChartsHub"));
+const WeeklyCharts = lazy(() => import("@/pages/WeeklyCharts"));
 const GeneroHub = lazy(() => import("@/pages/GeneroHub"));
 const TouringHub = lazy(() => import("@/pages/TouringHub"));
 const SocialTemplates = lazy(() => import("@/pages/SocialTemplates"));
@@ -129,6 +130,7 @@ function Router() {
           <Route path="/radar-nuevos" component={RadarNuevos} />
           <Route path="/legacy-acts" component={LegacyActs} />
           <Route path="/charts" component={ChartsHub} />
+          <Route path="/esta-semana" component={WeeklyCharts} />
           <Route path="/generos" component={GeneroHub} />
           <Route path="/industria" component={IndustryLanding} />
           <Route path="/industry/certifications" component={Certifications} />

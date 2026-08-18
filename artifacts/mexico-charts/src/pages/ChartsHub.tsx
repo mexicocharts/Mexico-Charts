@@ -810,6 +810,12 @@ export default function ChartsHub() {
                   Metodología
                 </span>
               </Link>
+              <Link href="/esta-semana">
+                <span className="inline-flex items-center px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] transition hover:brightness-110"
+                  style={{ color: "#050505", background: G, borderRadius: 6 }}>
+                  Ver esta semana →
+                </span>
+              </Link>
             </motion.div>
           </div>
         </div>

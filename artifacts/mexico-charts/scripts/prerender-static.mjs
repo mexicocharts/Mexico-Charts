@@ -44,6 +44,21 @@ const routes = [
     ],
   },
   {
+    path: "/esta-semana",
+    title: "Esta semana — artistas mexicanos en Spotify, YouTube, Apple Music y Deezer",
+    description:
+      "Los artistas mexicanos destacados esta semana en las listas oficiales de Spotify, YouTube, Apple Music y Deezer.",
+    eyebrow: "Mexico Charts · Esta semana",
+    heading: "Mexicanos destacados por plataforma",
+    body:
+      "Una lectura semanal de las posiciones ocupadas por artistas mexicanos en Spotify, YouTube, Apple Music y Deezer, conservando el puesto original de cada lista.",
+    links: [
+      ["/esta-semana", "Esta semana"],
+      ["/charts", "Todas las listas"],
+      ["/metodologia", "Metodologia"],
+    ],
+  },
+  {
     path: "/mx100",
     title: "Mexico Charts Top 100 — MX100",
     description:
