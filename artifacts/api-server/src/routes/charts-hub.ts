@@ -541,7 +541,7 @@ router.get("/charts/editorial/weekly", async (req, res) => {
         SELECT chart_key, chart_date, payload,
           row_number() OVER (PARTITION BY chart_key ORDER BY chart_date DESC) AS edition_number
         FROM official_chart_snapshots
-        WHERE chart_key=ANY($1::text[]) AND ($2::date IS NULL OR chart_date <= $2::date)
+        WHERE chart_key=ANY($1::text[]) AND ($2::date IS NULL OR chart_date::date <= $2::date)
       ) editions WHERE edition_number <= 2 ORDER BY chart_key, chart_date DESC
     `, [chartKeys, requestedDate]);
     const charts = chartKeys.flatMap(chartKey => {
