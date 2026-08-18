@@ -413,6 +413,21 @@ export default function HomeV6() {
     }));
   }, [hubData]);
 
+  const WEEKLY_SPOTLIGHTS = useMemo(() => {
+    const definitions = [
+      { label: "Spotify", sheet: "Spotify_Artists_Weekly", artist: "Artist", title: "Artist", color: "#1DB954" },
+      { label: "YouTube", sheet: "YT_Artists_Weekly", artist: "Artist Name", title: "Artist Name", color: "#ff3434" },
+      { label: "Apple Music", sheet: "Apple_Albums", artist: "Artist Names", title: "Title", color: "#fa5264" },
+      { label: "Deezer", sheet: "Deezer_Top_Mexico", artist: "Artist", title: "Title", color: "#a855f7" },
+    ];
+    return definitions.flatMap(definition => {
+      const row = (hubData?.sheets?.[definition.sheet]?.rows ?? []).find(item => /^(true|yes|1)$/i.test(item["Contains Mexican Artist"] ?? ""));
+      if (!row) return [];
+      const participant = (row["Matched Mexican Artists"] || row[definition.artist] || "").split(/\s*(?:,|&|\/| feat\.| ft\.| x | y )\s*/i)[0];
+      return [{ ...definition, rank: Number(row.Rank) || 1, participant, credit: row[definition.artist], title: row[definition.title] }];
+    });
+  }, [hubData]);
+
   /* ── Genre artist counts — explicit synonym mapping, per-label independent matching ── */
   const GENRE_SYNONYMS: Record<string, string[]> = {
     "Corridos Tumbados": ["corridos tumbados", "corrido tumbado", "corridos"],
@@ -899,6 +914,12 @@ export default function HomeV6() {
           );
         })}
       </Shelf>
+
+      {WEEKLY_SPOTLIGHTS.length > 0 && <section className="relative px-6 py-10 lg:px-12" data-testid="weekly-editorial-preview">
+        <div className="absolute inset-x-0 top-0 h-px" style={{ background:"linear-gradient(to right, transparent, rgba(57,255,20,.18), transparent)" }} />
+        <FadeUp><div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><div className="text-[10px] font-black uppercase tracking-[.25em]" style={{ color:"#39FF14" }}>Mexico Charts · Editorial</div><h2 className="mt-2 text-3xl font-black uppercase tracking-[-.04em] sm:text-4xl">{pick("Esta semana", "This week")}</h2><p className="mt-2 text-sm text-zinc-500">{pick("Una entrada mexicana destacada por plataforma.", "One featured Mexican entry per platform.")}</p></div><Link href="/esta-semana"><span className="text-[10px] font-black uppercase tracking-[.18em]" style={{ color:"#39FF14" }}>{pick("Abrir reporte", "Open report")} →</span></Link></div></FadeUp>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{WEEKLY_SPOTLIGHTS.map(item => <Link key={item.label} href="/esta-semana"><motion.div whileHover={reduced ? {} : { y:-3 }} className="group overflow-hidden border border-white/10 bg-[#0a0a0a]"><div className="relative h-40 overflow-hidden bg-white/[.03]">{img(item.participant) && <img src={img(item.participant)!} alt={item.participant} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]" />}<div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" /><div className="absolute bottom-3 left-4 text-4xl font-black" style={{ color:item.color }}>#{item.rank}</div></div><div className="p-4"><div className="text-[9px] font-black uppercase tracking-[.2em]" style={{ color:item.color }}>{item.label}</div><div className="mt-2 truncate font-black uppercase">{item.title}</div>{item.credit !== item.title && <div className="mt-1 truncate text-xs text-zinc-500">{item.credit}</div>}<div className="mt-3 text-[9px] font-black uppercase tracking-[.14em] text-zinc-600">MX: {item.participant}</div></div></motion.div></Link>)}</div>
+      </section>}
 
       {/* ══════════════════════════════════════════════════════════
           GENRE TERRITORIES — color blocks + depth
