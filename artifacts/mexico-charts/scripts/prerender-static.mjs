@@ -14,11 +14,11 @@ const ogImage = `${siteUrl}/opengraph.jpg`;
 const routes = [
   {
     path: "/",
-    title: "Mexico Charts — Datos, charts y contexto de la musica mexicana",
+    title: "Mexico Charts — Listas y estadísticas de música mexicana",
     description:
       "Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON y Ticketmaster.",
     eyebrow: "Mexico Charts",
-    heading: "Datos, charts y contexto de la musica mexicana",
+    heading: "Listas y estadísticas de música mexicana",
     body:
       "Una plataforma independiente sobre música mexicana: charts de Spotify, YouTube, Apple Music y Deezer; perfiles de artistas; industria; touring; certificaciones y metodología.",
     links: [
@@ -378,6 +378,13 @@ function updateHead(html, route) {
         inLanguage: "es-MX",
         ...(route.path === "/"
           ? {
+              image: `${siteUrl}/mexico-charts-logo.png`,
+              publisher: {
+                "@type": "Organization",
+                name: "Mexico Charts",
+                url: `${siteUrl}/`,
+                logo: `${siteUrl}/mexico-charts-logo.png`,
+              },
               potentialAction: {
                 "@type": "SearchAction",
                 target: {

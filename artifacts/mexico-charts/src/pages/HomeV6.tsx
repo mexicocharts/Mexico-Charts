@@ -550,7 +550,7 @@ export default function HomeV6() {
       data-testid="page-v6"
     >
       <PageSEO
-        title={pick("Mexico Charts — Datos, charts y contexto de la música mexicana", "Mexico Charts — Mexican music data, charts and context")}
+        title={pick("Mexico Charts — Listas y estadísticas de música mexicana", "Mexico Charts — Mexican music charts and statistics")}
         description={pick("Mexico Charts presenta charts de música mexicana, artistas, streaming, industria, certificaciones y touring con fuentes como Spotify, YouTube, IFPI, AMPROFON, Pollstar y Ticketmaster.", "Mexico Charts presents Mexican music charts, artists, streaming, industry, certifications and touring with sources including Spotify, YouTube, IFPI, AMPROFON, Pollstar and Ticketmaster.")}
         path="/"
       />
@@ -1400,7 +1400,7 @@ export default function HomeV6() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
               <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
-              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">{pick("Datos, charts y contexto de la música mexicana.", "Mexican music data, charts and context.")}</p>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-[200px]">{pick("Listas, artistas y estadísticas de la música mexicana.", "Charts, artists and statistics for Mexican music.")}</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) =>
                   href ? (
