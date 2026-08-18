@@ -551,7 +551,7 @@ export default function HomeV6() {
     >
       <PageSEO
         title={pick("Charts de música mexicana, artistas e industria | Mexico Charts", "Mexican music charts, artists and industry | Mexico Charts")}
-        description={pick("Consulta charts de música mexicana en Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, touring, certificaciones e industria.", "Explore Mexican music charts across Spotify, YouTube, Apple Music and Deezer, plus artist profiles, streaming, touring, certifications and industry coverage.")}
+        description={pick("Descubre quién lidera la música mexicana con charts de Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, giras y certificaciones.", "Explore Mexican music charts across Spotify, YouTube, Apple Music and Deezer, plus artist profiles, streaming, touring, certifications and industry coverage.")}
         path="/"
       />
 

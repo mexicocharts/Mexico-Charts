@@ -1515,7 +1515,7 @@ export default function ApiCoverage() {
                   <div><div className="text-2xl font-black text-white">{touring.withUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Con shows</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.withoutUpcomingShows}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Sin shows</div></div>
                   <div><div className="text-2xl font-black text-white">{touring.stale}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Por revisar</div></div>
-                  <div><div className="text-sm font-black text-white">{fmtDate(touring.newestFetchAt)}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Última consulta</div></div>
+                  <div><div className="text-sm font-black text-white">{fmtDate(touring.newestFetchAt)}</div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600">Última actualización</div></div>
                 </div>
               </section>
             )}

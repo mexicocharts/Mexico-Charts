@@ -16,7 +16,7 @@ const routes = [
     path: "/",
     title: "Charts de música mexicana, artistas e industria | Mexico Charts",
     description:
-      "Consulta charts de música mexicana en Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, touring, certificaciones e industria.",
+      "Descubre quién lidera la música mexicana con charts de Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, giras y certificaciones.",
     eyebrow: "Mexico Charts",
     heading: "La industria de la música mexicana, en movimiento",
     body:
@@ -173,7 +173,7 @@ const routes = [
     eyebrow: "Certificaciones",
     heading: "Certificaciones de musica en Mexico",
     body:
-      "Consulta certificaciones de álbumes y sencillos en México con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
+      "Explora certificaciones de álbumes y sencillos en México con datos atribuidos a AMPROFON, niveles de oro, platino y diamante, y resumen por artista.",
     links: [
       ["/industry/certifications", "Certificaciones"],
       ["/industria", "Industria"],

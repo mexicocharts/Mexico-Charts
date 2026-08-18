@@ -207,7 +207,7 @@ export default function TouringHub() {
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <PageSEO
         title="Touring — Artistas mexicanos en vivo"
-        description="Conciertos y giras de artistas mexicanos. Consulta fechas, ciudades, recintos y enlaces oficiales de boletos para próximos eventos."
+        description="Conciertos y giras de artistas mexicanos con fechas, ciudades, recintos y enlaces oficiales de boletos para próximos eventos."
         path="/touring"
       />
       <style dangerouslySetInnerHTML={{ __html: `
