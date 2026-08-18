@@ -4,7 +4,9 @@ import { runArtistSocialDiscovery, seedVerifiedArtistSocialAccounts } from "./ar
 
 const LOCK_KEY = 831_905_225;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const RUN_VERSION = 3;
+// v4 prioritizes current charting artists, then completes the full active
+// catalog in the same idempotent run.
+const RUN_VERSION = 4;
 let started = false;
 
 function dateEt(): string {

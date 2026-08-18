@@ -17,6 +17,7 @@ export interface ArtistSocialDiscoverySummary {
   candidates: number;
   verified: number;
   review: number;
+  chartingArtists: number;
 }
 
 function parseCsvLine(line: string): string[] {
@@ -165,6 +166,9 @@ export async function runArtistSocialDiscovery(): Promise<ArtistSocialDiscoveryS
     WHERE c.status = 'active'
     ORDER BY c.artist_key
   `);
+  const { getCurrentMexicanChartArtists } = await import("../routes/charts-hub");
+  const chartingKeys = new Set((await getCurrentMexicanChartArtists()).map(artist => artist.artistKey));
+  result.rows.sort((a, b) => Number(chartingKeys.has(b.artist_key)) - Number(chartingKeys.has(a.artist_key)) || a.artist_key.localeCompare(b.artist_key));
   let candidates = 0;
   let verified = 0;
   let review = 0;
@@ -193,5 +197,5 @@ export async function runArtistSocialDiscovery(): Promise<ArtistSocialDiscoveryS
       `, [artist.artist_key, candidate.platform, candidate.canonicalUrl, JSON.stringify(candidate.evidenceSources), candidate.confidence, candidate.status]);
     }
   }
-  return { artists: result.rows.length, candidates, verified, review };
+  return { artists: result.rows.length, candidates, verified, review, chartingArtists: result.rows.filter(row => chartingKeys.has(row.artist_key)).length };
 }

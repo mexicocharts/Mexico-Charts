@@ -4,7 +4,7 @@ import { getCurrentMexicanChartArtists } from "../routes/charts-hub";
 
 const LOCK_KEY = 831_905_229;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
-const RUN_VERSION = 1;
+const RUN_VERSION = 2;
 let started = false;
 
 function dateEt(): string {

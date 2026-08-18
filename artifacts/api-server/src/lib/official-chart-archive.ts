@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+export { compareChartEditions } from "./official-chart-comparison";
 
 export type ArchivedChartSheet = {
   headers: string[];
@@ -6,6 +7,7 @@ export type ArchivedChartSheet = {
   chartDate: string | null;
   fetchedAt: string | null;
 };
+
 
 export async function ensureOfficialChartArchive(): Promise<void> {
   await pool.query(`
@@ -39,4 +41,3 @@ export async function archiveOfficialCharts(sheets: Record<string, ArchivedChart
   }
   return saved;
 }
-
