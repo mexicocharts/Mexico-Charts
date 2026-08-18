@@ -130,6 +130,7 @@ function Router() {
           <Route path="/radar-nuevos" component={RadarNuevos} />
           <Route path="/legacy-acts" component={LegacyActs} />
           <Route path="/charts" component={ChartsHub} />
+          <Route path="/esta-semana/:date" component={WeeklyCharts} />
           <Route path="/esta-semana" component={WeeklyCharts} />
           <Route path="/generos" component={GeneroHub} />
           <Route path="/industria" component={IndustryLanding} />
