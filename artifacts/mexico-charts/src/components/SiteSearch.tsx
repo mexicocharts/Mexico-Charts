@@ -352,6 +352,24 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
       })
       : [];
 
+    const chartArtistRows: SearchCandidate[] = includeDeep && chartData?.sheets
+      ? Object.values(chartData.sheets).flatMap(sheet => sheet.rows.slice(0, 250)).flatMap(row => {
+        const credit = chartArtist(row);
+        if (!credit) return [];
+        return credit.split(/\s*(?:,|&|\bx\b|\bfeat\.?\b|\bft\.?\b)\s*/i).flatMap(name => {
+          const label = name.trim();
+          const href = canonicalArtistHref(label);
+          if (!label || !href) return [];
+          return [{
+            label, href, type: "Artista", detail: "Artista en listas oficiales de México",
+            score: 0, baseScore: 145, category: "artist" as const,
+            dedupeKey: `artist:${slugify(label)}`,
+            haystack: norm(`${label} artista chart listas oficiales mexico`),
+          }];
+        });
+      })
+      : [];
+
     const certRows: SearchCandidate[] = includeDeep
       ? certificationRows.slice(0, 1000).map(row => ({
         label: row.titulo || "Certificación",
@@ -403,7 +421,7 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
         });
     }
 
-    const all = [...staticRows, ...artists, ...genreRows, ...chartRows, ...certRows, ...touringRows];
+    const all = [...staticRows, ...artists, ...chartArtistRows, ...genreRows, ...chartRows, ...certRows, ...touringRows];
     const ranked = all
       .map(row => rankCandidate(row, q))
       .filter((row): row is SearchResult => row !== null && row.score > 0)

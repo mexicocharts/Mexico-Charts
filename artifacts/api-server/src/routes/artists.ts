@@ -20,6 +20,7 @@ import { mergeSupplementalMetadata } from "../lib/supplemental-artist-catalog";
 import { SUPPLEMENTAL_ARTISTS, toKworbArtistKey } from "../lib/supplemental-artist-data";
 import { scoreArtistProfilePriority } from "../lib/artist-profile-priority-policy";
 import { getCurrentMexicanChartArtists } from "./charts-hub";
+import { buildArtistDataQualitySummary, ensureArtistDataQualityRuns, runScheduledArtistDataQuality } from "../lib/artist-data-quality-scheduler";
 
 const router = Router();
 
@@ -599,6 +600,29 @@ router.get("/artists/admin/profile-priority-queue", async (req, res) => {
     logger.error({ err }, "[artists] profile priority queue unavailable");
     res.status(500).json({ error: "Artist profile priority queue unavailable" });
   }
+});
+
+router.get("/artists/admin/data-quality", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    await ensureArtistDataQualityRuns();
+    const live = req.query["live"] === "true";
+    const latest = live ? null : (await pool.query<{ completed_at: string; summary: unknown }>(
+      "SELECT completed_at::text, summary FROM artist_data_quality_runs ORDER BY completed_at DESC LIMIT 1",
+    )).rows[0];
+    res.setHeader("Cache-Control", "no-store");
+    res.json(latest ? { generatedAt: latest.completed_at, cached: true, summary: latest.summary }
+      : { generatedAt: new Date().toISOString(), cached: false, summary: await buildArtistDataQualitySummary() });
+  } catch (err) {
+    logger.error({ err }, "[artists] data quality unavailable");
+    res.status(500).json({ error: "Artist data quality unavailable" });
+  }
+});
+
+router.post("/artists/admin/data-quality/run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try { res.json(await runScheduledArtistDataQuality()); }
+  catch (err) { logger.error({ err }, "[artists] data quality run failed"); res.status(500).json({ error: "Artist data quality run failed" }); }
 });
 
 router.get("/artists/enrichment/:artistKey", async (req, res) => {
