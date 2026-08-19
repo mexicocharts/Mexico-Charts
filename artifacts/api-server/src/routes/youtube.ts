@@ -7,6 +7,7 @@ import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot
 import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "../lib/youtube-music-shadow-discovery";
 import { ensureYoutubeIntradayShadowTables, runYoutubeIntradayShadow } from "../lib/youtube-intraday-shadow-scheduler";
 import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-scheduler";
+import { getDashboardAdminKey } from "../lib/admin-key";
 
 const router = Router();
 
@@ -15,7 +16,7 @@ const router = Router();
 
 const YT_BASE    = "https://www.googleapis.com/youtube/v3";
 const API_KEY    = () => process.env["YOUTUBE_API_KEY"] ?? "";
-const ADMIN_KEY  = () => process.env["YOUTUBE_ADMIN_KEY"] ?? "";
+const ADMIN_KEY  = getDashboardAdminKey;
 
 // TTLs
 const VIDEO_TTL_MS   =  6 * 60 * 60 * 1000; //  6 hours
