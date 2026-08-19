@@ -16,6 +16,7 @@ const ARTIST_TYPE_LABELS: Record<string, string> = {
 
 const GENRE_LABELS: Record<string, string> = {
   "regional mexican": "Regional mexicano",
+  "regional mexicano": "Regional mexicano",
   "latin pop": "Pop latino",
   "latin hip hop": "Hip-hop latino",
   "latin rock": "Rock latino",
