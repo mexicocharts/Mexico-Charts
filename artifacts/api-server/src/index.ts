@@ -6,6 +6,7 @@ import { startYoutubeVideoTrackerScheduler } from "./lib/youtube-video-tracker-s
 import { startSongstatsSnapshotScheduler } from "./lib/songstats-snapshot-scheduler";
 import { startArtistSocialDiscoveryScheduler } from "./lib/artist-social-discovery-scheduler";
 import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog";
+import { startYoutubeIntradayShadowScheduler } from "./lib/youtube-intraday-shadow-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -33,6 +34,7 @@ app.listen(port, (err) => {
   startYoutubeVideoTrackerScheduler();
   startSongstatsSnapshotScheduler();
   startArtistSocialDiscoveryScheduler();
+  startYoutubeIntradayShadowScheduler();
   void seedSupplementalArtistCatalog().catch(err => {
     logger.error({ err }, "[artists] supplemental catalog seed failed");
   });

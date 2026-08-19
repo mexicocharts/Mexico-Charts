@@ -1,9 +1,12 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
+import { db, pool } from "@workspace/db";
 import { youtubeChannelDailySnapshots, youtubeChannels, youtubeVideos } from "@workspace/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
+import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "../lib/youtube-music-shadow-discovery";
+import { ensureYoutubeIntradayShadowTables, runYoutubeIntradayShadow } from "../lib/youtube-intraday-shadow-scheduler";
+import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-scheduler";
 
 const router = Router();
 
@@ -959,6 +962,125 @@ router.delete("/admin/youtube/link/video/:videoId", async (req, res) => {
   await db.delete(youtubeVideos).where(eq(youtubeVideos.videoId, vid));
   logger.info({ videoId: vid }, "[youtube] video unlinked");
   res.json({ ok: true });
+});
+
+// Private shadow-mode endpoints. These never create active public video links.
+router.post("/admin/youtube/music-shadow/discover", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const body = req.body as { artistKey?: string; artistName?: string; browseId?: string; write?: boolean };
+  const artistKey = body.artistKey?.trim().toLowerCase();
+  const artistName = body.artistName?.trim();
+  if (!artistKey || !artistName) {
+    res.status(400).json({ error: "artistKey and artistName are required" });
+    return;
+  }
+  const summary = await discoverYoutubeMusicArtist({
+    artistKey,
+    artistName,
+    browseId: body.browseId?.trim() || null,
+    write: body.write === true,
+  });
+  res.setHeader("Cache-Control", "no-store");
+  res.status(summary.error ? 502 : 200).json({ publicDataChanged: false, shadowMode: true, ...summary });
+});
+
+router.post("/admin/youtube/music-shadow/intraday/run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const summary = await runYoutubeIntradayShadow("admin-run-now", true);
+  res.setHeader("Cache-Control", "no-store");
+  res.status(summary.status === "failed" ? 500 : 200).json({ publicDataChanged: false, shadowMode: true, ...summary });
+});
+
+router.get("/admin/youtube/music-shadow/status", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const client = await pool.connect();
+  try {
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    await ensureYoutubeIntradayShadowTables(client);
+    const [counts, usage, artists, runs, rejectedCandidates] = await Promise.all([
+      client.query<{
+        mappings: number; candidates: number; unique_videos: number; review: number; verified: number; rejected: number;
+        observed: number; latest_observed_at: string | null;
+      }>(`
+        SELECT
+          (SELECT count(*)::int FROM youtube_music_artist_candidates) mappings,
+          (SELECT count(*)::int FROM youtube_music_catalog_candidates) candidates,
+          (SELECT count(DISTINCT video_id)::int FROM youtube_music_catalog_candidates) unique_videos,
+          (SELECT count(*)::int FROM youtube_music_catalog_candidates WHERE status='review') review,
+          (SELECT count(*)::int FROM youtube_music_catalog_candidates WHERE status='verified') verified,
+          (SELECT count(*)::int FROM youtube_music_catalog_candidates WHERE status='rejected') rejected,
+          (SELECT count(DISTINCT video_id)::int FROM youtube_video_intraday_shadow_snapshots) observed,
+          (SELECT max(observed_at)::text FROM youtube_video_intraday_shadow_snapshots) latest_observed_at
+      `),
+      client.query(`SELECT * FROM youtube_shadow_api_usage ORDER BY usage_date DESC LIMIT 7`),
+      client.query(`
+        SELECT
+          cur.artist_key,
+          cur.tracked_video_count,
+          cur.videos_with_observations,
+          cur.total_views,
+          cur.latest_observed_at,
+          cur.updated_at,
+          COALESCE(candidate_counts.review_count, 0)::int review_count,
+          COALESCE(candidate_counts.verified_count, 0)::int verified_count,
+          COALESCE(candidate_counts.rejected_count, 0)::int rejected_count,
+          COALESCE(candidate_counts.hot_count, 0)::int hot_count,
+          COALESCE(candidate_counts.warm_count, 0)::int warm_count,
+          COALESCE(candidate_counts.baseline_count, 0)::int baseline_count,
+          COALESCE(latest_changes.latest_view_delta, 0)::bigint latest_view_delta
+        FROM youtube_artist_intraday_shadow_current cur
+        LEFT JOIN LATERAL (
+          SELECT
+            count(*) FILTER (WHERE status='review') review_count,
+            count(*) FILTER (WHERE status='verified') verified_count,
+            count(*) FILTER (WHERE status='rejected') rejected_count,
+            count(*) FILTER (WHERE status IN ('review','verified') AND sampling_status='shadow' AND refresh_tier='hot') hot_count,
+            count(*) FILTER (WHERE status IN ('review','verified') AND sampling_status='shadow' AND refresh_tier='warm') warm_count,
+            count(*) FILTER (WHERE status IN ('review','verified') AND sampling_status='shadow' AND refresh_tier='baseline') baseline_count
+          FROM youtube_music_catalog_candidates c
+          WHERE c.artist_key=cur.artist_key
+        ) candidate_counts ON true
+        LEFT JOIN LATERAL (
+          SELECT sum(latest.view_delta) latest_view_delta
+          FROM (
+            SELECT DISTINCT c.video_id
+            FROM youtube_music_catalog_candidates c
+            WHERE c.artist_key=cur.artist_key AND c.status IN ('review','verified') AND c.sampling_status='shadow'
+          ) videos
+          LEFT JOIN LATERAL (
+            SELECT s.view_delta
+            FROM youtube_video_intraday_shadow_snapshots s
+            WHERE s.video_id=videos.video_id
+            ORDER BY s.observed_at DESC
+            LIMIT 1
+          ) latest ON true
+        ) latest_changes ON true
+        ORDER BY cur.total_views DESC, cur.artist_key
+      `),
+      client.query(`SELECT * FROM youtube_music_shadow_runs ORDER BY started_at DESC LIMIT 10`),
+      client.query(`
+        SELECT artist_key, artist_name, video_id, title, canonical_url, rejection_reason, updated_at
+        FROM youtube_music_catalog_candidates
+        WHERE status='rejected'
+        ORDER BY updated_at DESC, artist_key, title
+        LIMIT 100
+      `),
+    ]);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      publicDataChanged: false,
+      shadowMode: true,
+      automationEnabled: process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] === "true",
+      counts: counts.rows[0],
+      usage: usage.rows,
+      artists: artists.rows,
+      recentRuns: runs.rows,
+      rejectedCandidates: rejectedCandidates.rows,
+    });
+  } finally {
+    client.release();
+  }
 });
 
 export default router;
