@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { exportSafeImageUrl, waitForExportImages } from "./weeklyCardExport.mjs";
+import { exportSafeImageUrl, waitForExportImages, weeklyCardRenderOptions } from "./weeklyCardExport.mjs";
 
 test("routes remote artwork through the same-origin image proxy", () => {
   assert.equal(
@@ -19,4 +19,8 @@ test("accepts images that are already decoded", async () => {
 test("rejects an already-failed image instead of exporting an empty frame", async () => {
   const node = { querySelectorAll: () => [{ complete: true, naturalWidth: 0, src: "/broken.png" }] };
   await assert.rejects(() => waitForExportImages(node), /No se pudo cargar/);
+});
+
+test("skips cross-origin webfont parsing during card export", () => {
+  assert.equal(weeklyCardRenderOptions().fontEmbedCSS, "");
 });
