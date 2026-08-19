@@ -7,8 +7,8 @@ export const officialChartSnapshots = pgTable("official_chart_snapshots", {
   rowCount: integer("row_count").notNull(),
   payload: jsonb("payload").notNull(),
 }, (table) => [
-  primaryKey({ columns: [table.chartKey, table.chartDate] }),
-  index("official_chart_snapshots_date_idx").on(table.chartDate),
+  primaryKey({ name: "official_chart_snapshots_pkey", columns: [table.chartKey, table.chartDate] }),
+  index("official_chart_snapshots_date_idx").on(table.chartDate.desc().nullsFirst()),
 ]);
 
 export const proprietaryChartSnapshots = pgTable("proprietary_chart_snapshots", {
@@ -19,8 +19,8 @@ export const proprietaryChartSnapshots = pgTable("proprietary_chart_snapshots", 
   rowCount: integer("row_count").notNull(),
   payload: jsonb("payload").notNull(),
 }, (table) => [
-  primaryKey({ columns: [table.chartKey, table.chartDate] }),
-  index("proprietary_chart_snapshots_date_idx").on(table.chartDate),
+  primaryKey({ name: "proprietary_chart_snapshots_pkey", columns: [table.chartKey, table.chartDate] }),
+  index("proprietary_chart_snapshots_date_idx").on(table.chartDate.desc().nullsFirst()),
 ]);
 
 export type OfficialChartSnapshot = typeof officialChartSnapshots.$inferSelect;

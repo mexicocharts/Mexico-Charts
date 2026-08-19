@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, check, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, check, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { youtubeTrackedVideos } from "./youtube_video_tracker";
 
@@ -30,7 +30,7 @@ export const youtubeMusicCatalogCandidates = pgTable("youtube_music_catalog_cand
   artistKey: text("artist_key").notNull(),
   artistName: text("artist_name").notNull(),
   artistBrowseId: text("artist_browse_id").notNull(),
-  videoId: text("video_id").notNull().references(() => youtubeTrackedVideos.videoId, { onDelete: "cascade" }),
+  videoId: text("video_id").notNull(),
   title: text("title").notNull().default(""),
   canonicalUrl: text("canonical_url").notNull(),
   evidenceSource: text("evidence_source").notNull().default("youtube_music_innertube"),
@@ -54,6 +54,11 @@ export const youtubeMusicCatalogCandidates = pgTable("youtube_music_catalog_cand
   check("youtube_music_catalog_candidates_status_check", sql`${table.status} IN ('verified','review','rejected')`),
   check("youtube_music_catalog_candidates_sampling_status_check", sql`${table.samplingStatus} IN ('shadow','paused','disabled')`),
   check("youtube_music_catalog_candidates_refresh_tier_check", sql`${table.refreshTier} IN ('hot','warm','baseline')`),
+  foreignKey({
+    name: "youtube_music_catalog_candidates_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
 ]);
 
 export const youtubeMusicShadowRuns = pgTable("youtube_music_shadow_runs", {
@@ -68,7 +73,7 @@ export const youtubeMusicShadowRuns = pgTable("youtube_music_shadow_runs", {
 
 export const youtubeVideoIntradayShadowSnapshots = pgTable("youtube_video_intraday_shadow_snapshots", {
   id: serial("id").primaryKey(),
-  videoId: text("video_id").notNull().references(() => youtubeTrackedVideos.videoId, { onDelete: "cascade" }),
+  videoId: text("video_id").notNull(),
   refreshTier: text("refresh_tier").notNull(),
   bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
   observedAt: timestamp("observed_at", { withTimezone: true }).notNull().defaultNow(),
@@ -82,8 +87,13 @@ export const youtubeVideoIntradayShadowSnapshots = pgTable("youtube_video_intrad
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("youtube_video_intraday_shadow_video_bucket_unique").on(table.videoId, table.bucketStart),
-  index("youtube_video_intraday_shadow_observed_idx").on(table.observedAt.desc()),
+  index("youtube_video_intraday_shadow_observed_idx").on(table.observedAt.desc().nullsFirst()),
   check("youtube_video_intraday_shadow_snapshots_refresh_tier_check", sql`${table.refreshTier} IN ('hot','warm','baseline')`),
+  foreignKey({
+    name: "youtube_video_intraday_shadow_snapshots_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
 ]);
 
 export const youtubeArtistIntradayShadowCurrent = pgTable("youtube_artist_intraday_shadow_current", {

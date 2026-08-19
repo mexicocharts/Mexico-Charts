@@ -1,6 +1,7 @@
 import {
   integer,
   jsonb,
+  foreignKey,
   pgTable,
   serial,
   text,
@@ -34,7 +35,7 @@ export const chartSnapshotRows = pgTable(
   "chart_snapshot_rows",
   {
     id: serial("id").primaryKey(),
-    snapshotId: integer("snapshot_id").notNull().references(() => chartSnapshots.id, { onDelete: "cascade" }),
+    snapshotId: integer("snapshot_id").notNull(),
     rank: integer("rank").notNull(),
     title: text("title").notNull().default(""),
     artistNames: jsonb("artist_names").$type<string[]>().notNull().default([]),
@@ -46,6 +47,11 @@ export const chartSnapshotRows = pgTable(
   table => ({
     snapshotRankUnique: uniqueIndex("chart_snapshot_rows_snapshot_rank_unique").on(table.snapshotId, table.rank),
     snapshotIdx: index("chart_snapshot_rows_snapshot_idx").on(table.snapshotId),
+    snapshotFk: foreignKey({
+      name: "chart_snapshot_rows_snapshot_id_fkey",
+      columns: [table.snapshotId],
+      foreignColumns: [chartSnapshots.id],
+    }).onDelete("cascade"),
   }),
 );
 
@@ -80,7 +86,7 @@ export const officialArtists = pgTable(
     artistName: text("artist_name").notNull(),
     normalizedName: text("normalized_name").notNull(),
     source: text("source").notNull().default("manual_discovery_review"),
-    discoveryCandidateId: integer("discovery_candidate_id").references(() => artistCandidates.id, { onDelete: "set null" }),
+    discoveryCandidateId: integer("discovery_candidate_id"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -88,6 +94,11 @@ export const officialArtists = pgTable(
   table => ({
     normalizedUnique: uniqueIndex("official_artists_normalized_name_unique").on(table.normalizedName),
     candidateIdx: index("official_artists_discovery_candidate_idx").on(table.discoveryCandidateId),
+    candidateFk: foreignKey({
+      name: "official_artists_discovery_candidate_id_fkey",
+      columns: [table.discoveryCandidateId],
+      foreignColumns: [artistCandidates.id],
+    }).onDelete("set null"),
   }),
 );
 
@@ -95,7 +106,7 @@ export const artistCandidateEvents = pgTable(
   "artist_candidate_events",
   {
     id: serial("id").primaryKey(),
-    candidateId: integer("candidate_id").notNull().references(() => artistCandidates.id, { onDelete: "cascade" }),
+    candidateId: integer("candidate_id").notNull(),
     source: text("source").notNull(),
     chartType: text("chart_type").notNull(),
     chartDate: text("chart_date").notNull(),
@@ -114,6 +125,11 @@ export const artistCandidateEvents = pgTable(
       table.rank,
       table.songOrVideoTitle,
     ),
+    candidateFk: foreignKey({
+      name: "artist_candidate_events_candidate_id_fkey",
+      columns: [table.candidateId],
+      foreignColumns: [artistCandidates.id],
+    }).onDelete("cascade"),
   }),
 );
 
@@ -121,7 +137,7 @@ export const artistCandidateSignals = pgTable(
   "artist_candidate_signals",
   {
     id: serial("id").primaryKey(),
-    candidateId: integer("candidate_id").notNull().references(() => artistCandidates.id, { onDelete: "cascade" }),
+    candidateId: integer("candidate_id").notNull(),
     signalType: text("signal_type").notNull(),
     source: text("source").notNull(),
     value: text("value").notNull(),
@@ -136,6 +152,11 @@ export const artistCandidateSignals = pgTable(
       table.source,
       table.value,
     ),
+    candidateFk: foreignKey({
+      name: "artist_candidate_signals_candidate_id_fkey",
+      columns: [table.candidateId],
+      foreignColumns: [artistCandidates.id],
+    }).onDelete("cascade"),
   }),
 );
 
@@ -143,7 +164,7 @@ export const artistCandidateAuditEntries = pgTable(
   "artist_candidate_audit_entries",
   {
     id: serial("id").primaryKey(),
-    candidateId: integer("candidate_id").notNull().references(() => artistCandidates.id, { onDelete: "cascade" }),
+    candidateId: integer("candidate_id").notNull(),
     action: text("action").notNull(),
     artistKey: text("artist_key"),
     previousStatus: text("previous_status"),
@@ -154,7 +175,12 @@ export const artistCandidateAuditEntries = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   table => ({
-    candidateIdx: index("artist_candidate_audit_entries_candidate_idx").on(table.candidateId, table.createdAt),
+    candidateIdx: index("artist_candidate_audit_entries_candidate_idx").on(table.candidateId, table.createdAt.desc().nullsFirst()),
+    candidateFk: foreignKey({
+      name: "artist_candidate_audit_entries_candidate_id_fkey",
+      columns: [table.candidateId],
+      foreignColumns: [artistCandidates.id],
+    }).onDelete("cascade"),
   }),
 );
 

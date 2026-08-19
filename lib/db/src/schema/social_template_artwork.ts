@@ -20,7 +20,7 @@ export const socialTemplateArtwork = pgTable("social_template_artwork", {
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
-  primaryKey({ columns: [t.templateKey, t.entityType, t.entityKey] }),
+  primaryKey({ name: "social_template_artwork_pkey", columns: [t.templateKey, t.entityType, t.entityKey] }),
   index("social_template_artwork_entity_idx").on(t.entityType, t.entityKey),
   index("social_template_artwork_seen_idx").on(t.templateKey, t.lastSeenAt),
 ]);
