@@ -1,4 +1,5 @@
-import { index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, index, integer, jsonb, pgTable, serial, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 export const artistSocialAccountCandidates = pgTable("artist_social_account_candidates", {
   id: serial("id").primaryKey(),
@@ -14,7 +15,8 @@ export const artistSocialAccountCandidates = pgTable("artist_social_account_cand
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  uniqueIndex("artist_social_candidates_artist_platform_url_unique").on(table.artistKey, table.platform, table.canonicalUrl),
+  unique("artist_social_account_candida_artist_key_platform_canonical_key").on(table.artistKey, table.platform, table.canonicalUrl),
+  check("artist_social_account_candidates_status_check", sql`${table.status} IN ('verified', 'review', 'rejected')`),
   index("artist_social_candidates_status_idx").on(table.status),
   index("artist_social_candidates_artist_idx").on(table.artistKey),
 ]);

@@ -1,4 +1,4 @@
-import { bigint, boolean, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const youtubeTrackedVideos = pgTable("youtube_tracked_videos", {
   videoId: text("video_id").primaryKey(),
@@ -24,7 +24,7 @@ export const youtubeArtistVideoLinks = pgTable("youtube_artist_video_links", {
   id: serial("id").primaryKey(),
   artistKey: text("artist_key").notNull(),
   artistName: text("artist_name").notNull().default(""),
-  videoId: text("video_id").notNull().references(() => youtubeTrackedVideos.videoId, { onDelete: "cascade" }),
+  videoId: text("video_id").notNull(),
   sourceType: text("source_type").notNull().default("youtube_uploads"),
   confidenceScore: integer("confidence_score").notNull().default(80),
   priority: integer("priority").notNull().default(50),
@@ -37,11 +37,16 @@ export const youtubeArtistVideoLinks = pgTable("youtube_artist_video_links", {
   index("youtube_artist_video_links_artist_idx").on(table.artistKey),
   index("youtube_artist_video_links_video_idx").on(table.videoId),
   index("youtube_artist_video_links_active_priority_idx").on(table.active, table.priority),
+  foreignKey({
+    name: "youtube_artist_video_links_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
 ]);
 
 export const youtubeVideoDailySnapshots = pgTable("youtube_video_daily_snapshots", {
   id: serial("id").primaryKey(),
-  videoId: text("video_id").notNull().references(() => youtubeTrackedVideos.videoId, { onDelete: "cascade" }),
+  videoId: text("video_id").notNull(),
   snapshotDate: text("snapshot_date").notNull(),
   viewCount: bigint("view_count", { mode: "number" }),
   likeCount: bigint("like_count", { mode: "number" }),
@@ -54,6 +59,11 @@ export const youtubeVideoDailySnapshots = pgTable("youtube_video_daily_snapshots
   uniqueIndex("youtube_video_daily_snapshots_video_date_unique").on(table.videoId, table.snapshotDate),
   index("youtube_video_daily_snapshots_date_idx").on(table.snapshotDate),
   index("youtube_video_daily_snapshots_video_date_idx").on(table.videoId, table.snapshotDate),
+  foreignKey({
+    name: "youtube_video_daily_snapshots_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
 ]);
 
 export const youtubeArtistVideoDailyRollups = pgTable("youtube_artist_video_daily_rollups", {

@@ -52,7 +52,7 @@ export const songstatsMonthlyArtistUsage = pgTable("songstats_monthly_artist_usa
   firstRequestedAt: timestamp("first_requested_at", { withTimezone: true }).notNull().defaultNow(),
   lastRequestedAt: timestamp("last_requested_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.billingMonth, table.artistIdentity] }),
+  primaryKey({ name: "songstats_monthly_artist_usage_pkey", columns: [table.billingMonth, table.artistIdentity] }),
 ]);
 
 export const monitoringStreamItems = pgTable("monitoring_stream_items", {
@@ -65,7 +65,7 @@ export const monitoringStreamItems = pgTable("monitoring_stream_items", {
   firstSeenAt: timestamp("first_seen_at", { withTimezone: true }).notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.artistKey, table.itemType, table.itemKey] }),
+  primaryKey({ name: "monitoring_stream_items_pkey", columns: [table.artistKey, table.itemType, table.itemKey] }),
   check("monitoring_stream_items_item_type_check", sql`${table.itemType} IN ('track', 'album')`),
 ]);
 
@@ -78,10 +78,10 @@ export const monitoringStreamDailySnapshots = pgTable("monitoring_stream_daily_s
   dailyStreams: bigint("daily_streams", { mode: "number" }).notNull(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.artistKey, table.itemType, table.itemKey, table.snapshotDate] }),
+  primaryKey({ name: "monitoring_stream_daily_snapshots_pkey", columns: [table.artistKey, table.itemType, table.itemKey, table.snapshotDate] }),
   check("monitoring_stream_daily_snapshots_item_type_check", sql`${table.itemType} IN ('track', 'album')`),
-  index("monitoring_stream_daily_artist_date_idx").on(table.artistKey, table.snapshotDate.desc(), table.itemType),
-  index("monitoring_stream_daily_item_date_idx").on(table.artistKey, table.itemType, table.itemKey, table.snapshotDate.desc()),
+  index("monitoring_stream_daily_artist_date_idx").on(table.artistKey, table.snapshotDate.desc().nullsFirst(), table.itemType),
+  index("monitoring_stream_daily_item_date_idx").on(table.artistKey, table.itemType, table.itemKey, table.snapshotDate.desc().nullsFirst()),
 ]);
 
 export const monitoringStreamDailyArtistSummaries = pgTable("monitoring_stream_daily_artist_summaries", {
@@ -95,7 +95,7 @@ export const monitoringStreamDailyArtistSummaries = pgTable("monitoring_stream_d
   albumTotalStreams: bigint("album_total_streams", { mode: "number" }).notNull(),
   fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.artistKey, table.snapshotDate] }),
+  primaryKey({ name: "monitoring_stream_daily_artist_summaries_pkey", columns: [table.artistKey, table.snapshotDate] }),
 ]);
 
 export const monitoringStreamArchiveManifests = pgTable("monitoring_stream_archive_manifests", {
@@ -109,7 +109,7 @@ export const monitoringStreamArchiveManifests = pgTable("monitoring_stream_archi
   storageProvider: text("storage_provider").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.snapshotDate, table.objectKey] }),
+  primaryKey({ name: "monitoring_stream_archive_manifests_pkey", columns: [table.snapshotDate, table.objectKey] }),
 ]);
 
 export type CommunityContribution = typeof communityContributions.$inferSelect;

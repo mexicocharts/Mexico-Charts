@@ -14,7 +14,7 @@ export const userAccounts = pgTable("user_accounts", {
 
 export const fanProfiles = pgTable("fan_profiles", {
   clerkUserId: text("clerk_user_id").primaryKey(),
-  username: text("username").notNull(),
+  username: text("username").notNull().unique("fan_profiles_username_key"),
   displayName: text("display_name"),
   bio: text("bio"),
   accountType: text("account_type").notNull().default("personal"),
@@ -40,8 +40,8 @@ export const userMusicConnections = pgTable("user_music_connections", {
   connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.clerkUserId, table.provider] }),
-  index("user_music_connections_user_idx").on(table.clerkUserId, table.updatedAt),
+  primaryKey({ name: "user_music_connections_pkey", columns: [table.clerkUserId, table.provider] }),
+  index("user_music_connections_user_idx").on(table.clerkUserId, table.updatedAt.desc().nullsFirst()),
 ]);
 
 export const userListeningEvents = pgTable("user_listening_events", {
@@ -55,8 +55,8 @@ export const userListeningEvents = pgTable("user_listening_events", {
   albumName: text("album_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.clerkUserId, table.provider, table.eventId] }),
-  index("user_listening_events_recent_idx").on(table.clerkUserId, table.playedAt),
+  primaryKey({ name: "user_listening_events_pkey", columns: [table.clerkUserId, table.provider, table.eventId] }),
+  index("user_listening_events_recent_idx").on(table.clerkUserId, table.playedAt.desc().nullsFirst()),
 ]);
 
 export const savedArtists = pgTable("saved_artists", {
@@ -66,8 +66,8 @@ export const savedArtists = pgTable("saved_artists", {
   alertsEnabled: boolean("alerts_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  primaryKey({ columns: [table.clerkUserId, table.artistKey] }),
-  index("saved_artists_user_created_idx").on(table.clerkUserId, table.createdAt),
+  primaryKey({ name: "saved_artists_pkey", columns: [table.clerkUserId, table.artistKey] }),
+  index("saved_artists_user_created_idx").on(table.clerkUserId, table.createdAt.desc().nullsFirst()),
 ]);
 
 export const monitoringSubscriptions = pgTable("monitoring_subscriptions", {
@@ -79,7 +79,7 @@ export const monitoringSubscriptions = pgTable("monitoring_subscriptions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  index("monitoring_subscriptions_user_idx").on(table.clerkUserId, table.updatedAt),
+  index("monitoring_subscriptions_user_idx").on(table.clerkUserId, table.updatedAt.desc().nullsFirst()),
 ]);
 
 export type UserAccount = typeof userAccounts.$inferSelect;

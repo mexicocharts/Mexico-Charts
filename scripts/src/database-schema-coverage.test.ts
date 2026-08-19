@@ -55,3 +55,44 @@ test("every runtime-created table is declared in the Drizzle schema", async () =
     `Runtime-created tables missing from the formal Drizzle schema: ${missing.join(", ")}`,
   );
 });
+
+test("production constraint names remain stable in the Drizzle schema", async () => {
+  const schemaDirectory = path.join(repoRoot, "lib/db/src/schema");
+  const schemaSource = (
+    await Promise.all((await sourceFiles(schemaDirectory)).map(file => readFile(file, "utf8")))
+  ).join("\n");
+  const productionConstraintNames = [
+    "artist_candidate_audit_entries_candidate_id_fkey",
+    "artist_candidate_events_candidate_id_fkey",
+    "artist_candidate_signals_candidate_id_fkey",
+    "artist_social_account_candida_artist_key_platform_canonical_key",
+    "artist_social_account_candidates_status_check",
+    "chart_snapshot_rows_snapshot_id_fkey",
+    "fan_profiles_username_key",
+    "mexican_artist_identity_candidates_normalized_name_key",
+    "mexican_artist_identity_candidates_status_check",
+    "monitoring_stream_archive_manifests_pkey",
+    "monitoring_stream_daily_artist_summaries_pkey",
+    "monitoring_stream_daily_snapshots_pkey",
+    "monitoring_stream_items_pkey",
+    "official_artists_discovery_candidate_id_fkey",
+    "official_chart_snapshots_pkey",
+    "proprietary_chart_snapshots_pkey",
+    "saved_artists_pkey",
+    "social_template_artwork_pkey",
+    "songstats_monthly_artist_usage_pkey",
+    "user_listening_events_pkey",
+    "user_music_connections_pkey",
+    "youtube_artist_video_links_video_id_fkey",
+    "youtube_music_catalog_candidates_video_id_fkey",
+    "youtube_video_daily_snapshots_video_id_fkey",
+    "youtube_video_intraday_shadow_snapshots_video_id_fkey",
+  ];
+
+  const missing = productionConstraintNames.filter(name => !schemaSource.includes(`"${name}"`));
+  assert.deepEqual(
+    missing,
+    [],
+    `Production constraint names missing from the formal Drizzle schema: ${missing.join(", ")}`,
+  );
+});
