@@ -41,3 +41,4 @@ export * from "./artist_social_accounts";
 export * from "./mexican_artist_identities";
 export * from "./chart_archives";
 export * from "./youtube_shadow";
+export * from "./runtime_tables";
