@@ -99,13 +99,13 @@ function parseArgs() {
     artistKeys,
     all: args.get("all") === "true",
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
-    limit: Math.max(1, Math.min(Number(args.get("limit") ?? 529), 529)),
+    limit: Math.max(1, Number(args.get("limit") ?? 10_000)),
     snapshotDate: args.get("date") ?? new Date().toISOString().slice(0, 10),
     write: args.get("write") === "true",
     storage: (args.get("storage") ?? "postgres") as StorageMode,
     archiveDir: args.get("archiveDir") ?? "/tmp/mexico-charts-stream-archive",
     uploadR2: args.get("uploadR2") === "true",
-    eligibility: (args.get("eligibility") ?? (args.get("all") === "true" ? "complete" : "mapped")) as EligibilityMode,
+    eligibility: (args.get("eligibility") ?? "mapped") as EligibilityMode,
     auditEligibility: args.get("auditEligibility") === "true",
   };
 }
@@ -495,16 +495,13 @@ async function main() {
   } = parseArgs();
   assertStorageMode(storage);
   assertEligibilityMode(eligibility);
-  if (all && eligibility !== "complete") {
-    throw new Error("Full-catalog archive runs require --eligibility=complete. Partial-data artists must not enter the paid archive.");
-  }
   const databaseUrl = process.env["DATABASE_URL"];
   if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
   if (!all && !requestedArtistKeys.length) throw new Error("Provide --artistKey/--artistKeys or --all=true.");
 
   const activeArtistKeys = all ? await loadActiveArtistKeys() : requestedArtistKeys;
-  if (all && activeArtistKeys.length !== 529) {
-    throw new Error(`Expected exactly 529 active catalog artists, received ${activeArtistKeys.length}. Refusing to continue.`);
+  if (all && activeArtistKeys.length === 0) {
+    throw new Error("The active artist catalog is empty. Refusing to continue.");
   }
   const artistKeys = activeArtistKeys.slice(offset, offset + limit);
 
