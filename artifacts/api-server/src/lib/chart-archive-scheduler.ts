@@ -1,5 +1,5 @@
 import { logger } from "./logger";
-import { pool } from "@workspace/db";
+import { pool, type PoolClient } from "@workspace/db";
 import { archiveProprietaryCharts, type ProprietaryChartSheet } from "./proprietary-chart-archive";
 import { refreshAndArchiveOfficialCharts } from "../routes/charts-hub";
 import { chartEditionDate, mexicoChartArchiveDate, parseProprietaryChartCsv } from "./chart-archive-policy";
@@ -33,7 +33,7 @@ async function fetchProprietaryCharts(): Promise<Record<string, ProprietaryChart
 export async function runChartArchive(reason: string): Promise<void> {
   if (running) return;
   running = true;
-  let client: Awaited<ReturnType<typeof pool.connect>> | null = null;
+  let client: PoolClient | null = null;
   try {
     client = await pool.connect();
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
