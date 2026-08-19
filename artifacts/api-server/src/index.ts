@@ -9,6 +9,8 @@ import { startMexicanIdentityDiscoveryScheduler } from "./lib/mexican-identity-d
 import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog";
 import { ensureArtistCatalogSchema } from "./lib/artist-catalog-schema";
 import { startArtistDataQualityScheduler } from "./lib/artist-data-quality-scheduler";
+import { startYoutubeIntradayShadowScheduler } from "./lib/youtube-intraday-shadow-scheduler";
+import { startChartArchiveScheduler } from "./lib/chart-archive-scheduler";
 
 const rawPort = process.env["PORT"];
 
@@ -44,6 +46,8 @@ app.listen(port, async (err) => {
   startArtistSocialDiscoveryScheduler();
   startMexicanIdentityDiscoveryScheduler();
   startArtistDataQualityScheduler();
+  startYoutubeIntradayShadowScheduler();
+  startChartArchiveScheduler();
   void seedSupplementalArtistCatalog().catch(err => {
     logger.error({ err }, "[artists] supplemental catalog seed failed");
   });

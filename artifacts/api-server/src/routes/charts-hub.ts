@@ -384,6 +384,13 @@ async function fetchAll(): Promise<CacheSlot> {
   return { data, lastUpdated: new Date().toISOString(), fetchedAt: Date.now() };
 }
 
+export async function refreshAndArchiveOfficialCharts(): Promise<{ savedEditions: number; lastUpdated: string }> {
+  const next = await fetchAll();
+  cache = next;
+  const savedEditions = await archiveOfficialCharts(next.data);
+  return { savedEditions, lastUpdated: next.lastUpdated };
+}
+
 export async function getOfficialChartArtistCredits(): Promise<string[]> {
   const slot = await fetchAll();
   const names = new Map<string, string>();
@@ -560,10 +567,5 @@ router.get("/charts/editorial/weekly", async (req, res) => {
     res.status(500).json({ error: "Weekly editorial summary unavailable", detail: String(error) });
   }
 });
-
-/* ── Warm cache on startup ───────────────────────────────────────────────── */
-setTimeout(() => {
-  fetchAll().then(c => { cache = c; }).catch(() => {});
-}, 3000);
 
 export default router;

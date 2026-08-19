@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, KeyRound, RefreshCw, Search } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, Eye, KeyRound, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 
@@ -166,6 +166,58 @@ interface MomentumMissingRow {
   reason: string;
 }
 
+interface YoutubeShadowStatus {
+  publicDataChanged: false;
+  shadowMode: true;
+  automationEnabled: boolean;
+  counts: {
+    mappings: number;
+    candidates: number;
+    unique_videos: number;
+    review: number;
+    verified: number;
+    rejected: number;
+    observed: number;
+    latest_observed_at: string | null;
+  };
+  usage: Array<{
+    usage_date: string;
+    api_calls: number;
+    videos_requested: number;
+    videos_returned: number;
+  }>;
+  artists: Array<{
+    artist_key: string;
+    tracked_video_count: number;
+    videos_with_observations: number;
+    total_views: string | number;
+    latest_observed_at: string | null;
+    review_count: number;
+    verified_count: number;
+    rejected_count: number;
+    hot_count: number;
+    warm_count: number;
+    baseline_count: number;
+    latest_view_delta: string | number;
+  }>;
+  recentRuns: Array<{
+    id: number;
+    run_type: string;
+    artist_key: string | null;
+    status: string;
+    started_at: string;
+    finished_at: string | null;
+  }>;
+  rejectedCandidates: Array<{
+    artist_key: string;
+    artist_name: string;
+    video_id: string;
+    title: string;
+    canonical_url: string;
+    rejection_reason: string | null;
+  }>;
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "Sin datos";
   return new Intl.DateTimeFormat("es-MX", {
@@ -303,6 +355,7 @@ export default function ApiCoverage() {
   const [kworb, setKworb] = useState<KworbStats | null>(null);
   const [touring, setTouring] = useState<TouringCoverage | null>(null);
   const [dailySnapshots, setDailySnapshots] = useState<DailySnapshotStatus | null>(null);
+  const [youtubeShadow, setYoutubeShadow] = useState<YoutubeShadowStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -313,6 +366,8 @@ export default function ApiCoverage() {
   const [runningSpotifySnapshots, setRunningSpotifySnapshots] = useState(false);
   const [syncingKworb, setSyncingKworb] = useState(false);
   const [runningKworb, setRunningKworb] = useState(false);
+  const [runningYoutubeShadow, setRunningYoutubeShadow] = useState(false);
+  const [showShadowRejected, setShowShadowRejected] = useState(false);
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
   const [expandedReview, setExpandedReview] = useState<Record<string, boolean>>({});
   const [expandedMomentumMissing, setExpandedMomentumMissing] = useState<Record<string, boolean>>({});
@@ -369,20 +424,23 @@ export default function ApiCoverage() {
       if (!coverageRes.ok) throw new Error(coverageRes.status === 403 ? "Clave de admin inválida." : "No se pudo cargar la cobertura.");
       setCoverage(await coverageRes.json());
 
-      const [kworbRes, touringRes, dailySnapshotRes] = await Promise.all([
+      const [kworbRes, touringRes, dailySnapshotRes, youtubeShadowRes] = await Promise.all([
         fetch("/api/kworb/admin/stats", { headers: { "X-Admin-Key": savedKey } }),
         fetch("/api/admin/touring/coverage", { headers: { "X-Admin-Key": savedKey } }),
         fetch("/api/admin/artists/daily-snapshots/status", { headers: { "X-Admin-Key": savedKey } }),
+        fetch("/api/admin/youtube/music-shadow/status", { headers: { "X-Admin-Key": savedKey } }),
       ]);
       setKworb(kworbRes.ok ? await kworbRes.json() : null);
       setTouring(touringRes.ok ? await touringRes.json() : null);
       setDailySnapshots(dailySnapshotRes.ok ? await dailySnapshotRes.json() : null);
+      setYoutubeShadow(youtubeShadowRes.ok ? await youtubeShadowRes.json() : null);
     } catch (err) {
       setError((err as Error).message);
       setCoverage(null);
       setKworb(null);
       setTouring(null);
       setDailySnapshots(null);
+      setYoutubeShadow(null);
     } finally {
       setLoading(false);
     }
@@ -397,6 +455,7 @@ export default function ApiCoverage() {
       setKworb(null);
       setTouring(null);
       setDailySnapshots(null);
+      setYoutubeShadow(null);
       setError(null);
       return;
     }
@@ -459,6 +518,37 @@ export default function ApiCoverage() {
       setError((err as Error).message);
     } finally {
       setRefreshingYoutube(false);
+    }
+  }
+
+  async function runYoutubeShadowSample() {
+    if (!adminKey.trim()) {
+      setError("Guarda la clave admin primero.");
+      return;
+    }
+    setRunningYoutubeShadow(true);
+    setActionMessage(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/youtube/music-shadow/intraday/run", {
+        method: "POST",
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
+      const data = await res.json() as {
+        status?: string;
+        requestedVideos?: number;
+        saved?: number;
+        missing?: number;
+        apiCalls?: number;
+        error?: string;
+      };
+      if (!res.ok) throw new Error(data.error || "No se pudo correr la muestra privada.");
+      setActionMessage(`YouTube privado: ${data.status ?? "ok"} · ${data.saved ?? 0}/${data.requestedVideos ?? 0} videos medidos · ${data.apiCalls ?? 0} llamadas API.`);
+      await loadDashboard(adminKey);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setRunningYoutubeShadow(false);
     }
   }
 
@@ -671,6 +761,24 @@ export default function ApiCoverage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const savedKey = adminKey.trim();
+    if (!savedKey) return;
+
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch("/api/admin/youtube/music-shadow/status", {
+          headers: { "X-Admin-Key": savedKey },
+        });
+        if (response.ok) setYoutubeShadow(await response.json());
+      } catch {
+        // Keep the last good private snapshot visible during a transient refresh failure.
+      }
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, [adminKey]);
+
   return (
     <div className="min-h-[100dvh] bg-[#050505] text-zinc-200">
       <PageSEO
@@ -800,6 +908,117 @@ export default function ApiCoverage() {
                 <div className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-600">Actualizado</div>
               </div>
             </section>
+
+            {youtubeShadow && (
+              <section className="rounded-lg border border-red-400/15 bg-[radial-gradient(circle_at_top_right,rgba(255,45,45,0.08),transparent_38%),#0b0b0b] p-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-red-400/15 bg-red-500/[0.07] text-red-300">
+                    <Activity className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-black uppercase tracking-[0.08em] text-white">YouTube Live Lab</h2>
+                      <span className="rounded border border-[#39FF14]/20 bg-[#39FF14]/[0.06] px-2 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#39FF14]">
+                        Privado
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs font-bold text-zinc-600">
+                      Catálogo ampliado y medición intradía. Nada de esta prueba aparece en perfiles públicos.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void runYoutubeShadowSample()}
+                    disabled={runningYoutubeShadow}
+                    className="ml-auto inline-flex h-9 items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/[0.08] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-red-200 hover:bg-red-500/[0.13] disabled:cursor-wait disabled:opacity-50"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${runningYoutubeShadow ? "animate-spin" : ""}`} />
+                    Medir ahora
+                  </button>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  {[
+                    ["Artistas", youtubeShadow.counts.mappings],
+                    ["Videos únicos", youtubeShadow.counts.unique_videos],
+                    ["Observados", youtubeShadow.counts.observed],
+                    ["En revisión", youtubeShadow.counts.review],
+                    ["Verificados", youtubeShadow.counts.verified],
+                    ["Rechazados", youtubeShadow.counts.rejected],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
+                      <div className="text-2xl font-black text-white">{fmtCount(value as number)}</div>
+                      <div className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-white/[0.055] bg-black/20 px-4 py-3 text-[10px] font-black uppercase tracking-[0.13em] text-zinc-600">
+                  <span className="inline-flex items-center gap-2"><ShieldCheck className="h-3.5 w-3.5 text-[#39FF14]" /> Sin cambios públicos</span>
+                  <span>Automatización: {youtubeShadow.automationEnabled ? "activa" : "pausada"}</span>
+                  <span>Última muestra: {fmtDate(youtubeShadow.counts.latest_observed_at)}</span>
+                  <span>Llamadas API hoy: {youtubeShadow.usage[0]?.api_calls ?? 0}</span>
+                </div>
+
+                <div className="mt-5 overflow-hidden rounded-lg border border-white/[0.07]">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 border-b border-white/[0.06] bg-white/[0.025] px-4 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600 sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(80px,auto))]">
+                    <span>Artista</span>
+                    <span className="hidden sm:block">Catálogo</span>
+                    <span className="hidden sm:block">Medidos</span>
+                    <span>Total views</span>
+                    <span>Cambio</span>
+                  </div>
+                  {youtubeShadow.artists.length > 0 ? youtubeShadow.artists.map(artist => (
+                    <div key={artist.artist_key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/[0.045] px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(80px,auto))]">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-black uppercase tracking-[0.08em] text-zinc-200">{artist.artist_key.replaceAll("-", " ")}</div>
+                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                          {artist.hot_count} hot · {artist.warm_count} warm · {artist.baseline_count} base
+                        </div>
+                      </div>
+                      <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.tracked_video_count}</span>
+                      <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.videos_with_observations}</span>
+                      <span className="text-sm font-black text-white">{fmtCompact(artist.total_views)}</span>
+                      <span className={`text-sm font-black ${Number(artist.latest_view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
+                        +{Number(artist.latest_view_delta) > 0 ? fmtCount(artist.latest_view_delta) : "0"}
+                      </span>
+                    </div>
+                  )) : (
+                    <div className="px-4 py-6 text-center text-xs font-bold text-zinc-600">
+                      El catálogo privado está listo; todavía no hay muestras guardadas.
+                    </div>
+                  )}
+                </div>
+
+                {youtubeShadow.rejectedCandidates.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-white/[0.06] bg-black/20">
+                    <button
+                      type="button"
+                      onClick={() => setShowShadowRejected(value => !value)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left"
+                    >
+                      <Eye className="h-4 w-4 text-zinc-600" />
+                      <span className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400">Ver rechazos confirmados</span>
+                      <span className="rounded bg-white/[0.05] px-2 py-0.5 text-[9px] font-black text-zinc-500">{youtubeShadow.rejectedCandidates.length}</span>
+                      <ChevronDown className={`ml-auto h-4 w-4 text-zinc-600 transition-transform ${showShadowRejected ? "rotate-180" : ""}`} />
+                    </button>
+                    {showShadowRejected && (
+                      <div className="max-h-80 overflow-auto border-t border-white/[0.06]">
+                        {youtubeShadow.rejectedCandidates.map(row => (
+                          <a key={`${row.artist_key}-${row.video_id}`} href={row.canonical_url} target="_blank" rel="noreferrer" className="grid gap-1 border-b border-white/[0.04] px-4 py-3 last:border-b-0 hover:bg-white/[0.025] sm:grid-cols-[1fr_auto]">
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-black text-zinc-300">{row.title}</div>
+                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{row.artist_name} · {row.video_id}</div>
+                            </div>
+                            <span className="text-[9px] font-black uppercase tracking-[0.12em] text-red-300/70">{row.rejection_reason?.replaceAll("_", " ") ?? "Rechazado"}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
 
             {dailySnapshots && (
               <section className="rounded-lg border border-white/[0.07] bg-[#0b0b0b] p-5">
