@@ -171,6 +171,18 @@ interface YoutubeShadowStatus {
   shadowMode: true;
   automationEnabled: boolean;
   catalogReady: boolean;
+  readyPilotArtists: number;
+  totalPilotArtists: number;
+  pilotArtists: Array<{
+    artist_key: string;
+    artist_name: string;
+    eligible_candidates: number;
+    rejected_candidates: number;
+    discovery_status: string | null;
+    mapping_status: string | null;
+    discovery_error: string | null;
+    last_attempt_at: string | null;
+  }>;
   counts: {
     mappings: number;
     candidates: number;
@@ -231,7 +243,7 @@ function fmtDate(iso: string | null): string {
 
 function fmtCount(value: string | number | null | undefined): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "—";
+  if (!Number.isFinite(n) || n < 0) return "—";
   return new Intl.NumberFormat("en-US").format(n);
 }
 
@@ -543,13 +555,17 @@ export default function ApiCoverage() {
         apiCalls?: number;
         bootstrapArtists?: number;
         bootstrapSavedCandidates?: number;
+        bootstrapErrors?: string[];
         error?: string;
       };
       if (!res.ok) throw new Error(data.error || "No se pudo correr la muestra privada.");
       const prepared = (data.bootstrapSavedCandidates ?? 0) > 0
         ? ` · catálogo preparado: ${data.bootstrapArtists ?? 0} artistas, ${data.bootstrapSavedCandidates ?? 0} videos`
         : "";
-      setActionMessage(`YouTube privado: ${data.status ?? "ok"}${prepared} · ${data.saved ?? 0}/${data.requestedVideos ?? 0} videos medidos · ${data.apiCalls ?? 0} llamadas API.`);
+      const warnings = data.bootstrapErrors?.length
+        ? ` · pendientes: ${data.bootstrapErrors.join(" | ")}`
+        : "";
+      setActionMessage(`YouTube privado: ${data.status ?? "ok"}${prepared} · ${data.saved ?? 0}/${data.requestedVideos ?? 0} videos medidos · ${data.apiCalls ?? 0} llamadas API${warnings}.`);
       await loadDashboard(adminKey);
     } catch (err) {
       setError((err as Error).message);
@@ -945,7 +961,7 @@ export default function ApiCoverage() {
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                   {[
-                    ["Artistas", youtubeShadow.counts.mappings],
+                    ["Artistas", `${youtubeShadow.readyPilotArtists}/${youtubeShadow.totalPilotArtists}`],
                     ["Videos únicos", youtubeShadow.counts.unique_videos],
                     ["Observados", youtubeShadow.counts.observed],
                     ["En revisión", youtubeShadow.counts.review],
@@ -953,7 +969,9 @@ export default function ApiCoverage() {
                     ["Rechazados", youtubeShadow.counts.rejected],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-black/25 p-3">
-                      <div className="text-2xl font-black text-white">{fmtCount(value as number)}</div>
+                      <div className="text-2xl font-black text-white">
+                        {typeof value === "string" && value.includes("/") ? value : fmtCount(value as number)}
+                      </div>
                       <div className="mt-1 text-[9px] font-black uppercase tracking-[0.15em] text-zinc-600">{label}</div>
                     </div>
                   ))}
@@ -964,6 +982,30 @@ export default function ApiCoverage() {
                   <span>Automatización: {youtubeShadow.automationEnabled ? "activa" : "pausada"}</span>
                   <span>Última muestra: {fmtDate(youtubeShadow.counts.latest_observed_at)}</span>
                   <span>Llamadas API hoy: {youtubeShadow.usage[0]?.api_calls ?? 0}</span>
+                </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {youtubeShadow.pilotArtists.map(pilot => {
+                    const ready = Number(pilot.eligible_candidates) > 0;
+                    return (
+                      <div key={pilot.artist_key} className={`rounded-lg border p-3 ${ready ? "border-[#39FF14]/15 bg-[#39FF14]/[0.035]" : "border-amber-300/15 bg-amber-300/[0.035]"}`}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[10px] font-black uppercase tracking-[0.1em] text-zinc-200">{pilot.artist_name}</span>
+                          <span className={`text-[8px] font-black uppercase tracking-[0.12em] ${ready ? "text-[#39FF14]" : "text-amber-200"}`}>
+                            {ready ? "Listo" : pilot.discovery_status === "failed" ? "Falló" : "Pendiente"}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-[9px] font-bold text-zinc-600">
+                          {ready
+                            ? `${pilot.eligible_candidates} videos elegibles`
+                            : pilot.discovery_error ?? "Se intentará preparar en la siguiente ejecución."}
+                        </div>
+                        {!ready && pilot.last_attempt_at && (
+                          <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">Último intento: {fmtDate(pilot.last_attempt_at)}</div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="mt-5 overflow-hidden rounded-lg border border-white/[0.07]">

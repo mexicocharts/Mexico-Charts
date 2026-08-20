@@ -55,6 +55,7 @@ export interface YoutubeMusicDiscoverySummary {
   artistKey: string;
   artistName: string;
   browseId: string | null;
+  mappingEvidence: "exact_name_search" | "verified_youtube_channel" | null;
   mappingStatus: YoutubeShadowStatus | "not_found" | "ambiguous";
   releasesInspected: number;
   uniqueCandidates: number;
@@ -230,7 +231,16 @@ async function persistDiscovery(
         last_checked_at = now(),
         updated_at = now()
     `,
-    [summary.artistKey, summary.artistName, summary.browseId, `https://music.youtube.com/channel/${summary.browseId}`, JSON.stringify({ exactNormalizedName: true })],
+    [
+      summary.artistKey,
+      summary.artistName,
+      summary.browseId,
+      `https://music.youtube.com/channel/${summary.browseId}`,
+      JSON.stringify({
+        exactNormalizedName: summary.mappingEvidence === "exact_name_search",
+        verifiedYoutubeChannelMapping: summary.mappingEvidence === "verified_youtube_channel",
+      }),
+    ],
   );
 
   for (const candidate of candidates.values()) {
@@ -296,6 +306,7 @@ export async function discoverYoutubeMusicArtist(input: {
   artistKey: string;
   artistName: string;
   browseId?: string | null;
+  trustedBrowseId?: boolean;
   write?: boolean;
   includeCandidates?: boolean;
 }): Promise<YoutubeMusicDiscoverySummary> {
@@ -303,6 +314,7 @@ export async function discoverYoutubeMusicArtist(input: {
     artistKey: input.artistKey,
     artistName: input.artistName,
     browseId: input.browseId ?? null,
+    mappingEvidence: input.browseId && input.trustedBrowseId ? "verified_youtube_channel" : null,
     mappingStatus: "not_found",
     releasesInspected: 0,
     uniqueCandidates: 0,
@@ -331,15 +343,23 @@ export async function discoverYoutubeMusicArtist(input: {
       const resolved = await resolveBrowseId(yt, input.artistName);
       if (resolved.ambiguous) {
         summary.mappingStatus = "ambiguous";
+        summary.error = "Multiple exact YouTube Music artist matches were returned.";
         return summary;
       }
       summary.browseId = resolved.browseId;
+      if (resolved.browseId) summary.mappingEvidence = "exact_name_search";
     }
-    if (!summary.browseId) return summary;
+    if (!summary.browseId) {
+      summary.error = "No exact YouTube Music artist match was found.";
+      return summary;
+    }
 
     const artist = await yt.music.getArtist(summary.browseId);
     const resolvedName = artist.header && "title" in artist.header ? artist.header.title?.toString() : "";
-    if (normalizeYoutubeArtistName(resolvedName ?? "") !== normalizeYoutubeArtistName(input.artistName)) {
+    if (
+      !input.trustedBrowseId
+      && normalizeYoutubeArtistName(resolvedName ?? "") !== normalizeYoutubeArtistName(input.artistName)
+    ) {
       summary.mappingStatus = "ambiguous";
       summary.error = `Resolved artist name did not match: ${resolvedName ?? "unknown"}`;
       return summary;
@@ -419,6 +439,11 @@ export async function discoverYoutubeMusicArtist(input: {
     }
 
     if (input.write && client) await persistDiscovery(client, summary, candidates);
+    if (summary.reviewCandidates === 0) {
+      summary.error = summary.uniqueCandidates > 0
+        ? "Discovery returned no eligible review candidates. Rejected evidence was retained for audit."
+        : "Discovery returned no catalog videos for this artist.";
+    }
     return summary;
   } catch (error) {
     summary.error = error instanceof Error ? error.message : String(error);
@@ -427,7 +452,7 @@ export async function discoverYoutubeMusicArtist(input: {
     if (runId != null && client) {
       await client.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
-        [runId, summary.error ? "failed" : "complete", JSON.stringify(summary)],
+        [runId, summary.error || summary.mappingStatus !== "review" || summary.reviewCandidates === 0 ? "failed" : "complete", JSON.stringify(summary)],
       ).catch(() => {});
     }
     client?.release();
