@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   youtubeShadowArtistIdentityKey,
+  youtubeShadowCanonicalChannelId,
   youtubeShadowCanUseVerifiedChannelFallback,
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
@@ -27,6 +28,16 @@ test("only falls back to uploads for a trusted canonical YouTube channel", () =>
     browseId: "MPREb_not_a_channel",
     trustedBrowseId: true,
   }), false);
+});
+
+test("normalizes verified YouTube channel IDs without accepting handles or music browse IDs", () => {
+  assert.equal(youtubeShadowCanonicalChannelId(" UCQHnOnsryRQmmr6pU3lAupg "), "UCQHnOnsryRQmmr6pU3lAupg");
+  assert.equal(
+    youtubeShadowCanonicalChannelId("https://www.youtube.com/channel/UCQHnOnsryRQmmr6pU3lAupg?feature=shared"),
+    "UCQHnOnsryRQmmr6pU3lAupg",
+  );
+  assert.equal(youtubeShadowCanonicalChannelId("https://www.youtube.com/@OficialLuisMiguel"), null);
+  assert.equal(youtubeShadowCanonicalChannelId("MPREb_not_a_channel"), null);
 });
 
 test("retries pilots that only have rejected or disabled candidates", () => {

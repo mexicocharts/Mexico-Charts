@@ -10,11 +10,17 @@ export function youtubeShadowArtistIdentityKey(value: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export function youtubeShadowCanonicalChannelId(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  const match = trimmed.match(/(?:^|\/channel\/)(UC[A-Za-z0-9_-]{22})(?:$|[/?#])/);
+  return match?.[1] ?? null;
+}
+
 export function youtubeShadowCanUseVerifiedChannelFallback(input: {
   browseId: string | null | undefined;
   trustedBrowseId: boolean | null | undefined;
 }): boolean {
-  return Boolean(input.trustedBrowseId && /^UC[A-Za-z0-9_-]{22}$/.test(input.browseId ?? ""));
+  return Boolean(input.trustedBrowseId && youtubeShadowCanonicalChannelId(input.browseId));
 }
 
 export function youtubeShadowDiscoveryFailure(result: {
