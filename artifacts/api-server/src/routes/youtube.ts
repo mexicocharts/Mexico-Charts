@@ -1127,4 +1127,82 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
   }
 });
 
+router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const artistKey = String(req.query["artistKey"] ?? "").trim();
+  if (!/^[a-z0-9-]{1,100}$/.test(artistKey)) {
+    res.status(400).json({ error: "artistKey inválido." });
+    return;
+  }
+
+  const limit = Math.max(1, Math.min(250, Number(req.query["limit"] ?? 250) || 250));
+  const offset = Math.max(0, Number(req.query["offset"] ?? 0) || 0);
+  const client = await pool.connect();
+  try {
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    await ensureYoutubeIntradayShadowTables(client);
+    const [videos, count] = await Promise.all([
+      client.query(`
+        SELECT
+          c.artist_key,
+          c.artist_name,
+          c.video_id,
+          COALESCE(NULLIF(v.title, ''), c.title) title,
+          v.thumbnail_url,
+          c.canonical_url,
+          c.status,
+          c.refresh_tier,
+          c.evidence_source,
+          latest.view_count,
+          latest.view_delta,
+          latest.like_count,
+          latest.comment_count,
+          latest.seconds_since_previous,
+          latest.observed_at::text observed_at
+        FROM youtube_music_catalog_candidates c
+        JOIN youtube_tracked_videos v ON v.video_id=c.video_id
+        LEFT JOIN LATERAL (
+          SELECT
+            s.view_count,
+            s.view_delta,
+            s.like_count,
+            s.comment_count,
+            s.seconds_since_previous,
+            s.observed_at
+          FROM youtube_video_intraday_shadow_snapshots s
+          WHERE s.video_id=c.video_id
+          ORDER BY s.observed_at DESC
+          LIMIT 1
+        ) latest ON true
+        WHERE c.artist_key=$1
+          AND c.status IN ('review','verified')
+          AND c.sampling_status='shadow'
+        ORDER BY latest.view_delta DESC NULLS LAST, latest.view_count DESC NULLS LAST, c.title
+        LIMIT $2 OFFSET $3
+      `, [artistKey, limit, offset]),
+      client.query<{ total: number }>(`
+        SELECT count(*)::int total
+        FROM youtube_music_catalog_candidates
+        WHERE artist_key=$1
+          AND status IN ('review','verified')
+          AND sampling_status='shadow'
+      `, [artistKey]),
+    ]);
+
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      publicDataChanged: false,
+      shadowMode: true,
+      artistKey,
+      total: count.rows[0]?.total ?? 0,
+      limit,
+      offset,
+      videos: videos.rows,
+    });
+  } finally {
+    client.release();
+  }
+});
+
 export default router;
