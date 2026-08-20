@@ -85,6 +85,7 @@ export interface YoutubeMusicDiscoverySummary {
   savedCandidates: number;
   candidates?: YoutubeMusicDiscoveryAuditCandidate[];
   error?: string;
+  sourceChannelId?: string;
 }
 
 export interface YoutubeMusicDiscoveryAuditCandidate {
@@ -272,6 +273,64 @@ async function discoverVerifiedChannelUploads(
       }, "verified_official_channel_upload");
     }
     pageToken = candidates.size < maxVideos ? page.nextPageToken : undefined;
+  } while (pageToken);
+
+  return candidates;
+}
+
+export function titleHasExactLeadingArtistCredit(title: string, artistName: string): boolean {
+  const artistPattern = artistName
+    .trim()
+    .split(/\s+/)
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s+");
+  if (!artistPattern) return false;
+  return new RegExp(`^\\s*${artistPattern}\\s*(?:[-–—:|]|$)`, "iu").test(title);
+}
+
+async function discoverTrustedSharedChannelUploads(
+  artistName: string,
+  channelId: string,
+  evidenceSource: string,
+): Promise<Map<string, DiscoveredCandidate>> {
+  const apiKey = process.env["YOUTUBE_API_KEY"];
+  if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY for trusted shared-channel discovery.");
+
+  const channelUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+  channelUrl.searchParams.set("part", "contentDetails");
+  channelUrl.searchParams.set("id", channelId);
+  channelUrl.searchParams.set("key", apiKey);
+  const channel = await fetchYoutubeJson<YoutubeChannelResponse>(channelUrl);
+  const uploadsPlaylistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsPlaylistId) throw new Error("Trusted shared YouTube channel has no accessible uploads playlist.");
+
+  const candidates = new Map<string, DiscoveredCandidate>();
+  let pageToken: string | undefined;
+  let inspected = 0;
+  const maxVideos = Math.max(1, Math.min(5_000, Number(process.env["YOUTUBE_SHADOW_SHARED_CHANNEL_UPLOAD_LIMIT"] ?? "5000") || 5_000));
+  do {
+    const playlistUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    playlistUrl.searchParams.set("part", "snippet,contentDetails");
+    playlistUrl.searchParams.set("playlistId", uploadsPlaylistId);
+    playlistUrl.searchParams.set("maxResults", "50");
+    playlistUrl.searchParams.set("key", apiKey);
+    if (pageToken) playlistUrl.searchParams.set("pageToken", pageToken);
+    const page = await fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl);
+    for (const entry of page.items ?? []) {
+      if (inspected >= maxVideos) break;
+      inspected += 1;
+      const videoId = entry.contentDetails?.videoId ?? entry.snippet?.resourceId?.videoId;
+      const title = entry.snippet?.title ?? "";
+      if (!videoId || !titleHasExactLeadingArtistCredit(title, artistName)) continue;
+      addCandidate(candidates, {
+        id: videoId,
+        item_type: "video",
+        title,
+        artists: [{ name: artistName }],
+        thumbnails: Object.values(entry.snippet?.thumbnails ?? {}),
+      }, evidenceSource);
+    }
+    pageToken = inspected < maxVideos ? page.nextPageToken : undefined;
   } while (pageToken);
 
   return candidates;
@@ -557,6 +616,64 @@ export async function discoverYoutubeMusicArtist(input: {
       await client.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
         [runId, summary.error || summary.mappingStatus !== "review" || summary.reviewCandidates === 0 ? "failed" : "complete", JSON.stringify(summary)],
+      ).catch(() => {});
+    }
+    client?.release();
+  }
+}
+
+export async function discoverYoutubeTrustedSharedChannel(input: {
+  artistKey: string;
+  artistName: string;
+  artistBrowseId: string;
+  sourceChannelId: string;
+  evidenceSource: string;
+  write?: boolean;
+}): Promise<YoutubeMusicDiscoverySummary> {
+  const summary: YoutubeMusicDiscoverySummary = {
+    artistKey: input.artistKey,
+    artistName: input.artistName,
+    browseId: input.artistBrowseId,
+    sourceChannelId: input.sourceChannelId,
+    mappingEvidence: "verified_youtube_channel",
+    mappingStatus: "review",
+    releasesInspected: 0,
+    uniqueCandidates: 0,
+    reviewCandidates: 0,
+    rejectedCandidates: 0,
+    savedCandidates: 0,
+  };
+  let client: PgClient | null = null;
+  let runId: number | null = null;
+  try {
+    if (input.write) {
+      const { pool } = await import("@workspace/db");
+      const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
+      client = await pool.connect();
+      await ensureYoutubeVideoTrackerTables(client);
+      await ensureYoutubeShadowTables(client);
+      const run = await client.query<{ id: number }>(
+        `INSERT INTO youtube_music_shadow_runs (run_type, artist_key, status, summary)
+         VALUES ('shared-channel-discovery',$1,'running',$2::jsonb) RETURNING id`,
+        [input.artistKey, JSON.stringify({ sourceChannelId: input.sourceChannelId, evidenceSource: input.evidenceSource })],
+      );
+      runId = run.rows[0]?.id ?? null;
+    }
+    const candidates = await discoverTrustedSharedChannelUploads(
+      input.artistName,
+      input.sourceChannelId,
+      input.evidenceSource,
+    );
+    await finalizeDiscovery(summary, candidates, { ...input, includeCandidates: false }, client);
+    return summary;
+  } catch (error) {
+    summary.error = error instanceof Error ? error.message : String(error);
+    return summary;
+  } finally {
+    if (runId != null && client) {
+      await client.query(
+        `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
+        [runId, summary.error ? "failed" : "complete", JSON.stringify(summary)],
       ).catch(() => {});
     }
     client?.release();
