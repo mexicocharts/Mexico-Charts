@@ -991,7 +991,7 @@ router.post("/admin/youtube/music-shadow/discover", async (req, res) => {
 
 router.post("/admin/youtube/music-shadow/intraday/run", async (req, res) => {
   if (!requireAdmin(req, res)) return;
-  const summary = await runYoutubeIntradayShadow("admin-run-now", true);
+  const summary = await runYoutubeIntradayShadow("admin-run-now", true, true);
   res.setHeader("Cache-Control", "no-store");
   res.status(summary.status === "failed" ? 500 : 200).json({ publicDataChanged: false, shadowMode: true, ...summary });
 });

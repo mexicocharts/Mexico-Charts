@@ -7,7 +7,11 @@ import {
   observationBucket,
   youtubeApiBatchesAllowed,
 } from "./youtube-shadow-policy";
-import { creditLineIncludesExactArtist, mergeCredits } from "./youtube-music-shadow-discovery";
+import {
+  creditLineIncludesExactArtist,
+  mergeCredits,
+  titleHasExactLeadingArtistCredit,
+} from "./youtube-music-shadow-discovery";
 
 test("normalizes artist punctuation and accents without inventing aliases", () => {
   assert.equal(normalizeYoutubeArtistName("Julión Álvarez & Su Norteño Banda"), "julion alvarez and su norteno banda");
@@ -56,6 +60,15 @@ test("recognizes an exact artist in an explicit album credit line", () => {
   assert.equal(creditLineIncludesExactArtist("Peso Pluma & Tito Double P", "Peso Pluma"), true);
   assert.equal(creditLineIncludesExactArtist("Jesse & Joy & Guest Artist", "Jesse & Joy"), true);
   assert.equal(creditLineIncludesExactArtist("Peso Pesado", "Peso"), false);
+});
+
+test("only accepts strict leading artist credits from a shared label channel", () => {
+  assert.equal(titleHasExactLeadingArtistCredit("Luis Miguel - Hasta Que Me Olvides (En Vivo)", "Luis Miguel"), true);
+  assert.equal(titleHasExactLeadingArtistCredit("LUIS MIGUEL | La Incondicional", "Luis Miguel"), true);
+  assert.equal(titleHasExactLeadingArtistCredit("Luis Miguel: Ahora Te Puedes Marchar", "Luis Miguel"), true);
+  assert.equal(titleHasExactLeadingArtistCredit("Luis Miguel del Amargue - Se Acabó Lo Bonito", "Luis Miguel"), false);
+  assert.equal(titleHasExactLeadingArtistCredit("Warner presenta a Luis Miguel", "Luis Miguel"), false);
+  assert.equal(titleHasExactLeadingArtistCredit("Luis Fonsi - Despacito", "Luis Miguel"), false);
 });
 
 test("uses deterministic tier buckets and never exceeds the quota budget", () => {

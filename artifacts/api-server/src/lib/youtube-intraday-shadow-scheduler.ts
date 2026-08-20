@@ -1,7 +1,11 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-scheduler";
-import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "./youtube-music-shadow-discovery";
+import {
+  discoverYoutubeMusicArtist,
+  discoverYoutubeTrustedSharedChannel,
+  ensureYoutubeShadowTables,
+} from "./youtube-music-shadow-discovery";
 import {
   chooseYoutubeRefreshTier,
   observationBucket,
@@ -86,6 +90,10 @@ export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
     artistKey: "luis-miguel",
     artistName: "Luis Miguel",
     verifiedChannelId: "UCQHnOnsryRQmmr6pU3lAupg",
+    trustedSharedChannels: [{
+      channelId: "UCP1b9jYyEqiNhJi4GqYdovw",
+      evidenceSource: "trusted_warner_music_mexico_exact_title_credit",
+    }],
   },
 ] as const;
 
@@ -110,10 +118,6 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
       return Date.now() - new Date(state.last_attempt_at).getTime() >= 60 * 60 * 1000;
     },
   );
-  if (missingPilotArtists.length === 0) {
-    return { artists: 0, savedCandidates: 0, errors: [] as string[] };
-  }
-
   let artists = 0;
   let savedCandidates = 0;
   const errors: string[] = [];
@@ -143,6 +147,42 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
     }
     if (result.savedCandidates > 0) artists += 1;
     savedCandidates += result.savedCandidates;
+  }
+
+  for (const pilot of YOUTUBE_SHADOW_PILOT_ARTISTS) {
+    if (!("trustedSharedChannels" in pilot)) continue;
+    const mappedChannel = await client.query<{ channel_id: string | null }>(
+      `SELECT channel_id FROM youtube_channels
+       WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=$2
+         AND channel_id IS NOT NULL
+       ORDER BY CASE WHEN artist_key=$1 THEN 0 ELSE 1 END LIMIT 1`,
+      [pilot.artistKey, youtubeShadowArtistIdentityKey(pilot.artistKey)],
+    );
+    const artistBrowseId = youtubeShadowCanonicalChannelId(mappedChannel.rows[0]?.channel_id)
+      ?? pilot.verifiedChannelId;
+    if (!artistBrowseId) continue;
+    for (const source of pilot.trustedSharedChannels) {
+      const existingSource = await client.query<{ count: number }>(
+        `SELECT count(*)::int count FROM youtube_music_catalog_candidates
+         WHERE artist_key=$1 AND evidence_sources ? $2`,
+        [pilot.artistKey, source.evidenceSource],
+      );
+      if (Number(existingSource.rows[0]?.count ?? 0) > 0) continue;
+      const result = await discoverYoutubeTrustedSharedChannel({
+        artistKey: pilot.artistKey,
+        artistName: pilot.artistName,
+        artistBrowseId,
+        sourceChannelId: source.channelId,
+        evidenceSource: source.evidenceSource,
+        write: true,
+      });
+      if (result.error) {
+        errors.push(`${pilot.artistName} (${source.evidenceSource}): ${result.error}`);
+        continue;
+      }
+      if (result.savedCandidates > 0) artists += 1;
+      savedCandidates += result.savedCandidates;
+    }
   }
   return { artists, savedCandidates, errors };
 }
@@ -342,7 +382,11 @@ async function rebuildCurrentArtistTotals(client: PgClient): Promise<number> {
   return result.rows.length;
 }
 
-export async function runYoutubeIntradayShadow(reason: string, force = false): Promise<YoutubeIntradayShadowSummary> {
+export async function runYoutubeIntradayShadow(
+  reason: string,
+  force = false,
+  forceMeasure = false,
+): Promise<YoutubeIntradayShadowSummary> {
   const summary: YoutubeIntradayShadowSummary = {
     status: "complete", reason, dueVideos: 0, requestedVideos: 0, apiCalls: 0,
     fetched: 0, saved: 0, missing: 0, artistsUpdated: 0,
@@ -392,6 +436,7 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
           WHERE c.status IN ('verified','review')
             AND c.sampling_status='shadow'
             AND (
+              $2::boolean OR
               c.last_observed_at IS NULL OR
               c.last_observed_at <= now() - CASE c.refresh_tier
                 WHEN 'hot' THEN interval '15 minutes'
@@ -405,7 +450,7 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
         ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
                  last_observed_at ASC NULLS FIRST, video_id
         LIMIT $1
-      `, [maxVideosPerRun()]);
+      `, [maxVideosPerRun(), forceMeasure]);
       summary.dueVideos = rows.rows.length;
       const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: dailyBudget(), callsUsed: used, requestedVideos: rows.rows.length });
       if (allowedBatches <= 0 && rows.rows.length) return { ...summary, status: "quota_exhausted" };
