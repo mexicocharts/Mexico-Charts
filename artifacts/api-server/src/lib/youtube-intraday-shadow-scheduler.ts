@@ -10,6 +10,7 @@ import {
 } from "./youtube-shadow-policy";
 import {
   youtubeShadowArtistIdentityKey,
+  youtubeShadowCanonicalChannelId,
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
@@ -78,10 +79,14 @@ function enabled() {
 }
 
 export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
-  { artistKey: "peso-pluma", artistName: "Peso Pluma" },
-  { artistKey: "fuerza-regida", artistName: "Fuerza Regida" },
-  { artistKey: "natanael-cano", artistName: "Natanael Cano" },
-  { artistKey: "luis-miguel", artistName: "Luis Miguel" },
+  { artistKey: "peso-pluma", artistName: "Peso Pluma", verifiedChannelId: null },
+  { artistKey: "fuerza-regida", artistName: "Fuerza Regida", verifiedChannelId: null },
+  { artistKey: "natanael-cano", artistName: "Natanael Cano", verifiedChannelId: null },
+  {
+    artistKey: "luis-miguel",
+    artistName: "Luis Miguel",
+    verifiedChannelId: "UCQHnOnsryRQmmr6pU3lAupg",
+  },
 ] as const;
 
 async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
@@ -123,7 +128,8 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
        LIMIT 1`,
       [pilot.artistKey, youtubeShadowArtistIdentityKey(pilot.artistKey)],
     );
-    const trustedBrowseId = mappedChannel.rows[0]?.channel_id ?? null;
+    const trustedBrowseId = youtubeShadowCanonicalChannelId(mappedChannel.rows[0]?.channel_id)
+      ?? pilot.verifiedChannelId;
     const result = await discoverYoutubeMusicArtist({
       ...pilot,
       browseId: trustedBrowseId,
