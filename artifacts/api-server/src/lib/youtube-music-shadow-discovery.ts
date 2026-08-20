@@ -450,6 +450,16 @@ export async function discoverYoutubeMusicArtist(input: {
       runId = run.rows[0]?.id ?? null;
     }
 
+    if (youtubeShadowCanUseVerifiedChannelFallback({
+      browseId: summary.browseId,
+      trustedBrowseId: input.trustedBrowseId,
+    })) {
+      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId!);
+      summary.mappingStatus = "review";
+      await finalizeDiscovery(summary, candidates, input, client);
+      return summary;
+    }
+
     const yt = await Innertube.create({ cache: new UniversalCache(false), lang: "en", location: "MX" });
     if (!summary.browseId) {
       const resolved = await resolveBrowseId(yt, input.artistName);
