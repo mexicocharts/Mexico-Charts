@@ -2,6 +2,14 @@ export function youtubeShadowPilotIsReady(eligibleCandidates: string | number | 
   return Number(eligibleCandidates ?? 0) > 0;
 }
 
+export function youtubeShadowArtistIdentityKey(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 export function youtubeShadowDiscoveryFailure(result: {
   mappingStatus: string;
   reviewCandidates: number;
