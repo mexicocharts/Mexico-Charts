@@ -170,6 +170,7 @@ interface YoutubeShadowStatus {
   publicDataChanged: false;
   shadowMode: true;
   automationEnabled: boolean;
+  catalogReady: boolean;
   counts: {
     mappings: number;
     candidates: number;
@@ -540,10 +541,15 @@ export default function ApiCoverage() {
         saved?: number;
         missing?: number;
         apiCalls?: number;
+        bootstrapArtists?: number;
+        bootstrapSavedCandidates?: number;
         error?: string;
       };
       if (!res.ok) throw new Error(data.error || "No se pudo correr la muestra privada.");
-      setActionMessage(`YouTube privado: ${data.status ?? "ok"} · ${data.saved ?? 0}/${data.requestedVideos ?? 0} videos medidos · ${data.apiCalls ?? 0} llamadas API.`);
+      const prepared = (data.bootstrapSavedCandidates ?? 0) > 0
+        ? ` · catálogo preparado: ${data.bootstrapArtists ?? 0} artistas, ${data.bootstrapSavedCandidates ?? 0} videos`
+        : "";
+      setActionMessage(`YouTube privado: ${data.status ?? "ok"}${prepared} · ${data.saved ?? 0}/${data.requestedVideos ?? 0} videos medidos · ${data.apiCalls ?? 0} llamadas API.`);
       await loadDashboard(adminKey);
     } catch (err) {
       setError((err as Error).message);
@@ -933,7 +939,7 @@ export default function ApiCoverage() {
                     className="ml-auto inline-flex h-9 items-center gap-2 rounded-lg border border-red-400/25 bg-red-500/[0.08] px-3 text-[10px] font-black uppercase tracking-[0.14em] text-red-200 hover:bg-red-500/[0.13] disabled:cursor-wait disabled:opacity-50"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${runningYoutubeShadow ? "animate-spin" : ""}`} />
-                    Medir ahora
+                    {runningYoutubeShadow ? "Preparando y midiendo…" : youtubeShadow.catalogReady ? "Medir ahora" : "Preparar y medir"}
                   </button>
                 </div>
 
@@ -985,7 +991,9 @@ export default function ApiCoverage() {
                     </div>
                   )) : (
                     <div className="px-4 py-6 text-center text-xs font-bold text-zinc-600">
-                      El catálogo privado está listo; todavía no hay muestras guardadas.
+                      {youtubeShadow.catalogReady
+                        ? "El catálogo privado está listo; todavía no hay muestras guardadas."
+                        : "El catálogo piloto todavía no se ha preparado. Usa “Preparar y medir” para cargarlo y guardar la primera muestra."}
                     </div>
                   )}
                 </div>

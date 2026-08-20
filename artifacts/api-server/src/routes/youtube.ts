@@ -1072,7 +1072,8 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
     res.json({
       publicDataChanged: false,
       shadowMode: true,
-      automationEnabled: process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] === "true",
+      automationEnabled: process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false",
+      catalogReady: Number(counts.rows[0]?.candidates ?? 0) > 0,
       counts: counts.rows[0],
       usage: usage.rows,
       artists: artists.rows,

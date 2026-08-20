@@ -1,7 +1,7 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-scheduler";
-import { ensureYoutubeShadowTables } from "./youtube-music-shadow-discovery";
+import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "./youtube-music-shadow-discovery";
 import {
   chooseYoutubeRefreshTier,
   observationBucket,
@@ -57,6 +57,8 @@ export interface YoutubeIntradayShadowSummary {
   saved: number;
   missing: number;
   artistsUpdated: number;
+  bootstrapArtists: number;
+  bootstrapSavedCandidates: number;
   error?: string;
 }
 
@@ -66,7 +68,41 @@ const CHECK_MS = 5 * 60 * 1000;
 let schedulerStarted = false;
 
 function enabled() {
-  return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] === "true";
+  return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false";
+}
+
+const YOUTUBE_SHADOW_PILOT_ARTISTS = [
+  { artistKey: "peso-pluma", artistName: "Peso Pluma" },
+  { artistKey: "fuerza-regida", artistName: "Fuerza Regida" },
+  { artistKey: "natanael-cano", artistName: "Natanael Cano" },
+  { artistKey: "luis-miguel", artistName: "Luis Miguel" },
+] as const;
+
+async function bootstrapPilotCatalog(client: PgClient) {
+  const existing = await client.query<{ artist_key: string }>(
+    `SELECT DISTINCT artist_key FROM youtube_music_catalog_candidates`,
+  );
+  const existingArtistKeys = new Set(existing.rows.map(row => row.artist_key));
+  const missingPilotArtists = YOUTUBE_SHADOW_PILOT_ARTISTS.filter(
+    pilot => !existingArtistKeys.has(pilot.artistKey),
+  );
+  if (missingPilotArtists.length === 0) {
+    return { artists: 0, savedCandidates: 0, errors: [] as string[] };
+  }
+
+  let artists = 0;
+  let savedCandidates = 0;
+  const errors: string[] = [];
+  for (const pilot of missingPilotArtists) {
+    const result = await discoverYoutubeMusicArtist({ ...pilot, write: true });
+    if (result.error) {
+      errors.push(`${pilot.artistName}: ${result.error}`);
+      continue;
+    }
+    if (result.savedCandidates > 0) artists += 1;
+    savedCandidates += result.savedCandidates;
+  }
+  return { artists, savedCandidates, errors };
 }
 
 function dailyBudget() {
@@ -268,6 +304,7 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
   const summary: YoutubeIntradayShadowSummary = {
     status: "complete", reason, dueVideos: 0, requestedVideos: 0, apiCalls: 0,
     fetched: 0, saved: 0, missing: 0, artistsUpdated: 0,
+    bootstrapArtists: 0, bootstrapSavedCandidates: 0,
   };
   if (!force && !enabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -279,6 +316,16 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
+      const bootstrap = await bootstrapPilotCatalog(client);
+      summary.bootstrapArtists = bootstrap.artists;
+      summary.bootstrapSavedCandidates = bootstrap.savedCandidates;
+      if (bootstrap.errors.length && bootstrap.savedCandidates === 0) {
+        return {
+          ...summary,
+          status: "failed",
+          error: `No se pudo preparar el catálogo piloto. ${bootstrap.errors.join(" | ")}`,
+        };
+      }
       const used = await callsUsedToday(client);
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
@@ -345,7 +392,7 @@ export function startYoutubeIntradayShadowScheduler() {
   if (schedulerStarted) return;
   schedulerStarted = true;
   if (!enabled()) {
-    logger.info("[youtube-shadow:intraday] disabled; set YOUTUBE_INTRADAY_SHADOW_AUTOMATION=true to enable private sampling");
+    logger.info("[youtube-shadow:intraday] disabled by YOUTUBE_INTRADAY_SHADOW_AUTOMATION=false");
     return;
   }
   setTimeout(() => void runYoutubeIntradayShadow("startup"), 2 * 60 * 1000).unref();
