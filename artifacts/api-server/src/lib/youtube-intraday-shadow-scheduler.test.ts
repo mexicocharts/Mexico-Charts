@@ -7,6 +7,23 @@ import {
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
+import { youtubeEasternMidnightAnchor } from "./youtube-intraday-shadow-scheduler";
+
+test("identifies the first fifteen minutes of the Eastern reporting day", () => {
+  assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:07:00Z")), {
+    dateKey: "2026-08-21",
+    shouldAnchor: true,
+  });
+  assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:15:00Z")), {
+    dateKey: "2026-08-21",
+    shouldAnchor: false,
+  });
+});
+
+test("uses Eastern daylight and standard time for midnight anchors", () => {
+  assert.equal(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:02:00Z")).shouldAnchor, true);
+  assert.equal(youtubeEasternMidnightAnchor(new Date("2026-12-21T05:02:00Z")).shouldAnchor, true);
+});
 
 test("matches verified YouTube mappings across stored artist-key formats", () => {
   const canonical = youtubeShadowArtistIdentityKey("luis-miguel");

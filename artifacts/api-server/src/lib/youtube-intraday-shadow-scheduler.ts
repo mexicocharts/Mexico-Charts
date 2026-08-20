@@ -77,6 +77,24 @@ const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const LOCK_KEY = 392_410_604;
 const CHECK_MS = 5 * 60 * 1000;
 let schedulerStarted = false;
+let lastEasternMidnightAnchorDate: string | null = null;
+
+export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shouldAnchor: boolean } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(at);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value ?? "";
+  const dateKey = `${value("year")}-${value("month")}-${value("day")}`;
+  const hour = Number(value("hour"));
+  const minute = Number(value("minute"));
+  return { dateKey, shouldAnchor: hour === 0 && minute < 15 };
+}
 
 function enabled() {
   return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false";
@@ -387,6 +405,7 @@ export async function runYoutubeIntradayShadow(
   force = false,
   forceMeasure = false,
 ): Promise<YoutubeIntradayShadowSummary> {
+  const fillEasternMidnightAnchor = reason === "eastern-midnight-anchor";
   const summary: YoutubeIntradayShadowSummary = {
     status: "complete", reason, dueVideos: 0, requestedVideos: 0, apiCalls: 0,
     fetched: 0, saved: 0, missing: 0, artistsUpdated: 0,
@@ -437,6 +456,17 @@ export async function runYoutubeIntradayShadow(
             AND c.sampling_status='shadow'
             AND (
               $2::boolean OR
+              ($3::boolean AND NOT EXISTS (
+                SELECT 1
+                FROM youtube_video_intraday_shadow_snapshots midnight_sample
+                WHERE midnight_sample.video_id=c.video_id
+                  AND midnight_sample.observed_at >= (
+                    date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York'
+                  )
+                  AND midnight_sample.observed_at < (
+                    date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York'
+                  ) + interval '30 minutes'
+              )) OR
               c.last_observed_at IS NULL OR
               c.last_observed_at <= now() - CASE c.refresh_tier
                 WHEN 'hot' THEN interval '15 minutes'
@@ -450,7 +480,7 @@ export async function runYoutubeIntradayShadow(
         ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
                  last_observed_at ASC NULLS FIRST, video_id
         LIMIT $1
-      `, [maxVideosPerRun(), forceMeasure]);
+      `, [maxVideosPerRun(), forceMeasure, fillEasternMidnightAnchor]);
       summary.dueVideos = rows.rows.length;
       const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: dailyBudget(), callsUsed: used, requestedVideos: rows.rows.length });
       if (allowedBatches <= 0 && rows.rows.length) return { ...summary, status: "quota_exhausted" };
@@ -491,7 +521,19 @@ export function startYoutubeIntradayShadowScheduler() {
     logger.info("[youtube-shadow:intraday] disabled by YOUTUBE_INTRADAY_SHADOW_AUTOMATION=false");
     return;
   }
-  setTimeout(() => void runYoutubeIntradayShadow("startup"), 2 * 60 * 1000).unref();
-  setInterval(() => void runYoutubeIntradayShadow("five-minute-check"), CHECK_MS).unref();
+  const runScheduledCheck = (reason: string) => {
+    const eastern = youtubeEasternMidnightAnchor(new Date());
+    const forceMidnightAnchor = eastern.shouldAnchor && lastEasternMidnightAnchorDate !== eastern.dateKey;
+    if (forceMidnightAnchor) lastEasternMidnightAnchorDate = eastern.dateKey;
+    void runYoutubeIntradayShadow(
+      forceMidnightAnchor ? "eastern-midnight-anchor" : reason,
+      false,
+      false,
+    ).then(summary => {
+      if (forceMidnightAnchor && summary.status !== "complete") lastEasternMidnightAnchorDate = null;
+    });
+  };
+  setTimeout(() => runScheduledCheck("startup"), 2 * 60 * 1000).unref();
+  setInterval(() => runScheduledCheck("five-minute-check"), CHECK_MS).unref();
   logger.info({ dailyBudget: dailyBudget(), maxVideosPerRun: maxVideosPerRun() }, "[youtube-shadow:intraday] private automation enabled");
 }
