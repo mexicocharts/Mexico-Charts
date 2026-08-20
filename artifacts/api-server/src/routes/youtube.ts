@@ -1168,7 +1168,11 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
             WHEN day_ago.observed_at IS NULL OR latest.observed_at IS NULL THEN NULL
             ELSE round(extract(epoch FROM (latest.observed_at - day_ago.observed_at)))::int
           END views_24h_span_seconds,
-          day_ago.observed_at::text views_24h_started_at
+          day_ago.observed_at::text views_24h_started_at,
+          CASE
+            WHEN day_ago.observed_at IS NULL THEN NULL
+            ELSE latest.observed_at::text
+          END views_24h_ended_at
         FROM youtube_music_catalog_candidates c
         JOIN youtube_tracked_videos v ON v.video_id=c.video_id
         LEFT JOIN LATERAL (

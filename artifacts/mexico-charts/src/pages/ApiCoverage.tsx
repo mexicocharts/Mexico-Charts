@@ -250,6 +250,7 @@ interface YoutubeShadowVideo {
   views_24h: string | number | null;
   views_24h_span_seconds: number | null;
   views_24h_started_at: string | null;
+  views_24h_ended_at: string | null;
 }
 
 interface YoutubeShadowVideosResponse {
@@ -1151,6 +1152,11 @@ export default function ApiCoverage() {
                                       <div className={`mt-1 text-[10px] font-black sm:hidden ${video.views_24h != null ? "text-sky-300" : "text-zinc-700"}`}>
                                         {video.views_24h != null ? `+${fmtCount(video.views_24h)} / ~24 h` : "24 h: reuniendo historial"}
                                       </div>
+                                      {video.views_24h_started_at && video.views_24h_ended_at && (
+                                        <div className="mt-1 text-[8px] font-bold text-zinc-700 sm:hidden">
+                                          {fmtDate(video.views_24h_started_at)} → {fmtDate(video.views_24h_ended_at)}
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="hidden text-right sm:block">
                                       <div className={`text-sm font-black ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
@@ -1165,6 +1171,11 @@ export default function ApiCoverage() {
                                       <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
                                         {video.views_24h_span_seconds ? `~24 h (${fmtInterval(video.views_24h_span_seconds)})` : "reuniendo 24 h"}
                                       </div>
+                                      {video.views_24h_started_at && video.views_24h_ended_at && (
+                                        <div className="mt-1 text-[8px] font-bold leading-tight text-zinc-700">
+                                          {fmtDate(video.views_24h_started_at)} → {fmtDate(video.views_24h_ended_at)}
+                                        </div>
+                                      )}
                                     </div>
                                   </a>
                                 ))}
