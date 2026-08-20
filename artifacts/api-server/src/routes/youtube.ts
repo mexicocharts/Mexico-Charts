@@ -1159,7 +1159,16 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
           latest.like_count,
           latest.comment_count,
           latest.seconds_since_previous,
-          latest.observed_at::text observed_at
+          latest.observed_at::text observed_at,
+          CASE
+            WHEN day_ago.view_count IS NULL OR latest.view_count IS NULL THEN NULL
+            ELSE GREATEST(0, latest.view_count - day_ago.view_count)
+          END views_24h,
+          CASE
+            WHEN day_ago.observed_at IS NULL OR latest.observed_at IS NULL THEN NULL
+            ELSE round(extract(epoch FROM (latest.observed_at - day_ago.observed_at)))::int
+          END views_24h_span_seconds,
+          day_ago.observed_at::text views_24h_started_at
         FROM youtube_music_catalog_candidates c
         JOIN youtube_tracked_videos v ON v.video_id=c.video_id
         LEFT JOIN LATERAL (
@@ -1175,6 +1184,16 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
           ORDER BY s.observed_at DESC
           LIMIT 1
         ) latest ON true
+        LEFT JOIN LATERAL (
+          SELECT s.view_count, s.observed_at
+          FROM youtube_video_intraday_shadow_snapshots s
+          WHERE s.video_id=c.video_id
+            AND latest.observed_at IS NOT NULL
+            AND s.observed_at BETWEEN latest.observed_at - interval '27 hours'
+                                  AND latest.observed_at - interval '21 hours'
+          ORDER BY abs(extract(epoch FROM (s.observed_at - (latest.observed_at - interval '24 hours'))))
+          LIMIT 1
+        ) day_ago ON true
         WHERE c.artist_key=$1
           AND c.status IN ('review','verified')
           AND c.sampling_status='shadow'

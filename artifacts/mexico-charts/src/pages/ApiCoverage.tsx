@@ -247,6 +247,9 @@ interface YoutubeShadowVideo {
   comment_count: string | number | null;
   seconds_since_previous: number | null;
   observed_at: string | null;
+  views_24h: string | number | null;
+  views_24h_span_seconds: number | null;
+  views_24h_started_at: string | null;
 }
 
 interface YoutubeShadowVideosResponse {
@@ -269,6 +272,14 @@ function fmtCount(value: string | number | null | undefined): string {
   const n = typeof value === "number" ? value : Number(value ?? 0);
   if (!Number.isFinite(n) || n < 0) return "—";
   return new Intl.NumberFormat("en-US").format(n);
+}
+
+function fmtInterval(seconds: number | null): string {
+  if (!seconds || seconds <= 0) return "intervalo";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return hours < 10 && !Number.isInteger(hours) ? `${hours.toFixed(1)} h` : `${Math.round(hours)} h`;
 }
 
 function fmtCompact(value: string | number | null | undefined): string {
@@ -1117,7 +1128,7 @@ export default function ApiCoverage() {
                                     href={video.canonical_url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-white/[0.055] bg-white/[0.018] p-2.5 hover:border-red-400/20 hover:bg-red-500/[0.025] sm:grid-cols-[96px_minmax(0,1fr)_110px_90px]"
+                                    className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-white/[0.055] bg-white/[0.018] p-2.5 hover:border-red-400/20 hover:bg-red-500/[0.025] sm:grid-cols-[96px_minmax(0,1fr)_110px_90px_100px]"
                                   >
                                     <div className="aspect-video overflow-hidden rounded bg-zinc-950">
                                       {video.thumbnail_url ? <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" /> : null}
@@ -1135,14 +1146,25 @@ export default function ApiCoverage() {
                                       <div className="text-sm font-black text-white">{fmtCount(video.view_count)}</div>
                                       <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">views</div>
                                       <div className={`mt-1 text-[10px] font-black sm:hidden ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
-                                        +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"} intervalo
+                                        +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"} / {fmtInterval(video.seconds_since_previous)}
+                                      </div>
+                                      <div className={`mt-1 text-[10px] font-black sm:hidden ${video.views_24h != null ? "text-sky-300" : "text-zinc-700"}`}>
+                                        {video.views_24h != null ? `+${fmtCount(video.views_24h)} / ~24 h` : "24 h: reuniendo historial"}
                                       </div>
                                     </div>
                                     <div className="hidden text-right sm:block">
                                       <div className={`text-sm font-black ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
                                         +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"}
                                       </div>
-                                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">intervalo</div>
+                                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">{fmtInterval(video.seconds_since_previous)}</div>
+                                    </div>
+                                    <div className="hidden text-right sm:block">
+                                      <div className={`text-sm font-black ${video.views_24h != null ? "text-sky-300" : "text-zinc-700"}`}>
+                                        {video.views_24h != null ? `+${fmtCount(video.views_24h)}` : "—"}
+                                      </div>
+                                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
+                                        {video.views_24h_span_seconds ? `~24 h (${fmtInterval(video.views_24h_span_seconds)})` : "reuniendo 24 h"}
+                                      </div>
                                     </div>
                                   </a>
                                 ))}
