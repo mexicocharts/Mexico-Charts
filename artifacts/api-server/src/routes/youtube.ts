@@ -5,7 +5,11 @@ import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot-scheduler";
 import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "../lib/youtube-music-shadow-discovery";
-import { ensureYoutubeIntradayShadowTables, runYoutubeIntradayShadow } from "../lib/youtube-intraday-shadow-scheduler";
+import {
+  ensureYoutubeIntradayShadowTables,
+  runYoutubeIntradayShadow,
+  YOUTUBE_SHADOW_PILOT_ARTISTS,
+} from "../lib/youtube-intraday-shadow-scheduler";
 import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-scheduler";
 import { getDashboardAdminKey } from "../lib/admin-key";
 
@@ -999,7 +1003,7 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
     await ensureYoutubeVideoTrackerTables(client);
     await ensureYoutubeShadowTables(client);
     await ensureYoutubeIntradayShadowTables(client);
-    const [counts, usage, artists, runs, rejectedCandidates] = await Promise.all([
+    const [counts, usage, artists, runs, rejectedCandidates, pilotArtists] = await Promise.all([
       client.query<{
         mappings: number; candidates: number; unique_videos: number; review: number; verified: number; rejected: number;
         observed: number; latest_observed_at: string | null;
@@ -1067,13 +1071,51 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
         ORDER BY updated_at DESC, artist_key, title
         LIMIT 100
       `),
+      client.query<{
+        artist_key: string;
+        artist_name: string;
+        eligible_candidates: number;
+        rejected_candidates: number;
+        discovery_status: string | null;
+        mapping_status: string | null;
+        discovery_error: string | null;
+        last_attempt_at: string | null;
+      }>(`
+        WITH pilots(artist_key, artist_name, ordinal) AS (VALUES
+          ${YOUTUBE_SHADOW_PILOT_ARTISTS.map((pilot, index) => `('${pilot.artistKey}','${pilot.artistName.replaceAll("'", "''")}',${index})`).join(",")}
+        )
+        SELECT
+          p.artist_key,
+          p.artist_name,
+          count(c.id) FILTER (WHERE c.status IN ('review','verified') AND c.sampling_status='shadow')::int eligible_candidates,
+          count(c.id) FILTER (WHERE c.status='rejected')::int rejected_candidates,
+          latest.status discovery_status,
+          latest.summary->>'mappingStatus' mapping_status,
+          latest.summary->>'error' discovery_error,
+          latest.finished_at::text last_attempt_at
+        FROM pilots p
+        LEFT JOIN youtube_music_catalog_candidates c ON c.artist_key=p.artist_key
+        LEFT JOIN LATERAL (
+          SELECT status, summary, finished_at
+          FROM youtube_music_shadow_runs
+          WHERE run_type='discovery' AND artist_key=p.artist_key
+          ORDER BY started_at DESC
+          LIMIT 1
+        ) latest ON true
+        GROUP BY p.artist_key, p.artist_name, p.ordinal, latest.status, latest.summary, latest.finished_at
+        ORDER BY p.ordinal
+      `),
     ]);
+    const readyPilotArtists = pilotArtists.rows.filter(row => Number(row.eligible_candidates) > 0).length;
     res.setHeader("Cache-Control", "no-store");
     res.json({
       publicDataChanged: false,
       shadowMode: true,
       automationEnabled: process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false",
-      catalogReady: Number(counts.rows[0]?.candidates ?? 0) > 0,
+      catalogReady: readyPilotArtists === YOUTUBE_SHADOW_PILOT_ARTISTS.length,
+      readyPilotArtists,
+      totalPilotArtists: YOUTUBE_SHADOW_PILOT_ARTISTS.length,
+      pilotArtists: pilotArtists.rows,
       counts: counts.rows[0],
       usage: usage.rows,
       artists: artists.rows,

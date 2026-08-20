@@ -8,6 +8,10 @@ import {
   youtubeApiBatchesAllowed,
   type YoutubeRefreshTier,
 } from "./youtube-shadow-policy";
+import {
+  youtubeShadowDiscoveryFailure,
+  youtubeShadowPilotIsReady,
+} from "./youtube-shadow-bootstrap-policy";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -59,6 +63,7 @@ export interface YoutubeIntradayShadowSummary {
   artistsUpdated: number;
   bootstrapArtists: number;
   bootstrapSavedCandidates: number;
+  bootstrapErrors: string[];
   error?: string;
 }
 
@@ -71,20 +76,33 @@ function enabled() {
   return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false";
 }
 
-const YOUTUBE_SHADOW_PILOT_ARTISTS = [
+export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
   { artistKey: "peso-pluma", artistName: "Peso Pluma" },
   { artistKey: "fuerza-regida", artistName: "Fuerza Regida" },
   { artistKey: "natanael-cano", artistName: "Natanael Cano" },
   { artistKey: "luis-miguel", artistName: "Luis Miguel" },
 ] as const;
 
-async function bootstrapPilotCatalog(client: PgClient) {
-  const existing = await client.query<{ artist_key: string }>(
-    `SELECT DISTINCT artist_key FROM youtube_music_catalog_candidates`,
-  );
-  const existingArtistKeys = new Set(existing.rows.map(row => row.artist_key));
+async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
+  const existing = await client.query<{ artist_key: string; eligible_candidates: number; last_attempt_at: string | null }>(`
+    SELECT p.artist_key,
+      count(c.id) FILTER (WHERE c.status IN ('review','verified') AND c.sampling_status='shadow')::int eligible_candidates,
+      max(r.finished_at)::text last_attempt_at
+    FROM (VALUES
+      ('peso-pluma'), ('fuerza-regida'), ('natanael-cano'), ('luis-miguel')
+    ) p(artist_key)
+    LEFT JOIN youtube_music_catalog_candidates c ON c.artist_key=p.artist_key
+    LEFT JOIN youtube_music_shadow_runs r ON r.artist_key=p.artist_key AND r.run_type='discovery'
+    GROUP BY p.artist_key
+  `);
+  const readiness = new Map(existing.rows.map(row => [row.artist_key, row]));
   const missingPilotArtists = YOUTUBE_SHADOW_PILOT_ARTISTS.filter(
-    pilot => !existingArtistKeys.has(pilot.artistKey),
+    pilot => {
+      const state = readiness.get(pilot.artistKey);
+      if (youtubeShadowPilotIsReady(state?.eligible_candidates)) return false;
+      if (force || !state?.last_attempt_at) return true;
+      return Date.now() - new Date(state.last_attempt_at).getTime() >= 60 * 60 * 1000;
+    },
   );
   if (missingPilotArtists.length === 0) {
     return { artists: 0, savedCandidates: 0, errors: [] as string[] };
@@ -94,9 +112,20 @@ async function bootstrapPilotCatalog(client: PgClient) {
   let savedCandidates = 0;
   const errors: string[] = [];
   for (const pilot of missingPilotArtists) {
-    const result = await discoverYoutubeMusicArtist({ ...pilot, write: true });
-    if (result.error) {
-      errors.push(`${pilot.artistName}: ${result.error}`);
+    const mappedChannel = await client.query<{ channel_id: string | null }>(
+      `SELECT channel_id FROM youtube_channels WHERE artist_key=$1 AND channel_id IS NOT NULL LIMIT 1`,
+      [pilot.artistKey],
+    );
+    const trustedBrowseId = mappedChannel.rows[0]?.channel_id ?? null;
+    const result = await discoverYoutubeMusicArtist({
+      ...pilot,
+      browseId: trustedBrowseId,
+      trustedBrowseId: Boolean(trustedBrowseId),
+      write: true,
+    });
+    const failure = youtubeShadowDiscoveryFailure(result);
+    if (failure) {
+      errors.push(`${pilot.artistName}: ${failure}`);
       continue;
     }
     if (result.savedCandidates > 0) artists += 1;
@@ -305,6 +334,7 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
     status: "complete", reason, dueVideos: 0, requestedVideos: 0, apiCalls: 0,
     fetched: 0, saved: 0, missing: 0, artistsUpdated: 0,
     bootstrapArtists: 0, bootstrapSavedCandidates: 0,
+    bootstrapErrors: [],
   };
   if (!force && !enabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -316,10 +346,18 @@ export async function runYoutubeIntradayShadow(reason: string, force = false): P
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
-      const bootstrap = await bootstrapPilotCatalog(client);
+      const bootstrap = await bootstrapPilotCatalog(client, force);
       summary.bootstrapArtists = bootstrap.artists;
       summary.bootstrapSavedCandidates = bootstrap.savedCandidates;
-      if (bootstrap.errors.length && bootstrap.savedCandidates === 0) {
+      summary.bootstrapErrors = bootstrap.errors;
+      const ready = await client.query<{ ready_artists: number }>(`
+        SELECT count(*)::int ready_artists FROM (
+          SELECT artist_key FROM youtube_music_catalog_candidates
+          WHERE artist_key = ANY($1::text[]) AND status IN ('review','verified') AND sampling_status='shadow'
+          GROUP BY artist_key
+        ) ready
+      `, [YOUTUBE_SHADOW_PILOT_ARTISTS.map(pilot => pilot.artistKey)]);
+      if (bootstrap.errors.length && Number(ready.rows[0]?.ready_artists ?? 0) === 0) {
         return {
           ...summary,
           status: "failed",
