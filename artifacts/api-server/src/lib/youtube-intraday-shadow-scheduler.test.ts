@@ -1,9 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  youtubeShadowArtistIdentityKey,
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
+
+test("matches verified YouTube mappings across stored artist-key formats", () => {
+  const canonical = youtubeShadowArtistIdentityKey("luis-miguel");
+  assert.equal(canonical, "luismiguel");
+  assert.equal(youtubeShadowArtistIdentityKey("Luis Miguel"), canonical);
+  assert.equal(youtubeShadowArtistIdentityKey("LUIS_MIGUEL"), canonical);
+});
 
 test("retries pilots that only have rejected or disabled candidates", () => {
   assert.equal(youtubeShadowPilotIsReady(0), false);

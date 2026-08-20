@@ -9,6 +9,7 @@ import {
   type YoutubeRefreshTier,
 } from "./youtube-shadow-policy";
 import {
+  youtubeShadowArtistIdentityKey,
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
@@ -113,8 +114,14 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
   const errors: string[] = [];
   for (const pilot of missingPilotArtists) {
     const mappedChannel = await client.query<{ channel_id: string | null }>(
-      `SELECT channel_id FROM youtube_channels WHERE artist_key=$1 AND channel_id IS NOT NULL LIMIT 1`,
-      [pilot.artistKey],
+      `SELECT channel_id
+       FROM youtube_channels
+       WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')
+         = $2
+         AND channel_id IS NOT NULL
+       ORDER BY CASE WHEN artist_key=$1 THEN 0 ELSE 1 END
+       LIMIT 1`,
+      [pilot.artistKey, youtubeShadowArtistIdentityKey(pilot.artistKey)],
     );
     const trustedBrowseId = mappedChannel.rows[0]?.channel_id ?? null;
     const result = await discoverYoutubeMusicArtist({
