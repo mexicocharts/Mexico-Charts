@@ -231,6 +231,30 @@ interface YoutubeShadowStatus {
   }>;
 }
 
+interface YoutubeShadowVideo {
+  artist_key: string;
+  artist_name: string;
+  video_id: string;
+  title: string;
+  thumbnail_url: string | null;
+  canonical_url: string;
+  status: "review" | "verified";
+  refresh_tier: "hot" | "warm" | "baseline";
+  evidence_source: string;
+  view_count: string | number | null;
+  view_delta: string | number | null;
+  like_count: string | number | null;
+  comment_count: string | number | null;
+  seconds_since_previous: number | null;
+  observed_at: string | null;
+}
+
+interface YoutubeShadowVideosResponse {
+  artistKey: string;
+  total: number;
+  videos: YoutubeShadowVideo[];
+}
+
 function fmtDate(iso: string | null): string {
   if (!iso) return "Sin datos";
   return new Intl.DateTimeFormat("es-MX", {
@@ -381,6 +405,10 @@ export default function ApiCoverage() {
   const [runningKworb, setRunningKworb] = useState(false);
   const [runningYoutubeShadow, setRunningYoutubeShadow] = useState(false);
   const [showShadowRejected, setShowShadowRejected] = useState(false);
+  const [expandedShadowArtists, setExpandedShadowArtists] = useState<Record<string, boolean>>({});
+  const [shadowVideos, setShadowVideos] = useState<Record<string, YoutubeShadowVideosResponse>>({});
+  const [loadingShadowVideos, setLoadingShadowVideos] = useState<Record<string, boolean>>({});
+  const [shadowVideoErrors, setShadowVideoErrors] = useState<Record<string, string>>({});
   const [expandedMissing, setExpandedMissing] = useState<Record<string, boolean>>({});
   const [expandedReview, setExpandedReview] = useState<Record<string, boolean>>({});
   const [expandedMomentumMissing, setExpandedMomentumMissing] = useState<Record<string, boolean>>({});
@@ -571,6 +599,27 @@ export default function ApiCoverage() {
       setError((err as Error).message);
     } finally {
       setRunningYoutubeShadow(false);
+    }
+  }
+
+  async function toggleShadowArtistVideos(artistKey: string) {
+    const opening = !expandedShadowArtists[artistKey];
+    setExpandedShadowArtists(current => ({ ...current, [artistKey]: opening }));
+    if (!opening || shadowVideos[artistKey] || loadingShadowVideos[artistKey]) return;
+
+    setLoadingShadowVideos(current => ({ ...current, [artistKey]: true }));
+    setShadowVideoErrors(current => ({ ...current, [artistKey]: "" }));
+    try {
+      const response = await fetch(`/api/admin/youtube/music-shadow/videos?artistKey=${encodeURIComponent(artistKey)}&limit=250`, {
+        headers: { "X-Admin-Key": adminKey.trim() },
+      });
+      const data = await response.json() as YoutubeShadowVideosResponse & { error?: string };
+      if (!response.ok) throw new Error(data.error || "No se pudieron cargar los videos.");
+      setShadowVideos(current => ({ ...current, [artistKey]: data }));
+    } catch (err) {
+      setShadowVideoErrors(current => ({ ...current, [artistKey]: (err as Error).message }));
+    } finally {
+      setLoadingShadowVideos(current => ({ ...current, [artistKey]: false }));
     }
   }
 
@@ -1016,22 +1065,96 @@ export default function ApiCoverage() {
                     <span>Total views</span>
                     <span>Cambio</span>
                   </div>
-                  {youtubeShadow.artists.length > 0 ? youtubeShadow.artists.map(artist => (
-                    <div key={artist.artist_key} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-white/[0.045] px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(80px,auto))]">
-                      <div className="min-w-0">
-                        <div className="truncate text-xs font-black uppercase tracking-[0.08em] text-zinc-200">{artist.artist_key.replaceAll("-", " ")}</div>
-                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
-                          {artist.hot_count} hot · {artist.warm_count} warm · {artist.baseline_count} base
-                        </div>
+                  {youtubeShadow.artists.length > 0 ? youtubeShadow.artists.map(artist => {
+                    const expanded = Boolean(expandedShadowArtists[artist.artist_key]);
+                    const videoData = shadowVideos[artist.artist_key];
+                    return (
+                      <div key={artist.artist_key} className="border-b border-white/[0.045] last:border-b-0">
+                        <button
+                          type="button"
+                          onClick={() => void toggleShadowArtistVideos(artist.artist_key)}
+                          aria-expanded={expanded}
+                          className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.025] sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(80px,auto))]"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ChevronDown className={`h-4 w-4 shrink-0 text-zinc-600 transition-transform ${expanded ? "rotate-180" : ""}`} />
+                            <div className="min-w-0">
+                              <div className="truncate text-xs font-black uppercase tracking-[0.08em] text-zinc-200">{artist.artist_key.replaceAll("-", " ")}</div>
+                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                {artist.hot_count} hot · {artist.warm_count} warm · {artist.baseline_count} base
+                              </div>
+                            </div>
+                          </div>
+                          <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.tracked_video_count}</span>
+                          <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.videos_with_observations}</span>
+                          <span className="text-sm font-black text-white">{fmtCompact(artist.total_views)}</span>
+                          <span className={`text-sm font-black ${Number(artist.latest_view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
+                            +{Number(artist.latest_view_delta) > 0 ? fmtCount(artist.latest_view_delta) : "0"}
+                          </span>
+                        </button>
+
+                        {expanded && (
+                          <div className="border-t border-white/[0.045] bg-black/30 p-3">
+                            <div className="mb-3 flex items-center justify-between gap-3 px-1">
+                              <div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-300">Contadores por video</div>
+                                <div className="mt-1 text-[9px] font-bold text-zinc-700">Lecturas guardadas; abrir esta lista no consume cuota de YouTube.</div>
+                              </div>
+                              {videoData && <span className="text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">{videoData.total} videos</span>}
+                            </div>
+
+                            {loadingShadowVideos[artist.artist_key] ? (
+                              <div className="flex items-center justify-center gap-2 py-8 text-xs font-bold text-zinc-600">
+                                <RefreshCw className="h-4 w-4 animate-spin" /> Cargando contadores…
+                              </div>
+                            ) : shadowVideoErrors[artist.artist_key] ? (
+                              <div className="py-6 text-center text-xs font-bold text-red-300">{shadowVideoErrors[artist.artist_key]}</div>
+                            ) : videoData?.videos.length ? (
+                              <div className="max-h-[620px] space-y-2 overflow-auto pr-1">
+                                {videoData.videos.map(video => (
+                                  <a
+                                    key={video.video_id}
+                                    href={video.canonical_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-white/[0.055] bg-white/[0.018] p-2.5 hover:border-red-400/20 hover:bg-red-500/[0.025] sm:grid-cols-[96px_minmax(0,1fr)_110px_90px]"
+                                  >
+                                    <div className="aspect-video overflow-hidden rounded bg-zinc-950">
+                                      {video.thumbnail_url ? <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" /> : null}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="line-clamp-2 text-xs font-black leading-snug text-zinc-200">{video.title}</div>
+                                      <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
+                                        <span className={video.refresh_tier === "hot" ? "text-red-300" : video.refresh_tier === "warm" ? "text-amber-200" : "text-zinc-600"}>
+                                          {video.refresh_tier === "baseline" ? "Base" : video.refresh_tier}
+                                        </span>
+                                        <span>{fmtDate(video.observed_at)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-sm font-black text-white">{fmtCount(video.view_count)}</div>
+                                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">views</div>
+                                      <div className={`mt-1 text-[10px] font-black sm:hidden ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
+                                        +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"} intervalo
+                                      </div>
+                                    </div>
+                                    <div className="hidden text-right sm:block">
+                                      <div className={`text-sm font-black ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
+                                        +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"}
+                                      </div>
+                                      <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">intervalo</div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="py-6 text-center text-xs font-bold text-zinc-600">Todavía no hay lecturas por video.</div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.tracked_video_count}</span>
-                      <span className="hidden text-sm font-black text-zinc-300 sm:block">{artist.videos_with_observations}</span>
-                      <span className="text-sm font-black text-white">{fmtCompact(artist.total_views)}</span>
-                      <span className={`text-sm font-black ${Number(artist.latest_view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
-                        +{Number(artist.latest_view_delta) > 0 ? fmtCount(artist.latest_view_delta) : "0"}
-                      </span>
-                    </div>
-                  )) : (
+                    );
+                  }) : (
                     <div className="px-4 py-6 text-center text-xs font-bold text-zinc-600">
                       {youtubeShadow.catalogReady
                         ? "El catálogo privado está listo; todavía no hay muestras guardadas."
