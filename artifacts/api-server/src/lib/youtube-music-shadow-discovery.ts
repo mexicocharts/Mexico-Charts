@@ -6,6 +6,7 @@ import {
   type YoutubeShadowStatus,
 } from "./youtube-shadow-policy";
 import { getYoutubeShadowManualReview } from "./youtube-shadow-manual-review";
+import { youtubeShadowCanUseVerifiedChannelFallback } from "./youtube-shadow-bootstrap-policy";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -29,6 +30,26 @@ interface DiscoveredCandidate {
   thumbnailUrl: string | null;
   sourceSections: Set<string>;
   releaseIds: Set<string>;
+}
+
+interface YoutubeChannelResponse {
+  items?: Array<{
+    contentDetails?: { relatedPlaylists?: { uploads?: string } };
+  }>;
+  error?: { message?: string };
+}
+
+interface YoutubePlaylistItemsResponse {
+  nextPageToken?: string;
+  items?: Array<{
+    contentDetails?: { videoId?: string };
+    snippet?: {
+      title?: string;
+      resourceId?: { videoId?: string };
+      thumbnails?: Record<string, { url?: string }>;
+    };
+  }>;
+  error?: { message?: string };
 }
 
 function decideCandidate(candidate: DiscoveredCandidate, artistKey: string, artistName: string, browseId: string) {
@@ -204,6 +225,58 @@ function addCandidate(
   candidates.set(item.id, existing);
 }
 
+async function fetchYoutubeJson<T extends { error?: { message?: string } }>(url: URL): Promise<T> {
+  const response = await fetch(url);
+  const payload = await response.json() as T;
+  if (!response.ok) {
+    throw new Error(payload.error?.message || `YouTube Data API request failed with status ${response.status}.`);
+  }
+  return payload;
+}
+
+async function discoverVerifiedChannelUploads(
+  artistName: string,
+  channelId: string,
+): Promise<Map<string, DiscoveredCandidate>> {
+  const apiKey = process.env["YOUTUBE_API_KEY"];
+  if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY for verified-channel fallback.");
+
+  const channelUrl = new URL("https://www.googleapis.com/youtube/v3/channels");
+  channelUrl.searchParams.set("part", "contentDetails");
+  channelUrl.searchParams.set("id", channelId);
+  channelUrl.searchParams.set("key", apiKey);
+  const channel = await fetchYoutubeJson<YoutubeChannelResponse>(channelUrl);
+  const uploadsPlaylistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
+  if (!uploadsPlaylistId) throw new Error("Verified YouTube channel has no accessible uploads playlist.");
+
+  const candidates = new Map<string, DiscoveredCandidate>();
+  let pageToken: string | undefined;
+  const maxVideos = Math.max(1, Math.min(5_000, Number(process.env["YOUTUBE_SHADOW_CHANNEL_UPLOAD_LIMIT"] ?? "1000") || 1_000));
+  do {
+    const playlistUrl = new URL("https://www.googleapis.com/youtube/v3/playlistItems");
+    playlistUrl.searchParams.set("part", "snippet,contentDetails");
+    playlistUrl.searchParams.set("playlistId", uploadsPlaylistId);
+    playlistUrl.searchParams.set("maxResults", "50");
+    playlistUrl.searchParams.set("key", apiKey);
+    if (pageToken) playlistUrl.searchParams.set("pageToken", pageToken);
+    const page = await fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl);
+    for (const entry of page.items ?? []) {
+      const videoId = entry.contentDetails?.videoId ?? entry.snippet?.resourceId?.videoId;
+      if (!videoId || candidates.size >= maxVideos) break;
+      addCandidate(candidates, {
+        id: videoId,
+        item_type: "video",
+        title: entry.snippet?.title ?? "",
+        artists: [{ name: artistName, channel_id: channelId }],
+        thumbnails: Object.values(entry.snippet?.thumbnails ?? {}),
+      }, "verified_official_channel_upload");
+    }
+    pageToken = candidates.size < maxVideos ? page.nextPageToken : undefined;
+  } while (pageToken);
+
+  return candidates;
+}
+
 async function resolveBrowseId(yt: Innertube, artistName: string): Promise<{ browseId: string | null; ambiguous: boolean }> {
   const results = await yt.music.search(artistName, { type: "artist" });
   const exact = (results.artists?.contents ?? [])
@@ -302,6 +375,45 @@ async function persistDiscovery(
   }
 }
 
+async function finalizeDiscovery(
+  summary: YoutubeMusicDiscoverySummary,
+  candidates: Map<string, DiscoveredCandidate>,
+  input: { artistKey: string; artistName: string; write?: boolean; includeCandidates?: boolean },
+  client: PgClient | null,
+) {
+  summary.uniqueCandidates = candidates.size;
+  for (const candidate of candidates.values()) {
+    const decision = decideCandidate(candidate, summary.artistKey, summary.artistName, summary.browseId!);
+    if (decision.status === "review") summary.reviewCandidates += 1;
+    else summary.rejectedCandidates += 1;
+  }
+
+  if (input.includeCandidates) {
+    summary.candidates = [...candidates.values()].map(candidate => {
+      const decision = decideCandidate(candidate, summary.artistKey, summary.artistName, summary.browseId!);
+      return {
+        videoId: candidate.videoId,
+        canonicalUrl: `https://music.youtube.com/watch?v=${candidate.videoId}`,
+        title: candidate.title,
+        credits: candidate.credits,
+        thumbnailUrl: candidate.thumbnailUrl,
+        sourceSections: [...candidate.sourceSections],
+        releaseIds: [...candidate.releaseIds],
+        status: decision.status,
+        confidence: decision.confidence,
+        decisionReason: decision.reason,
+      };
+    });
+  }
+
+  if (input.write && client) await persistDiscovery(client, summary, candidates);
+  if (summary.reviewCandidates === 0) {
+    summary.error = summary.uniqueCandidates > 0
+      ? "Discovery returned no eligible review candidates. Rejected evidence was retained for audit."
+      : "Discovery returned no catalog videos for this artist.";
+  }
+}
+
 export async function discoverYoutubeMusicArtist(input: {
   artistKey: string;
   artistName: string;
@@ -354,7 +466,19 @@ export async function discoverYoutubeMusicArtist(input: {
       return summary;
     }
 
-    const artist = await yt.music.getArtist(summary.browseId);
+    let artist;
+    try {
+      artist = await yt.music.getArtist(summary.browseId);
+    } catch (musicBrowseError) {
+      if (!youtubeShadowCanUseVerifiedChannelFallback({
+        browseId: summary.browseId,
+        trustedBrowseId: input.trustedBrowseId,
+      })) throw musicBrowseError;
+      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId);
+      summary.mappingStatus = "review";
+      await finalizeDiscovery(summary, candidates, input, client);
+      return summary;
+    }
     const resolvedName = artist.header && "title" in artist.header ? artist.header.title?.toString() : "";
     if (
       !input.trustedBrowseId
@@ -413,37 +537,7 @@ export async function discoverYoutubeMusicArtist(input: {
       }
     }
 
-    summary.uniqueCandidates = candidates.size;
-    for (const candidate of candidates.values()) {
-      const decision = decideCandidate(candidate, summary.artistKey, summary.artistName, summary.browseId);
-      if (decision.status === "review") summary.reviewCandidates += 1;
-      else summary.rejectedCandidates += 1;
-    }
-
-    if (input.includeCandidates) {
-      summary.candidates = [...candidates.values()].map(candidate => {
-        const decision = decideCandidate(candidate, summary.artistKey, summary.artistName, summary.browseId!);
-        return {
-          videoId: candidate.videoId,
-          canonicalUrl: `https://music.youtube.com/watch?v=${candidate.videoId}`,
-          title: candidate.title,
-          credits: candidate.credits,
-          thumbnailUrl: candidate.thumbnailUrl,
-          sourceSections: [...candidate.sourceSections],
-          releaseIds: [...candidate.releaseIds],
-          status: decision.status,
-          confidence: decision.confidence,
-          decisionReason: decision.reason,
-        };
-      });
-    }
-
-    if (input.write && client) await persistDiscovery(client, summary, candidates);
-    if (summary.reviewCandidates === 0) {
-      summary.error = summary.uniqueCandidates > 0
-        ? "Discovery returned no eligible review candidates. Rejected evidence was retained for audit."
-        : "Discovery returned no catalog videos for this artist.";
-    }
+    await finalizeDiscovery(summary, candidates, input, client);
     return summary;
   } catch (error) {
     summary.error = error instanceof Error ? error.message : String(error);
