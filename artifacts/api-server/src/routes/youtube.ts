@@ -1144,6 +1144,11 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
     await ensureYoutubeIntradayShadowTables(client);
     const [videos, count] = await Promise.all([
       client.query(`
+        WITH eastern_bounds AS (
+          SELECT
+            (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
+            ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
+        )
         SELECT
           c.artist_key,
           c.artist_name,
@@ -1160,20 +1165,23 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
           latest.comment_count,
           latest.seconds_since_previous,
           latest.observed_at::text observed_at,
+          CASE WHEN previous_start.view_count IS NULL OR today_start.view_count IS NULL THEN NULL
+            ELSE GREATEST(0, today_start.view_count - previous_start.view_count) END views_24h,
           CASE
-            WHEN day_ago.view_count IS NULL OR latest.view_count IS NULL THEN NULL
-            ELSE GREATEST(0, latest.view_count - day_ago.view_count)
-          END views_24h,
-          CASE
-            WHEN day_ago.observed_at IS NULL OR latest.observed_at IS NULL THEN NULL
-            ELSE round(extract(epoch FROM (latest.observed_at - day_ago.observed_at)))::int
+            WHEN previous_start.observed_at IS NULL OR today_start.observed_at IS NULL THEN NULL
+            ELSE round(extract(epoch FROM (today_start.observed_at - previous_start.observed_at)))::int
           END views_24h_span_seconds,
-          day_ago.observed_at::text views_24h_started_at,
-          CASE
-            WHEN day_ago.observed_at IS NULL THEN NULL
-            ELSE latest.observed_at::text
-          END views_24h_ended_at
+          previous_start.observed_at::text views_24h_started_at,
+          today_start.observed_at::text views_24h_ended_at,
+          CASE WHEN today_start.view_count IS NULL OR latest.view_count IS NULL THEN NULL
+            ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
+          CASE WHEN today_start.observed_at IS NULL OR latest.observed_at IS NULL THEN NULL
+            ELSE round(extract(epoch FROM (latest.observed_at - today_start.observed_at)))::int
+          END views_today_et_span_seconds,
+          today_start.observed_at::text views_today_et_started_at,
+          CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
         FROM youtube_music_catalog_candidates c
+        CROSS JOIN eastern_bounds bounds
         JOIN youtube_tracked_videos v ON v.video_id=c.video_id
         LEFT JOIN LATERAL (
           SELECT
@@ -1192,12 +1200,20 @@ router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
           SELECT s.view_count, s.observed_at
           FROM youtube_video_intraday_shadow_snapshots s
           WHERE s.video_id=c.video_id
-            AND latest.observed_at IS NOT NULL
-            AND s.observed_at BETWEEN latest.observed_at - interval '27 hours'
-                                  AND latest.observed_at - interval '21 hours'
-          ORDER BY abs(extract(epoch FROM (s.observed_at - (latest.observed_at - interval '24 hours'))))
+            AND s.observed_at >= bounds.previous_start
+            AND s.observed_at < bounds.previous_start + interval '30 minutes'
+          ORDER BY s.observed_at
           LIMIT 1
-        ) day_ago ON true
+        ) previous_start ON true
+        LEFT JOIN LATERAL (
+          SELECT s.view_count, s.observed_at
+          FROM youtube_video_intraday_shadow_snapshots s
+          WHERE s.video_id=c.video_id
+            AND s.observed_at >= bounds.today_start
+            AND s.observed_at < bounds.today_start + interval '30 minutes'
+          ORDER BY s.observed_at
+          LIMIT 1
+        ) today_start ON true
         WHERE c.artist_key=$1
           AND c.status IN ('review','verified')
           AND c.sampling_status='shadow'

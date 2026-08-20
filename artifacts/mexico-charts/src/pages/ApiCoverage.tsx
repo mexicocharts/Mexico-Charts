@@ -251,6 +251,10 @@ interface YoutubeShadowVideo {
   views_24h_span_seconds: number | null;
   views_24h_started_at: string | null;
   views_24h_ended_at: string | null;
+  views_today_et: string | number | null;
+  views_today_et_span_seconds: number | null;
+  views_today_et_started_at: string | null;
+  views_today_et_ended_at: string | null;
 }
 
 interface YoutubeShadowVideosResponse {
@@ -262,6 +266,17 @@ interface YoutubeShadowVideosResponse {
 function fmtDate(iso: string | null): string {
   if (!iso) return "Sin datos";
   return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function fmtDateEt(iso: string | null): string {
+  if (!iso) return "Sin datos";
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/New_York",
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -1149,12 +1164,17 @@ export default function ApiCoverage() {
                                       <div className={`mt-1 text-[10px] font-black sm:hidden ${Number(video.view_delta) > 0 ? "text-[#39FF14]" : "text-zinc-600"}`}>
                                         +{Number(video.view_delta) > 0 ? fmtCount(video.view_delta) : "0"} / {fmtInterval(video.seconds_since_previous)}
                                       </div>
-                                      <div className={`mt-1 text-[10px] font-black sm:hidden ${video.views_24h != null ? "text-sky-300" : "text-zinc-700"}`}>
-                                        {video.views_24h != null ? `+${fmtCount(video.views_24h)} / ~24 h` : "24 h: reuniendo historial"}
+                                      <div className={`mt-1 text-[10px] font-black sm:hidden ${video.views_today_et != null ? "text-sky-300" : "text-zinc-700"}`}>
+                                        {video.views_today_et != null ? `+${fmtCount(video.views_today_et)} hoy ET` : "Hoy ET: esperando lectura de medianoche"}
                                       </div>
-                                      {video.views_24h_started_at && video.views_24h_ended_at && (
+                                      {video.views_today_et_started_at && video.views_today_et_ended_at && (
                                         <div className="mt-1 text-[8px] font-bold text-zinc-700 sm:hidden">
-                                          {fmtDate(video.views_24h_started_at)} → {fmtDate(video.views_24h_ended_at)}
+                                          {fmtDateEt(video.views_today_et_started_at)} → {fmtDateEt(video.views_today_et_ended_at)} ET
+                                        </div>
+                                      )}
+                                      {video.views_24h != null && video.views_24h_started_at && video.views_24h_ended_at && (
+                                        <div className="mt-1 text-[8px] font-bold text-sky-400 sm:hidden">
+                                          Día anterior: +{fmtCount(video.views_24h)} · {fmtDateEt(video.views_24h_started_at)} → {fmtDateEt(video.views_24h_ended_at)} ET
                                         </div>
                                       )}
                                     </div>
@@ -1165,15 +1185,21 @@ export default function ApiCoverage() {
                                       <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">{fmtInterval(video.seconds_since_previous)}</div>
                                     </div>
                                     <div className="hidden text-right sm:block">
-                                      <div className={`text-sm font-black ${video.views_24h != null ? "text-sky-300" : "text-zinc-700"}`}>
-                                        {video.views_24h != null ? `+${fmtCount(video.views_24h)}` : "—"}
+                                      <div className={`text-sm font-black ${video.views_today_et != null ? "text-sky-300" : "text-zinc-700"}`}>
+                                        {video.views_today_et != null ? `+${fmtCount(video.views_today_et)}` : "—"}
                                       </div>
                                       <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
-                                        {video.views_24h_span_seconds ? `~24 h (${fmtInterval(video.views_24h_span_seconds)})` : "reuniendo 24 h"}
+                                        {video.views_today_et_span_seconds ? `Hoy ET · ${fmtInterval(video.views_today_et_span_seconds)}` : "esperando 12:00 a.m. ET"}
                                       </div>
-                                      {video.views_24h_started_at && video.views_24h_ended_at && (
+                                      {video.views_today_et_started_at && video.views_today_et_ended_at && (
                                         <div className="mt-1 text-[8px] font-bold leading-tight text-zinc-700">
-                                          {fmtDate(video.views_24h_started_at)} → {fmtDate(video.views_24h_ended_at)}
+                                          {fmtDateEt(video.views_today_et_started_at)} → {fmtDateEt(video.views_today_et_ended_at)} ET
+                                        </div>
+                                      )}
+                                      {video.views_24h != null && video.views_24h_started_at && video.views_24h_ended_at && (
+                                        <div className="mt-1 text-[8px] font-black text-sky-400">
+                                          Día anterior: +{fmtCount(video.views_24h)}<br />
+                                          {fmtDateEt(video.views_24h_started_at)} → {fmtDateEt(video.views_24h_ended_at)} ET
                                         </div>
                                       )}
                                     </div>
