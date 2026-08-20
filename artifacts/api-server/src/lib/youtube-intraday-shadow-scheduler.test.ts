@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   youtubeShadowArtistIdentityKey,
+  youtubeShadowCanUseVerifiedChannelFallback,
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
@@ -11,6 +12,21 @@ test("matches verified YouTube mappings across stored artist-key formats", () =>
   assert.equal(canonical, "luismiguel");
   assert.equal(youtubeShadowArtistIdentityKey("Luis Miguel"), canonical);
   assert.equal(youtubeShadowArtistIdentityKey("LUIS_MIGUEL"), canonical);
+});
+
+test("only falls back to uploads for a trusted canonical YouTube channel", () => {
+  assert.equal(youtubeShadowCanUseVerifiedChannelFallback({
+    browseId: "UCQHnOnsryRQmmr6pU3lAupg",
+    trustedBrowseId: true,
+  }), true);
+  assert.equal(youtubeShadowCanUseVerifiedChannelFallback({
+    browseId: "UCQHnOnsryRQmmr6pU3lAupg",
+    trustedBrowseId: false,
+  }), false);
+  assert.equal(youtubeShadowCanUseVerifiedChannelFallback({
+    browseId: "MPREb_not_a_channel",
+    trustedBrowseId: true,
+  }), false);
 });
 
 test("retries pilots that only have rejected or disabled candidates", () => {
