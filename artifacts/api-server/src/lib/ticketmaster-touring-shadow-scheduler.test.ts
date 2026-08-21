@@ -6,6 +6,8 @@ import {
   inventorySafetyFields,
   isWithinTicketmasterTourScope,
   normalizeTicketmasterEvent,
+  ticketmasterLockAvailable,
+  ticketmasterRunStatus,
 } from "./ticketmaster-touring-shadow-scheduler";
 
 test("classifies Ticketmaster add-ons without treating them as concerts", () => {
@@ -25,6 +27,18 @@ test("uses 2, 6, and 24 hour proximity tiers at the requested boundaries", () =>
   assert.equal(cadenceHoursForDaysUntil(null), 24);
 });
 
+test("keeps a second scheduler instance from treating an unavailable advisory lock as runnable", () => {
+  assert.equal(ticketmasterLockAvailable(true), true);
+  assert.equal(ticketmasterLockAvailable(false), false);
+  assert.equal(ticketmasterLockAvailable(undefined), false);
+});
+
+test("records complete, partial, and failed outcomes truthfully", () => {
+  assert.equal(ticketmasterRunStatus(2, 0), "complete");
+  assert.equal(ticketmasterRunStatus(1, 1), "partial");
+  assert.equal(ticketmasterRunStatus(0, 2), "failed");
+});
+
 test("limits the tracked catalog to the requested 2026 scopes", () => {
   const now = new Date("2026-08-21T12:00:00.000Z");
   assert.equal(
@@ -32,6 +46,15 @@ test("limits the tracked catalog to the requested 2026 scopes", () => {
       "fuerza-regida",
       "Fuerza Regida - This Is Our Dream Tour",
       "2026-09-20",
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isWithinTicketmasterTourScope(
+      "fuerza-regida",
+      "Fuerza Regida - This Is Our Dream Tour",
+      "2026-10-03",
       now,
     ),
     true,
@@ -84,6 +107,7 @@ test("normalizes public fields and keeps all inventory estimates null", () => {
   });
 
   assert.equal(event?.eventClassification, "concert");
+  assert.equal(event?.eventUrl, "https://www.ticketmaster.com/event/tm-1");
   assert.equal(event?.priceMin, 50);
   assert.equal(event?.ticketLimit, "8 tickets per household");
   assert.deepEqual(inventorySafetyFields(), {

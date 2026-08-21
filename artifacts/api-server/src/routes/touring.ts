@@ -191,6 +191,19 @@ function requireAdmin(
   return true;
 }
 
+function requireShadowAdmin(
+  req: Parameters<Parameters<typeof router.get>[1]>[0],
+  res: Parameters<Parameters<typeof router.get>[1]>[1],
+): boolean {
+  const key = ADMIN_KEY();
+  const header = req.headers["x-admin-key"];
+  if (!key || header !== key) {
+    res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
+    return false;
+  }
+  return true;
+}
+
 function bestImage(images: { ratio?: string; url: string; width?: number }[]): string | null {
   const landscape = images
     .filter(i => i.ratio === "16_9" && (i.width ?? 0) >= 640)
@@ -346,7 +359,7 @@ router.get("/admin/touring/coverage", async (req, res) => {
 });
 
 router.get("/admin/touring/shadow/status", async (req, res) => {
-  if (!requireAdmin(req, res)) return;
+  if (!requireShadowAdmin(req, res)) return;
   try {
     res.setHeader("Cache-Control", "no-store");
     res.json(await getTicketmasterTouringShadowStatus());
@@ -357,7 +370,7 @@ router.get("/admin/touring/shadow/status", async (req, res) => {
 });
 
 router.post("/admin/touring/shadow/force-run", async (req, res) => {
-  if (!requireAdmin(req, res)) return;
+  if (!requireShadowAdmin(req, res)) return;
   try {
     const summary = await runTicketmasterTouringShadow("admin-force-run", true);
     res.status(summary.status === "failed" ? 502 : 200).json(summary);

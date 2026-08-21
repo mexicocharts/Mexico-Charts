@@ -42,3 +42,4 @@ export * from "./mexican_artist_identities";
 export * from "./chart_archives";
 export * from "./youtube_shadow";
 export * from "./runtime_tables";
+export * from "./ticketmaster_touring_shadow";

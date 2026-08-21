@@ -31,6 +31,7 @@ const TICKETMASTER_API_BASE = "https://app.ticketmaster.com/discovery/v2";
 const ADVISORY_LOCK_KEY = 1_873_204_911;
 const CHECK_INTERVAL_MS = 5 * 60 * 1000;
 const INVENTORY_CONFIDENCE = "insufficient-inventory-data";
+const FUERZA_REGIDA_SECOND_LEG_START_DATE = "2026-10-03";
 
 const ADD_ON_TERMS = [
   "parking",
@@ -111,6 +112,11 @@ type RawTicketmasterEvent = {
 
 type TicketmasterEventPage = {
   _embedded?: { events?: RawTicketmasterEvent[] };
+  page?: {
+    number?: number;
+    totalPages?: number;
+    totalElements?: number;
+  };
 };
 
 export type TicketmasterEventClassification = "concert" | "add_on";
@@ -118,6 +124,7 @@ export type TicketmasterEventClassification = "concert" | "add_on";
 export interface NormalizedTicketmasterEvent {
   eventId: string;
   eventName: string;
+  eventUrl: string | null;
   eventClassification: TicketmasterEventClassification;
   isTrackableConcert: boolean;
   eventDate: string;
@@ -245,7 +252,8 @@ export function isWithinTicketmasterTourScope(
   if (artistKey === "carin-leon") return true;
   if (artistKey === "fuerza-regida") {
     const name = normalizeText(eventName);
-    return name.includes("this is our dream") || name.includes("dream tour");
+    return eventDate >= FUERZA_REGIDA_SECOND_LEG_START_DATE
+      && name.includes("this is our dream tour");
   }
   return false;
 }
@@ -254,6 +262,18 @@ export function cadenceHoursForDaysUntil(daysUntil: number | null): 2 | 6 | 24 {
   if (daysUntil != null && daysUntil <= 7) return 2;
   if (daysUntil != null && daysUntil <= 30) return 6;
   return 24;
+}
+
+export function ticketmasterLockAvailable(locked: boolean | null | undefined): boolean {
+  return locked === true;
+}
+
+export function ticketmasterRunStatus(
+  successfulArtists: number,
+  failedArtists: number,
+): "complete" | "partial" | "failed" {
+  if (failedArtists === 0) return "complete";
+  return successfulArtists > 0 ? "partial" : "failed";
 }
 
 export function daysUntilEvent(
@@ -295,6 +315,7 @@ export function normalizeTicketmasterEvent(
   return {
     eventId,
     eventName,
+    eventUrl: raw.url?.trim() || null,
     eventClassification,
     isTrackableConcert: eventClassification === "concert",
     eventDate,
@@ -365,6 +386,7 @@ export async function ensureTicketmasterTouringShadowTables(client: DbClient) {
       tour_scope text NOT NULL,
       event_id text NOT NULL,
       event_name text NOT NULL,
+      event_url text,
       event_classification text NOT NULL CHECK (event_classification IN ('concert','add_on')),
       is_trackable_concert boolean NOT NULL,
       event_date text NOT NULL,
@@ -400,12 +422,44 @@ export async function ensureTicketmasterTouringShadowTables(client: DbClient) {
       capacity bigint,
       gross_amount numeric,
       inventory_data_confidence text NOT NULL DEFAULT 'insufficient-inventory-data'
-        CHECK (inventory_data_confidence IN ('insufficient-inventory-data','authorized-quantity-source')),
+        CHECK (
+          inventory_data_confidence = 'insufficient-inventory-data'
+          AND tickets_sold IS NULL
+          AND remaining_inventory IS NULL
+          AND sell_through_percent IS NULL
+          AND capacity IS NULL
+          AND gross_amount IS NULL
+        ),
       source_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
       observed_at timestamptz NOT NULL DEFAULT now(),
       created_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (run_id, event_id)
     );
+  `);
+  await client.query(`
+    ALTER TABLE ticketmaster_touring_shadow_event_snapshots
+    ADD COLUMN IF NOT EXISTS event_url text;
+  `);
+  await client.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'ticketmaster_touring_shadow_inventory_safety_check'
+      ) THEN
+        ALTER TABLE ticketmaster_touring_shadow_event_snapshots
+        ADD CONSTRAINT ticketmaster_touring_shadow_inventory_safety_check
+        CHECK (
+          inventory_data_confidence = 'insufficient-inventory-data'
+          AND tickets_sold IS NULL
+          AND remaining_inventory IS NULL
+          AND sell_through_percent IS NULL
+          AND capacity IS NULL
+          AND gross_amount IS NULL
+        );
+      END IF;
+    END $$;
   `);
   await client.query(`
     CREATE INDEX IF NOT EXISTS ticketmaster_touring_shadow_runs_started_idx
@@ -425,20 +479,29 @@ async function fetchArtistEvents(attractionId: string): Promise<RawTicketmasterE
   const apiKey = process.env["TICKETMASTER_API_KEY"]?.trim();
   if (!apiKey) throw new Error("Missing TICKETMASTER_API_KEY.");
 
-  const url = new URL(`${TICKETMASTER_API_BASE}/events.json`);
-  url.searchParams.set("apikey", apiKey);
-  url.searchParams.set("attractionId", attractionId);
-  url.searchParams.set("size", "100");
-  url.searchParams.set("sort", "date,asc");
-  url.searchParams.set("startDateTime", `${todayIso()}T00:00:00Z`);
+  const events: RawTicketmasterEvent[] = [];
+  let page = 0;
+  let totalPages = 1;
+  do {
+    const url = new URL(`${TICKETMASTER_API_BASE}/events.json`);
+    url.searchParams.set("apikey", apiKey);
+    url.searchParams.set("attractionId", attractionId);
+    url.searchParams.set("size", "100");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("sort", "date,asc");
+    url.searchParams.set("startDateTime", `${todayIso()}T00:00:00Z`);
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    const body = (await response.text()).slice(0, 240);
-    throw new Error(`Ticketmaster Discovery API ${response.status}: ${body}`);
-  }
-  const data = await response.json() as TicketmasterEventPage;
-  return data._embedded?.events ?? [];
+    const response = await fetch(url);
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 240);
+      throw new Error(`Ticketmaster Discovery API ${response.status} on page ${page}: ${body}`);
+    }
+    const data = await response.json() as TicketmasterEventPage;
+    events.push(...(data._embedded?.events ?? []));
+    totalPages = Math.max(1, Number(data.page?.totalPages ?? 1));
+    page += 1;
+  } while (page < totalPages);
+  return events;
 }
 
 async function insertSnapshot(
@@ -451,7 +514,7 @@ async function insertSnapshot(
   await client.query(
     `
       INSERT INTO ticketmaster_touring_shadow_event_snapshots (
-        run_id, artist_key, artist_name, tour_scope, event_id, event_name,
+        run_id, artist_key, artist_name, tour_scope, event_id, event_name, event_url,
         event_classification, is_trackable_concert, event_date, event_time,
         event_date_tbd, event_date_tba, event_status, public_sale_start_at,
         public_sale_end_at, public_sale_start_tbd, public_sale_start_tba,
@@ -465,7 +528,7 @@ async function insertSnapshot(
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
         $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,
-        $37,$38,$39,$40,$41,$42
+        $37,$38,$39,$40,$41,$42,$43
       )
     `,
     [
@@ -475,6 +538,7 @@ async function insertSnapshot(
       artist.tourScope,
       event.eventId,
       event.eventName,
+      event.eventUrl,
       event.eventClassification,
       event.isTrackableConcert,
       event.eventDate,
@@ -572,7 +636,9 @@ export async function runTicketmasterTouringShadow(
       "SELECT pg_try_advisory_lock($1) AS locked",
       [ADVISORY_LOCK_KEY],
     );
-    if (!lock.rows[0]?.locked) return { ...summary, status: "locked" };
+    if (!ticketmasterLockAvailable(lock.rows[0]?.locked)) {
+      return { ...summary, status: "locked" };
+    }
     lockHeld = true;
 
     await ensureTicketmasterTouringShadowTables(client);
@@ -631,11 +697,10 @@ export async function runTicketmasterTouringShadow(
       }
     }
 
-    summary.status = summary.failedArtists === 0
-      ? "complete"
-      : summary.successfulArtists > 0
-        ? "partial"
-        : "failed";
+    summary.status = ticketmasterRunStatus(
+      summary.successfulArtists,
+      summary.failedArtists,
+    );
     await finishRun(client, summary.runId, summary);
     return summary;
   } catch (error) {
@@ -660,8 +725,7 @@ export async function getTicketmasterTouringShadowStatus(
   const client = await pool.connect() as unknown as DbClient;
   try {
     await ensureTicketmasterTouringShadowTables(client);
-    const [counts, nextEvent, latestRun] = await Promise.all([
-      client.query<{
+    const counts = await client.query<{
         snapshot_count: number;
         concert_snapshot_count: number;
         addon_snapshot_count: number;
@@ -671,8 +735,8 @@ export async function getTicketmasterTouringShadowStatus(
           count(*) FILTER (WHERE event_classification='concert')::int concert_snapshot_count,
           count(*) FILTER (WHERE event_classification='add_on')::int addon_snapshot_count
         FROM ticketmaster_touring_shadow_event_snapshots
-      `),
-      client.query<{ event_date: string | null }>(`
+      `);
+    const nextEvent = await client.query<{ event_date: string | null }>(`
         SELECT min(event_date) event_date
         FROM (
           SELECT DISTINCT ON (event_id)
@@ -681,8 +745,8 @@ export async function getTicketmasterTouringShadowStatus(
           ORDER BY event_id, observed_at DESC, id DESC
         ) latest
         WHERE event_classification='concert' AND event_date >= $1
-      `, [todayIso(now)]),
-      client.query<{
+      `, [todayIso(now)]);
+    const latestRun = await client.query<{
         id: number;
         status: string;
         reason: string;
@@ -703,8 +767,7 @@ export async function getTicketmasterTouringShadowStatus(
         FROM ticketmaster_touring_shadow_runs
         ORDER BY started_at DESC
         LIMIT 1
-      `),
-    ]);
+      `);
 
     const nextEventDate = nextEvent.rows[0]?.event_date ?? null;
     const daysUntilNextEvent = daysUntilEvent(nextEventDate, now);
