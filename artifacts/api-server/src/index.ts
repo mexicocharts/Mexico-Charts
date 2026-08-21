@@ -7,6 +7,7 @@ import { startSongstatsSnapshotScheduler } from "./lib/songstats-snapshot-schedu
 import { startArtistSocialDiscoveryScheduler } from "./lib/artist-social-discovery-scheduler";
 import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog";
 import { startYoutubeIntradayShadowScheduler } from "./lib/youtube-intraday-shadow-scheduler";
+import { startTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow";
 
 const rawPort = process.env["PORT"];
 
@@ -35,6 +36,7 @@ app.listen(port, (err) => {
   startSongstatsSnapshotScheduler();
   startArtistSocialDiscoveryScheduler();
   startYoutubeIntradayShadowScheduler();
+  startTouringShadowScheduler();
   void seedSupplementalArtistCatalog().catch(err => {
     logger.error({ err }, "[artists] supplemental catalog seed failed");
   });

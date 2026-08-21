@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
+import { runTouringShadow, touringShadowStatus } from "../lib/ticketmaster-touring-shadow";
 
 const router = Router();
 
@@ -339,6 +340,27 @@ router.get("/admin/touring/coverage", async (req, res) => {
     withShowsPreview: withShows.slice(0, 12),
     stalePreview: stale.slice(0, 12),
   });
+});
+
+router.get("/admin/touring/shadow", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(await touringShadowStatus());
+  } catch (error) {
+    logger.error({ error }, "[touring-shadow] status failed");
+    return res.status(500).json({ error: "Unable to read touring shadow status" });
+  }
+});
+
+router.post("/admin/touring/shadow/run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    return res.json(await runTouringShadow({ force: true }));
+  } catch (error) {
+    logger.error({ error }, "[touring-shadow] manual run failed");
+    return res.status(500).json({ error: "Unable to run touring shadow snapshot" });
+  }
 });
 
 export default router;
