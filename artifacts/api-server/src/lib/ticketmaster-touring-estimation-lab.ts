@@ -329,6 +329,10 @@ export async function ensureTicketmasterTouringEstimationTables(client: DbClient
       ON ticketmaster_touring_estimation_runs (calculated_at DESC);
     CREATE INDEX IF NOT EXISTS ticketmaster_estimation_event_lookup_idx
       ON ticketmaster_touring_estimation_event_estimates (artist_key, event_date);
+    DELETE FROM ticketmaster_touring_estimation_citations
+      WHERE citation_key = 'fuerza-pollstar-credit-union-1-2023';
+    DELETE FROM ticketmaster_touring_estimation_sources
+      WHERE source_key = 'fuerza-pollstar-credit-union-1-2023';
   `);
   for (const [citationKey, title, publisher, url, evidence] of CITATIONS) {
     await client.query(

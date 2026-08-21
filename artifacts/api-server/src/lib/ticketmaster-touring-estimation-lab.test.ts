@@ -240,6 +240,17 @@ test("documents the v0.2 exact-comparable and derived-only calibration rules", (
   assert.match(methodology.formulas.averagePaidPrice, /blended 40%.*60%/i);
   assert.match(methodology.priors, /raw Pollstar rows and report text are never stored/i);
   assert.match(methodology.limitations.join(" "), /do not increase confidence/i);
+  const pollstarCitations = methodology.sourceCitations.filter(
+    citation => citation.publisher.toLowerCase().includes("pollstar"),
+  );
+  assert.equal(
+    pollstarCitations.some(citation => String(citation.key) === "fuerza-pollstar-credit-union-1-2023"),
+    false,
+  );
+  assert.doesNotMatch(
+    pollstarCitations.map(citation => citation.evidence).join("\n"),
+    /2023-09-23|paid tickets|sold out|\$1,943,378|\$78\.62 ATP/i,
+  );
   const venueCalibrationCitation = methodology.sourceCitations.find(
     citation => citation.key === "fuerza-pollstar-credit-union-1-calibration",
   );
