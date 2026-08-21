@@ -4,6 +4,11 @@ import {
   getTicketmasterTouringShadowStatus,
   runTicketmasterTouringShadow,
 } from "../lib/ticketmaster-touring-shadow-scheduler";
+import {
+  forceRecalculateTicketmasterTouringEstimates,
+  getTicketmasterTouringEstimationReport,
+  TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY,
+} from "../lib/ticketmaster-touring-estimation-lab";
 
 const router = Router();
 
@@ -377,6 +382,34 @@ router.post("/admin/touring/shadow/force-run", async (req, res) => {
   } catch (error) {
     logger.error({ error }, "[touring-shadow] force run failed");
     res.status(500).json({ error: "Unable to run Ticketmaster touring shadow tracker" });
+  }
+});
+
+router.get("/admin/touring/estimation-lab/report", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await getTicketmasterTouringEstimationReport());
+  } catch (error) {
+    logger.error({ error }, "[touring-estimation] report lookup failed");
+    res.status(500).json({ error: "Unable to read Touring Estimation Lab report" });
+  }
+});
+
+router.get("/admin/touring/estimation-lab/methodology", (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  res.setHeader("Cache-Control", "no-store");
+  res.json(TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY);
+});
+
+router.post("/admin/touring/estimation-lab/force-recalculate", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await forceRecalculateTicketmasterTouringEstimates());
+  } catch (error) {
+    logger.error({ error }, "[touring-estimation] force recalculation failed");
+    res.status(500).json({ error: "Unable to recalculate Touring Estimation Lab" });
   }
 });
 

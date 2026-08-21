@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { recalculateTicketmasterTouringEstimates } from "./ticketmaster-touring-estimation-lab";
 
 type DbClient = {
   query: <T = Record<string, unknown>>(
@@ -702,6 +703,16 @@ export async function runTicketmasterTouringShadow(
       summary.failedArtists,
     );
     await finishRun(client, summary.runId, summary);
+    if (summary.status === "complete") {
+      try {
+        await recalculateTicketmasterTouringEstimates(summary.runId, reason);
+      } catch (error) {
+        logger.error(
+          { error, shadowRunId: summary.runId },
+          "[ticketmaster-estimation] automatic recalculation failed",
+        );
+      }
+    }
     return summary;
   } catch (error) {
     summary.status = "failed";
