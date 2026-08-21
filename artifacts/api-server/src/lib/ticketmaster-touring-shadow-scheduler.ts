@@ -277,6 +277,12 @@ export function ticketmasterRunStatus(
   return successfulArtists > 0 ? "partial" : "failed";
 }
 
+export function shouldRecalculateTouringEstimates(
+  status: TicketmasterTouringShadowRunSummary["status"],
+): boolean {
+  return status === "complete";
+}
+
 export function daysUntilEvent(
   eventDate: string | null,
   now = new Date(),
@@ -703,7 +709,7 @@ export async function runTicketmasterTouringShadow(
       summary.failedArtists,
     );
     await finishRun(client, summary.runId, summary);
-    if (summary.status === "complete") {
+    if (shouldRecalculateTouringEstimates(summary.status)) {
       try {
         await recalculateTicketmasterTouringEstimates(summary.runId, reason);
       } catch (error) {

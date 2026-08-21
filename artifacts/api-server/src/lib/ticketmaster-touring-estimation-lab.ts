@@ -114,8 +114,8 @@ export function consolidateEstimationEvents(snapshots: Snapshot[]): Consolidated
       representative: ordered[0],
       snapshots: ordered,
       sourceEventIds: [...new Set(group.map(snapshot => snapshot.event_id))].sort(),
-      sourceSnapshotIds: [...new Set(group.map(snapshot => snapshot.id))].sort((a, b) => a - b),
-      sourceRunIds: [...new Set(group.map(snapshot => snapshot.run_id))].sort((a, b) => a - b),
+      sourceSnapshotIds: [...new Set(group.map(snapshot => Number(snapshot.id)))].sort((a, b) => a - b),
+      sourceRunIds: [...new Set(group.map(snapshot => Number(snapshot.run_id)))].sort((a, b) => a - b),
       normalizedVenue: normalizeEstimationVenue(ordered[0].venue_name) || "unknown-venue",
     };
   }).sort((a, b) =>
@@ -388,9 +388,39 @@ async function loadPriors(client: DbClient): Promise<Prior[]> {
   return result.rows;
 }
 
-function selectPrior(priors: Prior[], artistKey: string, venueType: string): Prior {
-  const artist = priors.filter(prior => prior.artist_key === artistKey && prior.venue_type === "all");
-  return artist[0] ?? priors[0];
+export async function loadCompleteShadowRunSnapshots(
+  client: Pick<DbClient, "query">,
+  shadowRunId: number,
+  now = new Date(),
+): Promise<Snapshot[]> {
+  const run = await client.query<{ id: number }>(
+    `SELECT id FROM ticketmaster_touring_shadow_runs
+     WHERE id=$1 AND status='complete'`,
+    [shadowRunId],
+  );
+  if (!run.rows[0]) {
+    throw new Error(`Ticketmaster shadow run ${shadowRunId} is not complete.`);
+  }
+  const snapshots = await client.query<Snapshot>(`
+    SELECT id,run_id,artist_key,artist_name,event_id,event_name,event_url,event_date,event_time,event_status,
+      public_sale_start_at::text,price_min,price_max,price_currency,venue_name,venue_type,venue_city,
+      venue_country,venue_timezone,observed_at::text
+    FROM ticketmaster_touring_shadow_event_snapshots
+    WHERE run_id=$1
+      AND artist_key IN ('carin-leon','fuerza-regida')
+      AND event_classification='concert' AND is_trackable_concert=true
+      AND event_date >= $2
+    ORDER BY artist_key,event_id,observed_at DESC,id DESC
+  `, [shadowRunId, todayIso(now)]);
+  return snapshots.rows;
+}
+
+export function selectPrior(priors: Prior[], artistKey: string, venueType: string): Prior {
+  return priors.find(prior =>
+    prior.artist_key === artistKey && prior.venue_type === venueType,
+  ) ?? priors.find(prior =>
+    prior.artist_key === artistKey && prior.venue_type === "all",
+  ) ?? priors.find(prior => prior.venue_type === "all") ?? priors[0];
 }
 
 export async function recalculateTicketmasterTouringEstimates(
@@ -402,25 +432,15 @@ export async function recalculateTicketmasterTouringEstimates(
   let estimationRunId: number | null = null;
   try {
     await ensureTicketmasterTouringEstimationTables(client);
-    const snapshots = await client.query<Snapshot>(`
-      SELECT DISTINCT ON (artist_key,event_id)
-        id,run_id,artist_key,artist_name,event_id,event_name,event_url,event_date,event_time,event_status,
-        public_sale_start_at::text,price_min,price_max,price_currency,venue_name,venue_type,venue_city,
-        venue_country,venue_timezone,observed_at::text
-      FROM ticketmaster_touring_shadow_event_snapshots
-      WHERE artist_key IN ('carin-leon','fuerza-regida')
-        AND event_classification='concert' AND is_trackable_concert=true
-        AND event_date >= $1
-      ORDER BY artist_key,event_id,observed_at DESC,id DESC
-    `, [todayIso(now)]);
+    const snapshots = await loadCompleteShadowRunSnapshots(client, shadowRunId, now);
     const profiles = await loadProfiles(client);
     const priors = await loadPriors(client);
-    const events = consolidateEstimationEvents(snapshots.rows);
+    const events = consolidateEstimationEvents(snapshots);
     const run = await client.query<{ id: number }>(
       `INSERT INTO ticketmaster_touring_estimation_runs
        (model_version,trigger_reason,status,shadow_run_id,source_snapshot_count,estimated_event_count,report_warning,methodology_version)
        VALUES ($1,$2,'running',$3,$4,$5,$6,$7) RETURNING id`,
-      [ESTIMATION_MODEL_VERSION, reason, shadowRunId, snapshots.rows.length, events.length, ESTIMATION_DISCLAIMER, ESTIMATION_METHODOLOGY_VERSION],
+      [ESTIMATION_MODEL_VERSION, reason, shadowRunId, snapshots.length, events.length, ESTIMATION_DISCLAIMER, ESTIMATION_METHODOLOGY_VERSION],
     );
     estimationRunId = Number(run.rows[0].id);
     for (const event of events) {
@@ -438,7 +458,7 @@ export async function recalculateTicketmasterTouringEstimates(
          average_paid_price_usd_low,average_paid_price_usd_central,average_paid_price_usd_high,
          final_gross_usd_low,final_gross_usd_central,final_gross_usd_high,
          confidence_score,confidence_label,model_version,calculated_at,data_freshness,assumptions,warnings,source_citations,provenance)
-        VALUES (${Array.from({ length: 39 }, (_, index) => `$${index + 1}`).join(",")})`,
+        VALUES (${Array.from({ length: 40 }, (_, index) => `$${index + 1}`).join(",")})`,
         [
           estimationRunId,event.representative.id,event.representative.artist_key,event.representative.artist_name,
           event.representative.event_date,event.normalizedVenue,event.representative.venue_name ?? "Unknown venue",
@@ -457,7 +477,7 @@ export async function recalculateTicketmasterTouringEstimates(
       );
     }
     await client.query(`UPDATE ticketmaster_touring_estimation_runs SET status='complete' WHERE id=$1`, [estimationRunId]);
-    return { status: "complete" as const, estimationRunId, sourceSnapshotCount: snapshots.rows.length, estimatedEventCount: events.length };
+    return { status: "complete" as const, estimationRunId, sourceSnapshotCount: snapshots.length, estimatedEventCount: events.length };
   } catch (error) {
     if (estimationRunId) await client.query(`UPDATE ticketmaster_touring_estimation_runs SET status='failed' WHERE id=$1`, [estimationRunId]).catch(() => {});
     logger.error({ error, shadowRunId, reason }, "[ticketmaster-estimation] recalculation failed");
@@ -504,7 +524,11 @@ export async function getTicketmasterTouringEstimationReport() {
       confidence_score,confidence_label,model_version,calculated_at::text,data_freshness,assumptions,warnings,source_citations,provenance
       FROM ticketmaster_touring_estimation_event_estimates WHERE estimation_run_id=$1
       ORDER BY artist_name,event_date,venue_name`, [latest.id]);
-    const summary = events.rows.reduce((acc, event) => {
+    const summary = events.rows.reduce<{
+      eventCount: number;
+      centralAttendance: number;
+      centralGrossUsd: number;
+    }>((acc, event) => {
       acc.eventCount += 1;
       acc.centralAttendance += Number(event.final_attendance_central ?? 0);
       acc.centralGrossUsd += Number(event.final_gross_usd_central ?? 0);

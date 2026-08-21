@@ -20,6 +20,15 @@ const ADMIN_KEY = () => (
   ""
 ).trim();
 const TM_BASE = "https://app.ticketmaster.com/discovery/v2";
+export const PUBLIC_TOURING_ROUTE_PATHS = [
+  "/touring/concerts",
+  "/touring/concerts/:artistId",
+] as const;
+export const ESTIMATION_LAB_ADMIN_ROUTE_PATHS = [
+  "/admin/touring/estimation-lab/report",
+  "/admin/touring/estimation-lab/methodology",
+  "/admin/touring/estimation-lab/force-recalculate",
+] as const;
 
 const ARTISTS = [
   // — original tracked —
@@ -200,13 +209,19 @@ function requireShadowAdmin(
   req: Parameters<Parameters<typeof router.get>[1]>[0],
   res: Parameters<Parameters<typeof router.get>[1]>[1],
 ): boolean {
-  const key = ADMIN_KEY();
-  const header = req.headers["x-admin-key"];
-  if (!key || header !== key) {
+  if (!isShadowAdminHeaderAuthorized(req.headers)) {
     res.status(403).json({ error: "Forbidden — provide X-Admin-Key header" });
     return false;
   }
   return true;
+}
+
+export function isShadowAdminHeaderAuthorized(
+  headers: Record<string, string | string[] | undefined>,
+): boolean {
+  const key = ADMIN_KEY();
+  const header = headers["x-admin-key"];
+  return Boolean(key && typeof header === "string" && header === key);
 }
 
 function bestImage(images: { ratio?: string; url: string; width?: number }[]): string | null {
@@ -266,7 +281,7 @@ async function fetchArtistEvents(attractionId: string): Promise<TmEvent[]> {
   });
 }
 
-router.get("/touring/concerts", async (req, res) => {
+router.get(PUBLIC_TOURING_ROUTE_PATHS[0], async (req, res) => {
   if (!TM_KEY) {
     return res.status(503).json({ error: "TICKETMASTER_API_KEY not configured" });
   }
@@ -297,7 +312,7 @@ router.get("/touring/concerts", async (req, res) => {
   return res.json({ artists: result, cachedAt: Date.now() });
 });
 
-router.get("/touring/concerts/:artistId", async (req, res) => {
+router.get(PUBLIC_TOURING_ROUTE_PATHS[1], async (req, res) => {
   if (!TM_KEY) {
     return res.status(503).json({ error: "TICKETMASTER_API_KEY not configured" });
   }
@@ -385,7 +400,7 @@ router.post("/admin/touring/shadow/force-run", async (req, res) => {
   }
 });
 
-router.get("/admin/touring/estimation-lab/report", async (req, res) => {
+router.get(ESTIMATION_LAB_ADMIN_ROUTE_PATHS[0], async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   try {
     res.setHeader("Cache-Control", "no-store");
@@ -396,13 +411,13 @@ router.get("/admin/touring/estimation-lab/report", async (req, res) => {
   }
 });
 
-router.get("/admin/touring/estimation-lab/methodology", (req, res) => {
+router.get(ESTIMATION_LAB_ADMIN_ROUTE_PATHS[1], (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   res.setHeader("Cache-Control", "no-store");
   res.json(TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY);
 });
 
-router.post("/admin/touring/estimation-lab/force-recalculate", async (req, res) => {
+router.post(ESTIMATION_LAB_ADMIN_ROUTE_PATHS[2], async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   try {
     res.setHeader("Cache-Control", "no-store");
