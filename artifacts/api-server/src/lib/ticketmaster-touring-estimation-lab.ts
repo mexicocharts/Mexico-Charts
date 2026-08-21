@@ -9,8 +9,8 @@ type DbClient = {
   release: () => void;
 };
 
-export const ESTIMATION_MODEL_VERSION = "ticketmaster-estimation-v0.1";
-export const ESTIMATION_METHODOLOGY_VERSION = "ticketmaster-estimation-methodology-v0.1";
+export const ESTIMATION_MODEL_VERSION = "ticketmaster-estimation-v0.2";
+export const ESTIMATION_METHODOLOGY_VERSION = "ticketmaster-estimation-methodology-v0.2";
 export const ESTIMATION_DISCLAIMER =
   "Current tickets moved are model forecasts, not measured Ticketmaster inventory.";
 
@@ -55,10 +55,39 @@ type Prior = {
   venue_type: string;
   tickets_total: number;
   gross_usd_total: number;
+  report_count: number | null;
   show_count: number;
+  weighted_atp_usd: number | string | null;
+  median_attendance: number | string | null;
+  attendance_iqr_low: number | string | null;
+  attendance_iqr_high: number | string | null;
+  median_atp_usd: number | string | null;
+  atp_iqr_low: number | string | null;
+  atp_iqr_high: number | string | null;
   citation_keys: string[];
 };
 
+type VenueComparable = {
+  comparable_key: string;
+  artist_key: string;
+  venue_key: string;
+  normalized_venue: string;
+  event_date: string;
+  sellable_capacity: number;
+  paid_tickets: number;
+  sell_through: number | string;
+  gross_usd: number | string;
+  atp_usd: number | string;
+  sold_out: boolean;
+  citation_keys: string[];
+  notes: string;
+};
+
+type CalibrationSelection = {
+  prior: Prior;
+  exactVenueComparable: VenueComparable | null;
+  selection: "exact-venue" | "venue-type" | "generic-artist" | "generic-fallback";
+};
 export type EstimateRange = { low: number; central: number; high: number };
 
 export type ConsolidatedEvent = {
@@ -89,6 +118,12 @@ export function normalizeEstimationVenue(value: string | null | undefined): stri
     .replace(/\s+/g, " ");
 }
 
+export function normalizeEstimationVenueType(value: string | null | undefined): string {
+  const normalized = normalizeEstimationVenue(value);
+  if (normalized === "amphitheatre") return "amphitheater";
+  if (normalized === "arena residency") return "arena-residency";
+  return normalized;
+}
 export function range(low: number, central: number, high: number): EstimateRange {
   return {
     low: Math.max(0, Math.round(Math.min(low, central, high))),

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   bigint,
   bigserial,
   check,
@@ -13,6 +14,20 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { ticketmasterTouringShadowEventSnapshots, ticketmasterTouringShadowRuns } from "./ticketmaster_touring_shadow";
+
+export const ticketmasterTouringEstimationSources = pgTable("ticketmaster_touring_estimation_sources", {
+  sourceKey: text("source_key").primaryKey(),
+  sourceType: text("source_type").notNull(),
+  title: text("title").notNull(),
+  purchasedDate: text("purchased_date").notNull(),
+  headlineReportCount: integer("headline_report_count").notNull(),
+  overallShowCount: integer("overall_show_count").notNull(),
+  rawRowsStored: boolean("raw_rows_stored").notNull().default(false),
+  notes: text("notes").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  check("ticketmaster_estimation_sources_raw_rows_check", sql`${table.rawRowsStored} = false`),
+]);
 
 export const ticketmasterTouringEstimationCitations = pgTable("ticketmaster_touring_estimation_citations", {
   citationKey: text("citation_key").primaryKey(),
@@ -43,14 +58,50 @@ export const ticketmasterTouringEstimationCalibrationPriors = pgTable("ticketmas
   artistKey: text("artist_key").notNull(),
   geography: text("geography").notNull(),
   venueType: text("venue_type").notNull(),
+  reportCount: integer("report_count"),
   showCount: integer("show_count").notNull(),
   ticketsTotal: integer("tickets_total").notNull(),
   grossUsdTotal: numeric("gross_usd_total").notNull(),
+  weightedAtpUsd: numeric("weighted_atp_usd"),
+  medianAttendance: numeric("median_attendance"),
+  attendanceIqrLow: numeric("attendance_iqr_low"),
+  attendanceIqrHigh: numeric("attendance_iqr_high"),
+  medianAtpUsd: numeric("median_atp_usd"),
+  atpIqrLow: numeric("atp_iqr_low"),
+  atpIqrHigh: numeric("atp_iqr_high"),
   citationKeys: jsonb("citation_keys").$type<string[]>().notNull().default([]),
   notes: text("notes").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
   index("ticketmaster_estimation_priors_artist_idx").on(table.artistKey, table.geography, table.venueType),
+]);
+
+export const ticketmasterTouringEstimationVenueComparables = pgTable("ticketmaster_touring_estimation_venue_comparables", {
+  comparableKey: text("comparable_key").primaryKey(),
+  artistKey: text("artist_key").notNull(),
+  venueKey: text("venue_key").notNull(),
+  normalizedVenue: text("normalized_venue").notNull(),
+  eventDate: text("event_date").notNull(),
+  sellableCapacity: integer("sellable_capacity").notNull(),
+  paidTickets: integer("paid_tickets").notNull(),
+  sellThrough: numeric("sell_through").notNull(),
+  grossUsd: numeric("gross_usd").notNull(),
+  atpUsd: numeric("atp_usd").notNull(),
+  soldOut: boolean("sold_out").notNull().default(false),
+  citationKeys: jsonb("citation_keys").$type<string[]>().notNull().default([]),
+  notes: text("notes").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, table => [
+  uniqueIndex("ticketmaster_estimation_comparable_artist_venue_date_unique").on(
+    table.artistKey,
+    table.normalizedVenue,
+    table.eventDate,
+  ),
+  check("ticketmaster_estimation_comparable_range_check", sql`
+    ${table.sellableCapacity} >= 0 AND ${table.paidTickets} >= 0
+    AND ${table.sellThrough} >= 0 AND ${table.sellThrough} <= 1
+    AND ${table.grossUsd} >= 0 AND ${table.atpUsd} >= 0
+  `),
 ]);
 
 export const ticketmasterTouringEstimationRuns = pgTable("ticketmaster_touring_estimation_runs", {
