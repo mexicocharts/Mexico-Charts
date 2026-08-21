@@ -55,15 +55,15 @@ type Prior = {
   venue_type: string;
   tickets_total: number;
   gross_usd_total: number;
-  report_count: number | null;
+  report_count?: number | null;
   show_count: number;
-  weighted_atp_usd: number | string | null;
-  median_attendance: number | string | null;
-  attendance_iqr_low: number | string | null;
-  attendance_iqr_high: number | string | null;
-  median_atp_usd: number | string | null;
-  atp_iqr_low: number | string | null;
-  atp_iqr_high: number | string | null;
+  weighted_atp_usd?: number | string | null;
+  median_attendance?: number | string | null;
+  attendance_iqr_low?: number | string | null;
+  attendance_iqr_high?: number | string | null;
+  median_atp_usd?: number | string | null;
+  atp_iqr_low?: number | string | null;
+  atp_iqr_high?: number | string | null;
   citation_keys: string[];
 };
 
@@ -72,13 +72,9 @@ type VenueComparable = {
   artist_key: string;
   venue_key: string;
   normalized_venue: string;
-  event_date: string;
-  sellable_capacity: number;
-  paid_tickets: number;
-  sell_through: number | string;
-  gross_usd: number | string;
-  atp_usd: number | string;
-  sold_out: boolean;
+  capacity_anchor: number;
+  historical_atp_usd: number | string;
+  sample_show_count: number;
   citation_keys: string[];
   notes: string;
 };
@@ -181,6 +177,12 @@ const CITATIONS = [
   ["artist-priors-2024", "Reported 2024 artist box-office totals", "Billboard reported totals", "https://www.billboard.com/pro/touring-data-2024-year-end-boxscore/", "Calibration evidence only: Carín León approximately $36.3M / 259,000 tickets / 25 US shows; Fuerza Regida approximately $67.4M / 501,000 tickets / 39 US shows."],
   ["fuerza-bmo-2023", "Fuerza Regida BMO Stadium 2023 result", "Billboard Boxscore", "https://www.billboard.com/pro/fuerza-regida-this-is-our-dream-tour-boxscore/", "Calibration evidence only: 22,392 tickets and $3,681,730."],
   ["fuerza-stadium-2026", "Fuerza Regida first 2026 stadium leg", "Reported box-office results", "https://www.billboard.com/pro/fuerza-regida-stadium-tour-boxscore-2026/", "Calibration evidence only: 330,228 tickets and $47,198,246 across eight sold-out shows; Dodger Stadium 49,784 tickets and $9,237,664."],
+  ["pollstar-tour-history-2026-08-21", "Purchased Pollstar Tour History derived aggregates", "Pollstar", null, "Private derived calibration only: verified report contains 93 headline reports and 97 shows overall; raw rows and report text are not stored."],
+  ["fuerza-pollstar-arena-2026", "Fuerza Regida recent US arena aggregates", "Purchased Pollstar Tour History", null, "Derived aggregate only: 52 reports, 55 shows, 595,570 tickets, $84,312,297 gross."],
+  ["fuerza-pollstar-amphitheater-2026", "Fuerza Regida recent US amphitheatre aggregates", "Purchased Pollstar Tour History", null, "Derived aggregate only: 6 reports, 6 shows, 93,678 tickets, $8,220,705 gross."],
+  ["fuerza-pollstar-stadium-2026", "Fuerza Regida recent US stadium aggregates", "Purchased Pollstar Tour History", null, "Derived aggregate only: 10 reports, 10 shows, 391,122 tickets, $56,898,123 gross, including BMO 2023 and nine 2026 stadiums."],
+  ["fuerza-pollstar-stadium-2026-nine-shows", "Fuerza Regida completed 2026 US stadium aggregates", "Purchased Pollstar Tour History", null, "Derived aggregate only: 9 completed shows, 368,730 tickets, $53,216,393 gross."],
+  ["fuerza-pollstar-credit-union-1-calibration", "Fuerza Regida Credit Union 1 Amphitheatre derived calibration", "Purchased Pollstar Tour History", null, "Private aggregate calibration profile only; raw show rows, dates, ticket counts, gross, and report text are not stored."],
   ["conservative-fallback", "Conservative fallback profile", "Mexico Charts methodology", null, "Broad unrecognized-venue range; not a measured venue capacity."],
 ] as const;
 
@@ -211,6 +213,13 @@ const VENUES: Array<[string, string, string, string, number, number, number, str
 
 export async function ensureTicketmasterTouringEstimationTables(client: DbClient) {
   await client.query(`
+    CREATE TABLE IF NOT EXISTS ticketmaster_touring_estimation_sources (
+      source_key text PRIMARY KEY, source_type text NOT NULL, title text NOT NULL,
+      purchased_date text NOT NULL, headline_report_count integer NOT NULL,
+      overall_show_count integer NOT NULL, raw_rows_stored boolean NOT NULL DEFAULT false,
+      notes text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+      CHECK (raw_rows_stored = false)
+    );
     CREATE TABLE IF NOT EXISTS ticketmaster_touring_estimation_citations (
       citation_key text PRIMARY KEY, title text NOT NULL, publisher text NOT NULL,
       url text, evidence text NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
@@ -224,10 +233,64 @@ export async function ensureTicketmasterTouringEstimationTables(client: DbClient
     );
     CREATE TABLE IF NOT EXISTS ticketmaster_touring_estimation_calibration_priors (
       prior_key text PRIMARY KEY, artist_key text NOT NULL, geography text NOT NULL,
-      venue_type text NOT NULL, show_count integer NOT NULL, tickets_total integer NOT NULL,
-      gross_usd_total numeric NOT NULL, citation_keys jsonb NOT NULL DEFAULT '[]'::jsonb,
+      venue_type text NOT NULL, report_count integer, show_count integer NOT NULL, tickets_total integer NOT NULL,
+      gross_usd_total numeric NOT NULL, weighted_atp_usd numeric,
+      median_attendance numeric, attendance_iqr_low numeric, attendance_iqr_high numeric,
+      median_atp_usd numeric, atp_iqr_low numeric, atp_iqr_high numeric,
+      citation_keys jsonb NOT NULL DEFAULT '[]'::jsonb,
       notes text NOT NULL, updated_at timestamptz NOT NULL DEFAULT now()
     );
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS report_count integer;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS weighted_atp_usd numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS median_attendance numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS attendance_iqr_low numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS attendance_iqr_high numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS median_atp_usd numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS atp_iqr_low numeric;
+    ALTER TABLE ticketmaster_touring_estimation_calibration_priors ADD COLUMN IF NOT EXISTS atp_iqr_high numeric;
+    CREATE TABLE IF NOT EXISTS ticketmaster_touring_estimation_venue_comparables (
+      comparable_key text PRIMARY KEY, artist_key text NOT NULL, venue_key text NOT NULL,
+      normalized_venue text NOT NULL, capacity_anchor integer NOT NULL,
+      historical_atp_usd numeric NOT NULL, sample_show_count integer NOT NULL DEFAULT 1,
+      citation_keys jsonb NOT NULL DEFAULT '[]'::jsonb, notes text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (artist_key, normalized_venue),
+      CHECK (capacity_anchor >= 0 AND historical_atp_usd >= 0 AND sample_show_count > 0)
+    );
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ADD COLUMN IF NOT EXISTS capacity_anchor integer;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ADD COLUMN IF NOT EXISTS historical_atp_usd numeric;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ADD COLUMN IF NOT EXISTS sample_show_count integer;
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'ticketmaster_touring_estimation_venue_comparables'
+          AND column_name = 'sellable_capacity'
+      ) THEN
+        EXECUTE 'UPDATE ticketmaster_touring_estimation_venue_comparables
+          SET capacity_anchor = COALESCE(capacity_anchor, sellable_capacity),
+              historical_atp_usd = COALESCE(historical_atp_usd, atp_usd),
+              sample_show_count = COALESCE(sample_show_count, 1)';
+      END IF;
+    END $$;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ALTER COLUMN capacity_anchor SET NOT NULL;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ALTER COLUMN historical_atp_usd SET NOT NULL;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables ALTER COLUMN sample_show_count SET NOT NULL;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables
+      DROP CONSTRAINT IF EXISTS ticketmaster_touring_estimation_venue_comparables_artist_key_normalized_venue_event_date_key;
+    DROP INDEX IF EXISTS ticketmaster_estimation_comparable_artist_venue_date_unique;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS event_date;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS sellable_capacity;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS paid_tickets;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS sell_through;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS gross_usd;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS atp_usd;
+    ALTER TABLE ticketmaster_touring_estimation_venue_comparables DROP COLUMN IF EXISTS sold_out;
+    DELETE FROM ticketmaster_touring_estimation_venue_comparables
+      WHERE comparable_key = 'fuerza-regida-credit-union-1-2023';
+    CREATE UNIQUE INDEX IF NOT EXISTS ticketmaster_estimation_comparable_artist_venue_unique
+      ON ticketmaster_touring_estimation_venue_comparables (artist_key, normalized_venue);
     CREATE TABLE IF NOT EXISTS ticketmaster_touring_estimation_runs (
       id bigserial PRIMARY KEY, model_version text NOT NULL, trigger_reason text NOT NULL,
       status text NOT NULL CHECK (status IN ('running','complete','failed')),
@@ -275,6 +338,15 @@ export async function ensureTicketmasterTouringEstimationTables(client: DbClient
       [citationKey, title, publisher, url, evidence],
     );
   }
+  await client.query(
+    `INSERT INTO ticketmaster_touring_estimation_sources
+      (source_key,source_type,title,purchased_date,headline_report_count,overall_show_count,raw_rows_stored,notes)
+     VALUES ($1,$2,$3,$4,$5,$6,false,$7)
+     ON CONFLICT (source_key) DO UPDATE SET source_type=excluded.source_type,title=excluded.title,
+       purchased_date=excluded.purchased_date,headline_report_count=excluded.headline_report_count,
+       overall_show_count=excluded.overall_show_count,raw_rows_stored=false,notes=excluded.notes`,
+    ["pollstar-tour-history-2026-08-21", "purchased-report-derived", "Pollstar Tour History (derived aggregates only)", "2026-08-21", 93, 97, "Raw Pollstar rows and report text are intentionally not stored."],
+  );
   for (const venue of VENUES) {
     await client.query(
       `INSERT INTO ticketmaster_touring_estimation_venue_registry
@@ -287,30 +359,48 @@ export async function ensureTicketmasterTouringEstimationTables(client: DbClient
     );
   }
   const priors = [
-    ["carin-leon-2024-us", "carin-leon", "US", "all", 25, 259000, 36300000, ["artist-priors-2024"], "US calibration only; reported total, not event inventory."],
-    ["fuerza-regida-2024-us", "fuerza-regida", "US", "all", 39, 501000, 67400000, ["artist-priors-2024"], "US calibration only; reported total, not event inventory."],
-    ["fuerza-regida-2023-bmo-us", "fuerza-regida", "US", "stadium", 1, 22392, 3681730, ["fuerza-bmo-2023"], "US stadium calibration only."],
-    ["fuerza-regida-2026-stadium-us", "fuerza-regida", "US", "stadium", 8, 330228, 47198246, ["fuerza-stadium-2026"], "US stadium calibration only; eight-show leg."],
+    ["carin-leon-2024-us", "carin-leon", "US", "all", 25, 25, 259000, 36300000, null, null, null, null, null, null, null, ["artist-priors-2024"], "US calibration only; reported total, not event inventory."],
+    ["fuerza-regida-2024-us", "fuerza-regida", "US", "all", 39, 39, 501000, 67400000, null, null, null, null, null, null, null, ["artist-priors-2024"], "US calibration only; reported total, not event inventory."],
+    ["fuerza-regida-pollstar-arena-us", "fuerza-regida", "US", "arena", 52, 55, 595570, 84312297, 141.57, 10690.5, 8067, 13466, 137.53, 123.67, 158.41, ["pollstar-tour-history-2026-08-21", "fuerza-pollstar-arena-2026"], "Derived aggregate only; reports and shows are kept separate for normalization."],
+    ["fuerza-regida-pollstar-amphitheater-us", "fuerza-regida", "US", "amphitheater", 6, 6, 93678, 8220705, 87.75, 15962.5, 9446, 19669, 85.95, 79.05, 91.38, ["pollstar-tour-history-2026-08-21", "fuerza-pollstar-amphitheater-2026"], "Derived aggregate only; amphitheater spelling normalized to amphitheater."],
+    ["fuerza-regida-pollstar-stadium-us", "fuerza-regida", "US", "stadium", 10, 10, 391122, 56898123, 145.47, 39819.5, 37545, 42353, null, null, null, ["pollstar-tour-history-2026-08-21", "fuerza-pollstar-stadium-2026"], "Derived aggregate only; includes BMO 2023 and nine 2026 stadiums."],
+    ["fuerza-regida-2026-stadium-us", "fuerza-regida", "US", "stadium", 9, 9, 368730, 53216393, 144.32, null, null, null, null, null, null, ["pollstar-tour-history-2026-08-21", "fuerza-pollstar-stadium-2026-nine-shows"], "Derived aggregate only; nine completed 2026 shows."],
   ];
   for (const prior of priors) {
     await client.query(
       `INSERT INTO ticketmaster_touring_estimation_calibration_priors
-       (prior_key,artist_key,geography,venue_type,show_count,tickets_total,gross_usd_total,citation_keys,notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       (prior_key,artist_key,geography,venue_type,report_count,show_count,tickets_total,gross_usd_total,
+        weighted_atp_usd,median_attendance,attendance_iqr_low,attendance_iqr_high,median_atp_usd,atp_iqr_low,atp_iqr_high,citation_keys,notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT (prior_key) DO UPDATE SET tickets_total=excluded.tickets_total,gross_usd_total=excluded.gross_usd_total,
+       report_count=excluded.report_count,show_count=excluded.show_count,weighted_atp_usd=excluded.weighted_atp_usd,
+       median_attendance=excluded.median_attendance,attendance_iqr_low=excluded.attendance_iqr_low,
+       attendance_iqr_high=excluded.attendance_iqr_high,median_atp_usd=excluded.median_atp_usd,
+       atp_iqr_low=excluded.atp_iqr_low,atp_iqr_high=excluded.atp_iqr_high,
        citation_keys=excluded.citation_keys,notes=excluded.notes,updated_at=now()`,
-      prior.map(value => typeof value === "object" ? JSON.stringify(value) : value),
+       prior.map(value => value == null ? null : typeof value === "object" ? JSON.stringify(value) : value),
     );
   }
+  await client.query(
+    `INSERT INTO ticketmaster_touring_estimation_venue_comparables
+      (comparable_key,artist_key,venue_key,normalized_venue,capacity_anchor,historical_atp_usd,sample_show_count,citation_keys,notes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     ON CONFLICT (comparable_key) DO UPDATE SET artist_key=excluded.artist_key,venue_key=excluded.venue_key,
+       normalized_venue=excluded.normalized_venue,capacity_anchor=excluded.capacity_anchor,
+       historical_atp_usd=excluded.historical_atp_usd,sample_show_count=excluded.sample_show_count,
+       citation_keys=excluded.citation_keys,notes=excluded.notes,updated_at=now()`,
+    ["fuerza-regida-credit-union-1-calibration", "fuerza-regida", "credit-union-1-amphitheatre", "credit union 1 amphitheatre", 24719, 78.62, 1, JSON.stringify(["pollstar-tour-history-2026-08-21", "fuerza-pollstar-credit-union-1-calibration"]), "Derived exact-venue calibration profile only; not current inventory or a stored source row."],
+  );
 }
 
-function findCapacity(profiles: CapacityProfile[], venueName: string | null): CapacityProfile {
+export function findCapacity(profiles: CapacityProfile[], venueName: string | null): CapacityProfile {
   const normalized = normalizeEstimationVenue(venueName);
-  return profiles.find(profile =>
+  const profile = profiles.find(profile =>
     normalized === profile.normalizedVenue ||
     normalized.includes(profile.normalizedVenue) ||
     profile.normalizedVenue.includes(normalized) && normalized.length > 4,
   ) ?? profiles.find(profile => profile.venueKey === "unknown-fallback")!;
+  return { ...profile, venueType: normalizeEstimationVenueType(profile.venueType) };
 }
 
 function freshness(observedAt: string, now: Date): string {
@@ -327,26 +417,33 @@ export function calculateEstimate(
   profile: CapacityProfile,
   prior: Prior,
   now = new Date(),
+  exactVenueComparable: VenueComparable | null = null,
 ) {
   const snapshot = event.representative;
   const daysUntil = Math.max(0, Math.ceil((Date.parse(`${snapshot.event_date}T00:00:00Z`) - Date.parse(`${todayIso(now)}T00:00:00Z`)) / 86_400_000));
-  const venueType = profile.venueType;
+  const venueType = normalizeEstimationVenueType(profile.venueType);
   const priorTickets = prior.tickets_total / Math.max(1, prior.show_count);
-  const priorPrice = prior.gross_usd_total / Math.max(1, prior.tickets_total);
+  const recentArtistPrice = asNumber(prior.weighted_atp_usd) ?? prior.gross_usd_total / Math.max(1, prior.tickets_total);
+  const priorPrice = exactVenueComparable
+    ? asNumber(exactVenueComparable.historical_atp_usd)! * 0.4 + recentArtistPrice * 0.6
+    : recentArtistPrice;
   const hasPrice = snapshot.price_currency?.toUpperCase() === "USD" &&
     asNumber(snapshot.price_min) != null && asNumber(snapshot.price_max) != null;
   const minPrice = hasPrice ? asNumber(snapshot.price_min)! : priorPrice * 0.65;
   const maxPrice = hasPrice ? asNumber(snapshot.price_max)! : priorPrice * 1.35;
   const centralPrice = hasPrice ? (minPrice + maxPrice) / 2 : priorPrice;
-  const configurationFactor = venueType.includes("fallback") ? 0.62 : venueType === "amphitheater" ? 0.72 : 0.82;
-  const demandCentral = Math.min(profile.capacityCentral * configurationFactor, priorTickets * (venueType === "stadium" ? 1.2 : 1));
+  const configurationFactor = exactVenueComparable ? 1 : venueType.includes("fallback") ? 0.62 : venueType === "amphitheater" ? 0.72 : 0.82;
+  const sellable = exactVenueComparable
+    ? range(profile.capacityLow, exactVenueComparable.capacity_anchor, profile.capacityHigh)
+    : range(profile.capacityLow * (venueType === "amphitheater" ? 0.65 : 0.75), profile.capacityCentral * configurationFactor, profile.capacityHigh * (venueType === "amphitheater" ? 0.92 : 0.95));
+  const demandCapacity = exactVenueComparable ? sellable.central : profile.capacityCentral * configurationFactor;
+  const demandCentral = Math.min(demandCapacity, priorTickets * (venueType === "stadium" ? 1.2 : 1));
   const isResidency = snapshot.artist_key === "carin-leon" && profile.venueKey === "sphere";
   const residencyFactor = isResidency ? 0.88 : 1;
   const status = (snapshot.event_status ?? "").toLowerCase();
   const canceled = ["cancelled", "canceled", "postponed"].some(word => status.includes(word));
   const finalCentral = canceled ? 0 : demandCentral * residencyFactor;
-  const final = range(finalCentral * 0.58, finalCentral, Math.min(profile.capacityHigh, finalCentral * (venueType.includes("fallback") ? 1.35 : 1.18)));
-  const sellable = range(profile.capacityLow * (venueType === "amphitheater" ? 0.65 : 0.75), profile.capacityCentral * configurationFactor, profile.capacityHigh * (venueType === "amphitheater" ? 0.92 : 0.95));
+  const final = range(finalCentral * 0.58, finalCentral, Math.min(sellable.high, finalCentral * (venueType.includes("fallback") ? 1.35 : 1.18)));
   const pace = daysUntil <= 7 ? 0.9 : daysUntil <= 30 ? 0.68 : 0.38;
   const moved = canceled ? range(0, 0, 0) : range(final.low * pace * 0.72, final.central * pace, final.high * Math.min(0.95, pace + 0.18));
   const sellThrough = {
@@ -371,6 +468,9 @@ export function calculateEstimate(
     score -= 8;
     warnings.push("Lawn capacity, weather, staging, festivals/GA, and premium/dynamic pricing create amphitheater uncertainty.");
   }
+  if (exactVenueComparable) {
+    warnings.push("Exact-venue history informs capacity and price calibration only; current tickets moved remain a low-confidence timing forecast, not observed inventory.");
+  }
   if (isResidency) {
     score -= 6;
     warnings.push("Sphere dates are a linked residency demand run; demand is not treated as independent across dates.");
@@ -386,12 +486,16 @@ export function calculateEstimate(
   if (freshness(snapshot.observed_at, now) !== "fresh") score -= 8;
   const assumptions = [
     `US-only calibration prior: ${prior.prior_key}; Mexican and European results are not mixed into the price prior.`,
-    `Sellable capacity uses the cited venue range with a ${Math.round(configurationFactor * 100)}% central configuration factor.`,
+    exactVenueComparable
+      ? `Sellable capacity is anchored to the exact ${exactVenueComparable.capacity_anchor.toLocaleString("en-US")} derived venue calibration inside the independently sourced ${profile.capacityLow.toLocaleString("en-US")}–${profile.capacityHigh.toLocaleString("en-US")} venue range; no generic configuration discount is applied twice.`
+      : `Sellable capacity uses the cited venue range with a ${Math.round(configurationFactor * 100)}% central configuration factor.`,
     `Current tickets moved use an on-sale timing proxy from days to event (${daysUntil} days), not measured sales.`,
     "Final attendance is constrained by sellable capacity and artist-level US historical ticket priors.",
-    "Price range uses the Discovery USD range when present; otherwise the artist US prior is widened.",
+    exactVenueComparable
+      ? "Price blends the older exact-venue ATP at 40% with recent artist venue-type pricing at 60%; it is not treated as current pricing."
+      : "Price range uses the Discovery USD range when present; otherwise the artist US prior is widened.",
   ];
-  const citations = [...new Set(["ticketmaster-discovery-api", ...profile.citationKeys, ...prior.citation_keys])];
+  const citations = [...new Set(["ticketmaster-discovery-api", ...profile.citationKeys, ...prior.citation_keys, ...(exactVenueComparable?.citation_keys ?? [])])];
   return {
     sellableCapacity: sellable,
     ticketsMoved: moved,
@@ -408,6 +512,7 @@ export function calculateEstimate(
     citations,
     daysUntil,
     canceled,
+    exactVenueComparableKey: exactVenueComparable?.comparable_key ?? null,
   };
 }
 
@@ -415,11 +520,21 @@ async function loadProfiles(client: DbClient): Promise<CapacityProfile[]> {
   const result = await client.query<CapacityProfile>(`SELECT venue_key "venueKey",venue_name "venueName",normalized_venue "normalizedVenue",
     venue_type "venueType",capacity_low "capacityLow",capacity_central "capacityCentral",capacity_high "capacityHigh",
     citation_keys "citationKeys",notes FROM ticketmaster_touring_estimation_venue_registry`);
-  return result.rows;
+  return result.rows.map(profile => ({ ...profile, venueType: normalizeEstimationVenueType(profile.venueType) }));
 }
 
 async function loadPriors(client: DbClient): Promise<Prior[]> {
-  const result = await client.query<Prior>(`SELECT prior_key,artist_key,venue_type,tickets_total,gross_usd_total,show_count,citation_keys FROM ticketmaster_touring_estimation_calibration_priors`);
+  const result = await client.query<Prior>(`SELECT prior_key,artist_key,venue_type,tickets_total,gross_usd_total,report_count,show_count,
+    weighted_atp_usd,median_attendance,attendance_iqr_low,attendance_iqr_high,median_atp_usd,atp_iqr_low,atp_iqr_high,citation_keys
+    FROM ticketmaster_touring_estimation_calibration_priors`);
+  return result.rows.map(prior => ({ ...prior, venue_type: normalizeEstimationVenueType(prior.venue_type) }));
+}
+
+async function loadVenueComparables(client: DbClient): Promise<VenueComparable[]> {
+  const result = await client.query<VenueComparable>(`SELECT comparable_key,artist_key,venue_key,normalized_venue,
+    capacity_anchor,historical_atp_usd,sample_show_count,citation_keys,notes
+    FROM ticketmaster_touring_estimation_venue_comparables
+    ORDER BY artist_key,normalized_venue,comparable_key`);
   return result.rows;
 }
 
@@ -451,11 +566,39 @@ export async function loadCompleteShadowRunSnapshots(
 }
 
 export function selectPrior(priors: Prior[], artistKey: string, venueType: string): Prior {
-  return priors.find(prior =>
-    prior.artist_key === artistKey && prior.venue_type === venueType,
-  ) ?? priors.find(prior =>
+  const normalizedVenueType = normalizeEstimationVenueType(venueType);
+  const venueTypePriors = priors.filter(prior =>
+    prior.artist_key === artistKey && prior.venue_type === normalizedVenueType,
+  );
+  return venueTypePriors.find(prior => prior.prior_key.includes("2026")) ??
+    venueTypePriors[0] ?? priors.find(prior =>
     prior.artist_key === artistKey && prior.venue_type === "all",
   ) ?? priors.find(prior => prior.venue_type === "all") ?? priors[0];
+}
+
+export function selectCalibration(
+  priors: Prior[],
+  comparables: VenueComparable[],
+  artistKey: string,
+  normalizedVenue: string,
+  venueType: string,
+): CalibrationSelection {
+  const exactVenueComparable = comparables.find(comparable =>
+    comparable.artist_key === artistKey &&
+    comparable.normalized_venue === normalizedVenue,
+  ) ?? null;
+  const prior = selectPrior(priors, artistKey, venueType);
+  return {
+    prior,
+    exactVenueComparable,
+    selection: exactVenueComparable
+      ? "exact-venue"
+      : prior.artist_key === artistKey && prior.venue_type === normalizeEstimationVenueType(venueType)
+        ? "venue-type"
+        : prior.artist_key === artistKey
+          ? "generic-artist"
+          : "generic-fallback",
+  };
 }
 
 export async function recalculateTicketmasterTouringEstimates(
@@ -470,6 +613,7 @@ export async function recalculateTicketmasterTouringEstimates(
     const snapshots = await loadCompleteShadowRunSnapshots(client, shadowRunId, now);
     const profiles = await loadProfiles(client);
     const priors = await loadPriors(client);
+    const comparables = await loadVenueComparables(client);
     const events = consolidateEstimationEvents(snapshots);
     const run = await client.query<{ id: number }>(
       `INSERT INTO ticketmaster_touring_estimation_runs
@@ -480,8 +624,8 @@ export async function recalculateTicketmasterTouringEstimates(
     estimationRunId = Number(run.rows[0].id);
     for (const event of events) {
       const profile = findCapacity(profiles, event.representative.venue_name);
-      const prior = selectPrior(priors, event.representative.artist_key, profile.venueType);
-      const calculated = calculateEstimate(event, profile, prior, now);
+      const calibration = selectCalibration(priors, comparables, event.representative.artist_key, event.normalizedVenue, profile.venueType);
+      const calculated = calculateEstimate(event, profile, calibration.prior, now, calibration.exactVenueComparable);
       await client.query(
         `INSERT INTO ticketmaster_touring_estimation_event_estimates
         (estimation_run_id,snapshot_id,artist_key,artist_name,event_date,normalized_venue,venue_name,venue_city,venue_type,
@@ -497,7 +641,7 @@ export async function recalculateTicketmasterTouringEstimates(
         [
           estimationRunId,event.representative.id,event.representative.artist_key,event.representative.artist_name,
           event.representative.event_date,event.normalizedVenue,event.representative.venue_name ?? "Unknown venue",
-          event.representative.venue_city,event.representative.venue_type ?? profile.venueType,
+          event.representative.venue_city,profile.venueType,
           JSON.stringify(event.sourceEventIds),JSON.stringify(event.sourceSnapshotIds),JSON.stringify(event.sourceRunIds),calculated.residencyGroup,
           calculated.sellableCapacity.low,calculated.sellableCapacity.central,calculated.sellableCapacity.high,
           calculated.ticketsMoved.low,calculated.ticketsMoved.central,calculated.ticketsMoved.high,
@@ -507,7 +651,18 @@ export async function recalculateTicketmasterTouringEstimates(
           calculated.finalGrossUsd.low,calculated.finalGrossUsd.central,calculated.finalGrossUsd.high,
           calculated.confidenceScore,calculated.confidenceLabel,ESTIMATION_MODEL_VERSION,now.toISOString(),calculated.dataFreshness,
           JSON.stringify(calculated.assumptions),JSON.stringify(calculated.warnings),JSON.stringify(calculated.citations),
-          JSON.stringify({ source: "ticketmaster_discovery_api", shadowSnapshotIds: event.sourceSnapshotIds, shadowRunIds: event.sourceRunIds, sourceEventIds: event.sourceEventIds, venueProfile: profile.venueKey, calibrationPrior: prior.prior_key }),
+           JSON.stringify({
+             source: "ticketmaster_discovery_api",
+             shadowSnapshotIds: event.sourceSnapshotIds,
+             shadowRunIds: event.sourceRunIds,
+             sourceEventIds: event.sourceEventIds,
+             venueProfile: profile.venueKey,
+             venueType: profile.venueType,
+             calibrationPrior: calibration.prior.prior_key,
+             calibrationSelection: calibration.selection,
+             exactVenueComparable: calibration.exactVenueComparable?.comparable_key ?? null,
+             calibrationSource: "pollstar-derived-aggregate-only",
+           }),
         ],
       );
     }
@@ -580,16 +735,17 @@ export const TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY = {
   disclaimer: ESTIMATION_DISCLAIMER,
   modelVersion: ESTIMATION_MODEL_VERSION,
   formulas: {
-    sellableCapacity: "venue capacity range × configuration factor; amphitheaters use a wider lawn/staging adjustment.",
+    calibrationPrecedence: "Exact artist + normalized venue comparable, then artist + normalized venue-type aggregate, then generic artist prior.",
+    sellableCapacity: "Cited venue capacity range × configuration factor; an exact-venue comparable anchors the central sellable capacity inside the independent venue range and does not receive the generic amphitheater discount again.",
     finalAttendance: "min(sellable capacity, artist US tickets-per-show prior × venue-type factor × residency linkage) with 58% low and widened high bounds.",
     ticketsMoved: "final attendance × days-to-event pace proxy; 0.38 beyond 30 days, 0.68 at 8–30 days, 0.90 within 7 days, widened low/high.",
     currentSellThrough: "tickets moved ÷ sellable capacity, using conservative denominator pairing for low/high bounds.",
-    averagePaidPrice: "Discovery USD price range when present; otherwise artist US gross/tickets prior widened to 65%–135%.",
+    averagePaidPrice: "Discovery USD price range when present; otherwise the exact-venue historical ATP is blended 40% with recent artist venue-type weighted ATP at 60%, then widened to 65%–135%.",
     finalGross: "final attendance × average paid USD ticket price.",
   },
-  priors: "Only cited US artist box-office priors are used; Mexican and European results are excluded from price calibration.",
+  priors: "Only cited US artist box-office priors and private derived Pollstar aggregates are used; raw Pollstar rows and report text are never stored, and Mexican and European results are excluded from price calibration.",
   penalties: ["unknown configuration", "amphitheater lawn/staging", "stadium staging", "festival/GA", "premium/dynamic pricing", "resale", "holds", "later seat releases", "refunds", "comps", "split ticketing", "duplicate provider records", "canceled/postponed status", "stale observations"],
   residency: "Carín León Sphere dates share a linked residency group and receive a demand-sharing factor rather than independent full-demand treatment.",
-  limitations: ["Discovery does not publish measured tickets sold or live inventory in these observations.", "Estimates are forecasts for planning, not authoritative box-office results.", "A report row is deduplicated by artist, local event date, and normalized venue while preserving every source event ID."],
+  limitations: ["Discovery does not publish measured tickets sold or live inventory in these observations.", "Historical final-show results calibrate capacity and price only; they do not increase confidence in the current tickets-moved timing forecast.", "Estimates are forecasts for planning, not authoritative box-office results.", "A report row is deduplicated by artist, local event date, and normalized venue while preserving every source event ID."],
   sourceCitations: CITATIONS.map(([key, title, publisher, url, evidence]) => ({ key, title, publisher, url, evidence })),
 };

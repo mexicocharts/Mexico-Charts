@@ -5,7 +5,10 @@ import {
   consolidateEstimationEvents,
   loadCompleteShadowRunSnapshots,
   normalizeEstimationVenue,
+  normalizeEstimationVenueType,
+  selectCalibration,
   selectPrior,
+  TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY,
   type ConsolidatedEvent,
 } from "./ticketmaster-touring-estimation-lab";
 import { shouldRecalculateTouringEstimates } from "./ticketmaster-touring-shadow-scheduler";
@@ -131,6 +134,117 @@ test("uses Fuerza Regida's cited stadium prior before the general US prior", () 
   assert.equal(selected.prior_key, "fuerza-regida-2026-stadium-us");
   assert.deepEqual(selected.citation_keys, ["fuerza-stadium-2026"]);
   assert.equal(selectPrior([general, stadium], "fuerza-regida", "arena").prior_key, general.prior_key);
+});
+
+test("normalizes amphitheatre spelling and prefers an exact venue comparable before venue-type calibration", () => {
+  const general = {
+    ...prior,
+    prior_key: "fuerza-regida-2024-us",
+    artist_key: "fuerza-regida",
+  };
+  const amphitheater = {
+    ...general,
+    prior_key: "fuerza-regida-pollstar-amphitheater-us",
+    venue_type: "amphitheater",
+    tickets_total: 93678,
+    gross_usd_total: 8220705,
+    show_count: 6,
+    weighted_atp_usd: 87.75,
+    citation_keys: ["pollstar-tour-history-2026-08-21"],
+  };
+  const comparable = {
+    comparable_key: "fuerza-regida-credit-union-1-calibration",
+    artist_key: "fuerza-regida",
+    venue_key: "credit-union-1-amphitheatre",
+    normalized_venue: "credit union 1 amphitheatre",
+    capacity_anchor: 24719,
+    historical_atp_usd: 78.62,
+    sample_show_count: 1,
+    citation_keys: ["fuerza-pollstar-credit-union-1-calibration"],
+    notes: "Derived calibration profile only",
+  };
+  const selected = selectCalibration(
+    [general, amphitheater],
+    [comparable],
+    "fuerza-regida",
+    "credit union 1 amphitheatre",
+    "amphitheatre",
+  );
+  assert.equal(normalizeEstimationVenueType("amphitheatre"), "amphitheater");
+  assert.equal(selected.selection, "exact-venue");
+  assert.equal(selected.prior.prior_key, amphitheater.prior_key);
+  assert.equal(selected.exactVenueComparable?.comparable_key, comparable.comparable_key);
+});
+
+test("anchors exact comparable capacity without a second amphitheater discount and blends historical ATP", () => {
+  const event = consolidateEstimationEvents([
+    snapshot({
+      artist_key: "fuerza-regida",
+      artist_name: "Fuerza Regida",
+      event_date: "2026-10-03",
+      venue_name: "Credit Union 1 Amphitheatre",
+      venue_type: "amphitheatre",
+      price_min: null,
+      price_max: null,
+      price_currency: null,
+    }),
+  ])[0] as ConsolidatedEvent;
+  const amphitheaterProfile = {
+    venueKey: "credit-union-1-amphitheatre",
+    venueName: "Credit Union 1 Amphitheatre",
+    normalizedVenue: "credit union 1 amphitheatre",
+    venueType: "amphitheater",
+    capacityLow: 18000,
+    capacityCentral: 24000,
+    capacityHigh: 28000,
+    citationKeys: ["credit-union-1-venue"],
+    notes: "Test profile",
+  };
+  const amphitheaterPrior = {
+    ...prior,
+    prior_key: "fuerza-regida-pollstar-amphitheater-us",
+    artist_key: "fuerza-regida",
+    venue_type: "amphitheater",
+    tickets_total: 93678,
+    gross_usd_total: 8220705,
+    show_count: 6,
+    weighted_atp_usd: 87.75,
+    citation_keys: ["fuerza-pollstar-amphitheater-2026"],
+  };
+  const exactComparable = {
+    comparable_key: "fuerza-regida-credit-union-1-calibration",
+    artist_key: "fuerza-regida",
+    venue_key: "credit-union-1-amphitheatre",
+    normalized_venue: "credit union 1 amphitheatre",
+    capacity_anchor: 24719,
+    historical_atp_usd: 78.62,
+    sample_show_count: 1,
+    citation_keys: ["fuerza-pollstar-credit-union-1-calibration"],
+    notes: "Derived calibration profile only",
+  };
+  const historical = calculateEstimate(event, amphitheaterProfile, amphitheaterPrior, new Date("2026-08-21T12:00:00Z"), exactComparable);
+  const generic = calculateEstimate(event, amphitheaterProfile, amphitheaterPrior, new Date("2026-08-21T12:00:00Z"));
+  assert.equal(historical.sellableCapacity.central, 24719);
+  assert.equal(historical.sellableCapacity.low, 18000);
+  assert.equal(historical.sellableCapacity.high, 28000);
+  assert.equal(historical.averagePaidPriceUsd.central, 84);
+  assert.equal(historical.confidenceScore, generic.confidenceScore);
+  assert.match(historical.assumptions.join(" "), /no generic configuration discount is applied twice/i);
+  assert.match(historical.warnings.join(" "), /not observed inventory/i);
+});
+
+test("documents the v0.2 exact-comparable and derived-only calibration rules", () => {
+  const methodology = TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY;
+  assert.match(methodology.formulas.calibrationPrecedence, /Exact artist \+ normalized venue comparable/i);
+  assert.match(methodology.formulas.sellableCapacity, /does not receive the generic amphitheater discount again/i);
+  assert.match(methodology.formulas.averagePaidPrice, /blended 40%.*60%/i);
+  assert.match(methodology.priors, /raw Pollstar rows and report text are never stored/i);
+  assert.match(methodology.limitations.join(" "), /do not increase confidence/i);
+  const venueCalibrationCitation = methodology.sourceCitations.find(
+    citation => citation.key === "fuerza-pollstar-credit-union-1-calibration",
+  );
+  assert.match(venueCalibrationCitation?.evidence ?? "", /raw show rows.*are not stored/i);
+  assert.doesNotMatch(venueCalibrationCitation?.evidence ?? "", /\$|24,719|2023-09-23/);
 });
 
 test("zeros canceled or postponed event forecasts", () => {

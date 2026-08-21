@@ -1,0 +1,1 @@
+- [Pollstar derived calibration policy](pollstar-derived-calibration.md) — Purchased Pollstar material may inform private aggregates, never raw report rows or text.

@@ -81,26 +81,20 @@ export const ticketmasterTouringEstimationVenueComparables = pgTable("ticketmast
   artistKey: text("artist_key").notNull(),
   venueKey: text("venue_key").notNull(),
   normalizedVenue: text("normalized_venue").notNull(),
-  eventDate: text("event_date").notNull(),
-  sellableCapacity: integer("sellable_capacity").notNull(),
-  paidTickets: integer("paid_tickets").notNull(),
-  sellThrough: numeric("sell_through").notNull(),
-  grossUsd: numeric("gross_usd").notNull(),
-  atpUsd: numeric("atp_usd").notNull(),
-  soldOut: boolean("sold_out").notNull().default(false),
+  capacityAnchor: integer("capacity_anchor").notNull(),
+  historicalAtpUsd: numeric("historical_atp_usd").notNull(),
+  sampleShowCount: integer("sample_show_count").notNull().default(1),
   citationKeys: jsonb("citation_keys").$type<string[]>().notNull().default([]),
   notes: text("notes").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, table => [
-  uniqueIndex("ticketmaster_estimation_comparable_artist_venue_date_unique").on(
+  uniqueIndex("ticketmaster_estimation_comparable_artist_venue_unique").on(
     table.artistKey,
     table.normalizedVenue,
-    table.eventDate,
   ),
   check("ticketmaster_estimation_comparable_range_check", sql`
-    ${table.sellableCapacity} >= 0 AND ${table.paidTickets} >= 0
-    AND ${table.sellThrough} >= 0 AND ${table.sellThrough} <= 1
-    AND ${table.grossUsd} >= 0 AND ${table.atpUsd} >= 0
+    ${table.capacityAnchor} >= 0 AND ${table.historicalAtpUsd} >= 0
+    AND ${table.sampleShowCount} > 0
   `),
 ]);
 
