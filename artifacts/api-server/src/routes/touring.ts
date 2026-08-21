@@ -1,5 +1,9 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
+import {
+  getTicketmasterTouringShadowStatus,
+  runTicketmasterTouringShadow,
+} from "../lib/ticketmaster-touring-shadow-scheduler";
 
 const router = Router();
 
@@ -339,6 +343,28 @@ router.get("/admin/touring/coverage", async (req, res) => {
     withShowsPreview: withShows.slice(0, 12),
     stalePreview: stale.slice(0, 12),
   });
+});
+
+router.get("/admin/touring/shadow/status", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await getTicketmasterTouringShadowStatus());
+  } catch (error) {
+    logger.error({ error }, "[touring-shadow] status lookup failed");
+    res.status(500).json({ error: "Unable to read Ticketmaster touring shadow status" });
+  }
+});
+
+router.post("/admin/touring/shadow/force-run", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    const summary = await runTicketmasterTouringShadow("admin-force-run", true);
+    res.status(summary.status === "failed" ? 502 : 200).json(summary);
+  } catch (error) {
+    logger.error({ error }, "[touring-shadow] force run failed");
+    res.status(500).json({ error: "Unable to run Ticketmaster touring shadow tracker" });
+  }
 });
 
 export default router;
