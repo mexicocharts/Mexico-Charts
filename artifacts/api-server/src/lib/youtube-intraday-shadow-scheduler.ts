@@ -205,14 +205,64 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
   return { artists, savedCandidates, errors };
 }
 
+function discoveryArtistsPerRun() {
+  const raw = Number(process.env["YOUTUBE_SHADOW_DISCOVERY_ARTISTS_PER_RUN"] ?? "5");
+  return Number.isFinite(raw) ? Math.max(0, Math.min(20, Math.floor(raw))) : 5;
+}
+
+async function bootstrapActiveCatalog(client: PgClient) {
+  const limit = discoveryArtistsPerRun();
+  if (limit === 0) return { artists: 0, savedCandidates: 0, errors: [] as string[] };
+
+  const pending = await client.query<{ artist_key: string; artist_name: string }>(`
+    SELECT c.artist_key, c.artist_name
+    FROM kworb_coverage c
+    LEFT JOIN LATERAL (
+      SELECT max(r.finished_at) last_attempt_at
+      FROM youtube_music_shadow_runs r
+      WHERE r.artist_key=c.artist_key AND r.run_type='discovery'
+    ) latest ON true
+    WHERE c.status='active'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM youtube_music_catalog_candidates candidate
+        WHERE candidate.artist_key=c.artist_key
+          AND candidate.status IN ('review','verified')
+          AND candidate.sampling_status='shadow'
+      )
+      AND (latest.last_attempt_at IS NULL OR latest.last_attempt_at <= now() - interval '24 hours')
+    ORDER BY latest.last_attempt_at ASC NULLS FIRST, c.artist_name
+    LIMIT $1
+  `, [limit]);
+
+  let artists = 0;
+  let savedCandidates = 0;
+  const errors: string[] = [];
+  for (const artist of pending.rows) {
+    const result = await discoverYoutubeMusicArtist({
+      artistKey: artist.artist_key,
+      artistName: artist.artist_name,
+      write: true,
+    });
+    const failure = youtubeShadowDiscoveryFailure(result);
+    if (failure) {
+      errors.push(`${artist.artist_name}: ${failure}`);
+      continue;
+    }
+    artists += 1;
+    savedCandidates += result.savedCandidates;
+  }
+  return { artists, savedCandidates, errors };
+}
+
 function dailyBudget() {
-  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_DAILY_BUDGET"] ?? "2000");
-  return Number.isFinite(raw) ? Math.max(0, Math.min(8_000, Math.floor(raw))) : 2_000;
+  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_DAILY_BUDGET"] ?? "10000");
+  return Number.isFinite(raw) ? Math.max(0, Math.min(10_000, Math.floor(raw))) : 10_000;
 }
 
 function maxVideosPerRun() {
-  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_MAX_VIDEOS"] ?? "2500");
-  return Number.isFinite(raw) ? Math.max(1, Math.min(50_000, Math.floor(raw))) : 2_500;
+  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_MAX_VIDEOS"] ?? "5000");
+  return Number.isFinite(raw) ? Math.max(1, Math.min(50_000, Math.floor(raw))) : 5_000;
 }
 
 function batch<T>(items: T[], size: number): T[][] {
@@ -426,6 +476,10 @@ export async function runYoutubeIntradayShadow(
       summary.bootstrapArtists = bootstrap.artists;
       summary.bootstrapSavedCandidates = bootstrap.savedCandidates;
       summary.bootstrapErrors = bootstrap.errors;
+      const activeCatalogBootstrap = await bootstrapActiveCatalog(client);
+      summary.bootstrapArtists += activeCatalogBootstrap.artists;
+      summary.bootstrapSavedCandidates += activeCatalogBootstrap.savedCandidates;
+      summary.bootstrapErrors.push(...activeCatalogBootstrap.errors);
       const ready = await client.query<{ ready_artists: number }>(`
         SELECT count(*)::int ready_artists FROM (
           SELECT artist_key FROM youtube_music_catalog_candidates

@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Activity, ArrowLeft, BarChart3, CheckCircle2, ChevronDown, Clock3, Copy, Disc3, ExternalLink, Eye, KeyRound, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { SiMusicbrainz, SiSpotify, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
+import YouTubeLivePublicPreview from "@/components/YouTubeLivePublicPreview";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const SPOTIFY_BACKFILL_COMMAND = "cd scripts && pnpm tsx ./src/spotify-artist-backfill.ts --limit=100 --minAutoScore=45 --write=true";
@@ -1137,8 +1138,19 @@ export default function ApiCoverage() {
                             ) : shadowVideoErrors[artist.artist_key] ? (
                               <div className="py-6 text-center text-xs font-bold text-red-300">{shadowVideoErrors[artist.artist_key]}</div>
                             ) : videoData?.videos.length ? (
-                              <div className="max-h-[620px] space-y-2 overflow-auto pr-1">
-                                {videoData.videos.map(video => (
+                              <>
+                                <div className="mb-3 rounded-xl border border-[#39FF14]/15 bg-[#39FF14]/[0.025] p-3">
+                                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
+                                    <div>
+                                      <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Vista previa pública</div>
+                                      <div className="mt-1 text-[9px] font-bold text-zinc-600">Datos reales · el panel y la evidencia siguen privados; solo los contadores aprobados aparecen en perfiles.</div>
+                                    </div>
+                                    <span className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.13em] text-zinc-500">Solo admin</span>
+                                  </div>
+                                  <YouTubeLivePublicPreview artistName={videoData.videos[0]?.artist_name ?? artist.artist_key.replaceAll("-", " ")} videos={videoData.videos} />
+                                </div>
+                                <div className="max-h-[620px] space-y-2 overflow-auto pr-1">
+                                  {videoData.videos.map(video => (
                                   <a
                                     key={video.video_id}
                                     href={video.canonical_url}
@@ -1204,8 +1216,9 @@ export default function ApiCoverage() {
                                       )}
                                     </div>
                                   </a>
-                                ))}
-                              </div>
+                                  ))}
+                                </div>
+                              </>
                             ) : (
                               <div className="py-6 text-center text-xs font-bold text-zinc-600">Todavía no hay lecturas por video.</div>
                             )}

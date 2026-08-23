@@ -20,6 +20,7 @@ import { slugify } from "@/lib/utils";
 import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
+import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 
 export { slugify };
 
@@ -454,6 +455,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const reduced = useReducedMotion();
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [chartPositionFilter, setChartPositionFilter] = useState<ChartPositionFilter>("all");
+  const [youtubeLiveVideos, setYoutubeLiveVideos] = useState<YouTubeLivePreviewVideo[]>([]);
 
   /* ── Sheet data overlay ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
@@ -479,6 +481,35 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   );
   const canonicalArtistKey = metaArtist?.artistKey ?? "";
   const { data: songstatsArtist } = useSongstatsArtist(canonicalArtistKey);
+
+  useEffect(() => {
+    const artistKey = ["peso-pluma", "fuerza-regida", "natanael-cano", "luis-miguel"].includes(slug)
+      ? slug
+      : "";
+    if (!artistKey) {
+      setYoutubeLiveVideos([]);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await fetch(`/api/providers/youtube/live-videos?artistKey=${encodeURIComponent(artistKey)}`);
+        if (!response.ok) return;
+        const payload = await response.json() as { videos?: YouTubeLivePreviewVideo[] };
+        if (!cancelled) setYoutubeLiveVideos(payload.videos ?? []);
+      } catch {
+        // The rest of the artist profile remains available if this optional
+        // live read temporarily fails.
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => void load(), 60_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [slug]);
 
   /* ── Merge: base → chart sheet → metadata (priority order, highest last) ── */
   const artist: ArtistData = useMemo(() => {
@@ -1229,6 +1260,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       <div className="h-px" style={{ background: `linear-gradient(to right, transparent, ${artist.accent}30, transparent)` }} />
 
       <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-8 sm:py-10 flex flex-col gap-8 sm:gap-10">
+
+        {youtubeLiveVideos.length > 0 && (
+          <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} />
+        )}
 
         {/* ══════════════════════════════════════════════════════════
             SOCIAL & PLATFORM STATS — licensed Songstats snapshots first,
