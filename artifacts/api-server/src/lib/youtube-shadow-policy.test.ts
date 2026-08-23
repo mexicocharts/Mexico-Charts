@@ -78,4 +78,5 @@ test("uses deterministic tier buckets and never exceeds the quota budget", () =>
   assert.equal(observationBucket(new Date("2026-08-19T12:29:59Z"), "hot").toISOString(), "2026-08-19T12:15:00.000Z");
   assert.equal(youtubeApiBatchesAllowed({ dailyBudget: 8_000, callsUsed: 7_999, requestedVideos: 101 }), 1);
   assert.equal(youtubeApiBatchesAllowed({ dailyBudget: 8_000, callsUsed: 8_000, requestedVideos: 50 }), 0);
+  assert.equal(youtubeApiBatchesAllowed({ dailyBudget: 10_000, callsUsed: 9_998, requestedVideos: 150 }), 2);
 });

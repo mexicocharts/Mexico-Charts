@@ -1127,6 +1127,65 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
   }
 });
 
+// Public read-only counters for the explicitly approved pilot catalog. This
+// intentionally exposes only saved exact observations; discovery evidence,
+// review notes, rejected candidates, and admin controls remain private.
+router.get("/providers/youtube/live-videos", async (req, res) => {
+  const artistKey = String(req.query["artistKey"] ?? "").trim().toLowerCase();
+  const pilot = YOUTUBE_SHADOW_PILOT_ARTISTS.find(artist => artist.artistKey === artistKey);
+  if (!pilot) {
+    res.status(404).json({ error: "Contadores en vivo todavía no disponibles para este artista." });
+    return;
+  }
+
+  const client = await pool.connect();
+  try {
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    await ensureYoutubeIntradayShadowTables(client);
+    const videos = await client.query(`
+      SELECT
+        c.video_id,
+        COALESCE(NULLIF(v.title, ''), c.title) title,
+        v.thumbnail_url,
+        c.canonical_url,
+        latest.view_count,
+        latest.observed_at::text observed_at
+      FROM youtube_music_catalog_candidates c
+      JOIN youtube_tracked_videos v ON v.video_id=c.video_id
+      JOIN LATERAL (
+        SELECT s.view_count, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+        ORDER BY s.observed_at DESC
+        LIMIT 1
+      ) latest ON true
+      WHERE c.artist_key=$1
+        AND c.status IN ('review','verified')
+        AND c.sampling_status='shadow'
+      ORDER BY latest.view_count DESC, c.title
+    `, [artistKey]);
+
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+    res.json({
+      artistKey,
+      artistName: pilot.artistName,
+      exact: true,
+      videos: videos.rows.map(video => ({
+        ...video,
+        views_24h: null,
+        views_24h_started_at: null,
+        views_24h_ended_at: null,
+        views_today_et: null,
+        views_today_et_started_at: null,
+        views_today_et_ended_at: null,
+      })),
+    });
+  } finally {
+    client.release();
+  }
+});
+
 router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const artistKey = String(req.query["artistKey"] ?? "").trim();
