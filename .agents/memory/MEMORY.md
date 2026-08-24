@@ -1,1 +1,2 @@
 - [Pollstar derived calibration policy](pollstar-derived-calibration.md) — Purchased Pollstar material may inform private aggregates, never raw report rows or text.
+- [Production secret isolation](production-secret-isolation.md) — Production deployment secrets must be explicitly configured; artifact runtime env does not promote development secrets.
