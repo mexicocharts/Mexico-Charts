@@ -40,6 +40,20 @@ function ensureTables() {
       change_alerts boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(clerk_user_id,artist_id)
     );
+    CREATE TABLE IF NOT EXISTS touring_review_queue (
+      id bigserial PRIMARY KEY, review_type text NOT NULL CHECK(review_type IN ('artist_discovery','tour_announcement','event_change')),
+      artist_id text, artist_name text NOT NULL, event_id text, title text NOT NULL, source_url text,
+      evidence jsonb NOT NULL DEFAULT '{}'::jsonb, status text NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending','approved','rejected')), created_at timestamptz NOT NULL DEFAULT now(),
+      reviewed_at timestamptz, UNIQUE(review_type,artist_id,event_id,title)
+    );
+    CREATE TABLE IF NOT EXISTS touring_weekly_summaries (
+      week_start date PRIMARY KEY, generated_at timestamptz NOT NULL DEFAULT now(),
+      summary jsonb NOT NULL DEFAULT '{}'::jsonb, delivery_status text NOT NULL DEFAULT 'not_configured',
+      delivered_at timestamptz, last_error text
+    );
+    ALTER TABLE touring_alert_outbox ADD COLUMN IF NOT EXISTS recipient_count integer NOT NULL DEFAULT 0;
+    ALTER TABLE touring_alert_outbox ADD COLUMN IF NOT EXISTS last_attempt_at timestamptz;
   `);
   return tablesPromise;
 }
@@ -93,9 +107,25 @@ router.get("/touring/intelligence", async (_req, res) => {
         demandLabel: "Directional metadata estimate — not ticket sales",
       };
     }).sort((a, b) => b.featuredScore - a.featuredScore || (a.nextConcertDate ?? "9999").localeCompare(b.nextConcertDate ?? "9999"));
+    const comparisons = await pool.query<{
+      artist_id: string; artist_name: string; market: string | null; venue_scale: string;
+      shows: number; estimated_gross_usd: number | null;
+    }>(`SELECT e.artist_id,e.artist_name,COALESCE(NULLIF(e.city,''),'Mercado no publicado') market,
+      CASE WHEN c.capacity_high >= 20000 THEN 'arena grande' WHEN c.capacity_high >= 8000 THEN 'arena' WHEN c.capacity_high IS NOT NULL THEN 'teatro/club' ELSE 'sin capacidad verificada' END venue_scale,
+      count(*)::int shows,
+      CASE WHEN bool_and(c.capacity_low IS NOT NULL AND c.capacity_high IS NOT NULL
+        AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.price_ranges) p WHERE (p->>'currency')='USD'
+          AND (p->>'min')::numeric IS NOT NULL AND (p->>'max')::numeric IS NOT NULL))
+        THEN round(avg(c.capacity_high * ((SELECT max((p->>'max')::numeric) FROM jsonb_array_elements(s.price_ranges) p WHERE (p->>'currency')='USD'))))::numeric
+        ELSE NULL END estimated_gross_usd
+      FROM touring_tm_events e
+      JOIN LATERAL (SELECT price_ranges FROM touring_tm_snapshots WHERE event_id=e.event_id ORDER BY observed_at DESC LIMIT 1) s ON true
+      LEFT JOIN touring_venue_capacities c ON c.venue_id=e.venue_id
+      WHERE e.event_kind='concert' GROUP BY e.artist_id,e.artist_name,market,venue_scale
+      ORDER BY e.artist_name,market LIMIT 500`);
     res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     return res.json({ generatedAt: new Date().toISOString(), tours, events, recentChanges: lab.recentChanges,
-      rules: { inventory: "not inferred", gross: "requires verified configuration capacity and USD standard-primary prices" } });
+      comparisons: comparisons.rows, rules: { inventory: "not inferred", gross: "requires verified configuration capacity and USD standard-primary prices" } });
   } catch (error) {
     logger.warn({ error }, "[touring-intelligence] failed");
     return res.status(503).json({ error: "Touring intelligence temporarily unavailable" });
@@ -113,13 +143,101 @@ router.get("/touring/events/:eventId/history", async (req, res) => {
 router.get("/admin/touring/intelligence/health", async (req, res) => {
   if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
   await ensureTables();
-  const [shadow, sources, venues] = await Promise.all([
+  const [shadow, sources, venues, attention, alerts, reviews, summaries] = await Promise.all([
     touringShadowStatus(),
     pool.query(`SELECT count(*)::int total,count(*) FILTER(WHERE status='active')::int active,
       count(*) FILTER(WHERE last_error IS NOT NULL)::int errors,max(last_checked_at) latest_check FROM touring_announcement_sources`),
     pool.query(`SELECT count(*)::int verified_configurations,max(verified_at) latest_verification FROM touring_venue_capacities`),
+    pool.query(`SELECT
+      count(*) FILTER (WHERE c.venue_id IS NULL)::int missing_capacity,
+      count(*) FILTER (WHERE s.price_ranges IS NULL OR NOT EXISTS (
+        SELECT 1 FROM jsonb_array_elements(s.price_ranges) p WHERE (p->>'currency')='USD'))::int missing_currency,
+      count(*) FILTER (WHERE e.tour_name IS NULL OR e.tour_name='')::int missing_tour_grouping,
+      count(*) FILTER (WHERE c.confidence IN ('limited') OR c.confidence IS NULL)::int low_confidence
+      FROM touring_tm_events e
+      LEFT JOIN touring_venue_capacities c ON c.venue_id=e.venue_id
+      LEFT JOIN LATERAL (SELECT price_ranges FROM touring_tm_snapshots WHERE event_id=e.event_id ORDER BY observed_at DESC LIMIT 1) s ON true
+      WHERE e.event_kind='concert' AND e.event_date>=current_date`),
+    pool.query(`SELECT count(*)::int total,
+      count(*) FILTER (WHERE status='sent')::int sent,
+      count(*) FILTER (WHERE status='pending')::int pending,
+      count(*) FILTER (WHERE status='pending' AND attempts>0)::int retry,
+      count(*) FILTER (WHERE status='failed')::int failed,
+      COALESCE(sum(recipient_count),0)::int recipients FROM touring_alert_outbox`),
+    pool.query(`SELECT count(*)::int pending FROM touring_review_queue WHERE status='pending'`),
+    pool.query(`SELECT count(*)::int generated, max(generated_at) latest_generated,
+      count(*) FILTER (WHERE delivery_status='sent')::int delivered FROM touring_weekly_summaries`),
   ]);
-  return res.json({ generatedAt: new Date().toISOString(), shadow, announcementSources: sources.rows[0], venues: venues.rows[0] });
+  return res.json({ generatedAt: new Date().toISOString(), shadow, announcementSources: sources.rows[0], venues: venues.rows[0],
+    attention: attention.rows[0], alerts: alerts.rows[0], reviewQueue: reviews.rows[0], weeklySummaries: summaries.rows[0],
+    delivery: { emailConfigured: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()), smsConfigured: false } });
+});
+
+router.get("/admin/touring/operations", async (req, res) => {
+  if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
+  await ensureTables();
+  const [attention, reviews, capacities] = await Promise.all([
+    pool.query(`SELECT e.event_id,e.artist_id,e.artist_name,e.event_name,e.event_date,e.city,e.venue_name,
+      CASE WHEN c.venue_id IS NULL THEN 'missing_capacity'
+        WHEN NOT EXISTS (SELECT 1 FROM touring_tm_snapshots s WHERE s.event_id=e.event_id
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.price_ranges) p WHERE (p->>'currency')='USD')) THEN 'missing_currency'
+        WHEN e.tour_name IS NULL OR e.tour_name='' THEN 'missing_tour_grouping'
+        WHEN c.confidence='limited' THEN 'low_confidence' END reason
+      FROM touring_tm_events e LEFT JOIN touring_venue_capacities c ON c.venue_id=e.venue_id
+      WHERE e.event_kind='concert' AND e.event_date>=current_date
+      AND (c.venue_id IS NULL OR c.confidence='limited' OR e.tour_name IS NULL OR e.tour_name=''
+        OR NOT EXISTS (SELECT 1 FROM touring_tm_snapshots s WHERE s.event_id=e.event_id
+          AND EXISTS (SELECT 1 FROM jsonb_array_elements(s.price_ranges) p WHERE (p->>'currency')='USD')))
+      ORDER BY e.event_date,e.artist_name LIMIT 200`),
+    pool.query(`SELECT id,review_type,artist_id,artist_name,event_id,title,source_url,evidence,status,created_at
+      FROM touring_review_queue WHERE status='pending' ORDER BY created_at DESC LIMIT 200`),
+    pool.query(`SELECT venue_id,venue_name,configuration,capacity_low,capacity_high,source_url,source_label,confidence,verified_at
+      FROM touring_venue_capacities ORDER BY updated_at DESC LIMIT 200`),
+  ]);
+  return res.json({ generatedAt: new Date().toISOString(), attention: attention.rows, reviewQueue: reviews.rows,
+    verifiedVenues: capacities.rows, sourcePolicy: "Only authorized public sources; no inventory or sell-through claims." });
+});
+
+router.get("/admin/touring/alerts", async (req, res) => {
+  if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
+  await ensureTables();
+  const result = await pool.query(`SELECT count(*)::int total,
+    count(*) FILTER (WHERE status='sent')::int sent,
+    count(*) FILTER (WHERE status='pending')::int pending,
+    count(*) FILTER (WHERE status='pending' AND attempts>0)::int retry,
+    count(*) FILTER (WHERE status='failed')::int failed,
+    max(sent_at) last_sent_at,max(last_attempt_at) last_attempt_at,
+    COALESCE(sum(recipient_count),0)::int recipients FROM touring_alert_outbox`);
+  return res.json({ ...result.rows[0], emailConfigured: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()),
+    smsConfigured: false, unsubscribe: { supported: true, source: "newsletter_subscribers.status or account preferences" } });
+});
+
+router.post("/admin/touring/review-queue/:id", async (req, res) => {
+  if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
+  await ensureTables();
+  const status = String(req.body?.status ?? "");
+  if (!["approved","rejected"].includes(status)) return res.status(400).json({ error: "Invalid review status" });
+  const result = await pool.query(`UPDATE touring_review_queue SET status=$2,reviewed_at=now() WHERE id=$1 RETURNING id,status`, [req.params.id, status]);
+  if (!result.rows.length) return res.status(404).json({ error: "Review item not found" });
+  return res.json({ review: result.rows[0] });
+});
+
+router.post("/admin/touring/weekly-summary", async (req, res) => {
+  if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
+  await ensureTables();
+  const weekStart = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
+  const [events, changes] = await Promise.all([
+    pool.query(`SELECT count(*)::int events,count(DISTINCT artist_id)::int artists,
+      count(DISTINCT city) FILTER (WHERE city IS NOT NULL)::int markets
+      FROM touring_tm_events WHERE event_kind='concert' AND event_date>=current_date AND event_date<current_date+14`),
+    pool.query(`SELECT count(*)::int changes FROM touring_review_queue WHERE created_at>=now()-interval '7 days'`),
+  ]);
+  const summary = { period: "last 7 days", upcoming14Days: events.rows[0], newReviewItems: changes.rows[0],
+    sourcePolicy: "Public authorized metadata only; no inventory, sell-through or ticket sales." };
+  await pool.query(`INSERT INTO touring_weekly_summaries(week_start,summary,delivery_status)
+    VALUES($1,$2,$3) ON CONFLICT(week_start) DO UPDATE SET generated_at=now(),summary=excluded.summary`, [weekStart, JSON.stringify(summary),
+      process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim() ? "pending_delivery" : "not_configured"]);
+  return res.json({ weekStart, summary, deliveryConfigured: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()) });
 });
 
 router.get("/account/touring/watchlist", requireClerkUser, async (_req, res) => {

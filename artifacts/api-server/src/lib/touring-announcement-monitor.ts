@@ -22,6 +22,11 @@ async function ensureColumns() {
     attempts integer NOT NULL DEFAULT 0,available_at timestamptz NOT NULL DEFAULT now(),sent_at timestamptz,last_error text,
     created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
   );`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS touring_review_queue (
+    id bigserial PRIMARY KEY, review_type text NOT NULL, artist_id text, artist_name text NOT NULL,
+    event_id text, title text NOT NULL, source_url text, evidence jsonb NOT NULL DEFAULT '{}'::jsonb,
+    status text NOT NULL DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now(),
+    reviewed_at timestamptz, UNIQUE(review_type,artist_id,event_id,title))`);
 }
 
 export async function runTouringAnnouncementMonitor() {
@@ -56,6 +61,11 @@ export async function runTouringAnnouncementMonitor() {
         await pool.query(`INSERT INTO touring_alert_outbox(alert_type,artist_id,artist_name,title,message,source_url,dedupe_key)
           SELECT 'official_source_changed',artist_id,artist_name,$2,$3,source_url,$4 FROM touring_announcement_sources WHERE id=$1
           ON CONFLICT(dedupe_key) DO NOTHING`, [source.id,"Posible actualización oficial de gira","Una fuente oficial monitoreada cambió. Mexico Charts la revisará antes de tratarla como anuncio confirmado.",`source:${source.id}:${hash}`]);
+        await pool.query(`INSERT INTO touring_review_queue(review_type,artist_id,artist_name,title,source_url,evidence)
+          SELECT 'artist_discovery',artist_id,artist_name,'Revisar actualización de fuente autorizada',source_url,
+            jsonb_build_object('sourceType',source_type,'contentHash',$2)
+          FROM touring_announcement_sources WHERE id=$1
+          ON CONFLICT(review_type,artist_id,event_id,title) DO NOTHING`, [source.id, hash]);
       }
     } catch (error) {
       failed += 1;
