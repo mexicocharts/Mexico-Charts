@@ -236,11 +236,6 @@ export const artistProfileRoutes = [
     "context": "streaming, YouTube, Spotify, charts, momentum y datos de artista"
   },
   {
-    "path": "/artist/banda-el-recodo-de-cruz-lizarraga",
-    "name": "Banda El Recodo De Cruz Lizárraga",
-    "context": "streaming, YouTube, Spotify, charts, momentum y datos de artista"
-  },
-  {
     "path": "/artist/banda-fresa-roja",
     "name": "Banda Fresa Roja",
     "context": "streaming, YouTube, Spotify, charts, momentum y datos de artista"

@@ -27,6 +27,12 @@ test("canonical and compact artist identifiers resolve to one profile", () => {
   for (const [input, expected] of cases) assert.equal(canonicalArtistHref(input), expected, input);
 });
 
+test("confirmed Banda El Recodo alias redirects without creating a second profile", () => {
+  assert.equal(canonicalArtistHref("banda-el-recodo"), "/artist/banda-el-recodo");
+  assert.equal(canonicalArtistHref("banda-el-recodo-de-cruz-lizarraga"), "/artist/banda-el-recodo");
+  assert.equal(artistCatalogCount, 558);
+});
+
 test("unknown URL strings do not create artist records", () => {
   assert.equal(resolveCanonicalArtist("definitely-not-a-real-master-artist"), null);
   assert.equal(canonicalArtistHref("definitely-not-a-real-master-artist"), null);

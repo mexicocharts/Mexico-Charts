@@ -22,6 +22,13 @@ const catalog = artistProfileRoutes.map((route) => ({
   slug: route.path.replace(/^\/artist\//, ""),
 }));
 
+// Confirmed provider alias: both names resolve to Spotify artist id
+// 6AcOTCYBMvjKYy4zms0kaC. Keep the alias routable for old links, but never
+// expose it as a second public profile.
+const legacyAliases = new Map([
+  ["banda-el-recodo-de-cruz-lizarraga", "banda-el-recodo"],
+]);
+
 const aliases = new Map();
 const ambiguousAliases = new Set();
 
@@ -56,6 +63,10 @@ export function resolveCanonicalArtist(value) {
   const withoutQuery = String(value).split(/[?#]/, 1)[0];
   const identifier = withoutQuery.replace(/^https?:\/\/[^/]+/i, "").replace(/^\/artist\//, "");
   const slug = slugifyArtist(identifier);
+  const legacyCanonicalSlug = legacyAliases.get(slug) ?? legacyAliases.get(slug.replace(/-/g, ""));
+  if (legacyCanonicalSlug) {
+    return catalog.find((artist) => artist.slug === legacyCanonicalSlug) ?? null;
+  }
   return aliases.get(slug) ?? aliases.get(slug.replace(/-/g, "")) ?? null;
 }
 
@@ -66,6 +77,11 @@ export function canonicalArtistHref(value) {
 export function artistSearchHref(value) {
   const query = String(value ?? "").trim();
   return query ? `/artists?q=${encodeURIComponent(query)}` : "/artists";
+}
+
+export function isHiddenArtistAlias(value) {
+  const slug = slugifyArtist(value);
+  return legacyAliases.has(slug) || legacyAliases.has(slug.replace(/-/g, ""));
 }
 
 export { slugifyArtist };
