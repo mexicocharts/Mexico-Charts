@@ -42,6 +42,10 @@ function publicSaleStatus(event: ArtistTours["events"][number]): string {
   return "Venta no informada";
 }
 
+function isCancelledEvent(event: ArtistTours["events"][number]): boolean {
+  return event.eventStatus?.toLowerCase().includes("cancel") ?? false;
+}
+
 function freshnessLabel(fetchedAt: number | undefined): string {
   if (!fetchedAt) return "consulta actual";
   return new Date(fetchedAt).toLocaleString("es-MX", {
@@ -191,7 +195,7 @@ export default function TouringHub() {
     return sortedArtists
       .map((artist) => {
         const upcomingEvents = artist.events
-          .filter((event) => event.eventKind !== "auxiliary" && event.date >= today)
+          .filter((event) => event.eventKind !== "auxiliary" && !isCancelledEvent(event) && event.date >= today)
           .sort((a, b) => a.date.localeCompare(b.date));
         const nextEvent = upcomingEvents[0];
         return nextEvent ? { artist, events: upcomingEvents, nextEvent } : null;
@@ -854,6 +858,7 @@ export default function TouringHub() {
           <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Experimental</span>
           <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: no disponible</span>
           <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Confianza: insuficiente</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Cambios históricos: collecting</span>
         </div>
         <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
           {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
