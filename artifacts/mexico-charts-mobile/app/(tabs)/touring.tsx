@@ -15,6 +15,7 @@ import * as Haptics from "expo-haptics";
 
 import { useTouring, ArtistTours, TmEvent } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
+import TouringIntelligencePanel from "@/components/TouringIntelligencePanel";
 
 const NEON = "#39FF14";
 const BG = "#080808";
@@ -320,6 +321,8 @@ export default function TouringScreen() {
           </ScrollView>
         )}
       </View>
+
+      <TouringIntelligencePanel />
 
       {/* Artist profiles */}
       <View style={styles.section}>
