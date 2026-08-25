@@ -187,7 +187,7 @@ export interface TicketmasterTouringShadowStatus {
   addOnSnapshotCount: number;
   nextEventDate: string | null;
   daysUntilNextEvent: number | null;
-  cadenceHours: 2 | 6 | 24;
+  cadenceHours: 0.25 | 1 | 6;
   nextRunAt: string | null;
   lastRun: {
     id: number;
@@ -263,6 +263,34 @@ export function cadenceHoursForDaysUntil(daysUntil: number | null): 2 | 6 | 24 {
   if (daysUntil != null && daysUntil <= 7) return 2;
   if (daysUntil != null && daysUntil <= 30) return 6;
   return 24;
+}
+
+export function cadenceHoursForOnSale(
+  publicSaleStartAt: string | null,
+  now = new Date(),
+): 0.25 | 1 | 6 {
+  if (!publicSaleStartAt) return 6;
+  const start = new Date(publicSaleStartAt).getTime();
+  if (!Number.isFinite(start)) return 6;
+  const hoursUntil = (start - now.getTime()) / 3_600_000;
+  if (hoursUntil <= 0 && hoursUntil >= -48) return 0.25;
+  if (hoursUntil > 0 && hoursUntil <= 1) return 1;
+  return 6;
+}
+
+export function nextOnSaleCheckAt(
+  publicSaleStartAt: string | null,
+  now = new Date(),
+): Date {
+  const cadence = cadenceHoursForOnSale(publicSaleStartAt, now);
+  const start = publicSaleStartAt ? new Date(publicSaleStartAt).getTime() : NaN;
+  if (!Number.isFinite(start)) return new Date(now.getTime() + cadence * 3_600_000);
+  const hoursUntil = (start - now.getTime()) / 3_600_000;
+  if (hoursUntil > 1) {
+    return new Date(Math.min(now.getTime() + cadence * 3_600_000, start - 3_600_000));
+  }
+  if (hoursUntil > 0) return new Date(start);
+  return new Date(now.getTime() + cadence * 3_600_000);
 }
 
 export function ticketmasterLockAvailable(locked: boolean | null | undefined): boolean {
@@ -383,6 +411,10 @@ export async function ensureTicketmasterTouringShadowTables(client: DbClient) {
       finished_at timestamptz,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+  `);
+  await client.query(`
+    ALTER TABLE ticketmaster_touring_shadow_runs
+    ADD COLUMN IF NOT EXISTS next_run_at timestamptz;
   `);
   await client.query(`
     CREATE TABLE IF NOT EXISTS ticketmaster_touring_shadow_event_snapshots (
@@ -614,6 +646,29 @@ async function finishRun(
   );
 }
 
+async function persistNextRun(client: DbClient, runId: number, now = new Date()) {
+  const result = await client.query<{ public_sale_start_at: string | null }>(
+    `
+      SELECT public_sale_start_at::text
+      FROM ticketmaster_touring_shadow_event_snapshots
+      WHERE public_sale_start_at IS NOT NULL
+        AND public_sale_start_at >= $1 - interval '48 hours'
+      ORDER BY
+        CASE WHEN public_sale_start_at >= $1 THEN 0 ELSE 1 END,
+        CASE WHEN public_sale_start_at >= $1 THEN public_sale_start_at END ASC,
+        public_sale_start_at DESC
+      LIMIT 1
+    `,
+    [now.toISOString()],
+  );
+  const saleStart = result.rows[0]?.public_sale_start_at ?? null;
+  const nextRunAt = nextOnSaleCheckAt(saleStart, now);
+  await client.query(
+    `UPDATE ticketmaster_touring_shadow_runs SET next_run_at=$2 WHERE id=$1`,
+    [runId, nextRunAt.toISOString()],
+  );
+}
+
 export async function runTicketmasterTouringShadow(
   reason: string,
   force = false,
@@ -709,6 +764,7 @@ export async function runTicketmasterTouringShadow(
       summary.failedArtists,
     );
     await finishRun(client, summary.runId, summary);
+    await persistNextRun(client, summary.runId);
     if (shouldRecalculateTouringEstimates(summary.status)) {
       try {
         await recalculateTicketmasterTouringEstimates(summary.runId, reason);

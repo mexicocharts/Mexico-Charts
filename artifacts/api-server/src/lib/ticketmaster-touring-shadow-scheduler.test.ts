@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   cadenceHoursForDaysUntil,
+  cadenceHoursForOnSale,
+  nextOnSaleCheckAt,
   classifyTicketmasterEvent,
   inventorySafetyFields,
   isWithinTicketmasterTourScope,
@@ -25,6 +27,19 @@ test("uses 2, 6, and 24 hour proximity tiers at the requested boundaries", () =>
   assert.equal(cadenceHoursForDaysUntil(30), 6);
   assert.equal(cadenceHoursForDaysUntil(31), 24);
   assert.equal(cadenceHoursForDaysUntil(null), 24);
+});
+
+test("intensifies public on-sale checks for 48 hours without using inventory endpoints", () => {
+  const sale = new Date("2026-08-25T12:00:00.000Z");
+  assert.equal(cadenceHoursForOnSale(sale.toISOString(), new Date("2026-08-25T11:00:00.000Z")), 1);
+  assert.equal(cadenceHoursForOnSale(sale.toISOString(), sale), 0.25);
+  assert.equal(cadenceHoursForOnSale(sale.toISOString(), new Date("2026-08-27T11:59:00.000Z")), 0.25);
+  assert.equal(cadenceHoursForOnSale(sale.toISOString(), new Date("2026-08-27T12:01:00.000Z")), 6);
+  assert.equal(cadenceHoursForOnSale(null, new Date("2026-08-25T12:00:00.000Z")), 6);
+  assert.equal(
+    nextOnSaleCheckAt(sale.toISOString(), new Date("2026-08-25T10:00:00.000Z")).toISOString(),
+    "2026-08-25T11:00:00.000Z",
+  );
 });
 
 test("keeps a second scheduler instance from treating an unavailable advisory lock as runnable", () => {
