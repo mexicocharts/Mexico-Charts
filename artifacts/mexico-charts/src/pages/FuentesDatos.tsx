@@ -142,7 +142,7 @@ export default function FuentesDatos() {
   const stats = [
     {
       value: isLoading ? "…" : isError || !catalogCount ? "500+" : catalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX"),
-      label: pick("artistas en el catálogo", "artists in the catalog"),
+      label: pick("perfiles del catálogo con datos de audiencia", "catalog profiles with audience data"),
       icon: Users,
     },
     { value: "7", label: pick("plataformas de audiencia", "audience platforms"), icon: Globe2 },

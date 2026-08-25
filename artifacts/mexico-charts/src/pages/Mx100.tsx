@@ -286,7 +286,7 @@ export default function Mx100() {
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de Mexico Charts que combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México."
+        description="Ranking editorial de hasta 100 posiciones elegibles activas que combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México."
         path="/mx100"
       />
       <SiteNav />
@@ -313,8 +313,9 @@ export default function Mx100() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  El ranking editorial de Mexico Charts que mide a los artistas más exitosos
-                  de la música mexicana a partir de Spotify y YouTube en México
+                  El ranking editorial de Mexico Charts con hasta 100 posiciones elegibles
+                  activas, a partir de Spotify y YouTube en México. El número de posiciones
+                  puede ser menor cuando no hay suficientes señales válidas.
                 </p>
                 {leader && (
                   <Link href={canonicalArtistHref(leader.meta?.artistKey ?? leader.name) ?? "/artists"}>

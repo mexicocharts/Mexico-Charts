@@ -194,7 +194,7 @@ export default function CommunityContributePreview() {
 
             <div className="grid grid-cols-3 overflow-hidden rounded-3xl border border-white/[.08] bg-black/45 backdrop-blur-xl">
               {[
-                ["529", "artistas activos"],
+                ["529", "registros editables activos"],
                 ["100%", "revisión humana"],
                 ["0", "cambios automáticos"],
               ].map(([number, label], index) => (

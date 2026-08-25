@@ -19,6 +19,7 @@ import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
 import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
+import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 
@@ -959,7 +960,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
           >
             <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
-              {artist.rank > 0 ? `#${artist.rank} En México` : "Artista"}
+              {artist.rank > 0 ? spotifyMexicoRankLabel(artist.rank) : "Artista"}
               <span className="opacity-40">·</span>
               {genreLabel(artist.genre)}
             </div>

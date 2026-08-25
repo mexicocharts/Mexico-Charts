@@ -1065,7 +1065,7 @@ export default function ChartsHub() {
           style={{ border: `1px solid ${G}28`, borderRadius: 8, background: "radial-gradient(circle at 9% 5%, rgba(57,255,20,0.16), transparent 34%), rgba(255,255,255,0.018)" }}>
           <div className="border-b px-4 py-3 text-[10px] leading-relaxed sm:px-6 md:px-9"
             style={{ borderColor: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
-            Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts. No representa necesariamente la totalidad de artistas mexicanos.
+            MX100 calcula hasta 100 posiciones elegibles activas entre los artistas actualmente monitoreados por Mexico Charts. El número puede ser menor si no hay suficientes señales válidas; no representa necesariamente la totalidad de artistas mexicanos.
           </div>
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
             <Link href="/mx100">

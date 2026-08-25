@@ -229,7 +229,7 @@ const routes = [
       ],
       [
         "MX100",
-        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir del ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México.",
+        "MX100 calcula hasta 100 posiciones elegibles activas entre los artistas actualmente monitoreados a partir del ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México. El número puede ser menor si no hay suficientes señales válidas.",
       ],
       [
         "Integridad del ranking",

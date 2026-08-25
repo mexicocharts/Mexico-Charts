@@ -402,7 +402,7 @@ export default function ArtistRoster() {
             <div className="flex items-center justify-center gap-6 text-center">
               <div>
                 <div className="text-2xl font-black text-white">{allArtists.length}</div>
-                <div className="text-[10px] uppercase tracking-widest text-zinc-500">Artistas</div>
+                <div className="text-[10px] uppercase tracking-widest text-zinc-500">Perfiles del directorio</div>
               </div>
               <div className="h-8 w-px bg-white/10" />
               <div>

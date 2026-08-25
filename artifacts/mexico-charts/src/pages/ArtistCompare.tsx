@@ -12,6 +12,7 @@ import { useTouring } from "@/hooks/useTouring";
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
+import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
 
 const G = "#39FF14";
@@ -244,7 +245,7 @@ function ArtistPanel({ artist, rank, certs, tours, charts, image, side }: {
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-            {rank ? `MX100 #${rank}` : "Perfil Mexico Charts"}
+            {rank ? spotifyMexicoRankLabel(rank) : "Perfil Mexico Charts"}
           </p>
           <h2 className="mt-3 text-3xl font-black uppercase leading-[0.9] sm:text-5xl">
             {artist.displayName}

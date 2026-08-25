@@ -780,10 +780,10 @@ export default function HomeV6() {
           style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
         >
           <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("ARTISTAS", "ARTISTS")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("PERFILES DE CATÁLOGO", "CATALOG PROFILES")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
               <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
-            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("ARTISTAS", "ARTISTS")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
+            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("PERFILES DE CATÁLOGO", "CATALOG PROFILES")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
               <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
             ))}
           </span>
