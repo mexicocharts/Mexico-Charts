@@ -16,6 +16,12 @@ async function ensureColumns() {
     ALTER TABLE touring_announcement_sources ADD COLUMN IF NOT EXISTS content_hash text;
     ALTER TABLE touring_announcement_sources ADD COLUMN IF NOT EXISTS etag text;
     ALTER TABLE touring_announcement_sources ADD COLUMN IF NOT EXISTS last_modified text;`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS touring_alert_outbox (
+    id bigserial PRIMARY KEY,alert_type text NOT NULL,artist_id text,artist_name text,title text NOT NULL,
+    message text NOT NULL,source_url text,event_id text,dedupe_key text NOT NULL UNIQUE,status text NOT NULL DEFAULT 'pending',
+    attempts integer NOT NULL DEFAULT 0,available_at timestamptz NOT NULL DEFAULT now(),sent_at timestamptz,last_error text,
+    created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now()
+  );`);
 }
 
 export async function runTouringAnnouncementMonitor() {
@@ -46,6 +52,11 @@ export async function runTouringAnnouncementMonitor() {
       await pool.query(`UPDATE touring_announcement_sources SET content_hash=$2,etag=$3,last_modified=$4,last_checked_at=now(),
         last_changed_at=CASE WHEN $5 THEN now() ELSE last_changed_at END,last_error=NULL,updated_at=now() WHERE id=$1`,
         [source.id,hash,response.headers.get("etag"),response.headers.get("last-modified"),didChange]);
+      if (didChange) {
+        await pool.query(`INSERT INTO touring_alert_outbox(alert_type,artist_id,artist_name,title,message,source_url,dedupe_key)
+          SELECT 'official_source_changed',artist_id,artist_name,$2,$3,source_url,$4 FROM touring_announcement_sources WHERE id=$1
+          ON CONFLICT(dedupe_key) DO NOTHING`, [source.id,"Posible actualización oficial de gira","Una fuente oficial monitoreada cambió. Mexico Charts la revisará antes de tratarla como anuncio confirmado.",`source:${source.id}:${hash}`]);
+      }
     } catch (error) {
       failed += 1;
       await pool.query(`UPDATE touring_announcement_sources SET last_checked_at=now(),last_error=$2,updated_at=now() WHERE id=$1`,
