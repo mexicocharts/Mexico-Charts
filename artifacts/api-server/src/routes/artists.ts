@@ -44,6 +44,12 @@ const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
   "ramon ayala y sus bravos del norte": "ramon ayala",
 };
 
+// Keep the source row and its historical/provider data intact, but expose only
+// the confirmed canonical identity through the public metadata endpoint.
+const HIDDEN_PUBLIC_ARTIST_ALIASES = new Set([
+  "banda el recodo de cruz lizarraga",
+]);
+
 function normalizeArtistKey(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? "";
 }
@@ -394,7 +400,9 @@ async function fetchMetadata(): Promise<Record<string, string>[]> {
       eligibility_type: "verified_chart_identity",
       eligibility_reason: "Identidad mexicana verificada desde listas oficiales",
     })),
-  ];
+  ].filter((row) => !HIDDEN_PUBLIC_ARTIST_ALIASES.has(
+    normalizeArtistKey(row.artist_key || row.artist_name),
+  ));
 }
 
 router.get("/artists/metadata", async (_req, res) => {
