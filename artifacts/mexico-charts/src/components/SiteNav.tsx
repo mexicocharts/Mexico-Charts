@@ -37,9 +37,11 @@ const NAV = [
 type Props = {
   /** Pass true to show "INICIO" pill as green (HomeV6 style) */
   homeActive?: boolean;
+  /** Lightweight pages can omit the data-backed global search mount. */
+  showSearch?: boolean;
 };
 
-export default function SiteNav({ homeActive = false }: Props) {
+export default function SiteNav({ homeActive = false, showSearch = true }: Props) {
   const { language, setLanguage, pick } = useLanguage();
   const [location] = useLocation();
   const [dropOpen, setDropOpen] = useState<string | null>(null);
@@ -167,7 +169,7 @@ export default function SiteNav({ homeActive = false }: Props) {
         </nav>
 
         <div className="ml-5 flex shrink-0 items-center gap-3 xl:ml-7">
-          <SiteSearch />
+          {showSearch && <SiteSearch />}
           <div className="hidden lg:block"><AccountControl /></div>
           <div className="hidden items-center gap-0.5 rounded-lg p-0.5 lg:flex" aria-label={pick("Idioma del sitio", "Site language")}
             style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)" }}>

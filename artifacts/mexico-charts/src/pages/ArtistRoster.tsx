@@ -18,6 +18,7 @@ const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const ACCENT = "#39FF14";
+const ROSTER_PAGE_SIZE = 48;
 
 type SortMode = "az" | "listeners" | "streams" | "youtube" | "instagram";
 
@@ -305,10 +306,15 @@ export default function ArtistRoster() {
   const [countryFilter, setCountryFilter] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("az");
+  const [visibleCount, setVisibleCount] = useState(ROSTER_PAGE_SIZE);
 
   useEffect(() => {
     setSearch(initialQuery);
   }, [initialQuery]);
+
+  useEffect(() => {
+    setVisibleCount(ROSTER_PAGE_SIZE);
+  }, [search, genreFilter, countryFilter, verifiedOnly, sortMode]);
 
   /* Collect all artist display names for image + kworb batch fetches */
   const allNames = useMemo(() => Array.from(byKey.values()).map(a => a.displayName), [byKey]);
@@ -353,6 +359,10 @@ export default function ArtistRoster() {
   }, [allArtists, search, genreFilter, countryFilter, verifiedOnly, verifiedArtistKeys, sortMode, kworbStreams]);
 
   const hasActiveFilter = search || genreFilter || countryFilter || verifiedOnly;
+  const visibleArtists = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount],
+  );
 
   function clearFilters() {
     setSearch("");
@@ -592,7 +602,7 @@ export default function ArtistRoster() {
             className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
           >
             <AnimatePresence mode="popLayout">
-              {filtered.map((artist, i) => {
+              {visibleArtists.map((artist, i) => {
                 const rawStreams = kworbStreams?.[artist.displayName];
                 let totalStreamsFmt: string | null = null;
                 if (rawStreams && rawStreams > 0) {
@@ -620,6 +630,18 @@ export default function ArtistRoster() {
               })}
             </AnimatePresence>
           </motion.div>
+        )}
+        {!isLoading && !isError && !isEmpty && visibleArtists.length < filtered.length && (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setVisibleCount(count => Math.min(count + ROSTER_PAGE_SIZE, filtered.length))}
+              className="rounded-full border border-[#39FF14]/25 bg-[#39FF14]/[.07] px-5 py-3 text-[10px] font-black uppercase tracking-[.16em] text-[#39FF14] transition hover:border-[#39FF14]/45 hover:bg-[#39FF14]/[.12]"
+              data-testid="roster-load-more"
+            >
+              Cargar más
+            </button>
+          </div>
         )}
       </main>
 
