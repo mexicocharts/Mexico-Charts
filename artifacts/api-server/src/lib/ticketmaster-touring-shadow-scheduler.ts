@@ -833,10 +833,12 @@ export async function getTicketmasterTouringShadowStatus(
         error: string | null;
         started_at: string;
         finished_at: string | null;
+        next_run_at: string | null;
       }>(`
         SELECT id, status, reason, requested_artists, successful_artists,
           failed_artists, fetched_events, saved_events, concert_events,
-          addon_events, error, started_at::text, finished_at::text
+          addon_events, error, started_at::text, finished_at::text,
+          next_run_at::text
         FROM ticketmaster_touring_shadow_runs
         ORDER BY started_at DESC
         LIMIT 1
