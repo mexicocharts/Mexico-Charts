@@ -1,11 +1,10 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
-import { Activity, CalendarDays, Info, Radio, TrendingUp, Users } from "lucide-react";
+import { Activity, Disc3, Info, Radio, TrendingUp, Users } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
-import { useTouring, type ArtistTours } from "@/hooks/useTouring";
 import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWeekly } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
@@ -17,8 +16,7 @@ const ACCENT = "#39FF14";
 const SCORE_COMPONENTS = [
   { key: "spotify", label: "Spotify semanal" },
   { key: "youtube", label: "YouTube México" },
-  { key: "fanbase", label: "Fanbase" },
-  { key: "touring", label: "Giras" },
+  { key: "apple", label: "Apple Music México" },
 ] as const;
 
 interface Mx100Artist {
@@ -31,8 +29,8 @@ interface Mx100Artist {
   youtubeWeeklyRank?: number;
   youtubeWeeklyViews: number;
   youtubeWeeklyViewsLabel: string;
-  socialReach: number;
-  touringDates: number;
+  appleBestRank?: number;
+  appleAppearances: number;
   reasons: string[];
 }
 
@@ -58,19 +56,9 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function scale(value: number, max: number, points: number): number {
-  if (max <= 0) return 0;
-  return clamp((value / max) * points, 0, points);
-}
-
 function scaleSqrt(value: number, max: number, points: number): number {
   if (value <= 0 || max <= 0) return 0;
   return clamp(Math.sqrt(value / max) * points, 0, points);
-}
-
-function scaleSocial(value: number, max: number, points: number): number {
-  if (value <= 0 || max <= 0) return 0;
-  return clamp(Math.pow(value / max, 0.35) * points, 0, points);
 }
 
 function rankScore(rank: number | undefined, maxRank: number, points: number): number {
@@ -80,12 +68,6 @@ function rankScore(rank: number | undefined, maxRank: number, points: number): n
 
 function rankSort(rank: number | undefined): number {
   return rank ?? 9999;
-}
-
-function buildTouringMap(artists: ArtistTours[]) {
-  const map = new Map<string, ArtistTours>();
-  artists.forEach((artist) => map.set(normalizeName(artist.name), artist));
-  return map;
 }
 
 function buildChartMap(artists: ChartArtist[]) {
@@ -128,45 +110,63 @@ function buildSpotifyArtistMap(rows: HubRow[]) {
   return map;
 }
 
+interface AppleArtistSignal {
+  ranks: number[];
+}
+
+function buildAppleArtistMap(...chartSets: HubRow[][]) {
+  const map = new Map<string, AppleArtistSignal>();
+  chartSets.flat().forEach((row) => {
+    const rank = parseInt(row["Rank"] ?? row["rank"] ?? "", 10);
+    const matchedArtists = (row["Matched Mexican Artists"] ?? "")
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (!rank || rank > 100) return;
+    matchedArtists.forEach((name) => {
+      const key = normalizeName(name);
+      const signal = map.get(key) ?? { ranks: [] };
+      signal.ranks.push(rank);
+      map.set(key, signal);
+    });
+  });
+  map.forEach((signal) => signal.ranks.sort((a, b) => a - b));
+  return map;
+}
+
+function appleScore(signal: AppleArtistSignal | undefined): number {
+  if (!signal?.ranks.length) return 0;
+  const [bestRank, ...additionalRanks] = signal.ranks;
+  const bestAppearance = rankScore(bestRank, 100, 14);
+  const breadth = additionalRanks
+    .slice(0, 4)
+    .reduce((total, rank) => total + rankScore(rank, 100, 1.5), 0);
+  return clamp(bestAppearance + breadth, 0, 20);
+}
+
 function buildCandidateNames(metadata: Map<string, ArtistMetadata>) {
   const names = new Map<string, string>();
   metadata.forEach((meta) => names.set(normalizeName(meta.displayName), meta.displayName));
   return [...names.values()];
 }
 
-function socialReachFromMeta(meta?: ArtistMetadata): number {
-  if (!meta) return 0;
-  return (
-    meta.tiktokFollowers +
-    meta.instagramFollowers +
-    meta.youtubeSubscribers +
-    meta.facebookFollowers +
-    meta.spotifyFollowers
-  );
-}
-
 function scoreArtists(
   dailyArtists: ChartArtist[],
   weeklyArtists: ChartArtist[],
   metadata: { byKey: Map<string, ArtistMetadata>; byName: Map<string, ArtistMetadata> },
-  tours: ArtistTours[],
   youtubeArtistRows: HubRow[] = [],
   spotifyArtistRows: HubRow[] = [],
+  appleSongRows: HubRow[] = [],
+  appleAlbumRows: HubRow[] = [],
 ): Mx100Artist[] {
   const candidates = buildCandidateNames(metadata.byKey);
   const dailyChartMap = buildChartMap(dailyArtists);
   const weeklyChartMap = buildChartMap(weeklyArtists);
   const youtubeChartMap = buildYoutubeArtistMap(youtubeArtistRows);
   const spotifyChartMap = buildSpotifyArtistMap(spotifyArtistRows);
-  const tourMap = buildTouringMap(tours);
+  const appleChartMap = buildAppleArtistMap(appleSongRows, appleAlbumRows);
   const youtubeWeeklyValues = candidates.map((name) => youtubeChartMap.get(normalizeName(name))?.views ?? 0);
   const maxYoutubeWeeklyViews = Math.max(...youtubeWeeklyValues, 1);
-  const maxTouring = Math.max(...tours.map((artist) => artist.events.length), 1);
-  const socialValues = candidates.map((name) => {
-    const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
-    return socialReachFromMeta(meta);
-  });
-  const maxSocial = Math.max(...socialValues, 1);
   const spotifyRankMax = 100;
 
   return candidates
@@ -176,26 +176,25 @@ function scoreArtists(
       const weeklyChartArtist = weeklyChartMap.get(key);
       const spotifyChartArtist = spotifyChartMap.get(key);
       const youtubeChartArtist = youtubeChartMap.get(key);
+      const appleChartArtist = appleChartMap.get(key);
       const meta = lookupArtistMetadata(undefined, name, metadata.byKey, metadata.byName);
-      const tour = tourMap.get(key);
       const spotifyWeeklyRank = spotifyChartArtist?.rank ?? weeklyChartArtist?.mexicoRank;
       const youtubeWeeklyRank = youtubeChartArtist?.rank;
       const youtubeWeeklyViews = youtubeChartArtist?.views ?? 0;
-      const socialReach = socialReachFromMeta(meta);
-      const touringDates = tour?.events.length ?? 0;
+      const appleBestRank = appleChartArtist?.ranks[0];
+      const appleAppearances = appleChartArtist?.ranks.length ?? 0;
 
-      const spotifyScore = rankScore(spotifyWeeklyRank, spotifyRankMax, 55);
-      const youtubeScore = scaleSqrt(youtubeWeeklyViews, maxYoutubeWeeklyViews, 25);
-      const fanbaseScore = scaleSocial(socialReach, maxSocial, 12);
-      const touringScore = scale(touringDates, maxTouring, 8);
-      const score = Math.round(spotifyScore + youtubeScore + fanbaseScore + touringScore);
+      const spotifyScore = rankScore(spotifyWeeklyRank, spotifyRankMax, 50);
+      const youtubeScore = scaleSqrt(youtubeWeeklyViews, maxYoutubeWeeklyViews, 30);
+      const appleMusicScore = appleScore(appleChartArtist);
+      const score = Math.round(spotifyScore + youtubeScore + appleMusicScore);
 
       const reasons = [
         spotifyWeeklyRank ? `#${spotifyWeeklyRank} en Spotify semanal` : "",
         youtubeWeeklyRank ? `#${youtubeWeeklyRank} en YouTube artistas` : "",
         youtubeWeeklyViews > 0 ? `${compact(youtubeWeeklyViews)} vistas semanales en México` : "",
-        socialReach > 0 ? `${compact(socialReach)} fanbase` : "",
-        touringDates > 0 ? `${touringDates === 1 ? "1 fecha activa" : `${touringDates} fechas activas`}` : "",
+        appleBestRank ? `#${appleBestRank} en Apple Music México` : "",
+        appleAppearances > 1 ? `${appleAppearances} apariciones en Apple Music` : "",
       ].filter(Boolean);
 
       return {
@@ -208,18 +207,23 @@ function scoreArtists(
         youtubeWeeklyViews,
         youtubeWeeklyViewsLabel: compact(youtubeWeeklyViews),
         score,
-        socialReach,
-        touringDates,
+        appleBestRank,
+        appleAppearances,
         reasons,
       };
     })
-    .filter((artist) => artist.score > 0)
+    .filter((artist) => artist.score > 0 && (
+      Boolean(artist.spotifyWeeklyRank && artist.spotifyWeeklyRank <= spotifyRankMax) ||
+      artist.youtubeWeeklyViews > 0 ||
+      artist.appleAppearances > 0
+    ))
     .sort((a, b) => (
       b.score - a.score ||
       rankSort(a.spotifyWeeklyRank) - rankSort(b.spotifyWeeklyRank) ||
       rankSort(a.youtubeWeeklyRank) - rankSort(b.youtubeWeeklyRank) ||
       b.youtubeWeeklyViews - a.youtubeWeeklyViews ||
-      b.socialReach - a.socialReach
+      rankSort(a.appleBestRank) - rankSort(b.appleBestRank) ||
+      b.appleAppearances - a.appleAppearances
     ))
     .slice(0, 100);
 }
@@ -282,6 +286,7 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
               <span>{genre || "Mexico Charts"}</span>
               {item.spotifyWeeklyRank && <span>Spotify #{item.spotifyWeeklyRank}</span>}
               {item.youtubeWeeklyRank && <span>YouTube #{item.youtubeWeeklyRank}</span>}
+              {item.appleBestRank && <span>Apple #{item.appleBestRank}</span>}
             </div>
           </div>
 
@@ -295,8 +300,8 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
               <div className="mt-1 text-sm font-black text-white">{item.spotifyWeeklyRank ? `#${item.spotifyWeeklyRank}` : "—"}</div>
             </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Fanbase</div>
-              <div className="mt-1 text-sm font-black text-white">{compact(item.socialReach)}</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Apple Music MX</div>
+              <div className="mt-1 text-sm font-black text-white">{item.appleBestRank ? `#${item.appleBestRank}` : "—"}</div>
             </div>
           </div>
         </div>
@@ -309,7 +314,6 @@ export default function Mx100() {
   const artistsDaily = useArtistsDaily();
   const artistsWeekly = useArtistsWeekly();
   const metadata = useArtistMetadata();
-  const touring = useTouring();
   const chartsHub = useChartsHub({ retry: 2 });
   const mx100Names = useMemo(
     () => buildCandidateNames(metadata.byKey),
@@ -323,11 +327,12 @@ export default function Mx100() {
         artistsDaily.data,
         artistsWeekly.data,
         { byKey: metadata.byKey, byName: metadata.byName },
-        touring.data ?? [],
         chartsHub.data?.sheets?.YT_Artists_Weekly?.rows ?? [],
         chartsHub.data?.sheets?.Spotify_Artists_Weekly?.rows ?? [],
+        chartsHub.data?.sheets?.Apple_Songs?.rows ?? [],
+        chartsHub.data?.sheets?.Apple_Albums?.rows ?? [],
       ),
-    [artistsDaily.data, artistsWeekly.data, metadata.byKey, metadata.byName, touring.data, chartsHub.data],
+    [artistsDaily.data, artistsWeekly.data, metadata.byKey, metadata.byName, chartsHub.data],
   );
 
   const leader = mx100[0];
@@ -339,7 +344,7 @@ export default function Mx100() {
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
         title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras."
+        description="Ranking editorial de Mexico Charts que combina las listas oficiales de Spotify, YouTube y Apple Music en México."
         path="/mx100"
       />
       <SiteNav />
@@ -367,7 +372,7 @@ export default function Mx100() {
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
                   El ranking editorial de Mexico Charts que mide a los artistas más exitosos
-                  de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras
+                  de la música mexicana a partir de Spotify, YouTube y Apple Music en México
                 </p>
                 {leader && (
                   <Link href={canonicalArtistHref(leader.meta?.artistKey ?? leader.name) ?? "/artists"}>
@@ -404,6 +409,7 @@ export default function Mx100() {
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
                             {leader.spotifyWeeklyRank && <span>Spotify #{leader.spotifyWeeklyRank}</span>}
                             {leader.youtubeWeeklyRank && <span>YouTube #{leader.youtubeWeeklyRank}</span>}
+                            {leader.appleBestRank && <span>Apple #{leader.appleBestRank}</span>}
                             <span>{leader.youtubeWeeklyViewsLabel} YouTube MX</span>
                           </div>
                         </div>
@@ -425,9 +431,9 @@ export default function Mx100() {
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
-                  <CalendarDays className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">{touring.data?.reduce((sum, a) => sum + a.events.length, 0) ?? "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Fechas</div>
+                  <Disc3 className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
+                  <div className="text-xl font-black sm:text-2xl">{leader?.appleBestRank ? `#${leader.appleBestRank}` : "—"}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Apple Music MX</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Radio className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
@@ -445,7 +451,7 @@ export default function Mx100() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts. No representa necesariamente la totalidad de artistas mexicanos. El consumo manda con Spotify semanal México y vistas semanales de YouTube México, con fanbase y giras como señales secundarias.
+                  Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts a partir de tres listas oficiales de consumo en México. Spotify y YouTube aportan señales a nivel artista; Apple Music se deriva de apariciones en sus listas oficiales de canciones y álbumes. No representa necesariamente la totalidad de artistas mexicanos.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
