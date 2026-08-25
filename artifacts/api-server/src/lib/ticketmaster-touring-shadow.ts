@@ -133,5 +133,66 @@ export async function touringShadowStatus() {
   return {enabled:enabled(),configured:Boolean(process.env["TICKETMASTER_API_KEY"]),running,trackedTours:TOURS.map(({pattern,...tour})=>tour),counts:counts.rows[0],latestRuns:runs.rows,processLastResult};
 }
 
+type LabSnapshot = {
+  event_id: string; artist_id: string; artist_name: string; tour_name: string; event_name: string;
+  event_date: string | Date | null; venue_name: string | null; city: string | null; state: string | null;
+  first_seen_at: Date; last_seen_at: Date; observed_at: Date; event_status: string | null;
+  public_sale_start: Date | null; price_ranges: unknown; previous_status: string | null;
+  previous_public_sale_start: Date | null; previous_price_ranges: unknown;
+};
+
+export async function publicTouringLab() {
+  await ensureTouringShadowTables();
+  const result = await pool.query<LabSnapshot>(`WITH observations AS (
+    SELECT e.event_id,e.artist_id,e.artist_name,e.tour_name,e.event_name,e.event_date,e.venue_name,e.city,e.state,
+      e.first_seen_at,e.last_seen_at,s.observed_at,s.event_status,s.public_sale_start,s.price_ranges,
+      lag(s.event_status) OVER (PARTITION BY s.event_id ORDER BY s.observed_at) previous_status,
+      lag(s.public_sale_start) OVER (PARTITION BY s.event_id ORDER BY s.observed_at) previous_public_sale_start,
+      lag(s.price_ranges) OVER (PARTITION BY s.event_id ORDER BY s.observed_at) previous_price_ranges,
+      row_number() OVER (PARTITION BY s.event_id ORDER BY s.observed_at DESC) latest
+    FROM touring_tm_events e JOIN touring_tm_snapshots s ON s.event_id=e.event_id
+    WHERE e.event_kind='concert'
+  ) SELECT * FROM observations WHERE latest=1 ORDER BY event_date,event_id`);
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const groups = new Map<string, LabSnapshot[]>();
+  for (const row of result.rows) groups.set(row.artist_id, [...(groups.get(row.artist_id) ?? []), row]);
+  const isoDate = (value: string | Date | null) => value instanceof Date ? value.toISOString().slice(0, 10) : value ? String(value).slice(0, 10) : null;
+  const changedFields = (row: LabSnapshot) => [
+    row.previous_status !== null && row.previous_status !== row.event_status ? "eventStatus" : null,
+    row.previous_public_sale_start !== null && String(row.previous_public_sale_start) !== String(row.public_sale_start) ? "publicSaleStart" : null,
+    row.previous_price_ranges !== null && JSON.stringify(row.previous_price_ranges) !== JSON.stringify(row.price_ranges) ? "priceRanges" : null,
+  ].filter((field): field is string => Boolean(field));
+  const recentChanges = result.rows.flatMap(row => {
+    const fields = changedFields(row);
+    return fields.length ? [{ eventId: row.event_id, artistName: row.artist_name, eventName: row.event_name, observedAt: row.observed_at, changedFields: fields }] : [];
+  }).sort((a,b) => b.observedAt.getTime()-a.observedAt.getTime()).slice(0,12);
+  const tours = [...groups.entries()].map(([artistId, rows]) => {
+    const dates = rows.map(row => isoDate(row.event_date)).filter((date): date is string => Boolean(date)).sort();
+    const future = dates.filter(date => date >= today);
+    const past = dates.filter(date => date < today);
+    return {
+      artistId, artistName: rows[0]?.artist_name ?? artistId, tourName: rows[0]?.tour_name ?? "",
+      status: future.length ? (past.length ? "active" : "upcoming") : (past.length ? "completed" : "unknown"),
+      concertCount: rows.length, firstConcertDate: dates[0] ?? null, lastConcertDate: dates.at(-1) ?? null,
+      nextConcertDate: future[0] ?? null, lastObservedAt: rows.reduce((latest,row) => row.observed_at > latest ? row.observed_at : latest, rows[0]!.observed_at),
+      demandScore: null, demandConfidence: "unavailable" as const,
+      demandLabel: "Datos autorizados insuficientes para calcular demanda",
+    };
+  });
+  return {
+    available: tours.length > 0,
+    label: "Touring Lab — experimental",
+    generatedAt: now,
+    source: "Ticketmaster Discovery API",
+    sourceNote: "Metadatos públicos; no es un feed de inventario ni ventas.",
+    demandScore: null,
+    demandConfidence: "unavailable",
+    methodology: "Los cambios observados describen metadatos públicos. No se infieren boletos vendidos, inventario, sell-through ni gross.",
+    tours,
+    recentChanges,
+  };
+}
+
 async function check(){try{const result=await runTouringShadow();if(!["not_due","locked"].includes(result.status))logger.info({result},"[touring-shadow] check finished");}catch(error){logger.error({error},"[touring-shadow] scheduler failed");}}
 export function startTouringShadowScheduler(){if(started||!enabled())return;if(!process.env["TICKETMASTER_API_KEY"]){logger.warn("[touring-shadow] missing TICKETMASTER_API_KEY");return;}started=true;logger.info("[touring-shadow] scheduler started");setTimeout(()=>void check(),15_000);const timer=setInterval(()=>void check(),CHECK_MS);timer.unref();}

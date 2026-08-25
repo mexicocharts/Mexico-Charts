@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
-import { useTouring, type ArtistTours } from "@/hooks/useTouring";
+import { useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
 
@@ -14,6 +14,12 @@ function formatDate(iso: string): string {
   const [y, m, d] = iso.split("-");
   const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
+}
+
+function publicPrice(event: { priceRanges?: { currency: string | null; min: number | null; max: number | null }[] }) {
+  const price = event.priceRanges?.[0];
+  if (!price || price.min === null || price.max === null) return null;
+  return `${price.currency ?? ""} ${price.min.toLocaleString()}–${price.max.toLocaleString()}`.trim();
 }
 
 const fadeUp = (delay = 0) => ({
@@ -121,6 +127,7 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
 
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
+  const { data: touringLab } = useTouringLab();
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
@@ -364,6 +371,8 @@ export default function TouringHub() {
           border: none;
           margin: 0;
         }
+        .th-lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+        .th-lab-card { border: 1px solid #191919; background: linear-gradient(145deg,#0b0b0b,#080808); padding: 20px; }
 
         @media (min-width: 721px) and (max-width: 1100px) {
           .th-hero {
@@ -747,6 +756,7 @@ export default function TouringHub() {
                       <span className="th-anton th-show-artist" style={{ color: "#e8e8e8", fontSize: 13, textTransform: "uppercase", minWidth: 160, flexShrink: 0, letterSpacing: "0.02em" }}>{ev.artistName}</span>
                       <span className="th-show-venue" style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.venue}</span>
                       <span className="th-show-city" style={{ color: "rgba(255,255,255,0.52)", fontSize: 10, flexShrink: 0, marginLeft: 16, letterSpacing: "0.03em" }}>{ev.city}{ev.state ? `, ${ev.state}` : ""}</span>
+                      {publicPrice(ev) && <span style={{ color: "rgba(255,255,255,0.38)", fontSize: 9, flexShrink: 0, marginLeft: 14 }}>{publicPrice(ev)}</span>}
                     </div>
                     <div className="th-ticket-cta" style={{ padding: "0 18px", flexShrink: 0, borderLeft: "1px solid #141414", height: 54, display: "flex", alignItems: "center" }}>
                       <span style={{ color: "rgba(57,255,20,0.7)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.15em" }}>Boletos →</span>
@@ -772,6 +782,38 @@ export default function TouringHub() {
           )}
         </section>
       )}
+
+      {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
+      <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>
+        <SectionEyebrow>Datos y metodología</SectionEyebrow>
+        <SectionHeading white="Touring" green="Lab" />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
+          <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Experimental</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: no disponible</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Confianza: insuficiente</span>
+        </div>
+        <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
+          {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
+        </p>
+        {touringLab?.available && touringLab.tours.length > 0 && (
+          <div className="th-lab-grid">
+            {touringLab.tours.map(tour => (
+              <article key={tour.artistId} className="th-lab-card">
+                <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{tour.status === "active" ? "En gira" : tour.status === "upcoming" ? "Próxima" : tour.status === "completed" ? "Finalizada" : "Estado desconocido"}</div>
+                <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: "0 0 5px" }}>{tour.artistName}</h3>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, minHeight: 30 }}>{tour.tourName}</div>
+                <div style={{ display: "flex", gap: 22, marginTop: 18 }}>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{tour.concertCount}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Shows observados</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{tour.nextConcertDate ? formatDate(tour.nextConcertDate) : "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Próxima fecha</span></div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+        <div style={{ color: "rgba(255,255,255,.3)", fontSize: 8, lineHeight: 1.7, textTransform: "uppercase", letterSpacing: ".11em", marginTop: 20 }}>
+          Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica.
+        </div>
+      </section>
 
       {/* ── NEWSLETTER ── */}
       <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
