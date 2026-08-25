@@ -7,6 +7,14 @@ const CHECK_MS = 15 * 60 * 1000;
 const TOURS = [
   { artistId: "fuerza-regida", artistName: "Fuerza Regida", attractionId: "K8vZ9179vO0", tourName: "This Is Our Dream Tour 2026 — second leg", notBefore: "2026-10-03", pattern: /Fuerza Regida.*This Is Our Dream Tour 2026/iu },
   { artistId: "carin-leon", artistName: "Carín León", attractionId: "K8vZ917_m_f", tourName: "2026 remaining shows", notBefore: "2026-09-04", pattern: /Car[ií]n Le[oó]n|Carin Leon/iu },
+  { artistId: "natanael-cano", artistName: "Natanael Cano", attractionId: "K8vZfZ7aEdk", tourName: "Vol. 1 Tour", notBefore: "2026-09-18", pattern: /Natanael Cano.*Vol\.?\s*1 Tour/iu },
+  { artistId: "yuridia", artistName: "Yuridia", attractionId: "K8vZ917Gdu7", tourName: "Las Cartas Sobre La Mesa Tour", notBefore: "2026-09-03", pattern: /Yuridia|Las Cartas Sobre La Mesa/iu },
+  { artistId: "eslabon-armado", artistName: "Eslabon Armado", attractionId: "K8vZ917_Wef", tourName: "Amor Nocturno Tour", notBefore: "2026-08-25", pattern: /Eslab[oó]n Armado|Amor Nocturno/iu },
+  { artistId: "banda-ms", artistName: "Banda MS", attractionId: "K8vZ917CCl7", tourName: "Somos MS Tour", notBefore: "2026-08-25", pattern: /Banda MS|Somos MS/iu },
+  { artistId: "los-tigres-del-norte", artistName: "Los Tigres del Norte", attractionId: "K8vZ9171187", tourName: "Los Tigres del Mundo / La Lotería", notBefore: "2026-08-25", pattern: /Los Tigres del Norte|Los Tigres Del Mundo|La Loter[ií]a/iu },
+  { artistId: "xavi", artistName: "Xavi", attractionId: "K8vZ917_Jlf", tourName: "Priority announcement watch", notBefore: "2026-08-25", pattern: /^Xavi\b|\bXavi$/iu },
+  { artistId: "jorge-medina", artistName: "Jorge Medina", attractionId: "K8vZ917_9pf", tourName: "Juntos", notBefore: "2026-08-25", pattern: /Jorge Medina|Josi Cuen|Juntos/iu },
+  { artistId: "josi-cuen", artistName: "Josi Cuen", attractionId: "K8vZ917qDTV", tourName: "Juntos", notBefore: "2026-08-25", pattern: /Jorge Medina|Josi Cuen|Juntos/iu },
 ] as const;
 
 interface TmEvent {
@@ -29,7 +37,11 @@ let running = false;
 let processLastResult: TouringShadowSummary | null = null;
 const enabled = () => process.env["TOURING_SHADOW_AUTOMATION_DISABLED"] !== "true";
 const kind = (name: string) => /suite reservation|parking|fast lane|club access|lounge|not a concert ticket/iu.test(name) ? "auxiliary" : "concert";
-const cadenceHours = (days: number | null) => days != null && days <= 7 ? 2 : days != null && days <= 30 ? 6 : 24;
+const cadenceHours = (days: number | null, saleHours: number | null) =>
+  saleHours != null && saleHours <= 2 ? 0.25
+    : saleHours != null && saleHours <= 24 ? 1
+      : days != null && days <= 7 ? 1
+        : 6;
 const bucket = (hours: number) => new Date(Math.floor(Date.now() / (hours * 3_600_000)) * hours * 3_600_000);
 
 export async function ensureTouringShadowTables() {
@@ -60,10 +72,12 @@ export async function ensureTouringShadowTables() {
 
 async function state() {
   await ensureTouringShadowTables();
-  const result = await pool.query<{ last_at: Date | null; days: number | null }>(`SELECT
+  const result = await pool.query<{ last_at: Date | null; days: number | null; sale_hours: number | null }>(`SELECT
     (SELECT max(finished_at) FROM touring_tm_shadow_runs WHERE status IN ('complete','partial')) last_at,
-    (SELECT min(event_date-current_date)::int FROM touring_tm_events WHERE event_date>=current_date AND event_kind='concert') days`);
-  return result.rows[0] ?? { last_at: null, days: null };
+    (SELECT min(event_date-current_date)::int FROM touring_tm_events WHERE event_date>=current_date AND event_kind='concert') days,
+    (SELECT min(extract(epoch FROM (public_sale_start-now()))/3600)
+      FROM touring_tm_snapshots WHERE public_sale_start>=now()) sale_hours`);
+  return result.rows[0] ?? { last_at: null, days: null, sale_hours: null };
 }
 
 async function fetchTour(tour: typeof TOURS[number], key: string) {
@@ -96,7 +110,8 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
   const key = process.env["TICKETMASTER_API_KEY"]?.trim();
   if (!key) return { status: "failed", ...base, errors: ["TICKETMASTER_API_KEY is not configured"] };
   const current = await state();
-  if (!options.force && current.last_at && Date.now()-new Date(current.last_at).getTime() < cadenceHours(current.days)*3_600_000) return { status: "not_due", ...base };
+  const cadence = cadenceHours(current.days, current.sale_hours);
+  if (!options.force && current.last_at && Date.now()-new Date(current.last_at).getTime() < cadence*3_600_000) return { status: "not_due", ...base };
   const client = await pool.connect();
   let locked = false;
   let runId: string | null = null;
@@ -109,7 +124,7 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
     runId = row.rows[0]?.id ?? null;
     const errors: string[] = [];
     let fetchedArtists=0, failedArtists=0, eventsObserved=0, snapshotsSaved=0;
-    const at = bucket(cadenceHours(current.days));
+    const at = bucket(cadence);
     for (const tour of TOURS) try {
       const events = await fetchTour(tour,key); fetchedArtists++; eventsObserved += events.length;
       for (const event of events) snapshotsSaved += await save(tour,event,at);
