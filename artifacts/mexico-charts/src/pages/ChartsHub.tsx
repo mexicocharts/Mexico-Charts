@@ -7,6 +7,7 @@ import { SiSpotify, SiYoutube, SiApplemusic } from "react-icons/si";
 import { MdMusicNote } from "react-icons/md";
 import SiteNav from "@/components/SiteNav";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 /* ── Brand ───────────────────────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -466,6 +467,7 @@ function SkeletonRow({ i }: { i: number }) {
 
 /* ── Main page ───────────────────────────────────────────────────────────── */
 export default function ChartsHub() {
+  const { pick } = useLanguage();
   const search = useSearch();
 
   // Parse initial platform/sheet from URL query params (e.g. ?platform=YouTube&sheet=YT_Artists_Weekly)
@@ -1074,6 +1076,12 @@ export default function ChartsHub() {
           <div className="border-b px-4 py-3 text-[10px] leading-relaxed sm:px-6 md:px-9"
             style={{ borderColor: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
             MX100 calcula hasta 100 posiciones elegibles activas entre los artistas actualmente monitoreados por Mexico Charts. El número puede ser menor si no hay suficientes señales válidas; no representa necesariamente la totalidad de artistas mexicanos.
+            <span className="mt-2 block" style={{ color: "rgba(255,255,255,0.38)" }}>
+              {pick(
+                "Touring Power, Radar Nuevos y Social/Fanbase Power son productos y señales independientes de Mexico Charts; no son insumos del MX100.",
+                "Touring Power, Radar Nuevos, and Social/Fanbase Power are separate Mexico Charts products and signals; they are not inputs to MX100.",
+              )}
+            </span>
           </div>
           <div className="grid gap-0 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
             <Link href="/mx100">
