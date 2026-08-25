@@ -217,7 +217,29 @@ const routes = [
     eyebrow: "Metodologia",
     heading: "Como trabajamos los datos",
     body:
-      "Mexico Charts organiza datos de plataformas y fuentes externas. Los charts conservan posiciones originales, los filtros editoriales se identifican claramente y las fuentes se muestran cuando corresponde.",
+      "Mexico Charts recopila, identifica, normaliza, valida y presenta datos públicos, oficiales o licenciados. Conservamos las posiciones originales de las listas externas y distinguimos los cálculos, agregados y rankings editoriales propios.",
+    sections: [
+      [
+        "Fuentes y actualización",
+        "Usamos datos de Spotify, YouTube, Apple Music, Deezer, Songstats, Ticketmaster, Pollstar, IFPI, AMPROFON y otras fuentes verificables según la sección. Las listas diarias y semanales se actualizan cuando recibimos una nueva edición; audiencia, giras y certificaciones dependen del calendario y disponibilidad de cada fuente.",
+      ],
+      [
+        "Elegibilidad",
+        "La cobertura se concentra en artistas mexicanos y artistas vinculados de manera verificable con la música mexicana por origen, trayectoria, repertorio, género, mercado o comunidad cultural. Grupos, carreras solistas, colaboraciones, alias y duplicados se identifican como entidades separadas o consolidadas según corresponda.",
+      ],
+      [
+        "MX100",
+        "MX100 es un ranking calculado entre los artistas actualmente monitoreados. Su puntuación máxima es 100: Spotify semanal México aporta 55 puntos, vistas semanales de YouTube México 25, fanbase 12 y fechas activas de giras 8. Los datos ausentes aportan cero en su componente y el peso no se redistribuye.",
+      ],
+      [
+        "Normalización y desempates",
+        "Spotify puntúa por posición dentro del Top 100. YouTube usa una escala de raíz cuadrada; fanbase usa una curva comprimida; giras usa una escala lineal. En empates se compara, en orden, la posición de Spotify, la posición de YouTube, las vistas de YouTube México y la fanbase disponible.",
+      ],
+      [
+        "Independencia y correcciones",
+        "Las posiciones no se modifican para favorecer artistas, sellos, representantes, proveedores, anunciantes o socios. Licenciar datos no concede control editorial. Los errores identificados se corrigen y los resultados afectados se recalculan cuando es técnicamente posible.",
+      ],
+    ],
     links: [
       ["/charts", "Charts"],
       ["/artists", "Artistas"],
@@ -408,12 +430,16 @@ function renderContent(route) {
   const links = route.links
     .map(([href, label]) => `<a href="${href}">${escapeHtml(label)}</a>`)
     .join("");
+  const sections = (route.sections ?? [])
+    .map(([heading, body]) => `<section><h2>${escapeHtml(heading)}</h2><p>${escapeHtml(body)}</p></section>`)
+    .join("");
 
   return `<div id="prerender-content" class="prerender-content">
       <main>
         <p class="prerender-eyebrow">${escapeHtml(route.eyebrow)}</p>
         <h1>${escapeHtml(route.heading)}</h1>
         <p>${escapeHtml(route.body)}</p>
+        ${sections}
         <nav aria-label="Secciones principales">${links}</nav>
       </main>
     </div>
@@ -431,7 +457,7 @@ function injectContent(html, route) {
         align-items: center;
         padding: 48px 28px;
       }
-      .prerender-content main { max-width: 760px; }
+      .prerender-content main { max-width: 860px; }
       .prerender-content h1 {
         margin: 0;
         font-size: clamp(2.5rem, 8vw, 5rem);
@@ -443,6 +469,18 @@ function injectContent(html, route) {
         max-width: 58ch;
         color: rgba(255,255,255,0.68);
         line-height: 1.7;
+      }
+      .prerender-content section {
+        margin-top: 28px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+      }
+      .prerender-content h2 {
+        margin: 0;
+        color: #39FF14;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
       }
       .prerender-eyebrow {
         color: #39FF14 !important;
