@@ -25,11 +25,26 @@ export function youtubeShadowCanUseVerifiedChannelFallback(input: {
 
 export function youtubeShadowDiscoveryFailure(result: {
   mappingStatus: string;
+  verifiedCandidates?: number;
   reviewCandidates: number;
   error?: string;
 }): string | null {
   if (result.error) return result.error;
   if (result.mappingStatus !== "review") return `Mapping status: ${result.mappingStatus}.`;
-  if (result.reviewCandidates < 1) return "No eligible review candidates were discovered.";
+  if ((result.verifiedCandidates ?? 0) + result.reviewCandidates < 1) {
+    return "No eligible shadow candidates were discovered.";
+  }
   return null;
+}
+
+export function youtubeShadowDiscoveryRetryDelayMs(
+  mappingStatus: string,
+  lastAttemptAt: Date | string | null | undefined,
+  now = Date.now(),
+): number {
+  if (!lastAttemptAt) return 0;
+  const delay = mappingStatus === "retryable" || mappingStatus === "ambiguous"
+    ? 15 * 60 * 1000
+    : 24 * 60 * 60 * 1000;
+  return Math.max(0, delay - (now - new Date(lastAttemptAt).getTime()));
 }

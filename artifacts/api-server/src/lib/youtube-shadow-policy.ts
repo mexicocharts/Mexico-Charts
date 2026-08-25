@@ -10,6 +10,7 @@ export interface YoutubeMusicCandidateInput {
   videoId: string;
   credits: YoutubeMusicCredit[];
   sourceSections: string[];
+  uploaderChannelId?: string | null;
 }
 
 export interface YoutubeMusicCandidateDecision {
@@ -49,12 +50,15 @@ export function decideYoutubeMusicCandidate(
   const exactNameCredit = input.credits.some(
     credit => normalizeYoutubeArtistName(credit.name) === normalizedArtist,
   );
+  const exactUploader = input.uploaderChannelId === artistBrowseId;
 
-  if (exactIdCredit) {
+  if (exactIdCredit || exactUploader) {
     return {
-      status: "review",
-      confidence: 90,
-      reason: "exact_youtube_music_artist_credit",
+      status: "verified",
+      confidence: 100,
+      reason: exactUploader && !exactIdCredit
+        ? "verified_youtube_uploader_channel"
+        : "verified_youtube_artist_credit",
     };
   }
   if (exactNameCredit) {

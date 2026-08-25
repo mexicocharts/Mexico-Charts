@@ -20,6 +20,9 @@ interface MusicItemLike {
   artists?: Array<{ name?: string; channel_id?: string }>;
   authors?: Array<{ name?: string; channel_id?: string }>;
   author?: { name?: string; channel_id?: string };
+  channel_id?: string;
+  channelId?: string;
+  uploader?: { channel_id?: string; channelId?: string };
   thumbnails?: Array<{ url?: string }>;
 }
 
@@ -28,6 +31,7 @@ interface DiscoveredCandidate {
   title: string;
   credits: YoutubeMusicCredit[];
   thumbnailUrl: string | null;
+  uploaderChannelId: string | null;
   sourceSections: Set<string>;
   releaseIds: Set<string>;
 }
@@ -67,6 +71,7 @@ function decideCandidate(candidate: DiscoveredCandidate, artistKey: string, arti
       videoId: candidate.videoId,
       credits: candidate.credits,
       sourceSections: [...candidate.sourceSections],
+      uploaderChannelId: candidate.uploaderChannelId,
     }, artistName, browseId),
     manualReview: null,
   };
@@ -77,15 +82,35 @@ export interface YoutubeMusicDiscoverySummary {
   artistName: string;
   browseId: string | null;
   mappingEvidence: "exact_name_search" | "verified_youtube_channel" | null;
-  mappingStatus: YoutubeShadowStatus | "not_found" | "ambiguous";
+  mappingStatus: YoutubeShadowStatus | "not_found" | "ambiguous" | "retryable";
   releasesInspected: number;
   uniqueCandidates: number;
   reviewCandidates: number;
   rejectedCandidates: number;
+  verifiedCandidates: number;
   savedCandidates: number;
+  retryAttempts?: number;
+  parserWarnings?: string[];
+  identityMatches?: YoutubeArtistIdentityMatch[];
   candidates?: YoutubeMusicDiscoveryAuditCandidate[];
   error?: string;
   sourceChannelId?: string;
+}
+
+export interface YoutubeArtistIdentityMatch {
+  browseId: string;
+  name: string;
+}
+
+export interface TrustedYoutubeIdentity {
+  browseId: string;
+  source: "youtube_channel" | "verified_youtube_music_mapping";
+}
+
+export interface TrustedYoutubeIdentityResolution {
+  identity: TrustedYoutubeIdentity | null;
+  ambiguous: boolean;
+  candidates: YoutubeArtistIdentityMatch[];
 }
 
 export interface YoutubeMusicDiscoveryAuditCandidate {
@@ -99,6 +124,108 @@ export interface YoutubeMusicDiscoveryAuditCandidate {
   status: YoutubeShadowStatus;
   confidence: number;
   decisionReason: string;
+}
+
+export class YoutubeRetryableError extends Error {
+  readonly attempts: number;
+  readonly statusCode: number | null;
+  readonly retryAfterMs: number | null;
+
+  constructor(message: string, options: {
+    attempts: number;
+    statusCode: number | null;
+    retryAfterMs: number | null;
+  }) {
+    super(message);
+    this.name = "YoutubeRetryableError";
+    this.attempts = options.attempts;
+    this.statusCode = options.statusCode;
+    this.retryAfterMs = options.retryAfterMs;
+  }
+}
+
+function errorStatus(error: unknown): number | null {
+  if (!error || typeof error !== "object") {
+    const match = String(error).match(/\b(403|429|5\d{2})\b/);
+    return match ? Number(match[1]) : null;
+  }
+  const record = error as Record<string, unknown>;
+  const direct = [record.status, record.statusCode, (record.response as Record<string, unknown> | undefined)?.status]
+    .find(value => typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value)));
+  if (direct != null) return Number(direct);
+  const match = String(record.message ?? error).match(/\b(403|429|5\d{2})\b/);
+  return match ? Number(match[1]) : null;
+}
+
+function errorRetryAfterMs(error: unknown): number | null {
+  if (!error || typeof error !== "object") return null;
+  const record = error as Record<string, unknown>;
+  const response = record.response as Record<string, unknown> | undefined;
+  const headers = response?.headers ?? record.headers;
+  let value: unknown;
+  if (headers && typeof (headers as { get?: unknown }).get === "function") {
+    value = (headers as { get(name: string): unknown }).get("retry-after");
+  } else if (headers && typeof headers === "object") {
+    const headerRecord = headers as Record<string, unknown>;
+    value = headerRecord["retry-after"] ?? headerRecord["Retry-After"];
+  }
+  value ??= record.retryAfter ?? record.retryAfterMs;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return record.retryAfterMs != null ? Math.max(0, value) : Math.max(0, value * 1000);
+  }
+  if (typeof value === "string") {
+    const seconds = Number(value);
+    if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+    const date = Date.parse(value);
+    if (Number.isFinite(date)) return Math.max(0, date - Date.now());
+  }
+  return null;
+}
+
+export function isRetryableYoutubeError(error: unknown): boolean {
+  const status = errorStatus(error);
+  return status === 403 || status === 429 || (status != null && status >= 500 && status <= 599);
+}
+
+export async function withYoutubeInnertubeRetry<T>(
+  operation: () => Promise<T>,
+  options: {
+    maxAttempts?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+    random?: () => number;
+    sleep?: (delayMs: number) => Promise<void>;
+    onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void;
+  } = {},
+): Promise<T> {
+  const maxAttempts = Math.max(1, Math.min(5, options.maxAttempts ?? 4));
+  const baseDelayMs = Math.max(1, options.baseDelayMs ?? 500);
+  const maxDelayMs = Math.max(baseDelayMs, options.maxDelayMs ?? 8_000);
+  const random = options.random ?? Math.random;
+  const sleep = options.sleep ?? ((delayMs: number) => new Promise<void>(resolve => setTimeout(resolve, delayMs)));
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryableYoutubeError(error) || attempt === maxAttempts) {
+        if (isRetryableYoutubeError(error)) {
+          throw new YoutubeRetryableError(
+            `YouTube Music transient failure after ${attempt} attempts: ${error instanceof Error ? error.message : String(error)}`,
+            { attempts: attempt, statusCode: errorStatus(error), retryAfterMs: errorRetryAfterMs(error) },
+          );
+        }
+        throw error;
+      }
+      const retryAfterMs = errorRetryAfterMs(error);
+      const backoffMs = Math.min(maxDelayMs, baseDelayMs * 2 ** (attempt - 1));
+      const delayMs = Math.min(maxDelayMs, Math.max(retryAfterMs ?? 0, backoffMs + Math.floor(random() * 250)));
+      options.onRetry?.(attempt, delayMs, errorStatus(error));
+      await sleep(delayMs);
+    }
+  }
+  throw lastError;
 }
 
 export async function ensureYoutubeShadowTables(client: PgClient) {
@@ -177,6 +304,14 @@ function itemCredits(item: MusicItemLike): YoutubeMusicCredit[] {
   return mergeCredits([], credits);
 }
 
+function itemUploaderChannelId(item: MusicItemLike): string | null {
+  return item.channel_id
+    ?? item.channelId
+    ?? item.uploader?.channel_id
+    ?? item.uploader?.channelId
+    ?? null;
+}
+
 export function mergeCredits(
   current: YoutubeMusicCredit[],
   incoming: YoutubeMusicCredit[],
@@ -215,6 +350,7 @@ function addCandidate(
     title: itemTitle(item),
     credits: resolvedCredits,
     thumbnailUrl: item.thumbnails?.at(-1)?.url ?? null,
+    uploaderChannelId: itemUploaderChannelId(item),
     sourceSections: new Set<string>(),
     releaseIds: new Set<string>(),
   };
@@ -223,6 +359,7 @@ function addCandidate(
   if (!existing.title) existing.title = itemTitle(item);
   existing.credits = mergeCredits(existing.credits, resolvedCredits);
   if (!existing.thumbnailUrl) existing.thumbnailUrl = item.thumbnails?.at(-1)?.url ?? null;
+  if (!existing.uploaderChannelId) existing.uploaderChannelId = itemUploaderChannelId(item);
   candidates.set(item.id, existing);
 }
 
