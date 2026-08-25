@@ -20,6 +20,7 @@ const ChartsHub = lazy(() => import("@/pages/ChartsHub"));
 const WeeklyCharts = lazy(() => import("@/pages/WeeklyCharts"));
 const GeneroHub = lazy(() => import("@/pages/GeneroHub"));
 const TouringHub = lazy(() => import("@/pages/TouringHub"));
+const TouringEventIntelligence = lazy(() => import("@/pages/TouringEventIntelligence"));
 const SocialTemplates = lazy(() => import("@/pages/SocialTemplates"));
 const AcercaDe = lazy(() => import("@/pages/AcercaDe"));
 const Contacto = lazy(() => import("@/pages/Contacto"));
@@ -39,6 +40,7 @@ const MonitoringDashboard = lazy(() => import(/* @vite-ignore */ monitoringDashb
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
+const TouringAdmin = lazy(() => import("@/pages/TouringAdmin"));
 const DiscoveryReview = lazy(() => import("@/pages/DiscoveryReview"));
 const Cuenta = lazy(() => import("@/pages/Cuenta"));
 
@@ -137,6 +139,7 @@ function Router() {
           <Route path="/industry/certifications" component={Certifications} />
           <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
           <Route path="/touring" component={TouringHub} />
+          <Route path="/touring/event/:eventId" component={TouringEventIntelligence} />
           <Route path="/artist/:slug" component={ArtistDetail} />
           <Route path="/social-templates" component={SocialTemplates} />
           <Route path="/acerca-de" component={AcercaDe} />
@@ -151,6 +154,7 @@ function Router() {
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route path="/admin/discovery-review" component={DiscoveryReview} />
+          <Route path="/admin/touring" component={TouringAdmin} />
           {MONITORING_PREVIEW_ENABLED && (
             <Route path="/internal/monitoring" component={Monitoreo} />
           )}

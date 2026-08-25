@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
+import TouringCommandCenter from "@/components/TouringCommandCenter";
 import { useArtistTouring, useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
@@ -910,6 +911,8 @@ export default function TouringHub() {
           )}
         </section>
       )}
+
+      <TouringCommandCenter />
 
       {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
       <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>

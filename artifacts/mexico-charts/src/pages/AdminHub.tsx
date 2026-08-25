@@ -35,11 +35,11 @@ const tools = [
     status: "Nuevo",
   },
   {
-    title: "Touring desk",
-    description: "Espacio reservado para alertas de giras y nuevos conciertos.",
-    href: "/touring",
+    title: "Touring Control Center",
+    description: "Salud de fuentes, configuraciones verificadas y operaciones de inteligencia de giras.",
+    href: "/admin/touring",
     icon: <RadioTower className="h-5 w-5" />,
-    status: "Próximo",
+    status: "Activo",
   },
 ];
 
