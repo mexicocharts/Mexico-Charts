@@ -22,6 +22,27 @@ function publicPrice(event: { priceRanges?: { currency: string | null; min: numb
   return `${price.currency ?? ""} ${price.min.toLocaleString()}–${price.max.toLocaleString()}`.trim();
 }
 
+function saleState(event: ArtistTours["events"][number], now = new Date()) {
+  const start = event.publicSaleStart ? new Date(event.publicSaleStart) : null;
+  if (event.eventStatus && /cancel/iu.test(event.eventStatus)) return { label: "Cancelado", rank: 0, tone: "#ff6262" };
+  if (start && start.getTime() > now.getTime()) {
+    const hours = (start.getTime() - now.getTime()) / 3_600_000;
+    return { label: hours <= 48 ? "Venta próxima" : "Venta anunciada", rank: hours <= 48 ? 5 : 4, tone: "#ffd166" };
+  }
+  if (start) return { label: "En venta", rank: 3, tone: "#39FF14" };
+  return { label: "Fecha confirmada", rank: 2, tone: "rgba(255,255,255,.58)" };
+}
+
+function commandCenterScore(artist: ArtistTours) {
+  const concerts = artist.events.filter(event => event.eventKind !== "auxiliary");
+  const markets = new Set(concerts.map(event => `${event.city}|${event.state}|${event.country}`)).size;
+  const withPrices = concerts.filter(event => publicPrice(event)).length;
+  const announcedSales = concerts.filter(event => event.publicSaleStart).length;
+  const score = Math.min(84, Math.round(22 + Math.log2(concerts.length + 1) * 13 + Math.min(markets, 12) * 2 + Math.min(withPrices, 4) * 2 + Math.min(announcedSales, 4)));
+  const confidence = withPrices >= 2 && concerts.length >= 4 ? "Media" : concerts.length >= 1 ? "Limitada" : "No disponible";
+  return { score: concerts.length ? score : null, confidence, markets, withPrices };
+}
+
 const fadeUp = (delay = 0) => ({
   initial: { opacity: 0, y: 18 },
   whileInView: { opacity: 1, y: 0 },
@@ -56,6 +77,7 @@ function ShelfCard({
 }) {
   const photo = artist.events[0]?.img ?? deezerPhoto ?? null;
   const nextEv = artist.events[0];
+  const sale = nextEv ? saleState(nextEv) : null;
   const accent = idx === 0 ? "#39FF14" : idx === 1 ? "rgba(57,255,20,0.7)" : "rgba(57,255,20,0.45)";
 
   const inner = (
@@ -91,6 +113,7 @@ function ShelfCard({
           <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
           {nextEv ? (
             <>
+              <div style={{ color: sale?.tone, fontSize: 8, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 5 }}>{sale?.label}</div>
               <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} fechas</div>
               <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "0.03em" }}>
                 {formatDate(nextEv.date)} · {nextEv.city}
@@ -150,7 +173,11 @@ export default function TouringHub() {
   }
 
   const sortedArtists = artists
-    ? [...artists].sort((a, b) => b.events.length - a.events.length)
+    ? [...artists].filter(a => a.events.length > 0).sort((a, b) => {
+        const aSale = saleState(a.events[0]!).rank;
+        const bSale = saleState(b.events[0]!).rank;
+        return bSale - aSale || a.events[0]!.date.localeCompare(b.events[0]!.date) || b.events.length - a.events.length;
+      })
     : [];
 
   const totalShows = sortedArtists.reduce((sum, a) => sum + a.events.length, 0);
@@ -209,6 +236,22 @@ export default function TouringHub() {
   }, [sortedArtists]);
 
   const deezerImages = useArtistImages(allImageNames);
+  const labTours = useMemo(() => {
+    const history = new Map((touringLab?.tours ?? []).map(tour => [tour.artistId, tour]));
+    return sortedArtists.slice(0, 12).map(artist => {
+      const observed = history.get(artist.id);
+      const demand = commandCenterScore(artist);
+      return {
+        artist,
+        observed,
+        demand,
+        sale: saleState(artist.events[0]!),
+        nextDate: artist.events[0]?.date ?? null,
+      };
+    });
+  }, [sortedArtists, touringLab]);
+
+  const lastCheckedAt = sortedArtists.reduce((latest, artist) => Math.max(latest, artist.fetchedAt || 0), 0);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
@@ -783,33 +826,35 @@ export default function TouringHub() {
         </section>
       )}
 
-      {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
+      {/* Demand is a metadata-based indicator, never an inventory or sales claim. */}
       <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
         <SectionHeading white="Touring" green="Lab" />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
           <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Experimental</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: no disponible</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Confianza: insuficiente</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: señal estimada</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>{lastCheckedAt ? `Última revisión: ${new Date(lastCheckedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}` : "Esperando primera revisión"}</span>
         </div>
         <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
-          {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
+          El Demand Score resume escala de fechas, mercados, estado de venta y cobertura pública de precios. Es una estimación direccional — no mide inventario, boletos vendidos ni sell-through. El gross permanece sin estimar cuando no existe una capacidad configurada y verificable para el evento.
         </p>
-        {touringLab?.available && touringLab.tours.length > 0 && (
+        {labTours.length > 0 ? (
           <div className="th-lab-grid">
-            {touringLab.tours.map(tour => (
-              <article key={tour.artistId} className="th-lab-card">
-                <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{tour.status === "active" ? "En gira" : tour.status === "upcoming" ? "Próxima" : tour.status === "completed" ? "Finalizada" : "Estado desconocido"}</div>
-                <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: "0 0 5px" }}>{tour.artistName}</h3>
-                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, minHeight: 30 }}>{tour.tourName}</div>
+            {labTours.map(({ artist, observed, demand, sale, nextDate }) => (
+              <article key={artist.id} className="th-lab-card">
+                <div style={{ color: sale.tone, fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{sale.label}</div>
+                <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: "0 0 5px" }}>{artist.name}</h3>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, minHeight: 30 }}>{observed?.tourName || artist.events[0]?.name || "Gira/fechas confirmadas"}</div>
                 <div style={{ display: "flex", gap: 22, marginTop: 18 }}>
-                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{tour.concertCount}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Shows observados</span></div>
-                  <div><strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{tour.nextConcertDate ? formatDate(tour.nextConcertDate) : "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Próxima fecha</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{artist.events.length}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Fechas públicas</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{demand.score ?? "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Demanda · {demand.confidence}</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{nextDate ? formatDate(nextDate) : "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Próxima fecha</span></div>
                 </div>
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #181818", color: "rgba(255,255,255,.34)", fontSize: 8, lineHeight: 1.6, textTransform: "uppercase", letterSpacing: ".1em" }}>{demand.markets} mercados · {demand.withPrices ? `${demand.withPrices} fechas con rango primary público` : "Precio primary no publicado"} · Gross USD: no disponible</div>
               </article>
             ))}
           </div>
-        )}
+        ) : <div style={{ border: "1px solid #181818", padding: 20, color: "rgba(255,255,255,.48)", fontSize: 11 }}>Monitor configurado. Esperando la primera colección autorizada de fechas.</div>}
         <div style={{ color: "rgba(255,255,255,.3)", fontSize: 8, lineHeight: 1.7, textTransform: "uppercase", letterSpacing: ".11em", marginTop: 20 }}>
           Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica.
         </div>
