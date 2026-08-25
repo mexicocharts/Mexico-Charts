@@ -9,6 +9,11 @@ import { useLanguage } from "@/i18n/LanguageContext";
 const G = "#39FF14";
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
+const cardStyle = {
+  background: "rgba(255,255,255,0.03)",
+  border: "1px solid rgba(255,255,255,0.07)",
+};
+
 export default function Metodologia() {
   const { pick } = useLanguage();
   return (
@@ -44,6 +49,15 @@ export default function Metodologia() {
             {pick("Nuestros rankings y perfiles pueden incluir datos de Spotify, YouTube, Apple Music, Deezer, Songstats, Ticketmaster, Pollstar, IFPI, AMPROFON y otras fuentes oficiales, públicas o editoriales, dependiendo de la disponibilidad y del tipo de sección.", "Our rankings and profiles may include data from Spotify, YouTube, Apple Music, Deezer, Songstats, Ticketmaster, Pollstar, IFPI, AMPROFON and other official, public or editorial sources, depending on availability and the section.")}
           </p>
 
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,0.34)" }}>
+            <span>{pick("Versión 1.0", "Version 1.0")}</span>
+            <span aria-hidden="true" style={{ color: "rgba(57,255,20,0.45)" }}>•</span>
+            <span>{pick("Actualizada el 24 de agosto de 2026", "Updated August 24, 2026")}</span>
+            <Link href="/fuentes-de-datos">
+              <span className="cursor-pointer hover:underline" style={{ color: G }}>{pick("Directorio de fuentes →", "Source directory →")}</span>
+            </Link>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-3">
             {[
               {
@@ -65,6 +79,165 @@ export default function Metodologia() {
               </div>
             ))}
           </div>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-3" style={{ color: G }}>{pick("Cómo procesamos los datos", "How we process data")}</h2>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(255,255,255,0.5)" }}>
+              {pick("El proceso puede variar según la fuente, pero sigue estas etapas para reducir errores de identidad, formato y periodo.", "The process may vary by source, but follows these stages to reduce identity, format and measurement-period errors.")}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {[
+                ["01", pick("Recopilación", "Collection"), pick("Obtenemos datos públicos, oficiales o licenciados y conservamos la fuente y fecha disponibles.", "We obtain public, official or licensed data and retain the available source and date.")],
+                ["02", pick("Identificación", "Identification"), pick("Vinculamos cada dato con el artista, lanzamiento, canal, evento o lista correctos mediante identificadores y revisión de nombres.", "We link each data point to the correct artist, release, channel, event or chart using identifiers and name review.")],
+                ["03", pick("Normalización", "Normalization"), pick("Unificamos nombres, fechas, periodos y formatos sin alterar el valor publicado por la fuente.", "We standardize names, dates, periods and formats without changing the value published by the source.")],
+                ["04", pick("Validación", "Validation"), pick("Revisamos duplicados, asociaciones incorrectas, valores ausentes y cambios inusuales cuando pueden verificarse.", "We review duplicates, incorrect associations, missing values and unusual changes when they can be verified.")],
+                ["05", pick("Historial", "History"), pick("Guardamos snapshots seleccionados para calcular cambios, tendencias y comparaciones entre periodos.", "We store selected snapshots to calculate changes, trends and comparisons between periods.")],
+                ["06", pick("Publicación", "Publication"), pick("Mostramos la cifra con su plataforma, periodo, fecha o carácter editorial cuando corresponde.", "We display the figure with its platform, period, date or editorial status when appropriate.")],
+              ].map(([number, title, body]) => (
+                <div key={number} className="rounded-xl p-5" style={cardStyle}>
+                  <div className="text-[10px] font-black tracking-[0.18em] mb-3" style={{ color: G }}>{number}</div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.16em] mb-2" style={{ color: "rgba(255,255,255,0.62)" }}>{title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.43)" }}>{body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Qué usamos y para qué", "What we use and why")}</h2>
+            <div className="overflow-hidden rounded-xl" style={cardStyle}>
+              {[
+                ["Spotify, YouTube, Apple Music y Deezer", pick("Listas de plataforma, posiciones, reproducciones y métricas de audiencia cuando están disponibles.", "Platform charts, positions, plays and audience metrics when available.")],
+                ["Songstats", pick("Métricas de audiencia e historial obtenidas mediante acceso licenciado; solo se publican campos seleccionados.", "Audience and historical metrics obtained through licensed access; only selected fields are published.")],
+                ["Ticketmaster y Pollstar", pick("Eventos, giras y reportes de taquilla, según cobertura y disponibilidad.", "Events, touring and box-office reports, subject to coverage and availability.")],
+                ["IFPI y AMPROFON", pick("Reportes de mercado, listas y certificaciones publicadas por organismos de la industria.", "Market reports, charts and certifications published by industry organizations.")],
+                [pick("Fuentes oficiales adicionales", "Additional official sources"), pick("Canales de artistas, sellos, distribuidores, recintos y promotores para verificar identidad, catálogo o eventos.", "Artist, label, distributor, venue and promoter channels used to verify identity, catalog or events.")],
+              ].map(([source, use], index) => (
+                <div key={source} className="grid gap-2 p-5 sm:grid-cols-[210px_1fr]" style={{ borderTop: index ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: "rgba(255,255,255,0.62)" }}>{source}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.43)" }}>{use}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Tipos de ranking", "Ranking types")}</h2>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                [pick("Lista oficial de plataforma", "Official platform chart"), pick("Se reproduce la posición publicada por la fuente. Mexico Charts puede ordenar, buscar o aplicar un filtro identificado, pero no convierte el resultado en un ranking propio.", "The position published by the source is reproduced. Mexico Charts may sort, search or apply an identified filter, but does not turn the result into its own ranking.")],
+                [pick("Cálculo o agregado", "Calculation or aggregate"), pick("Mexico Charts calcula un cambio, total o comparación a partir de datos identificados. La plataforma, el periodo y el carácter calculado se indican cuando corresponde.", "Mexico Charts calculates a change, total or comparison from identified data. The platform, period and calculated nature are stated when appropriate.")],
+                [pick("Ranking editorial", "Editorial ranking"), pick("Mexico Charts define los criterios y combina señales para producir el orden. MX100 pertenece a esta categoría y su fórmula se documenta abajo.", "Mexico Charts defines the criteria and combines signals to produce the order. MX100 belongs to this category and its formula is documented below.")],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-xl p-5" style={cardStyle}>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.17em] mb-3" style={{ color: G }}>{title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.43)" }}>{body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Elegibilidad de artistas", "Artist eligibility")}</h2>
+            <div className="rounded-xl p-6 space-y-4" style={cardStyle}>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("La cobertura se concentra en artistas mexicanos y en artistas vinculados de manera verificable con la música mexicana por origen, trayectoria, repertorio, género, mercado o comunidad cultural. Haber nacido fuera de México no excluye automáticamente a un artista, y aparecer en una lista de México no establece por sí solo la elegibilidad.", "Coverage focuses on Mexican artists and artists verifiably connected to Mexican music through origin, career, repertoire, genre, market or cultural community. Being born outside Mexico does not automatically exclude an artist, and appearing on a Mexico chart does not by itself establish eligibility.")}
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("Los grupos se evalúan como una entidad artística. Las carreras solistas se mantienen separadas de los grupos a los que pertenecen. Una colaboración se atribuye a los artistas acreditados por la fuente; solo se trata como entidad independiente cuando existe un registro propio y señales suficientes para monitorearla. Los alias, cambios de nombre y duplicados se consolidan cuando representan al mismo proyecto artístico.", "Groups are evaluated as an artist entity. Solo careers remain separate from the groups their members belong to. A collaboration is attributed to the artists credited by the source; it is treated as a separate entity only when it has its own record and enough signals to monitor it. Aliases, name changes and duplicates are consolidated when they represent the same artist project.")}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
+                {pick("La inclusión depende también de la cobertura disponible. La ausencia de un artista no implica una evaluación negativa ni una afirmación sobre su nacionalidad o relevancia cultural.", "Inclusion also depends on available coverage. An artist's absence does not imply a negative assessment or a claim about nationality or cultural relevance.")}
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Frecuencia de actualización", "Update frequency")}</h2>
+            <div className="overflow-hidden rounded-xl" style={cardStyle}>
+              {[
+                [pick("Listas diarias", "Daily charts"), pick("Se actualizan normalmente cada día cuando la plataforma publica y Mexico Charts recibe una nueva edición.", "Normally updated each day when the platform publishes and Mexico Charts receives a new edition.")],
+                [pick("Listas semanales", "Weekly charts"), pick("Se actualizan después de la publicación y procesamiento de la nueva semana de la fuente.", "Updated after the source's new weekly edition is published and processed.")],
+                [pick("Audiencia y fanbase", "Audience and fanbase"), pick("Se actualizan periódicamente según la disponibilidad, límites y calendario de cada plataforma o proveedor.", "Updated periodically according to each platform or provider's availability, limits and schedule.")],
+                [pick("Giras y certificaciones", "Touring and certifications"), pick("Se actualizan cuando aparecen nuevos eventos, reportes o publicaciones verificables.", "Updated when new verifiable events, reports or publications become available.")],
+                ["MX100", pick("Se recalcula automáticamente cuando cambian sus datos de entrada; no es una edición semanal congelada salvo que la página indique una fecha de corte específica.", "Recalculated automatically when its inputs change; it is not a frozen weekly edition unless the page states a specific cutoff date.")],
+              ].map(([dataset, cadence], index) => (
+                <div key={dataset} className="grid gap-2 p-5 sm:grid-cols-[210px_1fr]" style={{ borderTop: index ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: "rgba(255,255,255,0.62)" }}>{dataset}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.43)" }}>{cadence}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.3)" }}>
+              {pick("Los horarios no están garantizados: una demora, revisión o cambio técnico de la fuente puede retrasar la actualización. Las fechas de corte de dos plataformas pueden ser distintas.", "Schedules are not guaranteed: a source delay, review or technical change may postpone an update. Two platforms may have different cutoff dates.")}
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Metodología MX100", "MX100 methodology")}</h2>
+            <div className="rounded-xl p-6 mb-4" style={{ background: "rgba(57,255,20,0.04)", border: "1px solid rgba(57,255,20,0.14)" }}>
+              <h3 className="text-base font-black uppercase tracking-[0.08em] mb-3" style={{ color: "rgba(255,255,255,0.82)" }}>{pick("Qué mide", "What it measures")}</h3>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.52)" }}>
+                {pick("MX100 es un ranking editorial y calculado por Mexico Charts que ordena hasta 100 artistas de música mexicana actualmente monitoreados. Busca representar rendimiento contemporáneo combinando consumo semanal en México con señales secundarias de alcance y actividad en vivo. No representa necesariamente a la totalidad de artistas mexicanos ni debe interpretarse como una lista oficial de Spotify, YouTube o cualquier otra plataforma.", "MX100 is an editorial ranking calculated by Mexico Charts that orders up to 100 currently monitored Mexican-music artists. It aims to represent contemporary performance by combining weekly consumption in Mexico with secondary reach and live-activity signals. It does not necessarily represent every Mexican artist and should not be interpreted as an official Spotify, YouTube or other platform chart.")}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+              {[
+                ["55", pick("Spotify semanal México", "Spotify weekly Mexico"), pick("Puntos según la posición del artista dentro del Top 100 semanal. La puntuación desciende de forma lineal desde el primer lugar; fuera del Top 100 aporta cero.", "Points based on the artist's position in the weekly Top 100. The score decreases linearly from first place; positions outside the Top 100 contribute zero.")],
+                ["25", pick("YouTube México", "YouTube Mexico"), pick("Vistas semanales del artista en México, escaladas mediante raíz cuadrada frente al mayor valor del conjunto monitoreado para reducir la dominancia de valores extremos.", "Weekly artist views in Mexico, square-root scaled against the highest value in the monitored set to reduce domination by extreme values.")],
+                ["12", "Fanbase", pick("Suma disponible de seguidores en TikTok, Instagram, YouTube, Facebook y Spotify, escalada con una curva comprimida frente al mayor alcance del conjunto.", "Available combined followers across TikTok, Instagram, YouTube, Facebook and Spotify, scaled with a compressed curve against the highest reach in the set.")],
+                ["8", pick("Giras", "Touring"), pick("Número de fechas activas registradas, escalado linealmente frente al artista con más fechas dentro de los datos disponibles.", "Number of recorded active dates, linearly scaled against the artist with the most dates in the available data.")],
+              ].map(([points, title, body]) => (
+                <div key={title} className="rounded-xl p-5" style={cardStyle}>
+                  <div className="text-3xl font-black mb-1" style={{ color: G }}>{points}</div>
+                  <div className="text-[9px] font-black uppercase tracking-[0.16em] mb-4" style={{ color: "rgba(255,255,255,0.28)" }}>{pick("puntos máximos", "maximum points")}</div>
+                  <h3 className="text-xs font-black uppercase tracking-[0.13em] mb-2" style={{ color: "rgba(255,255,255,0.65)" }}>{title}</h3>
+                  <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>{body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                [pick("Puntuación y normalización", "Scoring and normalization"), pick("La puntuación máxima es 100. Spotify se calcula por posición; YouTube, fanbase y giras se comparan con el mayor valor disponible entre los artistas monitoreados. Por ello, la puntuación refleja el conjunto y los datos disponibles en el momento del cálculo, y puede cambiar aunque la métrica individual de un artista permanezca igual.", "The maximum score is 100. Spotify is calculated by position; YouTube, fanbase and touring are compared with the highest available value among monitored artists. The score therefore reflects the set and data available at calculation time, and may change even when an artist's individual metric remains unchanged.")],
+                [pick("Datos ausentes", "Missing data"), pick("Una señal ausente aporta cero puntos en ese componente; no se estima ni se redistribuye su peso entre los demás. Un artista puede entrar al ranking con una o más señales disponibles siempre que su puntuación total sea mayor que cero. Ausente no significa necesariamente actividad cero.", "A missing signal contributes zero points for that component; its weight is neither estimated nor redistributed among the others. An artist may enter the ranking with one or more available signals as long as the total score is above zero. Missing does not necessarily mean zero activity.")],
+                [pick("Desempates", "Ties"), pick("Cuando dos artistas obtienen la misma puntuación redondeada, se ordenan sucesivamente por mejor posición semanal en Spotify, mejor posición semanal de artistas en YouTube, más vistas semanales de YouTube México y mayor fanbase disponible.", "When two artists receive the same rounded score, they are ordered successively by better weekly Spotify position, better weekly YouTube artist position, more weekly YouTube Mexico views and higher available fanbase.")],
+                [pick("Elegibilidad y colaboraciones", "Eligibility and collaborations"), pick("El universo de candidatos parte de los artistas con registro de metadata actualmente monitoreado por Mexico Charts y aplica los criterios de elegibilidad descritos arriba. Los grupos compiten como entidades propias; una colaboración solo compite por separado si tiene un registro propio dentro de ese universo.", "The candidate universe begins with artists that have a metadata record currently monitored by Mexico Charts and applies the eligibility criteria above. Groups compete as their own entities; a collaboration competes separately only if it has its own record within that universe.")],
+                [pick("Periodo y actualización", "Period and updates"), pick("Las señales principales de consumo utilizan la edición semanal disponible de Spotify México y las vistas semanales disponibles de YouTube México. Fanbase y giras usan el dato disponible más reciente. MX100 se recalcula al cambiar cualquiera de estas entradas.", "The primary consumption signals use the available weekly Spotify Mexico edition and available weekly YouTube Mexico views. Fanbase and touring use the latest available data. MX100 is recalculated when any of these inputs change.")],
+                [pick("Intervención editorial", "Editorial intervention"), pick("La selección de fuentes, los criterios de elegibilidad y la fórmula son decisiones editoriales de Mexico Charts. Una vez aplicados, la posición se determina mediante el cálculo descrito: no se sube ni se baja manualmente a un artista por preferencia, relación comercial o narrativa editorial.", "Source selection, eligibility criteria and the formula are editorial decisions by Mexico Charts. Once applied, position is determined by the calculation described: artists are not manually moved up or down because of preference, commercial relationship or editorial narrative.")],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-xl p-5" style={cardStyle}>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.17em] mb-3" style={{ color: G }}>{title}</h3>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.43)" }}>{body}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Independencia editorial y comercial", "Editorial and commercial independence")}</h2>
+            <div className="rounded-xl p-6 space-y-4" style={cardStyle}>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("Mexico Charts opera de manera editorialmente independiente. La posición de un artista, la cobertura de un lanzamiento y la presentación de una cifra no se modifican para favorecer o perjudicar a artistas, sellos, distribuidores, representantes, proveedores de datos, anunciantes, socios comerciales o preferencias personales.", "Mexico Charts operates with editorial independence. An artist's position, release coverage and the presentation of a figure are not changed to favor or disadvantage artists, labels, distributors, representatives, data providers, advertisers, commercial partners or personal preferences.")}
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("Licenciar datos o mantener una relación comercial con un proveedor no le concede control sobre los rankings, criterios editoriales, análisis o decisiones de publicación de Mexico Charts. Las relaciones relevantes que puedan representar un conflicto de interés deben identificarse cuando corresponda.", "Licensing data or maintaining a commercial relationship with a provider does not give that provider control over Mexico Charts rankings, editorial criteria, analysis or publication decisions. Relevant relationships that may represent a conflict of interest must be identified when appropriate.")}
+              </p>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Correcciones e historial", "Corrections and history")}</h2>
+            <div className="rounded-xl p-6 space-y-4" style={cardStyle}>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("Cuando Mexico Charts identifica un error de asociación, transcripción, cálculo o presentación, corrige el registro y vuelve a calcular los resultados afectados cuando es técnicamente posible. Una corrección puede cambiar una cifra, perfil, comparación o posición histórica.", "When Mexico Charts identifies an association, transcription, calculation or presentation error, it corrects the record and recalculates affected results when technically possible. A correction may change a figure, profile, comparison or historical position.")}
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                {pick("Si una fuente revisa o elimina datos, Mexico Charts puede actualizar su copia para reflejar la información más reciente. Los snapshots históricos pueden conservar el valor disponible en la fecha original cuando son necesarios para documentar una serie; en ese caso, una revisión posterior debe distinguirse del dato observado originalmente.", "If a source revises or removes data, Mexico Charts may update its copy to reflect the latest information. Historical snapshots may retain the value available on the original date when needed to document a series; in that case, a later revision should be distinguished from the originally observed data.")}
+              </p>
+            </div>
+          </section>
 
           <div>
             <h2 className="text-sm font-black uppercase tracking-[0.22em] mb-6" style={{ color: G }}>{pick("Principios", "Principles")}</h2>
