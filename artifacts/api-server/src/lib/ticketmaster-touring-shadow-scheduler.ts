@@ -187,7 +187,7 @@ export interface TicketmasterTouringShadowStatus {
   addOnSnapshotCount: number;
   nextEventDate: string | null;
   daysUntilNextEvent: number | null;
-  cadenceHours: 0.25 | 1 | 6;
+  cadenceHours: 0.25 | 1 | 2 | 6 | 24;
   nextRunAt: string | null;
   lastRun: {
     id: number;
