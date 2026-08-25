@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import {
   getTicketmasterTouringShadowStatus,
@@ -190,39 +189,6 @@ interface ArtistTours {
 
 const cache = new Map<string, ArtistTours>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-let intelligenceTablesPromise: Promise<unknown> | null = null;
-
-function ensureTouringIntelligenceTables() {
-  intelligenceTablesPromise ??= pool.query(`
-    CREATE TABLE IF NOT EXISTS touring_venue_capacities (
-      venue_id text PRIMARY KEY,
-      venue_name text NOT NULL,
-      configuration text NOT NULL,
-      capacity_low integer NOT NULL CHECK (capacity_low > 0),
-      capacity_high integer NOT NULL CHECK (capacity_high >= capacity_low),
-      currency text,
-      source_url text NOT NULL,
-      source_label text NOT NULL,
-      confidence text NOT NULL CHECK (confidence IN ('high','medium','limited')),
-      verified_at timestamptz NOT NULL,
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-    CREATE TABLE IF NOT EXISTS touring_announcement_sources (
-      id bigserial PRIMARY KEY,
-      artist_id text NOT NULL,
-      artist_name text NOT NULL,
-      source_type text NOT NULL CHECK (source_type IN ('artist','promoter','venue')),
-      source_url text NOT NULL UNIQUE,
-      status text NOT NULL DEFAULT 'active',
-      last_checked_at timestamptz,
-      last_changed_at timestamptz,
-      last_error text,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-  `);
-  return intelligenceTablesPromise;
-}
 
 function isFresh(entry: ArtistTours) {
   return Date.now() - entry.fetchedAt < CACHE_TTL;
@@ -460,79 +426,6 @@ router.get("/touring/lab", async (_req, res) => {
   }
 });
 
-router.get("/touring/intelligence", async (_req, res) => {
-  try {
-    await ensureTouringIntelligenceTables();
-    const lab = await publicTouringLab();
-    const economics = await pool.query<{
-      event_id: string; venue_id: string | null; venue_name: string | null; capacity_low: number | null;
-      capacity_high: number | null; configuration: string | null; confidence: string | null;
-      source_url: string | null; price_ranges: Array<{ type?: string; currency?: string; min?: number; max?: number }> | null;
-    }>(`SELECT DISTINCT ON (e.event_id) e.event_id,e.venue_id,e.venue_name,c.capacity_low,c.capacity_high,
-        c.configuration,c.confidence,c.source_url,s.price_ranges
-      FROM touring_tm_events e
-      JOIN touring_tm_snapshots s ON s.event_id=e.event_id
-      LEFT JOIN touring_venue_capacities c ON c.venue_id=e.venue_id
-      WHERE e.event_kind='concert' AND e.event_date>=current_date
-      ORDER BY e.event_id,s.observed_at DESC`);
-    const eventEconomics = economics.rows.map(row => {
-      const standard = (row.price_ranges ?? []).find(range => !range.type || /standard|regular/iu.test(range.type));
-      const validPrice = standard?.currency === "USD" && Number.isFinite(standard.min) && Number.isFinite(standard.max);
-      const canEstimate = Boolean(row.capacity_low && row.capacity_high && validPrice);
-      return {
-        eventId: row.event_id,
-        venueId: row.venue_id,
-        venueName: row.venue_name,
-        capacity: row.capacity_low ? { low: row.capacity_low, high: row.capacity_high, configuration: row.configuration, confidence: row.confidence, sourceUrl: row.source_url } : null,
-        primaryPrice: validPrice ? { currency: "USD", min: standard!.min, max: standard!.max, offerClass: "standard-primary" } : null,
-        grossEstimateUsd: canEstimate ? {
-          low: Math.round(row.capacity_low! * Number(standard!.min)),
-          high: Math.round(row.capacity_high! * Number(standard!.max)),
-          confidence: row.confidence === "high" ? "medium" : "limited",
-          label: "Estimated range — not reported box office",
-        } : null,
-      };
-    });
-    const tours = lab.tours.map(tour => {
-      const scale = Math.min(45, Math.round(Math.log2(tour.concertCount + 1) * 11));
-      const freshness = tour.nextConcertDate ? 20 : 0;
-      const historyBonus = lab.recentChanges.some(change => change.artistName === tour.artistName) ? 10 : 0;
-      const score = Math.min(85, 20 + scale + freshness + historyBonus);
-      return { ...tour, demandScore: score, demandConfidence: lab.recentChanges.length ? "medium" : "limited", demandLabel: "Metadata-based directional estimate" };
-    });
-    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-    return res.json({
-      generatedAt: new Date().toISOString(),
-      source: "Ticketmaster Discovery API + verified venue configurations",
-      tours,
-      eventEconomics,
-      recentChanges: lab.recentChanges,
-      rules: {
-        inventory: "not inferred",
-        offers: ["standard-primary", "resale", "vip", "locked"],
-        gross: "published only when verified configuration capacity and USD standard-primary prices are both available",
-      },
-    });
-  } catch (error) {
-    logger.warn({ error }, "[touring-intelligence] public read failed");
-    return res.status(503).json({ error: "Touring intelligence is temporarily unavailable" });
-  }
-});
-
-router.get("/touring/events/:eventId/history", async (req, res) => {
-  try {
-    const eventId = String(req.params.eventId ?? "").trim();
-    if (!/^[A-Za-z0-9_-]{3,80}$/.test(eventId)) return res.status(400).json({ error: "Invalid event id" });
-    const result = await pool.query(`SELECT observed_at,event_status,public_sale_start,public_sale_end,price_ranges
-      FROM touring_tm_snapshots WHERE event_id=$1 ORDER BY observed_at ASC LIMIT 500`, [eventId]);
-    res.setHeader("Cache-Control", "public, max-age=120");
-    return res.json({ eventId, observations: result.rows });
-  } catch (error) {
-    logger.warn({ error }, "[touring-history] read failed");
-    return res.status(503).json({ error: "History is temporarily unavailable" });
-  }
-});
-
 router.get("/admin/touring/coverage", async (req, res) => {
   if (!requireAdmin(req, res)) return;
 
@@ -576,55 +469,6 @@ router.get("/admin/touring/coverage", async (req, res) => {
 
 router.get("/admin/touring/shadow/status", async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
-router.get("/admin/touring/health", async (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    await ensureTouringIntelligenceTables();
-    const [shadow, sources, capacity] = await Promise.all([
-      touringShadowStatus(),
-      pool.query(`SELECT count(*)::int total,
-        count(*) FILTER (WHERE status='active')::int active,
-        count(*) FILTER (WHERE last_error IS NOT NULL)::int errors,
-        max(last_checked_at) latest_check FROM touring_announcement_sources`),
-      pool.query(`SELECT count(*)::int verified_configurations,max(verified_at) latest_verification FROM touring_venue_capacities`),
-    ]);
-    return res.json({ generatedAt: new Date().toISOString(), discovery: shadow, announcementSources: sources.rows[0], venueCapacity: capacity.rows[0] });
-  } catch (error) {
-    logger.error({ error }, "[touring-health] read failed");
-    return res.status(500).json({ error: "Unable to read touring health" });
-  }
-});
-
-router.post("/admin/touring/venues/capacity", async (req, res) => {
-  if (!requireAdmin(req, res)) return;
-  try {
-    await ensureTouringIntelligenceTables();
-    const venueId = String(req.body?.venueId ?? "").trim();
-    const venueName = String(req.body?.venueName ?? "").trim();
-    const configuration = String(req.body?.configuration ?? "").trim();
-    const sourceUrl = String(req.body?.sourceUrl ?? "").trim();
-    const sourceLabel = String(req.body?.sourceLabel ?? "").trim();
-    const confidence = String(req.body?.confidence ?? "limited").trim();
-    const capacityLow = Number(req.body?.capacityLow);
-    const capacityHigh = Number(req.body?.capacityHigh);
-    const verifiedAt = new Date(String(req.body?.verifiedAt ?? ""));
-    if (!venueId || !venueName || !configuration || !/^https:\/\//iu.test(sourceUrl) || !sourceLabel || !["high","medium","limited"].includes(confidence) || !Number.isInteger(capacityLow) || !Number.isInteger(capacityHigh) || capacityLow <= 0 || capacityHigh < capacityLow || Number.isNaN(verifiedAt.getTime())) {
-      return res.status(400).json({ error: "Invalid verified venue configuration" });
-    }
-    await pool.query(`INSERT INTO touring_venue_capacities(venue_id,venue_name,configuration,capacity_low,capacity_high,source_url,source_label,confidence,verified_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(venue_id) DO UPDATE SET venue_name=excluded.venue_name,
-      configuration=excluded.configuration,capacity_low=excluded.capacity_low,capacity_high=excluded.capacity_high,
-      source_url=excluded.source_url,source_label=excluded.source_label,confidence=excluded.confidence,verified_at=excluded.verified_at,updated_at=now()`,
-      [venueId,venueName,configuration,capacityLow,capacityHigh,sourceUrl,sourceLabel,confidence,verifiedAt]);
-    return res.json({ ok: true, venueId });
-  } catch (error) {
-    logger.error({ error }, "[touring-capacity] write failed");
-    return res.status(500).json({ error: "Unable to save venue configuration" });
-  }
-});
-
-router.get("/admin/touring/shadow", async (req, res) => {
-  if (!requireAdmin(req, res)) return;
   try {
     res.setHeader("Cache-Control", "no-store");
     res.json(await getTicketmasterTouringShadowStatus());
