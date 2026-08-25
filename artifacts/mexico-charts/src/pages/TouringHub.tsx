@@ -5,6 +5,7 @@ import SiteNav from "@/components/SiteNav";
 import { useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
+import TouringCommandCenter from "@/components/TouringCommandCenter";
 
 const HERO_BG = "/touring-hero.png";
 
@@ -825,6 +826,8 @@ export default function TouringHub() {
           )}
         </section>
       )}
+
+      <TouringCommandCenter />
 
       {/* Demand is a metadata-based indicator, never an inventory or sales claim. */}
       <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>

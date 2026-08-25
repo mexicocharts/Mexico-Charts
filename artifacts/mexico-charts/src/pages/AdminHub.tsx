@@ -36,10 +36,10 @@ const tools = [
   },
   {
     title: "Touring desk",
-    description: "Espacio reservado para alertas de giras y nuevos conciertos.",
-    href: "/touring",
+    description: "Salud de fuentes, capacidades verificadas y alertas de giras.",
+    href: "/admin/touring",
     icon: <RadioTower className="h-5 w-5" />,
-    status: "Próximo",
+    status: "Activo",
   },
 ];
 
