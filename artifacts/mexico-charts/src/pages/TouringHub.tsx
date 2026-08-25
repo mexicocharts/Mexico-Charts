@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
-import { useArtistTouring, useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
+import { useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
 
@@ -16,74 +16,31 @@ function formatDate(iso: string): string {
   return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 }
 
-function publicPrice(event: { source?: string; priceRanges?: { currency: string | null; min: number | null; max: number | null }[] }) {
-  if (event.source !== "ticketmaster-discovery-v2") return null;
+function publicPrice(event: { priceRanges?: { currency: string | null; min: number | null; max: number | null }[] }) {
   const price = event.priceRanges?.[0];
   if (!price || price.min === null || price.max === null) return null;
   return `${price.currency ?? ""} ${price.min.toLocaleString()}–${price.max.toLocaleString()}`.trim();
 }
 
-function publicSaleStatus(event: ArtistTours["events"][number]): string {
-  const status = event.eventStatus?.toLowerCase().replace(/[_-]+/g, " ").trim();
-  if (status) {
-    if (status.includes("cancel")) return "Cancelado";
-    if (status.includes("postpon")) return "Pospuesto";
-    if (status.includes("off sale") || status.includes("offsale")) return "Venta cerrada";
-    if (status.includes("on sale") || status.includes("onsale")) return "Venta pública";
-    return event.eventStatus!.replace(/[_-]+/g, " ");
+function saleState(event: ArtistTours["events"][number], now = new Date()) {
+  const start = event.publicSaleStart ? new Date(event.publicSaleStart) : null;
+  if (event.eventStatus && /cancel/iu.test(event.eventStatus)) return { label: "Cancelado", rank: 0, tone: "#ff6262" };
+  if (start && start.getTime() > now.getTime()) {
+    const hours = (start.getTime() - now.getTime()) / 3_600_000;
+    return { label: hours <= 48 ? "Venta próxima" : "Venta anunciada", rank: hours <= 48 ? 5 : 4, tone: "#ffd166" };
   }
-
-  const now = Date.now();
-  const saleStart = event.publicSaleStart ? new Date(event.publicSaleStart).getTime() : null;
-  const saleEnd = event.publicSaleEnd ? new Date(event.publicSaleEnd).getTime() : null;
-  if (saleStart && saleStart > now) return `Venta pública · ${formatDate(event.publicSaleStart!.slice(0, 10))}`;
-  if (saleEnd && saleEnd < now) return "Venta pública cerrada";
-  if (saleStart || saleEnd) return "Venta pública";
-  return "Venta no informada";
+  if (start) return { label: "En venta", rank: 3, tone: "#39FF14" };
+  return { label: "Fecha confirmada", rank: 2, tone: "rgba(255,255,255,.58)" };
 }
 
-function isCancelledEvent(event: ArtistTours["events"][number]): boolean {
-  return event.eventStatus?.toLowerCase().includes("cancel") ?? false;
-}
-
-function artistKey(artist: ArtistTours): string {
-  return artist.id.trim().toLowerCase();
-}
-
-function validUpcomingEvents(events: ArtistTours["events"], today: string) {
-  const seen = new Set<string>();
-  return events
-    .filter((event) => event.eventKind !== "auxiliary" && !isCancelledEvent(event) && event.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.eventId.localeCompare(b.eventId))
-    .filter((event) => {
-      const key = event.eventId || [event.date, event.venue, event.city, event.name].join("|").toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-const PINNED_ARTIST_IDS = ["fuerza-regida", "carin-leon"];
-// Editorial ordering is only a tie-breaker for artists already present in the feed.
-const EDITORIAL_PRIORITY = [
-  "fuerza-regida",
-  "carin-leon",
-  "grupo-firme",
-  "natanael-cano",
-  "banda-ms",
-  "eslabon-armado",
-  "los-tigres-del-norte",
-  "grupo-frontera",
-];
-
-function freshnessLabel(fetchedAt: number | undefined): string {
-  if (!fetchedAt) return "consulta actual";
-  return new Date(fetchedAt).toLocaleString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function commandCenterScore(artist: ArtistTours) {
+  const concerts = artist.events.filter(event => event.eventKind !== "auxiliary");
+  const markets = new Set(concerts.map(event => `${event.city}|${event.state}|${event.country}`)).size;
+  const withPrices = concerts.filter(event => publicPrice(event)).length;
+  const announcedSales = concerts.filter(event => event.publicSaleStart).length;
+  const score = Math.min(84, Math.round(22 + Math.log2(concerts.length + 1) * 13 + Math.min(markets, 12) * 2 + Math.min(withPrices, 4) * 2 + Math.min(announcedSales, 4)));
+  const confidence = withPrices >= 2 && concerts.length >= 4 ? "Media" : concerts.length >= 1 ? "Limitada" : "No disponible";
+  return { score: concerts.length ? score : null, confidence, markets, withPrices };
 }
 
 const fadeUp = (delay = 0) => ({
@@ -120,6 +77,7 @@ function ShelfCard({
 }) {
   const photo = artist.events[0]?.img ?? deezerPhoto ?? null;
   const nextEv = artist.events[0];
+  const sale = nextEv ? saleState(nextEv) : null;
   const accent = idx === 0 ? "#39FF14" : idx === 1 ? "rgba(57,255,20,0.7)" : "rgba(57,255,20,0.45)";
 
   const inner = (
@@ -155,6 +113,7 @@ function ShelfCard({
           <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
           {nextEv ? (
             <>
+              <div style={{ color: sale?.tone, fontSize: 8, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 5 }}>{sale?.label}</div>
               <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} fechas</div>
               <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", letterSpacing: "0.03em" }}>
                 {formatDate(nextEv.date)} · {nextEv.city}
@@ -192,8 +151,6 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
   const { data: touringLab } = useTouringLab();
-  const { data: fuerzaRegidaFeed } = useArtistTouring("fuerza-regida");
-  const { data: carinLeonFeed } = useArtistTouring("carin-leon");
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
@@ -216,64 +173,14 @@ export default function TouringHub() {
   }
 
   const sortedArtists = artists
-    ? [...artists].sort((a, b) => b.events.length - a.events.length)
+    ? [...artists].filter(a => a.events.length > 0).sort((a, b) => {
+        const aSale = saleState(a.events[0]!).rank;
+        const bSale = saleState(b.events[0]!).rank;
+        return bSale - aSale || a.events[0]!.date.localeCompare(b.events[0]!.date) || b.events.length - a.events.length;
+      })
     : [];
 
   const totalShows = sortedArtists.reduce((sum, a) => sum + a.events.length, 0);
-
-  const fallbackTourCards = useMemo(() => {
-    if (touringLab?.available && touringLab.tours.length > 0) return [];
-    const today = new Date().toISOString().slice(0, 10);
-    const bulkById = new Map(sortedArtists.map((artist) => [artistKey(artist), artist]));
-    const individualById = new Map(
-      [fuerzaRegidaFeed, carinLeonFeed]
-        .filter((artist): artist is ArtistTours => Boolean(artist))
-        .map((artist) => [artistKey(artist), artist]),
-    );
-    const candidates = new Map<string, { artist: ArtistTours; events: ArtistTours["events"] }>();
-
-    sortedArtists.forEach((bulkArtist) => {
-      const key = artistKey(bulkArtist);
-      const sourceArtist = PINNED_ARTIST_IDS.includes(key)
-        ? individualById.get(key) ?? bulkArtist
-        : bulkArtist;
-      const events = validUpcomingEvents(sourceArtist.events, today);
-      if (events.length > 0) candidates.set(key, { artist: sourceArtist, events });
-    });
-
-    individualById.forEach((individualArtist, key) => {
-      const events = validUpcomingEvents(individualArtist.events, today);
-      if (events.length > 0) candidates.set(key, { artist: individualArtist, events });
-    });
-
-    const editorialRank = (artist: ArtistTours) => {
-      const rank = EDITORIAL_PRIORITY.indexOf(artistKey(artist));
-      return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
-    };
-    const pinned = PINNED_ARTIST_IDS
-      .map((id) => candidates.get(id))
-      .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
-    const rest = [...candidates.entries()]
-      .filter(([id]) => !PINNED_ARTIST_IDS.includes(id))
-      .map(([, candidate]) => candidate)
-      .sort((a, b) =>
-        editorialRank(a.artist) - editorialRank(b.artist) ||
-        b.events.length - a.events.length ||
-        a.events[0].date.localeCompare(b.events[0].date) ||
-        a.artist.name.localeCompare(b.artist.name, "es"),
-      );
-
-    return [...pinned, ...rest].slice(0, 8).map((candidate) => ({
-      ...candidate,
-      nextEvent: candidate.events[0],
-      featured: PINNED_ARTIST_IDS.includes(artistKey(candidate.artist)),
-    }));
-  }, [carinLeonFeed, fuerzaRegidaFeed, sortedArtists, touringLab]);
-
-  const showFallbackTourCards = !(touringLab?.available && touringLab.tours.length > 0) && fallbackTourCards.length > 0;
-  const touringFreshness = artists?.length
-    ? freshnessLabel(Math.max(...artists.map((artist) => artist.fetchedAt).filter(Boolean)))
-    : "consulta actual";
 
   const allShowsFlat = sortedArtists
     .flatMap(a => a.events.slice(0, 8).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
@@ -329,12 +236,28 @@ export default function TouringHub() {
   }, [sortedArtists]);
 
   const deezerImages = useArtistImages(allImageNames);
+  const labTours = useMemo(() => {
+    const history = new Map((touringLab?.tours ?? []).map(tour => [tour.artistId, tour]));
+    return sortedArtists.slice(0, 12).map(artist => {
+      const observed = history.get(artist.id);
+      const demand = commandCenterScore(artist);
+      return {
+        artist,
+        observed,
+        demand,
+        sale: saleState(artist.events[0]!),
+        nextDate: artist.events[0]?.date ?? null,
+      };
+    });
+  }, [sortedArtists, touringLab]);
+
+  const lastCheckedAt = sortedArtists.reduce((latest, artist) => Math.max(latest, artist.fetchedAt || 0), 0);
 
   return (
     <div style={{ background: "#080808", minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#9ca3af" }}>
       <PageSEO
         title="Touring — Artistas mexicanos en vivo"
-        description="Conciertos y giras de artistas mexicanos con fechas, ciudades, recintos y enlaces oficiales de boletos para próximos eventos."
+        description="Conciertos y giras de artistas mexicanos. Consulta fechas, ciudades, recintos y enlaces oficiales de boletos para próximos eventos."
         path="/touring"
       />
       <style dangerouslySetInnerHTML={{ __html: `
@@ -493,10 +416,6 @@ export default function TouringHub() {
         }
         .th-lab-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
         .th-lab-card { border: 1px solid #191919; background: linear-gradient(145deg,#0b0b0b,#080808); padding: 20px; }
-        .th-launch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
-        .th-launch-card { border: 1px solid rgba(57,255,20,0.2); background: linear-gradient(145deg,rgba(57,255,20,0.06),#080808 58%); padding: 18px; min-width: 0; }
-        .th-launch-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
-        .th-launch-fact { min-width: 0; }
 
         @media (min-width: 721px) and (max-width: 1100px) {
           .th-hero {
@@ -571,7 +490,6 @@ export default function TouringHub() {
             min-width: 108px;
             justify-content: center;
           }
-          .th-launch-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
 
         @media (max-width: 720px) {
@@ -682,9 +600,6 @@ export default function TouringHub() {
             letter-spacing: 0.12em !important;
           }
           .th-ticket-cta { display: none !important; }
-          .th-launch-grid { grid-template-columns: 1fr; }
-          .th-launch-card { padding: 16px; }
-          .th-launch-facts { gap: 10px; }
           .th-newsletter {
             align-items: stretch !important;
             flex-direction: column;
@@ -756,7 +671,7 @@ export default function TouringHub() {
         <div className="th-shelf-heading" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
           <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
-            Giras destacadas y próximas
+            Próximas giras
           </h2>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
@@ -911,89 +826,37 @@ export default function TouringHub() {
         </section>
       )}
 
-      {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
+      {/* Demand is a metadata-based indicator, never an inventory or sales claim. */}
       <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
         <SectionHeading white="Touring" green="Lab" />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
           <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Experimental</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: no disponible</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Confianza: insuficiente</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Cambios históricos: collecting</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: señal estimada</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>{lastCheckedAt ? `Última revisión: ${new Date(lastCheckedAt).toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}` : "Esperando primera revisión"}</span>
         </div>
         <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
-          {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
+          El Demand Score resume escala de fechas, mercados, estado de venta y cobertura pública de precios. Es una estimación direccional — no mide inventario, boletos vendidos ni sell-through. El gross permanece sin estimar cuando no existe una capacidad configurada y verificable para el evento.
         </p>
-        {showFallbackTourCards && (
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
-              <div>
-                <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em" }}>Giras destacadas y próximas</div>
-                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, marginTop: 5, maxWidth: 640 }}>
-                  Selección que combina relevancia de artistas de Mexico Charts con fechas próximas confirmadas por Ticketmaster; no es un ranking de popularidad ni una estimación de inventario.
-                </div>
-              </div>
-              <div style={{ color: "rgba(255,255,255,.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: ".1em" }}>Vista de lanzamiento · sin snapshots históricos</div>
-            </div>
-            <div className="th-launch-grid">
-              {fallbackTourCards.map(({ artist, events, nextEvent, featured }, index) => {
-                const price = publicPrice(nextEvent);
-                const isToday = nextEvent.date === new Date().toISOString().slice(0, 10);
-                return (
-                  <article key={artist.id} className="th-launch-card">
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-                      <div>
-                        <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em", marginBottom: 8 }}>
-                          {featured ? "Destacada" : isToday ? "En vivo hoy" : "Próxima"}
-                        </div>
-                        <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: 0, lineHeight: 1.05 }}>{artist.name}</h3>
-                      </div>
-                      <span style={{ color: "rgba(57,255,20,.7)", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{String(index + 1).padStart(2, "0")}</span>
-                    </div>
-                    <div className="th-launch-facts">
-                      <div className="th-launch-fact">
-                        <strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{events.length}</strong>
-                        <span style={{ color: "rgba(255,255,255,.38)", fontSize: 8, textTransform: "uppercase", letterSpacing: ".1em" }}>Conciertos listados</span>
-                      </div>
-                      <div className="th-launch-fact">
-                        <strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{formatDate(nextEvent.date)}</strong>
-                        <span style={{ color: "rgba(255,255,255,.38)", fontSize: 8, textTransform: "uppercase", letterSpacing: ".1em" }}>Siguiente fecha</span>
-                      </div>
-                    </div>
-                    <div style={{ borderTop: "1px solid rgba(255,255,255,.08)", marginTop: 16, paddingTop: 14, display: "grid", gap: 7 }}>
-                      <div style={{ color: "rgba(255,255,255,.7)", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {nextEvent.city} · {nextEvent.venue}
-                      </div>
-                      <div style={{ color: "rgba(255,255,255,.52)", fontSize: 9 }}>
-                        {publicSaleStatus(nextEvent)}{price ? ` · ${price}` : ""}
-                      </div>
-                    </div>
-                    <a href={nextEvent.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 15, color: "#39FF14", fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".14em" }}>
-                      Ver evento oficial →
-                    </a>
-                  </article>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {touringLab?.available && touringLab.tours.length > 0 && (
+        {labTours.length > 0 ? (
           <div className="th-lab-grid">
-            {touringLab.tours.map(tour => (
-              <article key={tour.artistId} className="th-lab-card">
-                <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{tour.status === "active" ? "En gira" : tour.status === "upcoming" ? "Próxima" : tour.status === "completed" ? "Finalizada" : "Estado desconocido"}</div>
-                <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: "0 0 5px" }}>{tour.artistName}</h3>
-                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, minHeight: 30 }}>{tour.tourName}</div>
+            {labTours.map(({ artist, observed, demand, sale, nextDate }) => (
+              <article key={artist.id} className="th-lab-card">
+                <div style={{ color: sale.tone, fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{sale.label}</div>
+                <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: "0 0 5px" }}>{artist.name}</h3>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, minHeight: 30 }}>{observed?.tourName || artist.events[0]?.name || "Gira/fechas confirmadas"}</div>
                 <div style={{ display: "flex", gap: 22, marginTop: 18 }}>
-                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{tour.concertCount}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Shows observados</span></div>
-                  <div><strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{tour.nextConcertDate ? formatDate(tour.nextConcertDate) : "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Próxima fecha</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{artist.events.length}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Fechas públicas</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{demand.score ?? "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Demanda · {demand.confidence}</span></div>
+                  <div><strong style={{ display: "block", color: "#fff", fontSize: 12 }}>{nextDate ? formatDate(nextDate) : "—"}</strong><span style={{ fontSize: 8, textTransform: "uppercase", letterSpacing: ".12em" }}>Próxima fecha</span></div>
                 </div>
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #181818", color: "rgba(255,255,255,.34)", fontSize: 8, lineHeight: 1.6, textTransform: "uppercase", letterSpacing: ".1em" }}>{demand.markets} mercados · {demand.withPrices ? `${demand.withPrices} fechas con rango primary público` : "Precio primary no publicado"} · Gross USD: no disponible</div>
               </article>
             ))}
           </div>
-        )}
+        ) : <div style={{ border: "1px solid #181818", padding: 20, color: "rgba(255,255,255,.48)", fontSize: 11 }}>Monitor configurado. Esperando la primera colección autorizada de fechas.</div>}
         <div style={{ color: "rgba(255,255,255,.3)", fontSize: 8, lineHeight: 1.7, textTransform: "uppercase", letterSpacing: ".11em", marginTop: 20 }}>
-          Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"} · Agenda consultada: {touringFreshness}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica. Historial: collecting hasta contar con snapshots.
+          Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica.
         </div>
       </section>
 

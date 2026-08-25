@@ -369,7 +369,49 @@ router.get(PUBLIC_TOURING_ROUTE_PATHS[1], async (req, res) => {
 router.get("/touring/lab", async (_req, res) => {
   try {
     res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
-    return res.json(await publicTouringLab());
+    const history = await publicTouringLab();
+    if (history.available || !TM_KEY) return res.json(history);
+
+    // A new deployment should be useful before the shadow history has accumulated.
+    // Seed the public lab from the same documented Discovery API used by /concerts.
+    const priorityIds = new Set(["fuerza-regida", "carin-leon", "natanael-cano", "yuridia", "eslabon-armado", "banda-ms", "los-tigres-del-norte", "xavi", "jorge-medina", "josi-cuen"]);
+    const priority = ARTISTS.filter(artist => priorityIds.has(artist.id));
+    await Promise.allSettled(priority.map(async artist => {
+      const existing = cache.get(artist.id);
+      if (existing && isFresh(existing)) return;
+      const events = await fetchArtistEvents(artist.attractionId);
+      cache.set(artist.id, { ...artist, events, fetchedAt: Date.now() });
+    }));
+    const today = new Date().toISOString().slice(0, 10);
+    const tours = priority.flatMap(artist => {
+      const entry = cache.get(artist.id);
+      const events = entry?.events ?? [];
+      if (!events.length) return [];
+      const dates = events.map(event => event.date).filter(Boolean).sort();
+      const first = dates[0] ?? null;
+      const last = dates.at(-1) ?? null;
+      return [{
+        artistId: artist.id,
+        artistName: artist.name,
+        tourName: events[0]?.name ?? "Fechas confirmadas",
+        status: first && first <= today ? "active" : "upcoming",
+        concertCount: events.length,
+        firstConcertDate: first,
+        lastConcertDate: last,
+        nextConcertDate: dates.find(date => date >= today) ?? null,
+        lastObservedAt: new Date(entry?.fetchedAt ?? Date.now()),
+        demandScore: null,
+        demandConfidence: "unavailable" as const,
+        demandLabel: "Esperando historial suficiente para validar la señal",
+      }];
+    });
+    return res.json({
+      ...history,
+      available: tours.length > 0,
+      coverageState: "seeded-live-metadata",
+      methodology: "Cobertura inicial basada en metadatos públicos actuales mientras se acumula el historial automatizado. No representa inventario, ventas, sell-through ni gross.",
+      tours,
+    });
   } catch (error) {
     logger.warn({ error }, "[touring-lab] public read failed");
     return res.json({
