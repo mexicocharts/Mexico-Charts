@@ -62,11 +62,11 @@ const routes = [
     path: "/mx100",
     title: "Mexico Charts Top 100 — MX100",
     description:
-      "Ranking editorial de Mexico Charts que mide a los artistas más exitosos de la música mexicana a partir de Spotify semanal, YouTube México, fanbase y giras.",
+      "Ranking editorial de artistas de música mexicana que combina las listas oficiales de Spotify, YouTube y Apple Music en México.",
     eyebrow: "MX100",
     heading: "Mexico Charts Top 100",
     body:
-      "El ranking editorial de Mexico Charts combina señales de streaming, YouTube México, fanbase, touring y presencia en listas para ordenar artistas de música mexicana.",
+      "El ranking editorial de Mexico Charts combina señales de las listas oficiales de Spotify, YouTube y Apple Music en México para ordenar artistas de música mexicana.",
     links: [
       ["/mx100", "MX100"],
       ["/artists", "Artistas"],
@@ -229,11 +229,11 @@ const routes = [
       ],
       [
         "MX100",
-        "MX100 es un ranking calculado entre los artistas actualmente monitoreados. Su puntuación máxima es 100: Spotify semanal México aporta 55 puntos, vistas semanales de YouTube México 25, fanbase 12 y fechas activas de giras 8. Los datos ausentes aportan cero en su componente y el peso no se redistribuye.",
+        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir de señales verificables en las listas oficiales de Spotify México, YouTube México y Apple Music México. Fanbase, seguidores y giras no forman parte del cálculo.",
       ],
       [
-        "Normalización y desempates",
-        "Spotify puntúa por posición dentro del Top 100. YouTube usa una escala de raíz cuadrada; fanbase usa una curva comprimida; giras usa una escala lineal. En empates se compara, en orden, la posición de Spotify, la posición de YouTube, las vistas de YouTube México y la fanbase disponible.",
+        "Integridad del ranking",
+        "Mexico Charts publica las fuentes, periodos, criterios de elegibilidad y principios generales. Los coeficientes, transformaciones, límites, desempates y controles de anomalías permanecen internos para reducir intentos de manipulación.",
       ],
       [
         "Independencia y correcciones",
