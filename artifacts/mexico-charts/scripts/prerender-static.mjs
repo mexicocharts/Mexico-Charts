@@ -62,11 +62,11 @@ const routes = [
     path: "/mx100",
     title: "Mexico Charts Top 100 — MX100",
     description:
-      "Ranking editorial de artistas de música mexicana que combina las listas oficiales de Spotify, YouTube y Apple Music en México.",
+      "Ranking editorial de artistas de música mexicana que combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México.",
     eyebrow: "MX100",
     heading: "Mexico Charts Top 100",
     body:
-      "El ranking editorial de Mexico Charts combina señales de las listas oficiales de Spotify, YouTube y Apple Music en México para ordenar artistas de música mexicana.",
+      "El ranking editorial de Mexico Charts combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México para ordenar artistas de música mexicana.",
     links: [
       ["/mx100", "MX100"],
       ["/artists", "Artistas"],
@@ -229,7 +229,7 @@ const routes = [
       ],
       [
         "MX100",
-        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir de señales verificables en las listas oficiales de Spotify México, YouTube México y Apple Music México.",
+        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir del ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México.",
       ],
       [
         "Integridad del ranking",
