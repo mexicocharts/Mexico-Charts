@@ -147,11 +147,11 @@ async function fetchArtistConcerts(artistId: string): Promise<ArtistTours | null
       return cleanTouringArtist(await res.json() as ArtistTours);
     }),
   );
-  const artist = results.find(
-    (result): result is PromiseFulfilledResult<ArtistTours> =>
-      result.status === "fulfilled" && result.value !== null,
+  const available = results.flatMap((result) =>
+    result.status === "fulfilled" && result.value !== null ? [result.value] : [],
   );
-  if (artist) return artist.value;
+  const artist = available.sort((a, b) => b.events.length - a.events.length)[0];
+  if (artist) return artist;
   if (results.some((result) => result.status === "fulfilled")) return null;
   throw new Error("Failed to fetch artist touring data from every available source");
 }
