@@ -250,6 +250,14 @@ function firstArtist(credit: string): string {
   return credit.split(SEP_RE)[0]?.trim() ?? "";
 }
 
+function artistNameFromRow(row: Row): string {
+  return firstArtist(
+    ["Artist Name", "Artist", "Artist Names", "artist_names"]
+      .map(key => row[key])
+      .find(Boolean) ?? "",
+  );
+}
+
 function fmt(val: string): string {
   if (!val || val === "n/a" || val === "—") return val || "—";
   const n = parseInt(val.replace(/,/g, ""), 10);
@@ -550,7 +558,7 @@ export default function ChartsHub() {
       }
     };
     topSpotifyArtists.forEach(row => add(row["Artist"] ?? ""));
-    topYoutubeArtists.forEach(row => add(row["Artist Name"] ?? ""));
+    topYoutubeArtists.forEach(row => add(artistNameFromRow(row)));
     topYoutubeSongs.forEach(row => add(row["Artist Names"] ?? ""));
     topRegionalSongs.forEach(row => add(row["artist_names"] ?? ""));
     return out;
@@ -610,7 +618,7 @@ export default function ChartsHub() {
   function previewImg(sheetId: string, row: Row): string | null {
     if (sheetId.startsWith("YT_") && row["Thumbnail URL"]) return row["Thumbnail URL"];
     if (sheetId.startsWith("YT_") && row["YouTube URL"]) return ytThumb(row["YouTube URL"] ?? "");
-    if (sheetId === "YT_Artists_Weekly") return getArtistPreviewImg(row["Artist Name"] ?? "");
+    if (sheetId === "YT_Artists_Weekly") return getArtistPreviewImg(artistNameFromRow(row));
     if (sheetId.startsWith("Spotify_Artists")) return getArtistPreviewImg(row["Artist"] ?? "");
     if (sheetId.startsWith("Spotify_Regional") || sheetId === "Spotify_Viral_Daily") return getArtistPreviewImg(row["artist_names"] ?? "");
     if (sheetId.startsWith("Apple_")) return getArtistPreviewImg(row["Artist Names"] ?? "");
@@ -622,7 +630,7 @@ export default function ChartsHub() {
     if (sheetId === "YT_Songs_Weekly") return row["Track Name"] ?? "—";
     if (sheetId === "YT_Videos_Daily") return row["Video Title"] ?? "—";
     if (sheetId === "YT_Shorts_Daily") return row["Track Name"] ?? row["Video Title"] ?? "—";
-    if (sheetId === "YT_Artists_Weekly") return row["Artist Name"] ?? "—";
+    if (sheetId === "YT_Artists_Weekly") return artistNameFromRow(row) || "—";
     if (sheetId.startsWith("Spotify_Artists")) return row["Artist"] ?? "—";
     if (sheetId.startsWith("Spotify_Regional") || sheetId === "Spotify_Viral_Daily") return row["track_name"] ?? "—";
     if (sheetId.startsWith("Apple_")) return row["Title"] ?? "—";
