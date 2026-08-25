@@ -5,6 +5,7 @@ import {
   youtubeShadowCanonicalChannelId,
   youtubeShadowCanUseVerifiedChannelFallback,
   youtubeShadowDiscoveryFailure,
+  youtubeShadowDiscoveryRetryDelayMs,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
 import { youtubeEasternMidnightAnchor } from "./youtube-intraday-shadow-scheduler";
@@ -75,10 +76,15 @@ test("surfaces non-error discovery misses instead of silently dropping an artist
   assert.equal(youtubeShadowDiscoveryFailure({
     mappingStatus: "review",
     reviewCandidates: 0,
-  }), "No eligible review candidates were discovered.");
+  }), "No eligible shadow candidates were discovered.");
 });
 
 test("accepts a discovery only when at least one eligible candidate exists", () => {
+  assert.equal(youtubeShadowDiscoveryFailure({
+    mappingStatus: "review",
+    verifiedCandidates: 1,
+    reviewCandidates: 0,
+  }), null);
   assert.equal(youtubeShadowDiscoveryFailure({
     mappingStatus: "review",
     reviewCandidates: 12,
@@ -88,4 +94,13 @@ test("accepts a discovery only when at least one eligible candidate exists", () 
     reviewCandidates: 12,
     error: "upstream failed",
   }), "upstream failed");
+});
+
+test("retries failed, retryable, and ambiguous discovery runs promptly but bounds ordinary rechecks", () => {
+  const now = Date.parse("2026-08-24T18:00:00Z");
+  const attempted = new Date(now - 10 * 60 * 1000);
+  assert.equal(youtubeShadowDiscoveryRetryDelayMs("failed", attempted, now), 5 * 60 * 1000);
+  assert.equal(youtubeShadowDiscoveryRetryDelayMs("retryable", attempted, now), 5 * 60 * 1000);
+  assert.equal(youtubeShadowDiscoveryRetryDelayMs("ambiguous", attempted, now), 5 * 60 * 1000);
+  assert.equal(youtubeShadowDiscoveryRetryDelayMs("not_found", attempted, now), 23 * 60 * 60 * 1000 + 50 * 60 * 1000);
 });

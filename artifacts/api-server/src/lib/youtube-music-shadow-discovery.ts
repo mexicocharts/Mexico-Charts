@@ -6,7 +6,10 @@ import {
   type YoutubeShadowStatus,
 } from "./youtube-shadow-policy";
 import { getYoutubeShadowManualReview } from "./youtube-shadow-manual-review";
-import { youtubeShadowCanUseVerifiedChannelFallback } from "./youtube-shadow-bootstrap-policy";
+import {
+  youtubeShadowCanUseVerifiedChannelFallback,
+  youtubeShadowCanonicalChannelId,
+} from "./youtube-shadow-bootstrap-policy";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -363,11 +366,115 @@ function addCandidate(
   candidates.set(item.id, existing);
 }
 
+function collectionContents(value: unknown): MusicItemLike[] {
+  if (Array.isArray(value)) return value as MusicItemLike[];
+  if (!value || typeof value !== "object") return [];
+  const contents = (value as { contents?: unknown }).contents;
+  return Array.isArray(contents) ? contents as MusicItemLike[] : [];
+}
+
+export function collectYoutubeMusicArtistItems(artist: unknown): Array<{ item: MusicItemLike; sourceSection: string }> {
+  if (!artist || typeof artist !== "object") return [];
+  const record = artist as Record<string, unknown>;
+  const items: Array<{ item: MusicItemLike; sourceSection: string }> = [];
+  for (const [key, value] of Object.entries(record)) {
+    if (!["albums", "singles", "videos", "songs"].includes(key)) continue;
+    for (const item of collectionContents(value)) items.push({ item, sourceSection: key });
+  }
+  const sections = Array.isArray(record.sections) ? record.sections : [];
+  for (const section of sections) {
+    if (!section || typeof section !== "object") continue;
+    const sectionRecord = section as Record<string, unknown>;
+    const header = sectionRecord.header;
+    const headerTitle = header && typeof header === "object"
+      ? (header as { title?: unknown }).title
+      : undefined;
+    const sectionTitle = String(headerTitle ?? sectionRecord.title ?? "section");
+    for (const item of collectionContents(sectionRecord.contents)) {
+      items.push({ item, sourceSection: sectionTitle });
+    }
+  }
+  return items;
+}
+
+export function isMissingMusicShelfError(error: unknown): boolean {
+  return /music\s*shelf|musicshelf|missing.*shelf|no.*shelf/i.test(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+export async function resolveTrustedYoutubeIdentity(
+  client: PgClient,
+  artistKey: string,
+  artistName: string,
+): Promise<TrustedYoutubeIdentityResolution> {
+  const normalizedKey = artistKey
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const rows = await client.query<{
+    browse_id: string;
+    source: TrustedYoutubeIdentity["source"];
+    exact_key: boolean;
+    artist_key: string;
+    artist_name: string | null;
+  }>(`
+    SELECT channel_id AS browse_id, 'youtube_channel' AS source,
+           (artist_key = $1) AS exact_key, artist_key, NULL::text AS artist_name
+    FROM youtube_channels
+    WHERE channel_id IS NOT NULL
+      AND (
+        artist_key = $1
+        OR regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = $2
+      )
+    UNION ALL
+    SELECT browse_id, 'verified_youtube_music_mapping' AS source,
+           false AS exact_key, artist_key, artist_name
+    FROM youtube_music_artist_candidates
+    WHERE status = 'verified'
+      AND artist_key = $1
+    ORDER BY exact_key DESC, source ASC, browse_id
+  `, [artistKey, normalizedKey]);
+
+  const unique = new Map<string, TrustedYoutubeIdentity>();
+  const exactKeys = new Set<string>();
+  for (const row of rows.rows) {
+    if (row.source === "verified_youtube_music_mapping" && row.artist_key !== artistKey) continue;
+    const browseId = row.source === "youtube_channel"
+      ? youtubeShadowCanonicalChannelId(row.browse_id)
+      : row.browse_id?.trim();
+    if (!browseId) continue;
+    if (row.exact_key) exactKeys.add(browseId);
+    if (!unique.has(browseId)) {
+      unique.set(browseId, { browseId, source: row.source });
+    }
+  }
+  const candidates = [...unique.keys()].map(browseId => ({ browseId, name: artistName }));
+  const exactKey = [...exactKeys];
+  const selected = exactKey.length === 1
+    ? unique.get(exactKey[0]!)
+    : unique.size === 1
+      ? unique.values().next().value
+      : null;
+  return {
+    identity: selected ?? null,
+    ambiguous: !selected && unique.size > 1,
+    candidates,
+  };
+}
+
 async function fetchYoutubeJson<T extends { error?: { message?: string } }>(url: URL): Promise<T> {
   const response = await fetch(url);
-  const payload = await response.json() as T;
+  const payload = await response.json().catch(() => ({})) as T;
   if (!response.ok) {
-    throw new Error(payload.error?.message || `YouTube Data API request failed with status ${response.status}.`);
+    const error = new Error(payload.error?.message || `YouTube Data API request failed with status ${response.status}.`) as Error & {
+      status?: number;
+      headers?: Headers;
+    };
+    error.status = response.status;
+    error.headers = response.headers;
+    throw error;
   }
   return payload;
 }
@@ -375,6 +482,7 @@ async function fetchYoutubeJson<T extends { error?: { message?: string } }>(url:
 async function discoverVerifiedChannelUploads(
   artistName: string,
   channelId: string,
+  onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void,
 ): Promise<Map<string, DiscoveredCandidate>> {
   const apiKey = process.env["YOUTUBE_API_KEY"];
   if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY for verified-channel fallback.");
@@ -383,7 +491,10 @@ async function discoverVerifiedChannelUploads(
   channelUrl.searchParams.set("part", "contentDetails");
   channelUrl.searchParams.set("id", channelId);
   channelUrl.searchParams.set("key", apiKey);
-  const channel = await fetchYoutubeJson<YoutubeChannelResponse>(channelUrl);
+  const channel = await withYoutubeInnertubeRetry(
+    () => fetchYoutubeJson<YoutubeChannelResponse>(channelUrl),
+    { onRetry },
+  );
   const uploadsPlaylistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadsPlaylistId) throw new Error("Verified YouTube channel has no accessible uploads playlist.");
 
@@ -397,7 +508,10 @@ async function discoverVerifiedChannelUploads(
     playlistUrl.searchParams.set("maxResults", "50");
     playlistUrl.searchParams.set("key", apiKey);
     if (pageToken) playlistUrl.searchParams.set("pageToken", pageToken);
-    const page = await fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl);
+    const page = await withYoutubeInnertubeRetry(
+      () => fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl),
+      { onRetry },
+    );
     for (const entry of page.items ?? []) {
       const videoId = entry.contentDetails?.videoId ?? entry.snippet?.resourceId?.videoId;
       if (!videoId || candidates.size >= maxVideos) break;
@@ -429,6 +543,7 @@ async function discoverTrustedSharedChannelUploads(
   artistName: string,
   channelId: string,
   evidenceSource: string,
+  onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void,
 ): Promise<Map<string, DiscoveredCandidate>> {
   const apiKey = process.env["YOUTUBE_API_KEY"];
   if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY for trusted shared-channel discovery.");
@@ -437,7 +552,10 @@ async function discoverTrustedSharedChannelUploads(
   channelUrl.searchParams.set("part", "contentDetails");
   channelUrl.searchParams.set("id", channelId);
   channelUrl.searchParams.set("key", apiKey);
-  const channel = await fetchYoutubeJson<YoutubeChannelResponse>(channelUrl);
+  const channel = await withYoutubeInnertubeRetry(
+    () => fetchYoutubeJson<YoutubeChannelResponse>(channelUrl),
+    { onRetry },
+  );
   const uploadsPlaylistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
   if (!uploadsPlaylistId) throw new Error("Trusted shared YouTube channel has no accessible uploads playlist.");
 
@@ -452,7 +570,10 @@ async function discoverTrustedSharedChannelUploads(
     playlistUrl.searchParams.set("maxResults", "50");
     playlistUrl.searchParams.set("key", apiKey);
     if (pageToken) playlistUrl.searchParams.set("pageToken", pageToken);
-    const page = await fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl);
+    const page = await withYoutubeInnertubeRetry(
+      () => fetchYoutubeJson<YoutubePlaylistItemsResponse>(playlistUrl),
+      { onRetry },
+    );
     for (const entry of page.items ?? []) {
       if (inspected >= maxVideos) break;
       inspected += 1;
@@ -473,12 +594,34 @@ async function discoverTrustedSharedChannelUploads(
   return candidates;
 }
 
-async function resolveBrowseId(yt: Innertube, artistName: string): Promise<{ browseId: string | null; ambiguous: boolean }> {
-  const results = await yt.music.search(artistName, { type: "artist" });
-  const exact = (results.artists?.contents ?? [])
-    .filter(item => normalizeYoutubeArtistName(item.name ?? "") === normalizeYoutubeArtistName(artistName));
-  const ids = [...new Set(exact.map(item => item.id).filter((id): id is string => Boolean(id)))];
+export function chooseExactYoutubeArtistMatch(
+  artistName: string,
+  matches: YoutubeArtistIdentityMatch[],
+  trustedBrowseIds: string[] = [],
+): { browseId: string | null; ambiguous: boolean } {
+  const exact = matches.filter(match =>
+    normalizeYoutubeArtistName(match.name) === normalizeYoutubeArtistName(artistName),
+  );
+  const ids = [...new Set(exact.map(match => match.browseId))];
+  const trustedMatches = ids.filter(id => trustedBrowseIds.includes(id));
+  if (trustedMatches.length === 1) return { browseId: trustedMatches[0]!, ambiguous: false };
   return { browseId: ids.length === 1 ? ids[0]! : null, ambiguous: ids.length > 1 };
+}
+
+async function resolveBrowseId(
+  yt: Innertube,
+  artistName: string,
+  trustedBrowseIds: string[] = [],
+  onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void,
+): Promise<{ browseId: string | null; ambiguous: boolean; matches: YoutubeArtistIdentityMatch[] }> {
+  const results = await withYoutubeInnertubeRetry(
+    () => yt.music.search(artistName, { type: "artist" }),
+    { onRetry },
+  );
+  const matches = (results.artists?.contents ?? [])
+    .map(item => ({ browseId: item.id, name: item.name?.toString() ?? "" }))
+    .filter((item): item is YoutubeArtistIdentityMatch => Boolean(item.browseId && item.name));
+  return { ...chooseExactYoutubeArtistMatch(artistName, matches, trustedBrowseIds), matches };
 }
 
 async function persistDiscovery(
@@ -559,6 +702,7 @@ async function persistDiscovery(
         decision.status,
         JSON.stringify({
           credits: candidate.credits,
+          uploaderChannelId: candidate.uploaderChannelId,
           releaseIds: [...candidate.releaseIds],
           decisionReason: decision.reason,
           manualReview: decision.manualReview,
@@ -580,7 +724,8 @@ async function finalizeDiscovery(
   summary.uniqueCandidates = candidates.size;
   for (const candidate of candidates.values()) {
     const decision = decideCandidate(candidate, summary.artistKey, summary.artistName, summary.browseId!);
-    if (decision.status === "review") summary.reviewCandidates += 1;
+    if (decision.status === "verified") summary.verifiedCandidates += 1;
+    else if (decision.status === "review") summary.reviewCandidates += 1;
     else summary.rejectedCandidates += 1;
   }
 
@@ -603,11 +748,17 @@ async function finalizeDiscovery(
   }
 
   if (input.write && client) await persistDiscovery(client, summary, candidates);
-  if (summary.reviewCandidates === 0) {
+  if (summary.reviewCandidates + summary.verifiedCandidates === 0) {
     summary.error = summary.uniqueCandidates > 0
-      ? "Discovery returned no eligible review candidates. Rejected evidence was retained for audit."
+      ? "Discovery returned no eligible shadow candidates. Rejected evidence was retained for audit."
       : "Discovery returned no catalog videos for this artist.";
   }
+}
+
+function discoveryRunStatus(summary: YoutubeMusicDiscoverySummary): "complete" | "failed" | "retryable" {
+  if (summary.mappingStatus === "retryable") return "retryable";
+  if (summary.error || !["review", "verified"].includes(summary.mappingStatus)) return "failed";
+  return summary.reviewCandidates + summary.verifiedCandidates > 0 ? "complete" : "failed";
 }
 
 export async function discoverYoutubeMusicArtist(input: {
@@ -615,6 +766,7 @@ export async function discoverYoutubeMusicArtist(input: {
   artistName: string;
   browseId?: string | null;
   trustedBrowseId?: boolean;
+  trustedIdentityCandidates?: YoutubeArtistIdentityMatch[];
   write?: boolean;
   includeCandidates?: boolean;
 }): Promise<YoutubeMusicDiscoverySummary> {
@@ -628,10 +780,14 @@ export async function discoverYoutubeMusicArtist(input: {
     uniqueCandidates: 0,
     reviewCandidates: 0,
     rejectedCandidates: 0,
+    verifiedCandidates: 0,
     savedCandidates: 0,
+    parserWarnings: [],
   };
   let client: PgClient | null = null;
   let runId: number | null = null;
+  let retryAttempts = 0;
+  const onRetry = () => { retryAttempts += 1; };
   try {
     if (input.write) {
       const { pool } = await import("@workspace/db");
@@ -646,22 +802,34 @@ export async function discoverYoutubeMusicArtist(input: {
       runId = run.rows[0]?.id ?? null;
     }
 
+    if (input.trustedIdentityCandidates?.length && !summary.browseId) {
+      summary.identityMatches = input.trustedIdentityCandidates;
+      summary.mappingStatus = "ambiguous";
+      summary.error = "Multiple verified YouTube identities are stored; manual review is required.";
+      return summary;
+    }
+
     if (youtubeShadowCanUseVerifiedChannelFallback({
       browseId: summary.browseId,
       trustedBrowseId: input.trustedBrowseId,
     })) {
-      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId!);
+      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId!, onRetry);
       summary.mappingStatus = "review";
+      summary.retryAttempts = retryAttempts;
       await finalizeDiscovery(summary, candidates, input, client);
       return summary;
     }
 
-    const yt = await Innertube.create({ cache: new UniversalCache(false), lang: "en", location: "MX" });
+    const yt = await withYoutubeInnertubeRetry(
+      () => Innertube.create({ cache: new UniversalCache(false), lang: "en", location: "MX" }),
+      { onRetry },
+    );
     if (!summary.browseId) {
-      const resolved = await resolveBrowseId(yt, input.artistName);
+      const resolved = await resolveBrowseId(yt, input.artistName, [], onRetry);
+      summary.identityMatches = resolved.matches;
       if (resolved.ambiguous) {
         summary.mappingStatus = "ambiguous";
-        summary.error = "Multiple exact YouTube Music artist matches were returned.";
+        summary.error = "Multiple exact YouTube Music artist matches were returned; manual review is required.";
         return summary;
       }
       summary.browseId = resolved.browseId;
@@ -674,14 +842,18 @@ export async function discoverYoutubeMusicArtist(input: {
 
     let artist;
     try {
-      artist = await yt.music.getArtist(summary.browseId);
+       artist = await withYoutubeInnertubeRetry(
+         () => yt.music.getArtist(summary.browseId!),
+         { onRetry },
+       );
     } catch (musicBrowseError) {
       if (!youtubeShadowCanUseVerifiedChannelFallback({
         browseId: summary.browseId,
         trustedBrowseId: input.trustedBrowseId,
       })) throw musicBrowseError;
-      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId);
+      const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId, onRetry);
       summary.mappingStatus = "review";
+      summary.retryAttempts = retryAttempts;
       await finalizeDiscovery(summary, candidates, input, client);
       return summary;
     }
@@ -697,28 +869,37 @@ export async function discoverYoutubeMusicArtist(input: {
     summary.mappingStatus = "review";
 
     const candidates = new Map<string, DiscoveredCandidate>();
-    const songs = await artist.getAllSongs();
-    for (const item of songs?.contents ?? []) addCandidate(candidates, item as MusicItemLike, "all_songs");
+    try {
+      const songs = await withYoutubeInnertubeRetry(
+        () => artist.getAllSongs(),
+        { onRetry },
+      );
+      for (const item of songs?.contents ?? []) addCandidate(candidates, item as MusicItemLike, "all_songs");
+    } catch (error) {
+      if (!isMissingMusicShelfError(error)) throw error;
+      summary.parserWarnings?.push("The artist MusicShelf was unavailable; section discovery continued.");
+    }
 
     const releases = new Map<string, MusicItemLike>();
-    for (const section of artist.sections) {
-      const sectionTitle = "header" in section
-        ? section.header?.title?.toString() ?? "section"
-        : section.title?.toString() ?? "section";
-      for (const rawItem of section.contents ?? []) {
-        const item = rawItem as MusicItemLike;
-        addCandidate(candidates, item, sectionTitle);
-        if (
-          item.item_type === "album"
-          && item.id?.startsWith("MPRE")
-        ) {
-          releases.set(item.id, item);
-        }
+    for (const { item, sourceSection } of collectYoutubeMusicArtistItems(artist)) {
+      addCandidate(candidates, item, sourceSection);
+      if (item.item_type === "album" && item.id?.startsWith("MPRE")) {
+        releases.set(item.id, item);
       }
     }
 
     for (const release of releases.values()) {
-      const album = await yt.music.getAlbum(release.id!);
+      let album;
+      try {
+        album = await withYoutubeInnertubeRetry(
+          () => yt.music.getAlbum(release.id!),
+          { onRetry },
+        );
+      } catch (error) {
+        if (!isMissingMusicShelfError(error)) throw error;
+        summary.parserWarnings?.push(`Release ${release.id} did not include a MusicShelf; release tracks were skipped.`);
+        continue;
+      }
       summary.releasesInspected += 1;
       const headerCredits = album.header && "author" in album.header
         ? itemCredits({ author: album.header.author })
@@ -738,21 +919,28 @@ export async function discoverYoutubeMusicArtist(input: {
         || normalizeYoutubeArtistName(credit.name) === normalizeYoutubeArtistName(summary.artistName),
       );
       if (!releaseConfirmsArtist) continue;
-      for (const item of album.contents) {
+      for (const item of album.contents ?? []) {
         addCandidate(candidates, item as MusicItemLike, "release_track", release.id, releaseCredits);
       }
     }
 
+    summary.retryAttempts = retryAttempts;
     await finalizeDiscovery(summary, candidates, input, client);
     return summary;
   } catch (error) {
-    summary.error = error instanceof Error ? error.message : String(error);
+    if (error instanceof YoutubeRetryableError) {
+      summary.mappingStatus = "retryable";
+      summary.retryAttempts = error.attempts;
+      summary.error = error.message;
+    } else {
+      summary.error = error instanceof Error ? error.message : String(error);
+    }
     return summary;
   } finally {
     if (runId != null && client) {
       await client.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
-        [runId, summary.error || summary.mappingStatus !== "review" || summary.reviewCandidates === 0 ? "failed" : "complete", JSON.stringify(summary)],
+         [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
     client?.release();
@@ -778,10 +966,13 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
     uniqueCandidates: 0,
     reviewCandidates: 0,
     rejectedCandidates: 0,
+    verifiedCandidates: 0,
     savedCandidates: 0,
   };
   let client: PgClient | null = null;
   let runId: number | null = null;
+  let retryAttempts = 0;
+  const onRetry = () => { retryAttempts += 1; };
   try {
     if (input.write) {
       const { pool } = await import("@workspace/db");
@@ -800,17 +991,25 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
       input.artistName,
       input.sourceChannelId,
       input.evidenceSource,
+      onRetry,
     );
+    summary.retryAttempts = retryAttempts;
     await finalizeDiscovery(summary, candidates, { ...input, includeCandidates: false }, client);
     return summary;
   } catch (error) {
-    summary.error = error instanceof Error ? error.message : String(error);
+    if (error instanceof YoutubeRetryableError) {
+      summary.mappingStatus = "retryable";
+      summary.retryAttempts = error.attempts;
+      summary.error = error.message;
+    } else {
+      summary.error = error instanceof Error ? error.message : String(error);
+    }
     return summary;
   } finally {
     if (runId != null && client) {
       await client.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
-        [runId, summary.error ? "failed" : "complete", JSON.stringify(summary)],
+         [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
     client?.release();

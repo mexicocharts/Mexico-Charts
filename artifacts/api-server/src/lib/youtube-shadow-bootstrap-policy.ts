@@ -43,7 +43,7 @@ export function youtubeShadowDiscoveryRetryDelayMs(
   now = Date.now(),
 ): number {
   if (!lastAttemptAt) return 0;
-  const delay = mappingStatus === "retryable" || mappingStatus === "ambiguous"
+  const delay = mappingStatus === "failed" || mappingStatus === "retryable" || mappingStatus === "ambiguous"
     ? 15 * 60 * 1000
     : 24 * 60 * 60 * 1000;
   return Math.max(0, delay - (now - new Date(lastAttemptAt).getTime()));

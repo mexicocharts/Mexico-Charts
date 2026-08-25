@@ -5,6 +5,7 @@ import {
   discoverYoutubeMusicArtist,
   discoverYoutubeTrustedSharedChannel,
   ensureYoutubeShadowTables,
+  resolveTrustedYoutubeIdentity,
 } from "./youtube-music-shadow-discovery";
 import {
   chooseYoutubeRefreshTier,
@@ -116,16 +117,30 @@ export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
 ] as const;
 
 async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
-  const existing = await client.query<{ artist_key: string; eligible_candidates: number; last_attempt_at: string | null }>(`
+  const existing = await client.query<{
+    artist_key: string;
+    eligible_candidates: number;
+    last_attempt_at: string | null;
+    status: string | null;
+    mapping_status: string | null;
+  }>(`
     SELECT p.artist_key,
       count(c.id) FILTER (WHERE c.status IN ('review','verified') AND c.sampling_status='shadow')::int eligible_candidates,
-      max(r.finished_at)::text last_attempt_at
+      latest.finished_at::text last_attempt_at,
+      latest.status,
+      COALESCE(latest.summary->>'mappingStatus', '') mapping_status
     FROM (VALUES
       ('peso-pluma'), ('fuerza-regida'), ('natanael-cano'), ('luis-miguel')
     ) p(artist_key)
     LEFT JOIN youtube_music_catalog_candidates c ON c.artist_key=p.artist_key
-    LEFT JOIN youtube_music_shadow_runs r ON r.artist_key=p.artist_key AND r.run_type='discovery'
-    GROUP BY p.artist_key
+    LEFT JOIN LATERAL (
+      SELECT finished_at, status, summary
+      FROM youtube_music_shadow_runs
+      WHERE artist_key=p.artist_key AND run_type='discovery'
+      ORDER BY finished_at DESC NULLS LAST, id DESC
+      LIMIT 1
+    ) latest ON true
+    GROUP BY p.artist_key, latest.finished_at, latest.status, latest.summary
   `);
   const readiness = new Map(existing.rows.map(row => [row.artist_key, row]));
   const missingPilotArtists = YOUTUBE_SHADOW_PILOT_ARTISTS.filter(
@@ -133,29 +148,24 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
       const state = readiness.get(pilot.artistKey);
       if (youtubeShadowPilotIsReady(state?.eligible_candidates)) return false;
       if (force || !state?.last_attempt_at) return true;
-      return Date.now() - new Date(state.last_attempt_at).getTime() >= 60 * 60 * 1000;
+      const retryable = state.status === "failed"
+        || state.status === "retryable"
+        || state.mapping_status === "ambiguous";
+      const retryDelay = retryable ? 15 * 60 * 1000 : 60 * 60 * 1000;
+      return Date.now() - new Date(state.last_attempt_at).getTime() >= retryDelay;
     },
   );
   let artists = 0;
   let savedCandidates = 0;
   const errors: string[] = [];
   for (const pilot of missingPilotArtists) {
-    const mappedChannel = await client.query<{ channel_id: string | null }>(
-      `SELECT channel_id
-       FROM youtube_channels
-       WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')
-         = $2
-         AND channel_id IS NOT NULL
-       ORDER BY CASE WHEN artist_key=$1 THEN 0 ELSE 1 END
-       LIMIT 1`,
-      [pilot.artistKey, youtubeShadowArtistIdentityKey(pilot.artistKey)],
-    );
-    const trustedBrowseId = youtubeShadowCanonicalChannelId(mappedChannel.rows[0]?.channel_id)
-      ?? pilot.verifiedChannelId;
+    const resolvedIdentity = await resolveTrustedYoutubeIdentity(client, pilot.artistKey, pilot.artistName);
+    const trustedBrowseId = resolvedIdentity.identity?.browseId ?? pilot.verifiedChannelId;
     const result = await discoverYoutubeMusicArtist({
       ...pilot,
       browseId: trustedBrowseId,
       trustedBrowseId: Boolean(trustedBrowseId),
+      trustedIdentityCandidates: resolvedIdentity.ambiguous ? resolvedIdentity.candidates : undefined,
       write: true,
     });
     const failure = youtubeShadowDiscoveryFailure(result);
@@ -218,9 +228,12 @@ async function bootstrapActiveCatalog(client: PgClient) {
     SELECT c.artist_key, c.artist_name
     FROM kworb_coverage c
     LEFT JOIN LATERAL (
-      SELECT max(r.finished_at) last_attempt_at
+      SELECT r.finished_at::text AS last_attempt_at, r.status,
+             COALESCE(r.summary->>'mappingStatus', '') AS mapping_status
       FROM youtube_music_shadow_runs r
       WHERE r.artist_key=c.artist_key AND r.run_type='discovery'
+      ORDER BY r.finished_at DESC NULLS LAST, r.id DESC
+      LIMIT 1
     ) latest ON true
     WHERE c.status='active'
       AND NOT EXISTS (
@@ -230,8 +243,19 @@ async function bootstrapActiveCatalog(client: PgClient) {
           AND candidate.status IN ('review','verified')
           AND candidate.sampling_status='shadow'
       )
-      AND (latest.last_attempt_at IS NULL OR latest.last_attempt_at <= now() - interval '24 hours')
-    ORDER BY latest.last_attempt_at ASC NULLS FIRST, c.artist_name
+       AND (
+         latest.last_attempt_at IS NULL
+         OR latest.last_attempt_at <= now() - CASE
+           WHEN latest.status IN ('failed','retryable') OR latest.mapping_status='ambiguous'
+             THEN interval '15 minutes'
+           ELSE interval '24 hours'
+         END
+       )
+    ORDER BY CASE
+               WHEN latest.status IN ('failed','retryable') OR latest.mapping_status='ambiguous' THEN 0
+               ELSE 1
+             END,
+             latest.last_attempt_at ASC NULLS FIRST, c.artist_name
     LIMIT $1
   `, [limit]);
 
@@ -239,9 +263,13 @@ async function bootstrapActiveCatalog(client: PgClient) {
   let savedCandidates = 0;
   const errors: string[] = [];
   for (const artist of pending.rows) {
+    const resolvedIdentity = await resolveTrustedYoutubeIdentity(client, artist.artist_key, artist.artist_name);
     const result = await discoverYoutubeMusicArtist({
       artistKey: artist.artist_key,
       artistName: artist.artist_name,
+      browseId: resolvedIdentity.identity?.browseId,
+      trustedBrowseId: Boolean(resolvedIdentity.identity),
+      trustedIdentityCandidates: resolvedIdentity.ambiguous ? resolvedIdentity.candidates : undefined,
       write: true,
     });
     const failure = youtubeShadowDiscoveryFailure(result);
