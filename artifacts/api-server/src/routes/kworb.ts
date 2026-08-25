@@ -489,33 +489,66 @@ function avgRecent(values: Array<number | null>, size: number): number | null {
   return Math.round(recent.reduce((sum, value) => sum + value, 0) / recent.length);
 }
 
+function distinctDatedObservations<T extends { date: string }>(history: T[]): T[] {
+  const byDate = new Map<string, T>();
+  for (const point of history) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(point.date)) byDate.set(point.date, point);
+  }
+  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function percentChange(current: number | null, previous: number | null): number | null {
   if (current == null || previous == null || previous <= 0) return null;
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
-function growthBetween(values: Array<number | null>, distance: number): number | null {
-  if (values.length <= distance) return null;
-  const latest = values[values.length - 1];
-  const previous = values[values.length - 1 - distance];
-  if (latest == null || previous == null) return null;
-  return latest - previous;
+function guardedPeriodTotal(
+  history: Array<{ date: string; total: number | null; daily: number | null }>,
+  distance: number,
+  guardWeeklyTotal = false,
+): number | null {
+  const observations = distinctDatedObservations(history);
+  if (observations.length < 2 || observations.length <= distance) return null;
+
+  const latest = observations.at(-1);
+  const previous = observations.at(-1 - distance);
+  if (!latest || !previous || latest.total == null || previous.total == null) return null;
+
+  const delta = latest.total - previous.total;
+  if (!Number.isFinite(delta) || delta < 0) return null;
+
+  if (guardWeeklyTotal) {
+    const latestDaily = [...observations]
+      .reverse()
+      .map(point => point.daily)
+      .find((value): value is number => value != null && Number.isFinite(value) && value >= 0);
+    if (latestDaily == null || delta > latestDaily * 14) return null;
+  }
+
+  return delta;
 }
 
 function deriveSpotifyKworbAnalytics(history: SpotifyKworbHistoryPoint[]): SpotifyKworbAnalytics | null {
-  if (!history.length) return null;
-  const dailyStreams = history.map(point => point.dailyStreams);
-  const totalStreams = history.map(point => point.totalStreams);
+  const observations = distinctDatedObservations(history);
+  if (!observations.length) return null;
+  const dailyStreams = observations.map(point => point.dailyStreams);
   const avg7 = avgRecent(dailyStreams, 7);
   const avg30 = avgRecent(dailyStreams, 30);
   const previous7 = avgRecent(dailyStreams.slice(0, -7), 7);
   const previous30 = avgRecent(dailyStreams.slice(0, -30), 30);
-  const biggestSpike = history
+  const biggestSpike = observations
     .filter(point => point.dailyStreams != null)
     .sort((a, b) => (b.dailyStreams ?? 0) - (a.dailyStreams ?? 0))[0] ?? null;
 
-  const weeklyGrowth = growthBetween(totalStreams, 7);
-  const monthlyGrowth = growthBetween(totalStreams, 30);
+  const weeklyGrowth = guardedPeriodTotal(
+    observations.map(point => ({ date: point.date, total: point.totalStreams, daily: point.dailyStreams })),
+    7,
+    true,
+  );
+  const monthlyGrowth = guardedPeriodTotal(
+    observations.map(point => ({ date: point.date, total: point.totalStreams, daily: point.dailyStreams })),
+    30,
+  );
   const avg7ChangePct = percentChange(avg7, previous7);
 
   let trend: SpotifyKworbAnalytics["momentum"]["trend"] = null;
@@ -549,24 +582,31 @@ function deriveSpotifyKworbAnalytics(history: SpotifyKworbHistoryPoint[]): Spoti
       score,
       scoreFmt: fmtNullableNum(score),
     },
-    availableDays: dailyStreams.filter(value => value != null).length,
+    availableDays: dailyStreams.filter(value => value != null && Number.isFinite(value)).length,
   };
 }
 
 function deriveYoutubeKworbAnalytics(history: YoutubeKworbHistoryPoint[]): YoutubeKworbAnalytics | null {
-  if (!history.length) return null;
-  const dailyViews = history.map(point => point.dailyViews);
-  const totalViews = history.map(point => point.totalViews);
+  const observations = distinctDatedObservations(history);
+  if (!observations.length) return null;
+  const dailyViews = observations.map(point => point.dailyViews);
   const avg7 = avgRecent(dailyViews, 7);
   const avg30 = avgRecent(dailyViews, 30);
   const previous7 = avgRecent(dailyViews.slice(0, -7), 7);
   const previous30 = avgRecent(dailyViews.slice(0, -30), 30);
-  const biggestSpike = history
+  const biggestSpike = observations
     .filter(point => point.dailyViews != null)
     .sort((a, b) => (b.dailyViews ?? 0) - (a.dailyViews ?? 0))[0] ?? null;
 
-  const weeklyGrowth = growthBetween(totalViews, 7);
-  const monthlyGrowth = growthBetween(totalViews, 30);
+  const weeklyGrowth = guardedPeriodTotal(
+    observations.map(point => ({ date: point.date, total: point.totalViews, daily: point.dailyViews })),
+    7,
+    true,
+  );
+  const monthlyGrowth = guardedPeriodTotal(
+    observations.map(point => ({ date: point.date, total: point.totalViews, daily: point.dailyViews })),
+    30,
+  );
   const avg7ChangePct = percentChange(avg7, previous7);
 
   let trend: YoutubeKworbAnalytics["momentum"]["trend"] = null;
@@ -600,7 +640,7 @@ function deriveYoutubeKworbAnalytics(history: YoutubeKworbHistoryPoint[]): Youtu
       score,
       scoreFmt: fmtNullableNum(score),
     },
-    availableDays: dailyViews.filter(value => value != null).length,
+    availableDays: dailyViews.filter(value => value != null && Number.isFinite(value)).length,
   };
 }
 
