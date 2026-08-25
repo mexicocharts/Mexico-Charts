@@ -9,6 +9,7 @@ import {
   getTicketmasterTouringEstimationReport,
   TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY,
 } from "../lib/ticketmaster-touring-estimation-lab";
+import { publicTouringLab } from "../lib/ticketmaster-touring-shadow";
 
 const router = Router();
 
@@ -170,6 +171,13 @@ interface TmEvent {
   url: string;
   img: string | null;
   eventId: string;
+  eventKind: "concert" | "auxiliary";
+  eventStatus: string | null;
+  publicSaleStart: string | null;
+  publicSaleEnd: string | null;
+  priceRanges: { type: string | null; currency: string | null; min: number | null; max: number | null }[];
+  seatMapUrl: string | null;
+  source: "ticketmaster-discovery-v2";
 }
 
 interface ArtistTours {
@@ -231,6 +239,12 @@ function bestImage(images: { ratio?: string; url: string; width?: number }[]): s
   return landscape[0]?.url ?? images[0]?.url ?? null;
 }
 
+function eventKind(name: string): "concert" | "auxiliary" {
+  return /suite reservation|parking|fast lane|club access|premium club seats|lounge|vip package|not a concert ticket/iu.test(name)
+    ? "auxiliary"
+    : "concert";
+}
+
 async function fetchArtistEvents(attractionId: string): Promise<TmEvent[]> {
   const url =
     `${TM_BASE}/events.json?apikey=${TM_KEY}` +
@@ -250,7 +264,10 @@ async function fetchArtistEvents(attractionId: string): Promise<TmEvent[]> {
         name: string;
         url: string;
         images?: { ratio?: string; url: string; width?: number }[];
-        dates?: { start?: { localDate?: string; localTime?: string } };
+        dates?: { start?: { localDate?: string; localTime?: string }; status?: { code?: string } };
+        sales?: { public?: { startDateTime?: string; endDateTime?: string } };
+        priceRanges?: { type?: string; currency?: string; min?: number; max?: number }[];
+        seatmap?: { staticUrl?: string };
         _embedded?: {
           venues?: {
             name?: string;
@@ -277,8 +294,20 @@ async function fetchArtistEvents(attractionId: string): Promise<TmEvent[]> {
       country: venue?.country?.countryCode ?? "",
       url: e.url ?? "",
       img: bestImage(e.images ?? []),
+      eventKind: eventKind(e.name),
+      eventStatus: e.dates?.status?.code ?? null,
+      publicSaleStart: e.sales?.public?.startDateTime ?? null,
+      publicSaleEnd: e.sales?.public?.endDateTime ?? null,
+      priceRanges: (e.priceRanges ?? []).map(range => ({
+        type: range.type ?? null,
+        currency: range.currency ?? null,
+        min: Number.isFinite(range.min) ? range.min ?? null : null,
+        max: Number.isFinite(range.max) ? range.max ?? null : null,
+      })),
+      seatMapUrl: e.seatmap?.staticUrl ?? null,
+      source: "ticketmaster-discovery-v2" as const,
     };
-  });
+  }).filter(event => event.eventKind === "concert");
 }
 
 router.get(PUBLIC_TOURING_ROUTE_PATHS[0], async (req, res) => {
@@ -334,6 +363,24 @@ router.get(PUBLIC_TOURING_ROUTE_PATHS[1], async (req, res) => {
   } catch (err) {
     logger.warn({ err, artistId }, "[touring] fetch failed");
     return res.status(502).json({ error: "Failed to fetch from Ticketmaster" });
+  }
+});
+
+router.get("/touring/lab", async (_req, res) => {
+  try {
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    return res.json(await publicTouringLab());
+  } catch (error) {
+    logger.warn({ error }, "[touring-lab] public read failed");
+    return res.json({
+      available: false,
+      label: "Touring Lab — experimental",
+      demandScore: null,
+      demandConfidence: "unavailable",
+      message: "El historial automatizado aún no tiene observaciones suficientes.",
+      tours: [],
+      recentChanges: [],
+    });
   }
 });
 
