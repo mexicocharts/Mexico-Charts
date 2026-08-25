@@ -1,0 +1,11 @@
+Fix the Touring page ranking now. The current “Próximas giras” / fallback cards feel random because they are sorted mostly by raw Ticketmaster event count. Make a launch-safe, editorially coherent ranking in artifacts/mexico-charts/src/pages/TouringHub.tsx and any directly related local app files only.
+
+Requirements:
+1. Rename the section to “Giras destacadas y próximas” and explain in one short line that selection blends Mexico Charts artist relevance with confirmed upcoming Ticketmaster dates; it is not a popularity ranking or inventory estimate.
+2. Pin/feature these major active tours first when their individual feed has at least one future, non-cancelled, non-auxiliary concert: Fuerza Regida and Carín León. Fetch their individual touring feeds independently so a rate-limited bulk response cannot omit them.
+3. After those two, rank eligible artists deterministically using existing Mexico Charts relevance/rank data if already available in the page/API; then upcoming concert count; then nearest date; then artist name. Do not invent scores or add hardcoded claims. If Mexico Charts relevance is not available here, use a small clearly labeled editorial priority list containing only established core Mexican-music artists already present in the app, then event count/nearest date/name.
+4. Deduplicate artists/events, exclude cancelled/auxiliary events, and never show an artist with no valid future concert.
+5. Keep 8 cards total. Label the first two “Destacada”; other cards “Próxima” or “En vivo hoy”. Keep official links, public sale status, source/freshness, and only public Discovery price ranges.
+6. Preserve all honesty constraints: no inferred inventory, sell-through, attendance, gross, capacity, or Demand Score. Keep experimental/confidence/collecting labels.
+7. Make desktop and mobile visually clean.
+8. Run typecheck and production build, restart only the existing web preview/workflow, and visually verify /touring at desktop and mobile. Confirm Fuerza Regida and Carín León appear first if their feeds have valid upcoming dates. Do not publish, change secrets, production database, deployment settings, or unrelated work. Report exactly what changed and tests run.

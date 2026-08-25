@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
-import { useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
+import { useArtistTouring, useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
 
@@ -45,6 +45,36 @@ function publicSaleStatus(event: ArtistTours["events"][number]): string {
 function isCancelledEvent(event: ArtistTours["events"][number]): boolean {
   return event.eventStatus?.toLowerCase().includes("cancel") ?? false;
 }
+
+function artistKey(artist: ArtistTours): string {
+  return artist.id.trim().toLowerCase();
+}
+
+function validUpcomingEvents(events: ArtistTours["events"], today: string) {
+  const seen = new Set<string>();
+  return events
+    .filter((event) => event.eventKind !== "auxiliary" && !isCancelledEvent(event) && event.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.eventId.localeCompare(b.eventId))
+    .filter((event) => {
+      const key = event.eventId || [event.date, event.venue, event.city, event.name].join("|").toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+const PINNED_ARTIST_IDS = ["fuerza-regida", "carin-leon"];
+// Editorial ordering is only a tie-breaker for artists already present in the feed.
+const EDITORIAL_PRIORITY = [
+  "fuerza-regida",
+  "carin-leon",
+  "grupo-firme",
+  "natanael-cano",
+  "banda-ms",
+  "eslabon-armado",
+  "los-tigres-del-norte",
+  "grupo-frontera",
+];
 
 function freshnessLabel(fetchedAt: number | undefined): string {
   if (!fetchedAt) return "consulta actual";
@@ -162,6 +192,8 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
   const { data: touringLab } = useTouringLab();
+  const { data: fuerzaRegidaFeed } = useArtistTouring("fuerza-regida");
+  const { data: carinLeonFeed } = useArtistTouring("carin-leon");
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
@@ -192,22 +224,51 @@ export default function TouringHub() {
   const fallbackTourCards = useMemo(() => {
     if (touringLab?.available && touringLab.tours.length > 0) return [];
     const today = new Date().toISOString().slice(0, 10);
-    return sortedArtists
-      .map((artist) => {
-        const upcomingEvents = artist.events
-          .filter((event) => event.eventKind !== "auxiliary" && !isCancelledEvent(event) && event.date >= today)
-          .sort((a, b) => a.date.localeCompare(b.date));
-        const nextEvent = upcomingEvents[0];
-        return nextEvent ? { artist, events: upcomingEvents, nextEvent } : null;
-      })
-      .filter((card): card is NonNullable<typeof card> => Boolean(card))
+    const bulkById = new Map(sortedArtists.map((artist) => [artistKey(artist), artist]));
+    const individualById = new Map(
+      [fuerzaRegidaFeed, carinLeonFeed]
+        .filter((artist): artist is ArtistTours => Boolean(artist))
+        .map((artist) => [artistKey(artist), artist]),
+    );
+    const candidates = new Map<string, { artist: ArtistTours; events: ArtistTours["events"] }>();
+
+    sortedArtists.forEach((bulkArtist) => {
+      const key = artistKey(bulkArtist);
+      const sourceArtist = PINNED_ARTIST_IDS.includes(key)
+        ? individualById.get(key) ?? bulkArtist
+        : bulkArtist;
+      const events = validUpcomingEvents(sourceArtist.events, today);
+      if (events.length > 0) candidates.set(key, { artist: sourceArtist, events });
+    });
+
+    individualById.forEach((individualArtist, key) => {
+      const events = validUpcomingEvents(individualArtist.events, today);
+      if (events.length > 0) candidates.set(key, { artist: individualArtist, events });
+    });
+
+    const editorialRank = (artist: ArtistTours) => {
+      const rank = EDITORIAL_PRIORITY.indexOf(artistKey(artist));
+      return rank === -1 ? Number.MAX_SAFE_INTEGER : rank;
+    };
+    const pinned = PINNED_ARTIST_IDS
+      .map((id) => candidates.get(id))
+      .filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
+    const rest = [...candidates.entries()]
+      .filter(([id]) => !PINNED_ARTIST_IDS.includes(id))
+      .map(([, candidate]) => candidate)
       .sort((a, b) =>
+        editorialRank(a.artist) - editorialRank(b.artist) ||
         b.events.length - a.events.length ||
-        a.nextEvent.date.localeCompare(b.nextEvent.date) ||
+        a.events[0].date.localeCompare(b.events[0].date) ||
         a.artist.name.localeCompare(b.artist.name, "es"),
-      )
-      .slice(0, 8);
-  }, [sortedArtists, touringLab]);
+      );
+
+    return [...pinned, ...rest].slice(0, 8).map((candidate) => ({
+      ...candidate,
+      nextEvent: candidate.events[0],
+      featured: PINNED_ARTIST_IDS.includes(artistKey(candidate.artist)),
+    }));
+  }, [carinLeonFeed, fuerzaRegidaFeed, sortedArtists, touringLab]);
 
   const showFallbackTourCards = !(touringLab?.available && touringLab.tours.length > 0) && fallbackTourCards.length > 0;
   const touringFreshness = artists?.length
@@ -695,7 +756,7 @@ export default function TouringHub() {
         <div className="th-shelf-heading" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
           <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
-            Próximas giras
+            Giras destacadas y próximas
           </h2>
           <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)", marginLeft: 8 }} />
           {!isLoading && !isError && totalShows > 0 && (
@@ -866,11 +927,16 @@ export default function TouringHub() {
         {showFallbackTourCards && (
           <div>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
-              <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em" }}>Artistas activos y próximos</div>
+              <div>
+                <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".1em" }}>Giras destacadas y próximas</div>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, lineHeight: 1.5, marginTop: 5, maxWidth: 640 }}>
+                  Selección que combina relevancia de artistas de Mexico Charts con fechas próximas confirmadas por Ticketmaster; no es un ranking de popularidad ni una estimación de inventario.
+                </div>
+              </div>
               <div style={{ color: "rgba(255,255,255,.35)", fontSize: 9, textTransform: "uppercase", letterSpacing: ".1em" }}>Vista de lanzamiento · sin snapshots históricos</div>
             </div>
             <div className="th-launch-grid">
-              {fallbackTourCards.map(({ artist, events, nextEvent }, index) => {
+              {fallbackTourCards.map(({ artist, events, nextEvent, featured }, index) => {
                 const price = publicPrice(nextEvent);
                 const isToday = nextEvent.date === new Date().toISOString().slice(0, 10);
                 return (
@@ -878,7 +944,7 @@ export default function TouringHub() {
                     <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
                       <div>
                         <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em", marginBottom: 8 }}>
-                          {isToday ? "En vivo hoy" : "Próxima"}
+                          {featured ? "Destacada" : isToday ? "En vivo hoy" : "Próxima"}
                         </div>
                         <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: 0, lineHeight: 1.05 }}>{artist.name}</h3>
                       </div>
