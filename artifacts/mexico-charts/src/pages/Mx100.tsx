@@ -172,9 +172,7 @@ function scoreArtists(
       b.score - a.score ||
       rankSort(a.spotifyWeeklyRank) - rankSort(b.spotifyWeeklyRank) ||
       rankSort(a.youtubeWeeklyRank) - rankSort(b.youtubeWeeklyRank) ||
-      b.youtubeWeeklyViews - a.youtubeWeeklyViews ||
-      rankSort(a.appleBestRank) - rankSort(b.appleBestRank) ||
-      b.appleAppearances - a.appleAppearances
+      b.youtubeWeeklyViews - a.youtubeWeeklyViews
     ))
     .slice(0, 100);
 }
@@ -372,11 +370,6 @@ export default function Mx100() {
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-xl font-black sm:text-2xl">{mx100.length || "—"}</div>
                   <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
-                </div>
-                <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
-                  <Disc3 className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">{leader?.appleBestRank ? `#${leader.appleBestRank}` : "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Apple Music MX</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Radio className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
