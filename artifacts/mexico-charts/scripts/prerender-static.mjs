@@ -229,7 +229,7 @@ const routes = [
       ],
       [
         "MX100",
-        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir de señales verificables en las listas oficiales de Spotify México, YouTube México y Apple Music México. Fanbase, seguidores y giras no forman parte del cálculo.",
+        "MX100 es un ranking calculado entre los artistas actualmente monitoreados a partir de señales verificables en las listas oficiales de Spotify México, YouTube México y Apple Music México.",
       ],
       [
         "Integridad del ranking",
