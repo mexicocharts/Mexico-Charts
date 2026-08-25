@@ -15,6 +15,7 @@ import { startTicketmasterTouringShadowScheduler } from "./lib/ticketmaster-tour
 import { startTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow";
 import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-monitor";
 import { startTouringAlertDelivery } from "./lib/touring-alert-delivery";
+import { startTouringWeeklySummaryScheduler } from "./lib/touring-weekly-summary";
 
 const rawPort = process.env["PORT"];
 
@@ -56,6 +57,7 @@ app.listen(port, async (err) => {
   startTouringShadowScheduler();
   startTouringAnnouncementMonitor();
   startTouringAlertDelivery();
+  startTouringWeeklySummaryScheduler();
   void seedSupplementalArtistCatalog().catch(err => {
     logger.error({ err }, "[artists] supplemental catalog seed failed");
   });

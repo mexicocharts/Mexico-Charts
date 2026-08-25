@@ -3,6 +3,7 @@ import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { publicTouringLab, touringShadowStatus } from "../lib/ticketmaster-touring-shadow";
 import { clerkUserId, requireClerkUser } from "../lib/auth";
+import { generateAndQueueTouringWeeklySummary } from "../lib/touring-weekly-summary";
 
 const router = Router();
 const ADMIN_KEY = () => (process.env["NEWSLETTER_ADMIN_KEY"] || process.env["YOUTUBE_ADMIN_KEY"] || process.env["SPOTIFY_ADMIN_KEY"] || "").trim();
@@ -225,19 +226,8 @@ router.post("/admin/touring/review-queue/:id", async (req, res) => {
 router.post("/admin/touring/weekly-summary", async (req, res) => {
   if (!authed(req)) return res.status(403).json({ error: "Forbidden" });
   await ensureTables();
-  const weekStart = new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10);
-  const [events, changes] = await Promise.all([
-    pool.query(`SELECT count(*)::int events,count(DISTINCT artist_id)::int artists,
-      count(DISTINCT city) FILTER (WHERE city IS NOT NULL)::int markets
-      FROM touring_tm_events WHERE event_kind='concert' AND event_date>=current_date AND event_date<current_date+14`),
-    pool.query(`SELECT count(*)::int changes FROM touring_review_queue WHERE created_at>=now()-interval '7 days'`),
-  ]);
-  const summary = { period: "last 7 days", upcoming14Days: events.rows[0], newReviewItems: changes.rows[0],
-    sourcePolicy: "Public authorized metadata only; no inventory, sell-through or ticket sales." };
-  await pool.query(`INSERT INTO touring_weekly_summaries(week_start,summary,delivery_status)
-    VALUES($1,$2,$3) ON CONFLICT(week_start) DO UPDATE SET generated_at=now(),summary=excluded.summary`, [weekStart, JSON.stringify(summary),
-      process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim() ? "pending_delivery" : "not_configured"]);
-  return res.json({ weekStart, summary, deliveryConfigured: Boolean(process.env.RESEND_API_KEY?.trim() && process.env.RESEND_FROM_EMAIL?.trim()) });
+  const result = await generateAndQueueTouringWeeklySummary();
+  return res.json({ ...result, deliveryConfigured: result.status !== "disabled" });
 });
 
 router.get("/account/touring/watchlist", requireClerkUser, async (_req, res) => {
