@@ -35,7 +35,22 @@ function translated(value: string, dictionary: Record<string, string>) {
 
 export const countryLabel = (value: string) => translated(value, COUNTRY_LABELS);
 export const artistTypeLabel = (value: string) => translated(value, ARTIST_TYPE_LABELS);
-export const genreLabel = (value: string) => {
+export const genreLabel = (value: string, language: "es" | "en" = "es") => {
+  if (language === "en") {
+    const clean = value.trim();
+    const english = {
+      mexican: "Mexican",
+      "regional mexican": "Regional Mexican",
+      "mexican hip hop": "Mexican Hip-Hop",
+      "mexican rock": "Mexican Rock",
+      "latin pop": "Latin Pop",
+      "latin hip hop": "Latin Hip-Hop",
+      "latin rock": "Latin Rock",
+    }[clean.toLowerCase()];
+    return english ?? clean
+      .replace(/Mexicano\/a/gi, "Mexican")
+      .replace(/Mexican-American/gi, "Mexican-American");
+  }
   const exact = translated(value, GENRE_LABELS);
   if (exact !== value.trim()) return exact;
   return value

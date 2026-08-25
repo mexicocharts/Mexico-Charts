@@ -408,7 +408,7 @@ export default function HomeV6() {
       rank: parseInt(row["Rank"] ?? "", 10) || idx + 1,
       name: row["Artist"] ?? "",
       genre: "SPOTIFY DAILY",
-      streams: row["Streak"] ? `${row["Streak"]} días` : "",
+      streams: row["Streak"] ? `${row["Streak"]} ${language === "en" ? "days" : "días"}` : "",
       accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
     }));
   }, [hubData]);
@@ -710,7 +710,7 @@ export default function HomeV6() {
               <div className="text-[10px] font-black uppercase tracking-[0.32em] mb-3" style={{ color:"#39FF14" }}>
                 {hero.rank} {pick("EN MÉXICO", "IN MEXICO")}
                 <span className="mx-3 opacity-40">·</span>
-                {genreLabel(hero.tag)}
+                {genreLabel(hero.tag, language)}
               </div>
               <h1
                 className="mb-4 max-w-[14ch] font-black uppercase leading-[0.88] tracking-tight text-white"

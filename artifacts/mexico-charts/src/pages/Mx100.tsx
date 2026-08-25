@@ -9,13 +9,14 @@ import { lookupArtistMetadata, useArtistMetadata, useArtistsDaily, useArtistsWee
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { genreLabel } from "@/lib/presentationLabels";
+import { useLanguage } from "@/i18n/LanguageContext";
 import type { ChartArtist } from "@/types/chartData";
 import type { ArtistMetadata } from "@/services/artistMetadata";
 
 const ACCENT = "#39FF14";
 const SCORE_COMPONENTS = [
-  { key: "spotify", label: "Spotify semanal" },
-  { key: "youtube", label: "YouTube México" },
+  { key: "spotify", es: "Spotify semanal", en: "Spotify weekly" },
+  { key: "youtube", es: "YouTube México", en: "YouTube Mexico" },
 ] as const;
 
 interface Mx100Artist {
@@ -177,11 +178,11 @@ function scoreArtists(
     .slice(0, 100);
 }
 
-function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number; photoUrl?: string | null }) {
+function Mx100Row({ item, index, photoUrl, language }: { item: Mx100Artist; index: number; photoUrl?: string | null; language: "es" | "en" }) {
   const { dailyChartArtist, meta } = item;
   const slug = slugify(item.name);
   const rawGenre = meta?.subgenre || dailyChartArtist?.subgenre || dailyChartArtist?.genre;
-  const genre = rawGenre ? genreLabel(rawGenre) : "";
+  const genre = rawGenre ? genreLabel(rawGenre, language) : "";
   const isTopThree = index < 3;
   const rank = index + 1;
   const initial = item.name.trim()[0]?.toUpperCase() ?? "?";
@@ -255,6 +256,7 @@ function Mx100Row({ item, index, photoUrl }: { item: Mx100Artist; index: number;
 }
 
 export default function Mx100() {
+  const { language, pick } = useLanguage();
   const artistsDaily = useArtistsDaily();
   const artistsWeekly = useArtistsWeekly();
   const metadata = useArtistMetadata();
@@ -285,8 +287,11 @@ export default function Mx100() {
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
-        title="Mexico Charts Top 100 — MX100"
-        description="Ranking editorial de hasta 100 posiciones elegibles activas que combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México."
+        title={pick("Mexico Charts Top 100 — MX100", "Mexico Charts Top 100 — MX100")}
+        description={pick(
+          "Ranking editorial de hasta 100 posiciones elegibles activas que combina el ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México.",
+          "Editorial ranking with up to 100 active eligible positions, combining Spotify Mexico artist rank and weekly YouTube Mexico artist audience.",
+        )}
         path="/mx100"
       />
       <SiteNav />
@@ -313,9 +318,10 @@ export default function Mx100() {
                   </span>
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
-                  El ranking editorial de Mexico Charts con hasta 100 posiciones elegibles
-                  activas, a partir de Spotify y YouTube en México. El número de posiciones
-                  puede ser menor cuando no hay suficientes señales válidas.
+                  {pick(
+                    "El ranking editorial de Mexico Charts con hasta 100 posiciones elegibles activas, a partir de Spotify y YouTube en México. El número de posiciones puede ser menor cuando no hay suficientes señales válidas.",
+                    "Mexico Charts' editorial ranking with up to 100 active eligible positions, based on Spotify and YouTube in Mexico. The number of positions may be lower when there are not enough valid signals.",
+                  )}
                 </p>
                 {leader && (
                   <Link href={canonicalArtistHref(leader.meta?.artistKey ?? leader.name) ?? "/artists"}>
@@ -342,7 +348,7 @@ export default function Mx100() {
                           <div className="min-w-0">
                             <div className="min-w-0">
                               <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-                                Líder actual
+                                {pick("Líder actual", "Current leader")}
                               </div>
                               <div className="mt-2 break-words text-[1.55rem] font-black uppercase leading-[0.95] text-white sm:text-2xl md:text-3xl">
                                 {leader.name}
@@ -350,9 +356,9 @@ export default function Mx100() {
                             </div>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-500">
-                            {leader.spotifyWeeklyRank && <span>Spotify #{leader.spotifyWeeklyRank}</span>}
+                            {leader.spotifyWeeklyRank && <span>{pick("Spotify", "Spotify")} #{leader.spotifyWeeklyRank}</span>}
                             {leader.youtubeWeeklyRank && <span>YouTube #{leader.youtubeWeeklyRank}</span>}
-                            <span>{leader.youtubeWeeklyViewsLabel} YouTube MX</span>
+                            <span>{leader.youtubeWeeklyViewsLabel} YouTube {language === "en" ? "Mexico" : "MX"}</span>
                           </div>
                         </div>
                       </div>
@@ -365,17 +371,17 @@ export default function Mx100() {
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <TrendingUp className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-xl font-black sm:text-2xl">{leader?.youtubeWeeklyViewsLabel ?? "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">YouTube México</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">{pick("YouTube México", "YouTube Mexico")}</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Users className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
                   <div className="text-xl font-black sm:text-2xl">{mx100.length || "—"}</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Top activo</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">{pick("Top activo", "Active positions")}</div>
                 </div>
                 <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                   <Radio className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                  <div className="text-xl font-black sm:text-2xl">En vivo</div>
-                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Datos</div>
+                  <div className="text-xl font-black sm:text-2xl">{pick("En vivo", "Live")}</div>
+                  <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">{pick("Datos", "Data")}</div>
                 </div>
               </div>
             </div>
@@ -388,7 +394,10 @@ export default function Mx100() {
               <div className="flex gap-3">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: ACCENT }} />
                 <p className="text-xs leading-5 text-zinc-400">
-                  Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts a partir del ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México. No representa necesariamente la totalidad de artistas mexicanos.
+                  {pick(
+                    "Ranking calculado entre los artistas mexicanos actualmente monitoreados por Mexico Charts a partir del ranking de artistas de Spotify México y la audiencia semanal de artistas de YouTube México. No representa necesariamente la totalidad de artistas mexicanos.",
+                    "Ranking calculated among Mexican artists currently monitored by Mexico Charts using Spotify Mexico artist rank and weekly YouTube Mexico artist audience. It does not necessarily represent every Mexican artist.",
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -398,7 +407,7 @@ export default function Mx100() {
                     className="border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400"
                     style={{ borderRadius: 6 }}
                   >
-                    <span className="text-white">{component.label}</span>
+                    <span className="text-white">{language === "en" ? component.en : component.es}</span>
                   </div>
                 ))}
               </div>
@@ -406,7 +415,7 @@ export default function Mx100() {
           </div>
 
           {isLoading && (
-            <div className="space-y-3" aria-busy="true" aria-label="Cargando ranking MX100">
+            <div className="space-y-3" aria-busy="true" aria-label={pick("Cargando ranking MX100", "Loading MX100 ranking")}>
               {Array.from({ length: 6 }).map((_, index) => (
                 <div key={index} className="h-32 animate-pulse bg-white/[0.04]" style={{ borderRadius: 8 }} />
               ))}
@@ -416,17 +425,20 @@ export default function Mx100() {
           {isError && (
             <div className="border border-red-500/20 bg-red-500/[0.045] p-5" style={{ borderRadius: 8 }} role="status">
               <div className="text-[11px] font-black uppercase tracking-[0.18em] text-red-200">
-                MX100 temporalmente no disponible
+                {pick("MX100 temporalmente no disponible", "MX100 temporarily unavailable")}
               </div>
               <p className="mt-2 max-w-xl text-sm leading-6 text-zinc-500">
-                No pudimos actualizar el ranking en este momento. La página mantiene su estructura y volverá a mostrar el listado cuando la fuente responda.
+                {pick(
+                  "No pudimos actualizar el ranking en este momento. La página mantiene su estructura y volverá a mostrar el listado cuando la fuente responda.",
+                  "We could not update the ranking right now. The page will show the list again when the source responds.",
+                )}
               </p>
             </div>
           )}
 
           {!isLoading && !isError && mx100.length === 0 && (
             <div className="border border-white/[0.08] bg-white/[0.025] p-5 text-sm leading-6 text-zinc-500" style={{ borderRadius: 8 }}>
-              Aún no hay suficientes señales activas para construir el MX100.
+              {pick("Aún no hay suficientes señales activas para construir el MX100.", "There are not enough active signals to build the MX100 yet.")}
             </div>
           )}
 
@@ -438,6 +450,7 @@ export default function Mx100() {
                   item={item}
                   index={index}
                   photoUrl={artistImages[item.name]}
+                  language={language}
                 />
               ))}
             </div>
