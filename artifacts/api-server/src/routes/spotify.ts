@@ -303,17 +303,6 @@ router.get("/spotify/artist-images", async (req, res) => {
     }
   }
 
-  const urlCounts = new Map<string, number>();
-  for (const url of Object.values(results)) {
-    if (url) urlCounts.set(url, (urlCounts.get(url) ?? 0) + 1);
-  }
-  for (const name of Object.keys(results)) {
-    const url = results[name];
-    if (url && (urlCounts.get(url) ?? 0) > 1) {
-      results[name] = null;
-    }
-  }
-
   res.setHeader("Cache-Control", "no-store");
   res.json(results);
 });
