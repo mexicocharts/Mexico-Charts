@@ -6,8 +6,8 @@ import {
   resolveCanonicalArtist,
 } from "./artistRoutes.mjs";
 
-test("catalog contains the legacy roster plus 30 provider-backed artists", () => {
-  assert.equal(artistCatalogCount, 559);
+test("catalog contains the legacy roster plus the provider-backed artists", () => {
+  assert.equal(artistCatalogCount, 563);
 });
 
 test("canonical and compact artist identifiers resolve to one profile", () => {
@@ -30,7 +30,7 @@ test("canonical and compact artist identifiers resolve to one profile", () => {
 test("confirmed Banda El Recodo alias redirects without creating a second profile", () => {
   assert.equal(canonicalArtistHref("banda-el-recodo"), "/artist/banda-el-recodo");
   assert.equal(canonicalArtistHref("banda-el-recodo-de-cruz-lizarraga"), "/artist/banda-el-recodo");
-  assert.equal(artistCatalogCount, 558);
+  assert.equal(artistCatalogCount, 563);
 });
 
 test("unknown URL strings do not create artist records", () => {

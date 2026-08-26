@@ -1,4 +1,5 @@
 const names = [
+  "Alemán", "Caifanes", "Camila Fernández", "LATIN MAFIA", "Zoé",
   "5050 Flow Malandro", "Caztro", "Charles Ans", "Contacto Norte", "Cornelio Vega", "Cri-Cri",
   "Cuisillos De Arturo Macias", "DAAZ", "Dani Flow", "Dj Aza", "Duelo", "Edwin Luna",
   "El Coyote", "El Malilla", "Gala Montes", "Gera MX", "Grupo Cañaveral De Humberto Pabón",

@@ -7,6 +7,12 @@ export interface ItunesArtistResult {
   primaryGenre: string | null;
 }
 
+export interface ItunesArtistStatus {
+  data: ItunesArtistResult | null;
+  isLoading: boolean;
+  isFetched: boolean;
+}
+
 function normalize(s: string): string {
   return s.toLowerCase().trim().replace(/\s+/g, " ");
 }
@@ -31,15 +37,20 @@ function pickBestMatch(name: string, results: NormalizedResult[]): ItunesArtistR
   };
 }
 
-export function useItunesArtist(name: string, enabled = true): ItunesArtistResult | null {
-  const [result, setResult] = useState<ItunesArtistResult | null>(null);
+export function useItunesArtistWithStatus(name: string, enabled = true): ItunesArtistStatus {
+  const [state, setState] = useState<ItunesArtistStatus>({
+    data: null,
+    isLoading: enabled && Boolean(name),
+    isFetched: false,
+  });
 
   useEffect(() => {
     if (!name || !enabled) {
-      if (!enabled) setResult(null);
+      setState({ data: null, isLoading: false, isFetched: !enabled });
       return;
     }
     let cancelled = false;
+    setState({ data: null, isLoading: true, isFetched: false });
 
     const params = new URLSearchParams({
       entity: "musicArtist",
@@ -51,15 +62,25 @@ export function useItunesArtist(name: string, enabled = true): ItunesArtistResul
     fetch(`/api/providers/itunes/search?${params.toString()}`)
       .then(r => (r.ok ? r.json() : null))
       .then((data: { results?: NormalizedResult[] } | null) => {
-        if (cancelled || !data?.results) return;
-        setResult(pickBestMatch(name, data.results));
+        if (cancelled) return;
+        setState({
+          data: data?.results ? pickBestMatch(name, data.results) : null,
+          isLoading: false,
+          isFetched: true,
+        });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setState({ data: null, isLoading: false, isFetched: true });
+      });
 
     return () => {
       cancelled = true;
     };
   }, [name, enabled]);
 
-  return result;
+  return state;
+}
+
+export function useItunesArtist(name: string, enabled = true): ItunesArtistResult | null {
+  return useItunesArtistWithStatus(name, enabled).data;
 }

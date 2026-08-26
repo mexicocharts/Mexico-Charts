@@ -5,11 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal, BadgeCheck } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { isValidArtistImageUrl, normalizeArtistImageKey, proxyArtistImageUrl, useArtistImagesWithStatus } from "@/hooks/useArtistImages";
-import { useItunesArtist } from "@/hooks/useItunesArtist";
+import { useItunesArtistWithStatus } from "@/hooks/useItunesArtist";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
-import { slugify } from "@/lib/utils";
-import { canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
+import { auditArtistDirectoryRecords, directoryImageState } from "@/lib/artistDirectory.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
@@ -47,6 +46,14 @@ function genreColor(g: string) {
   return GENRE_COLORS[g] ?? "#39FF14";
 }
 
+function lookupArtistImage(images: Record<string, string | null>, names: string[]): string | null {
+  for (const name of names) {
+    const image = images[normalizeArtistImageKey(name)] ?? images[name];
+    if (isValidArtistImageUrl(image)) return image;
+  }
+  return null;
+}
+
 /* ── Card skeleton ───────────────────────────────────────────────── */
 function SkeletonCard() {
   return (
@@ -76,29 +83,37 @@ interface CardProps {
   youtubeSubscribersFmt: string;
   photoUrl?: string | null;
   canonicalName: string;
+  profileHref: string;
   imageLookupReady: boolean;
   totalStreamsFmt?: string | null;
   isVerified?: boolean;
   index: number;
 }
 
-function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, canonicalName, imageLookupReady, totalStreamsFmt, isVerified = false, index }: CardProps) {
-  const slug = slugify(name);
+function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, canonicalName, profileHref, imageLookupReady, totalStreamsFmt, isVerified = false, index }: CardProps) {
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
   const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
   const [needsItunesFallback, setNeedsItunesFallback] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const itunesData = useItunesArtist(
+  const itunes = useItunesArtistWithStatus(
     canonicalName,
     imageLookupReady && (!isValidArtistImageUrl(photoUrl) || needsItunesFallback),
   );
+  const itunesData = itunes.data;
 
   const imageCandidates = useMemo(
     () => [photoUrl, itunesData?.artworkUrlHd].filter(isValidArtistImageUrl),
     [photoUrl, itunesData?.artworkUrlHd],
   );
-  const photo = imageCandidates.find(candidate => !failedUrls.has(candidate)) ?? null;
+  const imageState = directoryImageState({
+    primaryUrl: imageCandidates[0],
+    fallbackUrl: imageCandidates[1],
+    imageLookupReady,
+    fallbackLookupLoading: itunes.isLoading,
+    failedUrls,
+  });
+  const photo = imageState.candidates[0] ?? null;
   const imageSrc = photo ? proxyArtistImageUrl(photo) : null;
 
   useEffect(() => {
@@ -128,7 +143,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
       transition={{ duration: 0.32, delay: Math.min(index * 0.015, 0.3), ease: [0.16, 1, 0.3, 1] }}
       layout
     >
-      <Link href={canonicalArtistHref(name) ?? "/artists"}>
+      <Link href={profileHref}>
         <div
           className="group relative rounded-xl overflow-hidden cursor-pointer h-full flex flex-col"
           style={{
@@ -155,7 +170,7 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
 
           {/* Cinematic photo / avatar hero area */}
           <div className="relative flex-shrink-0 overflow-hidden" style={{ height: 148 }}>
-            {photo ? (
+            {imageState.state === "image" && photo ? (
               <>
                 {/* Keep lazy images visually occupied until their first paint. */}
                 <div
@@ -189,6 +204,16 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
                 {/* Subtle top accent glow */}
                 <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${color}50, transparent)` }} />
               </>
+            ) : imageState.state === "loading" ? (
+              <div
+                className="absolute inset-0 animate-pulse"
+                style={{
+                  background: `radial-gradient(ellipse at 50% 35%, ${color}15 0%, transparent 60%), linear-gradient(160deg, #141414 0%, #080808 100%)`,
+                }}
+                aria-label={`Cargando foto de ${name}`}
+              >
+                <div className="absolute inset-x-8 top-1/2 h-px -translate-y-1/2 bg-white/[0.07]" />
+              </div>
             ) : (
               <>
                 {/* Atmospheric dark background */}
@@ -361,23 +386,25 @@ export default function ArtistRoster() {
     setVisibleCount(ROSTER_PAGE_SIZE);
   }, [search, genreFilter, countryFilter, verifiedOnly, sortMode]);
 
-  /* Collect all artist display names for image + kworb batch fetches */
-  const allNames = useMemo(
-    () => Array.from(byKey.values()).flatMap(artist => [
-      artist.displayName,
-      resolveCanonicalArtist(artist.displayName)?.name ?? "",
-    ]),
+  /* Resolve every metadata row to one unique, profile-backed public record. */
+  const directoryAudit = useMemo(
+    () => auditArtistDirectoryRecords(Array.from(byKey.values())),
     [byKey],
+  );
+
+  const allArtists = useMemo(() => {
+    return [...directoryAudit.artists].sort((a, b) =>
+      a.displayName.localeCompare(b.displayName, "es", { sensitivity: "base" })
+    );
+  }, [directoryAudit]);
+
+  /* Collect only public artist names for image + kworb batch fetches. */
+  const allNames = useMemo(
+    () => allArtists.flatMap(artist => [artist.displayName, artist.canonicalName]),
+    [allArtists],
   );
   const { images: artistImages, isFetched: artistImagesFetched } = useArtistImagesWithStatus(allNames);
   const { data: kworbStreams } = useBatchKworbStreams(allNames);
-
-  /* Derive sorted array from map */
-  const allArtists = useMemo(() => {
-    return Array.from(byKey.values()).sort((a, b) =>
-      a.displayName.localeCompare(b.displayName, "es", { sensitivity: "base" })
-    );
-  }, [byKey]);
 
   /* Unique genre / country lists */
   const genres = useMemo(
@@ -475,6 +502,15 @@ export default function ArtistRoster() {
                 <div className="text-2xl font-black text-white">{countries.length}</div>
                 <div className="text-[10px] uppercase tracking-widest text-zinc-500">Países</div>
               </div>
+            </div>
+          )}
+          {!isLoading && !isEmpty && directoryAudit.excluded.length > 0 && (
+            <div
+              className="mx-auto mt-5 max-w-xl rounded-lg border border-amber-400/20 bg-amber-400/[0.05] px-4 py-2 text-[10px] leading-5 text-amber-200/70"
+              data-testid="roster-directory-audit"
+              title={directoryAudit.excluded.map(artist => artist.displayName).join(", ")}
+            >
+              {directoryAudit.excluded.length} registro{directoryAudit.excluded.length === 1 ? "" : "s"} omitido{directoryAudit.excluded.length === 1 ? "" : "s"} por no tener un perfil canónico disponible.
             </div>
           )}
         </div>
@@ -672,8 +708,9 @@ export default function ArtistRoster() {
                     instagramFollowersFmt={artist.instagramFollowersFmt}
                     tiktokFollowersFmt={artist.tiktokFollowersFmt}
                     youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
-                    canonicalName={resolveCanonicalArtist(artist.displayName)?.name ?? artist.displayName}
-                    photoUrl={artistImages[normalizeArtistImageKey(artist.displayName)] ?? artistImages[artist.displayName] ?? null}
+                    canonicalName={artist.canonicalName}
+                    profileHref={artist.profileHref}
+                    photoUrl={lookupArtistImage(artistImages, [artist.displayName, artist.canonicalName])}
                     imageLookupReady={artistImagesFetched}
                     totalStreamsFmt={totalStreamsFmt}
                     isVerified={verifiedArtistKeys.has(artist.artistKey)}
