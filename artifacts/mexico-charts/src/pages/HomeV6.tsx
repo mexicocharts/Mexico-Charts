@@ -1308,7 +1308,7 @@ export default function HomeV6() {
                   name: "Spotify",
                   streams: platformTotals.spotifyFmt ?? "—",
                   label: platformTotals.spotifyCoverage > 0
-                    ? `${pick("streams acumulados", "cumulative streams")} · ${platformTotals.spotifyCoverage} ${pick("artistas", "artists")}`
+                    ? `${pick("streams acumulados", "cumulative streams")} · ${platformTotals.spotifyCoverage} ${pick("registros/perfiles de artistas de Spotify almacenados con datos de Spotify (no perfiles del catálogo público)", "stored Spotify artist records/profiles with Spotify data (not public catalog profiles)")}`
                     : pick("streams acumulados", "cumulative streams"),
                 },
                 {
