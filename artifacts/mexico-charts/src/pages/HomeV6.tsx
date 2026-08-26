@@ -136,7 +136,7 @@ function firstArtworkUrl(row: HubRow): string | null {
   ];
   for (const field of preferredFields) {
     const value = row[field]?.trim();
-    if (value) return value;
+    if (value && /^https?:\/\/[^\s]+$/i.test(value)) return value;
   }
   for (const [field, value] of Object.entries(row)) {
     if (/(?:artwork|cover|image)/i.test(field) && /^https?:\/\//i.test(value.trim())) {
@@ -461,7 +461,13 @@ export default function HomeV6() {
     return definitions.flatMap(definition => {
       const row = (hubData?.sheets?.[definition.sheet]?.rows ?? []).find(item => /^(true|yes|1)$/i.test(item["Contains Mexican Artist"] ?? ""));
       if (!row) return [];
-      const participant = (row["Matched Mexican Artists"] || row[definition.artist] || "").split(/\s*(?:,|&|\/| feat\.| ft\.| x | y )\s*/i)[0];
+      const mexicanAttribution = (row["Matched Mexican Artists"] ?? "")
+        .split(/\s*(?:,|&|\/| feat\.| ft\.| x | y )\s*/i)[0]
+        ?.trim() ?? "";
+      const platformCredit = (row[definition.artist] ?? "")
+        .split(/\s*(?:,|&|\/| feat\.| ft\.| x | y )\s*/i)[0]
+        ?.trim() ?? "";
+      const participant = mexicanAttribution || platformCredit;
       return [{
         ...definition,
         rank: Number(row.Rank) || 1,
@@ -594,7 +600,7 @@ export default function HomeV6() {
   }, [artistImages]);
   const img = (name: string) => imgMap[name.toLowerCase()] ?? null;
   const canonicalImg = (name: string) => (
-    img(name) ?? img(resolveCanonicalArtist(name)?.name ?? "")
+    img(resolveCanonicalArtist(name)?.name ?? name) ?? img(name)
   );
   const hero = HERO_ARTISTS[heroIndex] ?? HERO_ARTISTS[0];
   const heroImage = img(hero.name);
@@ -975,8 +981,9 @@ export default function HomeV6() {
         <div className="absolute inset-x-0 top-0 h-px" style={{ background:"linear-gradient(to right, transparent, rgba(57,255,20,.18), transparent)" }} />
         <FadeUp><div className="mb-5 flex flex-wrap items-end justify-between gap-4"><div><div className="text-[10px] font-black uppercase tracking-[.25em]" style={{ color:"#39FF14" }}>Mexico Charts · Editorial</div><h2 className="mt-2 text-3xl font-black uppercase tracking-[-.04em] sm:text-4xl">{pick("Esta semana", "This week")}</h2><p className="mt-2 text-sm text-zinc-500">{pick("Una entrada mexicana destacada por plataforma.", "One featured Mexican entry per platform.")}</p></div><Link href="/esta-semana"><span className="text-[10px] font-black uppercase tracking-[.18em]" style={{ color:"#39FF14" }}>{pick("Abrir reporte", "Open report")} →</span></Link></div></FadeUp>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{WEEKLY_SPOTLIGHTS.map(item => {
-          const artwork = item.artwork ?? canonicalImg(item.participant);
-          return <Link key={item.label} href="/esta-semana"><motion.div whileHover={reduced ? {} : { y:-3 }} className="group overflow-hidden border border-white/10 bg-[#0a0a0a]"><div className="relative h-40 overflow-hidden bg-white/[.03]"><div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_center,rgba(57,255,20,.16),transparent_65%)] text-[#39FF14]"><span className="text-3xl font-black tracking-[-.08em]">MC</span><span className="text-[8px] font-black uppercase tracking-[.24em] text-white/55">Mexico Charts</span></div>{artwork && <img src={artwork} alt={item.participant} onError={event => { event.currentTarget.style.display = "none"; }} className="relative z-10 h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]" />}<div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/10 to-transparent" /><div className="absolute bottom-3 left-4 z-20 text-4xl font-black" style={{ color:item.color }}>#{item.rank}</div></div><div className="p-4"><div className="text-[9px] font-black uppercase tracking-[.2em]" style={{ color:item.color }}>{item.label}</div><div className="mt-2 truncate font-black uppercase">{item.title}</div>{item.credit !== item.title && <div className="mt-1 truncate text-xs text-zinc-500">{item.credit}</div>}<div className="mt-3 text-[9px] font-black uppercase tracking-[.14em] text-zinc-600">MX: {item.participant}</div></div></motion.div></Link>;
+          const canonicalArtwork = canonicalImg(item.participant);
+          const artwork = item.artwork ?? canonicalArtwork;
+          return <Link key={item.label} href="/esta-semana"><motion.div whileHover={reduced ? {} : { y:-3 }} className="group overflow-hidden border border-white/10 bg-[#0a0a0a]"><div className="relative h-40 overflow-hidden bg-white/[.03]"><div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_center,rgba(57,255,20,.16),transparent_65%)] text-[#39FF14]"><span className="text-3xl font-black tracking-[-.08em]">MC</span><span className="text-[8px] font-black uppercase tracking-[.24em] text-white/55">Mexico Charts</span></div>{artwork && <img src={artwork} alt={item.participant} onError={event => { if (canonicalArtwork && event.currentTarget.src !== canonicalArtwork) { event.currentTarget.src = canonicalArtwork; } else { event.currentTarget.style.display = "none"; } }} className="relative z-10 h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.03]" />}<div className="absolute inset-0 z-20 bg-gradient-to-t from-black via-black/10 to-transparent" /><div className="absolute bottom-3 left-4 z-20 text-4xl font-black" style={{ color:item.color }}>#{item.rank}</div></div><div className="p-4"><div className="text-[9px] font-black uppercase tracking-[.2em]" style={{ color:item.color }}>{item.label}</div><div className="mt-2 truncate font-black uppercase">{item.title}</div>{item.credit !== item.title && <div className="mt-1 truncate text-xs text-zinc-500">{item.credit}</div>}<div className="mt-3 text-[9px] font-black uppercase tracking-[.14em] text-zinc-600">MX: {item.participant}</div></div></motion.div></Link>;
         })}</div>
       </section>}
 
