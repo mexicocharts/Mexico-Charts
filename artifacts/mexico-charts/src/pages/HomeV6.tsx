@@ -578,18 +578,18 @@ export default function HomeV6() {
   }, [HERO_ARTISTS.length]);
 
   /* Artist images */
-  const allNames = useMemo(() => [
-    ...HERO_ARTISTS.map(a => a.name),
-    ...TOP_STRIP.map(a => a.name),
-    ...SHELF_ARTISTS.map(a => a.name),
-    ...ASCENSO.map(a => a.name),
-    ...WEEKLY_SPOTLIGHTS
-      .filter(a => a.label === "Apple Music" || a.label === "Deezer")
-      .flatMap(a => [
-      a.participant,
-      resolveCanonicalArtist(a.participant)?.name ?? "",
-      ]),
-  ], [HERO_ARTISTS, TOP_STRIP, SHELF_ARTISTS, ASCENSO, WEEKLY_SPOTLIGHTS]);
+  const allNames = useMemo(() => {
+    const names = [
+      ...HERO_ARTISTS.map(a => a.name),
+      ...TOP_STRIP.map(a => a.name),
+      ...SHELF_ARTISTS.map(a => a.name),
+      ...ASCENSO.map(a => a.name),
+      ...WEEKLY_SPOTLIGHTS
+        .filter(a => a.label === "Apple Music" || a.label === "Deezer")
+        .map(a => resolveCanonicalArtist(a.participant)?.name ?? a.participant.trim()),
+    ];
+    return [...new Map(names.filter(Boolean).map(name => [name.trim().toLowerCase(), name])).values()];
+  }, [HERO_ARTISTS, TOP_STRIP, SHELF_ARTISTS, ASCENSO, WEEKLY_SPOTLIGHTS]);
   const artistImages = useArtistImages(allNames);
   const imgMap = useMemo(() => {
     const m: Record<string, string> = {};
