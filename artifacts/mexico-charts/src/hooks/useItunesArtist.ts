@@ -31,11 +31,14 @@ function pickBestMatch(name: string, results: NormalizedResult[]): ItunesArtistR
   };
 }
 
-export function useItunesArtist(name: string): ItunesArtistResult | null {
+export function useItunesArtist(name: string, enabled = true): ItunesArtistResult | null {
   const [result, setResult] = useState<ItunesArtistResult | null>(null);
 
   useEffect(() => {
-    if (!name) return;
+    if (!name || !enabled) {
+      if (!enabled) setResult(null);
+      return;
+    }
     let cancelled = false;
 
     const params = new URLSearchParams({
@@ -56,7 +59,7 @@ export function useItunesArtist(name: string): ItunesArtistResult | null {
     return () => {
       cancelled = true;
     };
-  }, [name]);
+  }, [name, enabled]);
 
   return result;
 }

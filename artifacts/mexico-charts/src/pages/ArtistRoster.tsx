@@ -4,11 +4,12 @@ import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal, BadgeCheck } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
-import { useArtistImages } from "@/hooks/useArtistImages";
+import { isValidArtistImageUrl, normalizeArtistImageKey, proxyArtistImageUrl, useArtistImagesWithStatus } from "@/hooks/useArtistImages";
+import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { slugify } from "@/lib/utils";
-import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import { canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
@@ -74,19 +75,50 @@ interface CardProps {
   tiktokFollowersFmt: string;
   youtubeSubscribersFmt: string;
   photoUrl?: string | null;
+  canonicalName: string;
+  imageLookupReady: boolean;
   totalStreamsFmt?: string | null;
   isVerified?: boolean;
   index: number;
 }
 
-function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, totalStreamsFmt, isVerified = false, index }: CardProps) {
+function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagramFollowersFmt, tiktokFollowersFmt, youtubeSubscribersFmt, photoUrl, canonicalName, imageLookupReady, totalStreamsFmt, isVerified = false, index }: CardProps) {
   const slug = slugify(name);
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
-  const [imgFailed, setImgFailed] = useState(false);
-  const handleImgError = useCallback(() => setImgFailed(true), []);
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
+  const [needsItunesFallback, setNeedsItunesFallback] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const itunesData = useItunesArtist(
+    canonicalName,
+    imageLookupReady && (!isValidArtistImageUrl(photoUrl) || needsItunesFallback),
+  );
 
-  const showPhoto = !!photoUrl && !imgFailed;
+  const imageCandidates = useMemo(
+    () => [photoUrl, itunesData?.artworkUrlHd].filter(isValidArtistImageUrl),
+    [photoUrl, itunesData?.artworkUrlHd],
+  );
+  const photo = imageCandidates.find(candidate => !failedUrls.has(candidate)) ?? null;
+  const imageSrc = photo ? proxyArtistImageUrl(photo) : null;
+
+  useEffect(() => {
+    setFailedUrls(new Set());
+    setNeedsItunesFallback(false);
+  }, [canonicalName]);
+
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [photo]);
+
+  const handleImgError = useCallback(() => {
+    if (!photo) return;
+    setFailedUrls(previous => {
+      const next = new Set(previous);
+      next.add(photo);
+      return next;
+    });
+    setNeedsItunesFallback(true);
+  }, [photo]);
 
   return (
     <motion.div
@@ -123,20 +155,33 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
 
           {/* Cinematic photo / avatar hero area */}
           <div className="relative flex-shrink-0 overflow-hidden" style={{ height: 148 }}>
-            {showPhoto ? (
+            {photo ? (
               <>
-                {/* Full-bleed photo */}
+                {/* Keep lazy images visually occupied until their first paint. */}
                 <div
-                  className="absolute inset-0 transition-transform duration-700 group-hover:scale-105"
+                  className="absolute inset-0"
                   style={{
-                    backgroundImage: `url(${photoUrl})`,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center top",
-                    filter: "brightness(0.78) saturate(0.60) contrast(1.08)",
+                    background: `radial-gradient(ellipse at 50% 35%, ${color}15 0%, transparent 60%), linear-gradient(160deg, #141414 0%, #080808 100%)`,
                   }}
                 />
-                {/* Invisible img for error detection */}
-                <img src={photoUrl!} alt="" decoding="async" className="hidden" onError={handleImgError} />
+                {/* Full-bleed photo */}
+                <img
+                  src={imageSrc!}
+                  alt={`${name} — foto de perfil`}
+                  loading="lazy"
+                  decoding="async"
+                  className="absolute inset-0 transition-[opacity,transform] duration-700 group-hover:scale-105"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    objectPosition: "center top",
+                    opacity: imageLoaded ? 1 : 0,
+                    filter: "brightness(0.78) saturate(0.60) contrast(1.08)",
+                  }}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={handleImgError}
+                />
                 {/* Cinematic edge vignette */}
                 <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 90% 80% at 50% 30%, transparent 35%, rgba(0,0,0,0.40) 75%, rgba(0,0,0,0.72) 100%)" }} />
                 {/* Bottom fade into card body */}
@@ -317,8 +362,14 @@ export default function ArtistRoster() {
   }, [search, genreFilter, countryFilter, verifiedOnly, sortMode]);
 
   /* Collect all artist display names for image + kworb batch fetches */
-  const allNames = useMemo(() => Array.from(byKey.values()).map(a => a.displayName), [byKey]);
-  const artistImages = useArtistImages(allNames);
+  const allNames = useMemo(
+    () => Array.from(byKey.values()).flatMap(artist => [
+      artist.displayName,
+      resolveCanonicalArtist(artist.displayName)?.name ?? "",
+    ]),
+    [byKey],
+  );
+  const { images: artistImages, isFetched: artistImagesFetched } = useArtistImagesWithStatus(allNames);
   const { data: kworbStreams } = useBatchKworbStreams(allNames);
 
   /* Derive sorted array from map */
@@ -621,7 +672,9 @@ export default function ArtistRoster() {
                     instagramFollowersFmt={artist.instagramFollowersFmt}
                     tiktokFollowersFmt={artist.tiktokFollowersFmt}
                     youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
-                    photoUrl={artistImages[artist.displayName]}
+                    canonicalName={resolveCanonicalArtist(artist.displayName)?.name ?? artist.displayName}
+                    photoUrl={artistImages[normalizeArtistImageKey(artist.displayName)] ?? artistImages[artist.displayName] ?? null}
+                    imageLookupReady={artistImagesFetched}
                     totalStreamsFmt={totalStreamsFmt}
                     isVerified={verifiedArtistKeys.has(artist.artistKey)}
                     index={i}

@@ -7,4 +7,6 @@ The artist-image endpoint can null results when multiple requested names resolve
 
 **Why:** Canonical aliases such as `LATIN MAFIA` and `Latin Mafia` can resolve to the same real image, but requesting both causes the endpoint's duplicate-URL guard to blank both results.
 
-**How to apply:** Build image request names from the normalized MX attribution/canonical artist key, deduplicate them before calling the shared image hook, and keep the source-row artwork fallback separate.
+**How to apply:** Build image request names from the normalized MX attribution/canonical artist key, deduplicate them before calling the shared image hook, keep source-row artwork fallback separate, and route browser-facing CDN URLs through the existing same-origin image proxy.
+
+**Delivery constraint:** External artwork CDN URLs may resolve from the API server but fail in the browser preview; same-origin proxying keeps valid artwork visible and lets client-side error recovery work reliably.

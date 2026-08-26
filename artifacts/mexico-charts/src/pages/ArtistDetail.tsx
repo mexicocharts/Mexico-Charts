@@ -7,7 +7,7 @@ import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
-import { useArtistImages } from "@/hooks/useArtistImages";
+import { normalizeArtistImageKey, proxyArtistImageUrl, useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useDeezerArtist } from "@/hooks/useDeezerArtist";
@@ -621,7 +621,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
   const { data: artistTouring } = useArtistTouring(slug);
-  const photo = artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
+  const photo = artistImages[normalizeArtistImageKey(artist.name)] ?? artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
   const audienceStats = useMemo(() => {
     const songstats = songstatsArtist?.snapshot;
     return {
@@ -932,7 +932,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
           <div
             className="pointer-events-none absolute bottom-0 right-[-18%] top-0 w-[92%] opacity-34 sm:right-0 sm:w-1/2 sm:opacity-100 md:w-2/5"
             style={{
-              backgroundImage: `url(${photo})`,
+              backgroundImage: `url(${proxyArtistImageUrl(photo)})`,
               backgroundSize: "cover",
               backgroundPosition: "center top",
               maskImage: "linear-gradient(to right, transparent 0%, black 48%)",
