@@ -297,25 +297,36 @@ export default function HomeV6() {
 
   /* ── Derived display arrays — sheet data when available, defaults otherwise ── */
   const TOP_STRIP = useMemo(() => {
-    // Use live YouTube Artists Weekly data — Mexican artists only, sorted by rank
+    // Use the current YouTube Artists Weekly fields — Mexican artists only, sorted by rank.
+    // Eligibility comes from the existing canonical catalog/metadata match rather than
+    // the retired sheet-provided Artist Name or Contains Mexican Artist columns.
     if (ytArtistRows.length > 0) {
       const mexican = ytArtistRows.filter(
-        r => (r["Contains Mexican Artist"] ?? "").toUpperCase() === "TRUE",
+        r => {
+          const artistName = (r["Artist"] ?? "").trim();
+          if (!artistName) return false;
+          const artistKey = r["Artist Key"] ?? r["artist_key"] ?? r["artistKey"];
+          return Boolean(
+            resolveCanonicalArtist(artistName) ||
+            lookupArtistMetadata(artistKey, artistName, metaByKey, metaByName),
+          );
+        },
       );
       const sorted = [...mexican].sort(
         (a, b) => (Number(a["Rank"]) || 999) - (Number(b["Rank"]) || 999),
       );
       return sorted.slice(0, 10).map((row, idx) => ({
         rank: Number(row["Rank"]) || idx + 1,
-        name: row["Artist Name"] ?? "",
+        name: (row["Artist"] ?? "").trim(),
         genre: "",
         streams: fmtViews(row["Views"] ?? ""),
         accent: RANK_ACCENTS_HOME[idx] ?? RANK_ACCENTS_HOME[RANK_ACCENTS_HOME.length - 1],
+        chartDate: row["Chart Date"] ?? "",
       }));
     }
     // Loading or empty — return [] so the caller can decide what to render
     return [];
-  }, [ytArtistRows]);
+  }, [ytArtistRows, metaByKey, metaByName]);
 
   const BASE_HERO_ARTISTS = useMemo(() => {
     return (sheetsEmpty || weeklyArtists.length === 0)
