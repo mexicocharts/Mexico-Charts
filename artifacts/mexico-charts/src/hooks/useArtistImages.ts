@@ -30,6 +30,15 @@ export function proxyArtistImageUrl(url: string): string {
   return `/api/image-proxy?url=${encodeURIComponent(url)}`;
 }
 
+export function getArtistImageUrl(images: ArtistImageMap, ...names: readonly string[]): string | null {
+  for (const name of names) {
+    const normalized = normalizeArtistImageKey(name);
+    const candidate = images[normalized] ?? images[name];
+    if (isValidArtistImageUrl(candidate)) return candidate;
+  }
+  return null;
+}
+
 function uniqueArtistImageNames(names: readonly string[]): string[] {
   return Array.from(
     new Map(

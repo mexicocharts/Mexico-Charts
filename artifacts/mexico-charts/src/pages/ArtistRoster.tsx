@@ -4,8 +4,7 @@ import { Link, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, ChevronDown, Users, Music2, Globe, SlidersHorizontal, BadgeCheck } from "lucide-react";
 import { useArtistMetadata } from "@/services/dataProvider";
-import { isValidArtistImageUrl, normalizeArtistImageKey, proxyArtistImageUrl, useArtistImagesWithStatus } from "@/hooks/useArtistImages";
-import { useItunesArtistWithStatus } from "@/hooks/useItunesArtist";
+import { getArtistImageUrl, isValidArtistImageUrl, proxyArtistImageUrl, useArtistImagesWithStatus } from "@/hooks/useArtistImages";
 import { useVerifiedArtistKeys } from "@/hooks/useArtistEnrichment";
 import { useBatchKworbStreams } from "@/hooks/useKworbStats";
 import { auditArtistDirectoryRecords, directoryImageState } from "@/lib/artistDirectory.mjs";
@@ -44,14 +43,6 @@ const GENRE_COLORS: Record<string, string> = {
 };
 function genreColor(g: string) {
   return GENRE_COLORS[g] ?? "#39FF14";
-}
-
-function lookupArtistImage(images: Record<string, string | null>, names: string[]): string | null {
-  for (const name of names) {
-    const image = images[normalizeArtistImageKey(name)] ?? images[name];
-    if (isValidArtistImageUrl(image)) return image;
-  }
-  return null;
 }
 
 /* ── Card skeleton ───────────────────────────────────────────────── */
@@ -94,23 +85,17 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
   const color = genreColor(genre);
   const initial = name.trim()[0]?.toUpperCase() ?? "?";
   const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
-  const [needsItunesFallback, setNeedsItunesFallback] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const itunes = useItunesArtistWithStatus(
-    canonicalName,
-    imageLookupReady && (!isValidArtistImageUrl(photoUrl) || needsItunesFallback),
-  );
-  const itunesData = itunes.data;
 
   const imageCandidates = useMemo(
-    () => [photoUrl, itunesData?.artworkUrlHd].filter(isValidArtistImageUrl),
-    [photoUrl, itunesData?.artworkUrlHd],
+    () => [photoUrl].filter(isValidArtistImageUrl),
+    [photoUrl],
   );
   const imageState = directoryImageState({
     primaryUrl: imageCandidates[0],
-    fallbackUrl: imageCandidates[1],
+    fallbackUrl: null,
     imageLookupReady,
-    fallbackLookupLoading: itunes.isLoading,
+    fallbackLookupLoading: false,
     failedUrls,
   });
   const photo = imageState.candidates[0] ?? null;
@@ -118,7 +103,6 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
 
   useEffect(() => {
     setFailedUrls(new Set());
-    setNeedsItunesFallback(false);
   }, [canonicalName]);
 
   useEffect(() => {
@@ -132,7 +116,6 @@ function ArtistCard({ name, genre, country, label, spotifyListenersFmt, instagra
       next.add(photo);
       return next;
     });
-    setNeedsItunesFallback(true);
   }, [photo]);
 
   return (
@@ -710,7 +693,7 @@ export default function ArtistRoster() {
                     youtubeSubscribersFmt={artist.youtubeSubscribersFmt}
                     canonicalName={artist.canonicalName}
                     profileHref={artist.profileHref}
-                    photoUrl={lookupArtistImage(artistImages, [artist.displayName, artist.canonicalName])}
+                    photoUrl={getArtistImageUrl(artistImages, artist.displayName, artist.canonicalName)}
                     imageLookupReady={artistImagesFetched}
                     totalStreamsFmt={totalStreamsFmt}
                     isVerified={verifiedArtistKeys.has(artist.artistKey)}

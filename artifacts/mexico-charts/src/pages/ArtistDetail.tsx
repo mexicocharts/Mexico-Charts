@@ -7,7 +7,7 @@ import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
-import { normalizeArtistImageKey, proxyArtistImageUrl, useArtistImages } from "@/hooks/useArtistImages";
+import { getArtistImageUrl, proxyArtistImageUrl, useArtistImages } from "@/hooks/useArtistImages";
 import { useKworbStats, useRefreshStatus } from "@/hooks/useKworbStats";
 import { useItunesArtist } from "@/hooks/useItunesArtist";
 import { useDeezerArtist } from "@/hooks/useDeezerArtist";
@@ -457,6 +457,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const [showVerificationInfo, setShowVerificationInfo] = useState(false);
   const [chartPositionFilter, setChartPositionFilter] = useState<ChartPositionFilter>("all");
   const [youtubeLiveVideos, setYoutubeLiveVideos] = useState<YouTubeLivePreviewVideo[]>([]);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
 
   /* ── Sheet data overlay ── */
   const { data: weeklyArtists, isEmpty: sheetsEmpty, isError: sheetsError, isLoading: sheetsLoading } = useArtistsWeekly();
@@ -621,7 +622,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
   const { data: artistTouring } = useArtistTouring(slug);
-  const photo = artistImages[normalizeArtistImageKey(artist.name)] ?? artistImages[artist.name] ?? itunesData?.artworkUrlHd ?? null;
+  const photo = getArtistImageUrl(artistImages, artist.name, canonicalName);
+  const displayPhoto = photo && photo !== failedPhotoUrl ? photo : null;
+  useEffect(() => {
+    setFailedPhotoUrl(null);
+  }, [slug, photo]);
   const audienceStats = useMemo(() => {
     const songstats = songstatsArtist?.snapshot;
     return {
@@ -928,13 +933,15 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         )}
 
         {/* Photo */}
-        {photo && (
-          <div
-            className="pointer-events-none absolute bottom-0 right-[-18%] top-0 w-[92%] opacity-34 sm:right-0 sm:w-1/2 sm:opacity-100 md:w-2/5"
+        {displayPhoto && (
+          <img
+            src={proxyArtistImageUrl(displayPhoto)}
+            alt=""
+            aria-hidden="true"
+            onError={() => setFailedPhotoUrl(displayPhoto)}
+            className="pointer-events-none absolute bottom-0 right-[-18%] top-0 h-full w-[92%] object-cover opacity-34 sm:right-0 sm:w-1/2 sm:opacity-100 md:w-2/5"
             style={{
-              backgroundImage: `url(${proxyArtistImageUrl(photo)})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center top",
+              objectPosition: "center top",
               maskImage: "linear-gradient(to right, transparent 0%, black 48%)",
               WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 48%)",
               filter: "saturate(0.55) contrast(1.1) brightness(0.78)",
@@ -2523,7 +2530,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   {similarArtists.map(candidate => {
                     const candidateHref = canonicalArtistHref(candidate.name);
                     const candidateSlug = candidateHref?.replace(/^\/artist\//, "") ?? slugify(candidate.name);
-                    const candidatePhoto = artistImages[candidate.name] ?? null;
+                    const candidatePhoto = getArtistImageUrl(artistImages, candidate.name);
                     const initials = candidate.name
                       .split(/\s+/)
                       .filter(Boolean)

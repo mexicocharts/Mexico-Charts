@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
+import { isArtistImageCandidateUrl, validateArtistImagePayload } from "../lib/artist-image-resolver";
 
 const router = Router();
 
@@ -45,15 +46,24 @@ router.get("/image-proxy", async (req, res) => {
     res.status(403).json({ error: `domain not allowed: ${parsed.hostname}` });
     return;
   }
+  if (!isArtistImageCandidateUrl(rawUrl)) {
+    res.status(422).json({ error: "artist image URL is a placeholder or invalid" });
+    return;
+  }
 
   const cached = proxyCache.get(rawUrl);
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
-    res.setHeader("Content-Type", cached.contentType);
-    res.setHeader("Cache-Control", "public, max-age=7200, immutable");
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("X-Image-Proxy", "HIT");
-    res.send(cached.data);
-    return;
+    const cachedValidation = validateArtistImagePayload(cached.contentType, cached.data);
+    if (cachedValidation.status !== "valid") {
+      proxyCache.delete(rawUrl);
+    } else {
+      res.setHeader("Content-Type", cached.contentType);
+      res.setHeader("Cache-Control", "public, max-age=7200, immutable");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("X-Image-Proxy", "HIT");
+      res.send(cached.data);
+      return;
+    }
   }
 
   try {
@@ -70,9 +80,15 @@ router.get("/image-proxy", async (req, res) => {
       return;
     }
 
-    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
     const arrayBuffer = await response.arrayBuffer();
     const data = Buffer.from(arrayBuffer);
+    const validation = validateArtistImagePayload(contentType, data);
+    if (validation.status !== "valid") {
+      logger.warn({ url: rawUrl, reason: validation.reason }, "[image-proxy] rejected invalid image payload");
+      res.status(422).json({ error: validation.reason ?? validation.status });
+      return;
+    }
 
     proxyCache.set(rawUrl, { data, contentType, cachedAt: Date.now() });
 
