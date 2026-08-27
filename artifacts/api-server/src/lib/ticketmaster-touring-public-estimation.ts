@@ -441,15 +441,7 @@ async function ensurePublicTables(client: QueryClient) {
          demand_signal,comparable_key,source_quality,evidence_timestamp,updated_by,override_tickets_sold,
          override_gross_usd,override_average_ticket_usd,override_confidence_percent,notes)
        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb,$16,$17,$18::jsonb,$19,$20,$21,$22,$23,$24,$25)
-       ON CONFLICT(event_id) DO UPDATE SET
-         artist_id=excluded.artist_id,artist_name=excluded.artist_name,tour_name=excluded.tour_name,event_date=excluded.event_date,
-         venue_name=excluded.venue_name,venue_city=excluded.venue_city,configured_capacity=excluded.configured_capacity,
-         capacity_source=excluded.capacity_source,standard_price_min=excluded.standard_price_min,standard_price_max=excluded.standard_price_max,
-         standard_price_currency=excluded.standard_price_currency,fx_rate_mxn_per_usd=excluded.fx_rate_mxn_per_usd,fx_rate_date=excluded.fx_rate_date,
-         offer_breakdown=excluded.offer_breakdown,demand_signal=excluded.demand_signal,comparable_key=excluded.comparable_key,
-         source_quality=excluded.source_quality,evidence_timestamp=excluded.evidence_timestamp,override_tickets_sold=excluded.override_tickets_sold,
-         override_gross_usd=excluded.override_gross_usd,override_average_ticket_usd=excluded.override_average_ticket_usd,
-         override_confidence_percent=excluded.override_confidence_percent,notes=excluded.notes,updated_at=now()
+       ON CONFLICT(event_id) DO NOTHING
       `,
       [
         seed.event_id, seed.artist_id, seed.artist_name, seed.tour_name, seed.event_date, seed.venue_name, seed.venue_city,
