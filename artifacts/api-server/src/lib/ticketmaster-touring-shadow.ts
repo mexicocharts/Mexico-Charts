@@ -133,10 +133,41 @@ export async function persistCanonicalNextRun(
   runId: string,
   nextRunAt: Date,
 ) {
-  await client.query(
+  const result = await client.query(
     "UPDATE touring_tm_shadow_runs SET next_run_at=$2 WHERE id=$1",
     [runId, nextRunAt.toISOString()],
   );
+  if (result.rowCount === 0) {
+    throw new Error(`Canonical touring run ${runId} was not found while persisting next_run_at`);
+  }
+}
+
+export async function persistCanonicalRunOutcome(
+  client: Pick<DbClient, "query">,
+  runId: string,
+  summary: TouringShadowSummary,
+  nextRunAt: Date,
+) {
+  const result = await client.query(
+    `UPDATE touring_tm_shadow_runs
+     SET status=$2,fetched_artists=$3,failed_artists=$4,events_observed=$5,
+       snapshots_saved=$6,errors=$7::jsonb,finished_at=$8,next_run_at=$9
+     WHERE id=$1`,
+    [
+      runId,
+      summary.status,
+      summary.fetchedArtists,
+      summary.failedArtists,
+      summary.eventsObserved,
+      summary.snapshotsSaved,
+      JSON.stringify(summary.errors),
+      summary.finishedAt ?? new Date().toISOString(),
+      nextRunAt.toISOString(),
+    ],
+  );
+  if (result.rowCount === 0) {
+    throw new Error(`Canonical touring run ${runId} was not found while finalizing`);
+  }
 }
 
 export function failedCanonicalRun(
@@ -168,6 +199,7 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
   const client = await pool.connect();
   let locked = false;
   let runId: string | null = null;
+  let summary: TouringShadowSummary | null = null;
   try {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) locked", [LOCK_KEY]);
     locked = lock.rows[0]?.locked === true;
@@ -184,14 +216,22 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
     } catch (error) { failedArtists++; errors.push(`${tour.artistName}: ${error instanceof Error ? error.message : String(error)}`); }
     const status = failedArtists===0 ? "complete" : fetchedArtists>0 ? "partial" : "failed";
     const finishedAt = new Date();
-    const summary: TouringShadowSummary = { status,startedAt,finishedAt:finishedAt.toISOString(),fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,errors };
-    await pool.query("UPDATE touring_tm_shadow_runs SET status=$2,fetched_artists=$3,failed_artists=$4,events_observed=$5,snapshots_saved=$6,errors=$7::jsonb,finished_at=now() WHERE id=$1", [runId,status,fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,JSON.stringify(errors)]);
-    await persistCanonicalNextRun(client, runId, nextCanonicalRunAt(finishedAt, cadence));
+    summary = { status,startedAt,finishedAt:finishedAt.toISOString(),fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,errors };
+    await persistCanonicalRunOutcome(client, runId, summary, nextCanonicalRunAt(finishedAt, cadence));
     processLastResult=summary; return summary;
   } catch (error) {
-    const message=error instanceof Error?error.message:String(error);
-    if(runId) await pool.query("UPDATE touring_tm_shadow_runs SET status='failed',errors=$2::jsonb,finished_at=now() WHERE id=$1",[runId,JSON.stringify([message])]).catch(()=>undefined);
-    const summary = failedCanonicalRun({ status: "failed", ...base }, error);
+    const failedSummary = failedCanonicalRun(summary ?? { status: "failed", ...base }, error);
+    if(runId) {
+      await persistCanonicalRunOutcome(
+        client,
+        runId,
+        failedSummary,
+        nextCanonicalRunAt(new Date(failedSummary.finishedAt!), cadence),
+      ).catch((persistError) => {
+        failedSummary.errors.push(persistError instanceof Error ? persistError.message : String(persistError));
+      });
+    }
+    summary = failedSummary;
     processLastResult=summary; return summary;
   } finally { running=false; if(locked) await client.query("SELECT pg_advisory_unlock($1)",[LOCK_KEY]).catch(()=>undefined); client.release(); }
 }
