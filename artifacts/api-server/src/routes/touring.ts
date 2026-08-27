@@ -1,15 +1,15 @@
 import { Router } from "express";
 import { logger } from "../lib/logger";
 import {
-  getTicketmasterTouringShadowStatus,
-  runTicketmasterTouringShadow,
-} from "../lib/ticketmaster-touring-shadow-scheduler";
-import {
   forceRecalculateTicketmasterTouringEstimates,
   getTicketmasterTouringEstimationReport,
   TICKETMASTER_TOURING_ESTIMATION_METHODOLOGY,
 } from "../lib/ticketmaster-touring-estimation-lab";
-import { publicTouringLab } from "../lib/ticketmaster-touring-shadow";
+import {
+  publicTouringLab,
+  runTouringShadow,
+  touringShadowStatus,
+} from "../lib/ticketmaster-touring-shadow";
 
 const router = Router();
 
@@ -471,7 +471,7 @@ router.get("/admin/touring/shadow/status", async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   try {
     res.setHeader("Cache-Control", "no-store");
-    res.json(await getTicketmasterTouringShadowStatus());
+    res.json(await touringShadowStatus());
   } catch (error) {
     logger.error({ error }, "[touring-shadow] status lookup failed");
     res.status(500).json({ error: "Unable to read Ticketmaster touring shadow status" });
@@ -481,7 +481,7 @@ router.get("/admin/touring/shadow/status", async (req, res) => {
 router.post("/admin/touring/shadow/force-run", async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   try {
-    const summary = await runTicketmasterTouringShadow("admin-force-run", true);
+    const summary = await runTouringShadow({ force: true });
     res.status(summary.status === "failed" ? 502 : 200).json(summary);
   } catch (error) {
     logger.error({ error }, "[touring-shadow] force run failed");

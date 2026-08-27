@@ -41,6 +41,16 @@ export interface TouringShadowSummary {
   eventsObserved: number; snapshotsSaved: number; errors: string[];
 }
 
+export interface CanonicalTouringArtistStatus {
+  artistId: string;
+  artistName: string;
+  attractionId: string;
+  tourName: string;
+  notBefore: string;
+  matches: number;
+  snapshots: number;
+}
+
 let started = false;
 let running = false;
 let processLastResult: TouringShadowSummary | null = null;
@@ -129,6 +139,19 @@ export async function persistCanonicalNextRun(
   );
 }
 
+export function failedCanonicalRun(
+  summary: TouringShadowSummary,
+  error: unknown,
+): TouringShadowSummary {
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    ...summary,
+    status: "failed",
+    finishedAt: new Date().toISOString(),
+    errors: [...summary.errors, message],
+  };
+}
+
 export async function runTouringShadow(options: { force?: boolean } = {}): Promise<TouringShadowSummary> {
   const startedAt = new Date().toISOString();
   const base = { startedAt, fetchedArtists: 0, failedArtists: 0, eventsObserved: 0, snapshotsSaved: 0, errors: [] as string[] };
@@ -168,16 +191,77 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
   } catch (error) {
     const message=error instanceof Error?error.message:String(error);
     if(runId) await pool.query("UPDATE touring_tm_shadow_runs SET status='failed',errors=$2::jsonb,finished_at=now() WHERE id=$1",[runId,JSON.stringify([message])]).catch(()=>undefined);
-    const summary: TouringShadowSummary={status:"failed",...base,finishedAt:new Date().toISOString(),errors:[message]}; processLastResult=summary; return summary;
+    const summary = failedCanonicalRun({ status: "failed", ...base }, error);
+    processLastResult=summary; return summary;
   } finally { running=false; if(locked) await client.query("SELECT pg_advisory_unlock($1)",[LOCK_KEY]).catch(()=>undefined); client.release(); }
 }
 
 export async function touringShadowStatus() {
   await ensureTouringShadowTables();
-  const [counts,runs]=await Promise.all([
-    pool.query(`SELECT (SELECT count(*)::int FROM touring_tm_events) events,(SELECT count(*)::int FROM touring_tm_events WHERE event_kind='concert') concert_events,(SELECT count(*)::int FROM touring_tm_snapshots) snapshots,(SELECT max(observed_at) FROM touring_tm_snapshots) latest_observation`),
-    pool.query("SELECT * FROM touring_tm_shadow_runs ORDER BY started_at DESC LIMIT 10")]);
-  return {enabled:enabled(),configured:Boolean(process.env["TICKETMASTER_API_KEY"]),running,trackedTours:TOURS.map(({pattern,...tour})=>tour),counts:counts.rows[0],latestRuns:runs.rows,processLastResult};
+  const [counts,runs,artists] = await Promise.all([
+    pool.query<{
+      events: number;
+      unique_concerts: number;
+      snapshots: number;
+      latest_observation: Date | null;
+    }>(`SELECT
+      (SELECT count(*)::int FROM touring_tm_events) events,
+      (SELECT count(*)::int FROM touring_tm_events WHERE event_kind='concert') unique_concerts,
+      (SELECT count(*)::int FROM touring_tm_snapshots) snapshots,
+      (SELECT max(observed_at) FROM touring_tm_snapshots) latest_observation`),
+    pool.query("SELECT * FROM touring_tm_shadow_runs ORDER BY started_at DESC LIMIT 10"),
+    pool.query<{ artist_id: string; artist_name: string; matches: number; snapshots: number }>(`
+      SELECT artist_id, max(artist_name) artist_name,
+        count(*) FILTER (WHERE event_kind='concert')::int matches,
+        count(s.id)::int snapshots
+      FROM touring_tm_events e
+      LEFT JOIN touring_tm_snapshots s ON s.event_id=e.event_id
+      GROUP BY artist_id`),
+  ]);
+
+  const byArtist = new Map(artists.rows.map(row => [row.artist_id, row]));
+  const trackedArtists: CanonicalTouringArtistStatus[] = CANONICAL_TOURING_ROSTER.map(tour => {
+    const row = byArtist.get(tour.artistId);
+    return {
+      artistId: tour.artistId,
+      artistName: tour.artistName,
+      attractionId: tour.attractionId,
+      tourName: tour.tourName,
+      notBefore: tour.notBefore,
+      matches: row?.matches ?? 0,
+      snapshots: row?.snapshots ?? 0,
+    };
+  });
+  const latestSuccess = runs.rows.find((run) => run.status === "complete" || run.status === "partial") ?? null;
+  const latestFailure = runs.rows.find((run) => run.status === "failed") ?? null;
+  const nextRunAt = runs.rows[0]?.next_run_at ?? null;
+
+  return {
+    enabled: enabled(),
+    configured: Boolean(process.env["TICKETMASTER_API_KEY"]?.trim()),
+    canonical: true,
+    running,
+    rosterSize: CANONICAL_TOURING_ROSTER_SIZE,
+    trackedArtists,
+    // Kept as an additive compatibility alias for existing internal consumers.
+    trackedTours: trackedArtists,
+    counts: {
+      ...counts.rows[0],
+      uniqueConcerts: counts.rows[0]?.unique_concerts ?? 0,
+      snapshotCount: counts.rows[0]?.snapshots ?? 0,
+    },
+    lastSuccess: latestSuccess,
+    latestFailure,
+    nextRunAt,
+    next_run_at: nextRunAt,
+    latestRuns: runs.rows,
+    processLastResult,
+    scheduler: {
+      canonical: true,
+      durable: false,
+      limitation: "El temporizador vive en el proceso de la API; un reinicio puede retrasar la siguiente ejecución. Conserva la ruta autenticada force-run para un cron externo.",
+    },
+  };
 }
 
 type LabSnapshot = {
