@@ -289,8 +289,10 @@ export default function TouringHub() {
     : "consulta actual";
   const publicEstimation = touringLab?.estimation;
   const natanaelEvents = publicEstimation?.events.filter((event) =>
-    event.artistId.toLowerCase() === "natanael-cano" ||
-    event.artistName.toLowerCase().includes("natanael"),
+    event.status === "estimated" && (
+      event.artistId.toLowerCase() === "natanael-cano" ||
+      event.artistName.toLowerCase().includes("natanael")
+    ),
   ) ?? [];
   const natanaelTour = publicEstimation?.tours.find((tour) =>
     tour.artistId.toLowerCase() === "natanael-cano" ||
