@@ -206,6 +206,14 @@ export default function TouringHub() {
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const PAGE_SIZE = 8;
 
+  useEffect(() => {
+    if (window.location.hash !== "#touring-lab") return;
+    const scrollToLab = window.setTimeout(() => {
+      document.getElementById("touring-lab")?.scrollIntoView({ block: "start" });
+    }, 100);
+    return () => window.clearTimeout(scrollToLab);
+  }, []);
+
   async function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const email = newsletterEmail.trim();
@@ -757,11 +765,18 @@ export default function TouringHub() {
                 </div>
               </div>
             )}
-            <a href="#agenda">
-              <button className="th-outline-btn">
-                Explorar fechas <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
-              </button>
-            </a>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <a href="#agenda">
+                <button className="th-outline-btn">
+                  Explorar fechas <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
+                </button>
+              </a>
+              <a href="#touring-lab">
+                <button className="th-outline-btn">
+                  Ver Touring Lab <span style={{ fontSize: 13, opacity: 0.7 }}>↓</span>
+                </button>
+              </a>
+            </div>
           </motion.div>
         </div>
       </section>
