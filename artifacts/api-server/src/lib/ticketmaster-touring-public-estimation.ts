@@ -676,8 +676,10 @@ async function latestCompleteReport(client: QueryClient): Promise<{ run: Record<
 }
 
 export function aggregatePublicTourEstimates(events: PublicEstimate[]): PublicTourEstimate[] {
+  const uniqueEvents = new Map<string, PublicEstimate>();
+  for (const event of events) uniqueEvents.set(event.eventId, event);
   const grouped = new Map<string, PublicEstimate[]>();
-  for (const event of events) {
+  for (const event of uniqueEvents.values()) {
     const key = `${event.artistId}|${event.tourName}`;
     grouped.set(key, [...(grouped.get(key) ?? []), event]);
   }

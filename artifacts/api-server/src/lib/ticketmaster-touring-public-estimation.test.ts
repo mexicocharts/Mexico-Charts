@@ -34,8 +34,9 @@ test("aggregates an artist tour with weighted confidence and no duplicate event 
     evidenceTimestamp: seed.evidence_timestamp, methodologyVersion: "test", estimateLabel: PUBLIC_ESTIMATION_LABEL,
     lastUpdated: seed.evidence_timestamp,
   }));
-  const result = aggregatePublicTourEstimates(seeds);
+  const result = aggregatePublicTourEstimates([...seeds, { ...seeds[0] }]);
   assert.equal(result.length, 1);
+  assert.equal(result[0].eventCount, 3);
   assert.equal(result[0].estimatedTicketsSold, 135640);
   assert.equal(result[0].estimatedGrossUsd, 14778000);
   assert.equal(result[0].estimatedAverageTicketUsd, 108.95);
