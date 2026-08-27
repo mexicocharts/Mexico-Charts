@@ -941,8 +941,6 @@ export default function TouringHub() {
         </section>
       )}
 
-      <TouringCommandCenter />
-
       {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
       <section id="touring-lab" aria-labelledby="touring-lab-heading" className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707", scrollMarginTop: 72 }}>
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
@@ -1174,6 +1172,8 @@ export default function TouringHub() {
           Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"} · Agenda consultada: {touringFreshness}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica. Historial: collecting hasta contar con snapshots.
         </div>
       </section>
+
+      <TouringCommandCenter />
 
       {/* ── NEWSLETTER ── */}
       <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
