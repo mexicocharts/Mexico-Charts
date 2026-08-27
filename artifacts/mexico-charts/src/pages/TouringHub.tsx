@@ -17,6 +17,10 @@ function formatDate(iso: string): string {
   return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 }
 
+function formatUsd(value: number | null | undefined): string {
+  return value == null ? "Pendiente" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
 function publicPrice(event: { source?: string; priceRanges?: { currency: string | null; min: number | null; max: number | null }[] }) {
   if (event.source !== "ticketmaster-discovery-v2") return null;
   const price = event.priceRanges?.[0];
@@ -919,10 +923,9 @@ export default function TouringHub() {
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
         <SectionHeading white="Touring" green="Lab" />
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
-          <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Experimental</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Demand Score: no disponible</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Confianza: insuficiente</span>
-          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Cambios históricos: collecting</span>
+          <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Point estimates</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Evidence-gated</span>
+          <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>No promoter-reported claims</span>
         </div>
         <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
           {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
