@@ -89,7 +89,7 @@ export default function TouringCommandCenter() {
               <span style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>{intelligence.data.publicEstimation.label}</span>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(235px,1fr))", gap: 9, marginTop: 12 }}>
-              {intelligence.data.publicEstimation.tours.slice(0, 6).map((tour) => (
+              {intelligence.data.publicEstimation.tours.map((tour) => (
                 <article key={`${tour.artistId}-${tour.tourName}`} style={{ border: "1px solid rgba(57,255,20,.22)", padding: 13, background: "rgba(57,255,20,.025)" }}>
                   <strong style={{ color: "#fff", fontSize: 13, textTransform: "uppercase" }}>{tour.artistName}</strong>
                   <div style={{ color: "#666", fontSize: 9, marginTop: 4 }}>{tour.tourName}</div>

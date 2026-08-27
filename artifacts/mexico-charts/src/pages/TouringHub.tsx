@@ -1034,7 +1034,13 @@ export default function TouringHub() {
                     <div style={{ display: "flex", gap: 14, marginTop: 13, color: "rgba(255,255,255,.75)", fontSize: 10 }}>
                       <span>{event.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"} tickets</span><span>{formatUsd(event.estimatedGrossUsd)}</span>
                     </div>
-                    <span style={{ display: "block", color: "#666", fontSize: 8, marginTop: 10 }}>{event.estimateLabel}</span>
+                    <span style={{ display: "block", color: event.status === "pending" ? "#f0b429" : "#666", fontSize: 8, lineHeight: 1.5, marginTop: 10 }}>
+                      {event.status === "pending" ? "Estimate pending — insufficient evidence" : event.estimateLabel}
+                      {" · "}
+                      {event.evidenceTimestamp ? `evidence ${new Date(event.evidenceTimestamp).toLocaleString("es-MX")}` : "evidence pending"}
+                      {" · "}
+                      {event.methodologyVersion}
+                    </span>
                   </a>
                 ))}
               </div>
