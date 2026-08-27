@@ -1,10 +1,18 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 
+type DbClient = {
+  query: <T = Record<string, unknown>>(
+    sql: string,
+    params?: unknown[],
+  ) => Promise<{ rows: T[]; rowCount?: number | null }>;
+  release: () => void;
+};
+
 const API = "https://app.ticketmaster.com/discovery/v2/events.json";
 const LOCK_KEY = 741_926_305;
 const CHECK_MS = 15 * 60 * 1000;
-const TOURS = [
+export const CANONICAL_TOURING_ROSTER = [
   { artistId: "fuerza-regida", artistName: "Fuerza Regida", attractionId: "K8vZ9179vO0", tourName: "This Is Our Dream Tour 2026 — second leg", notBefore: "2026-10-03", pattern: /Fuerza Regida.*This Is Our Dream Tour 2026/iu },
   { artistId: "carin-leon", artistName: "Carín León", attractionId: "K8vZ917_m_f", tourName: "2026 remaining shows", notBefore: "2026-09-04", pattern: /Car[ií]n Le[oó]n|Carin Leon/iu },
   { artistId: "natanael-cano", artistName: "Natanael Cano", attractionId: "K8vZfZ7aEdk", tourName: "Vol. 1 Tour", notBefore: "2026-09-18", pattern: /Natanael Cano.*Vol\.?\s*1 Tour/iu },
@@ -16,6 +24,7 @@ const TOURS = [
   { artistId: "jorge-medina", artistName: "Jorge Medina", attractionId: "K8vZ917_9pf", tourName: "Juntos", notBefore: "2026-08-25", pattern: /Jorge Medina|Josi Cuen|Juntos/iu },
   { artistId: "josi-cuen", artistName: "Josi Cuen", attractionId: "K8vZ917qDTV", tourName: "Juntos", notBefore: "2026-08-25", pattern: /Jorge Medina|Josi Cuen|Juntos/iu },
 ] as const;
+export const CANONICAL_TOURING_ROSTER_SIZE = CANONICAL_TOURING_ROSTER.length;
 
 interface TmEvent {
   id: string; name?: string; url?: string; locale?: string; source?: { name?: string };
@@ -65,19 +74,21 @@ export async function ensureTouringShadowTables() {
     id bigserial PRIMARY KEY, status text NOT NULL, fetched_artists integer NOT NULL DEFAULT 0,
     failed_artists integer NOT NULL DEFAULT 0, events_observed integer NOT NULL DEFAULT 0,
     snapshots_saved integer NOT NULL DEFAULT 0, errors jsonb NOT NULL DEFAULT '[]'::jsonb,
-    started_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz)`);
+    started_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz, next_run_at timestamptz)`);
+  await pool.query("ALTER TABLE touring_tm_shadow_runs ADD COLUMN IF NOT EXISTS next_run_at timestamptz");
   await pool.query("CREATE INDEX IF NOT EXISTS touring_tm_snapshots_event_time_idx ON touring_tm_snapshots(event_id,observed_at DESC)");
   await pool.query("CREATE INDEX IF NOT EXISTS touring_tm_events_date_idx ON touring_tm_events(event_date)");
 }
 
 async function state() {
   await ensureTouringShadowTables();
-  const result = await pool.query<{ last_at: Date | null; days: number | null; sale_hours: number | null }>(`SELECT
+  const result = await pool.query<{ last_at: Date | null; next_run_at: Date | null; days: number | null; sale_hours: number | null }>(`SELECT
     (SELECT max(finished_at) FROM touring_tm_shadow_runs WHERE status IN ('complete','partial')) last_at,
+    (SELECT next_run_at FROM touring_tm_shadow_runs ORDER BY started_at DESC LIMIT 1) next_run_at,
     (SELECT min(event_date-current_date)::int FROM touring_tm_events WHERE event_date>=current_date AND event_kind='concert') days,
     (SELECT min(extract(epoch FROM (public_sale_start-now()))/3600)
       FROM touring_tm_snapshots WHERE public_sale_start>=now()) sale_hours`);
-  return result.rows[0] ?? { last_at: null, days: null, sale_hours: null };
+  return result.rows[0] ?? { last_at: null, next_run_at: null, days: null, sale_hours: null };
 }
 
 async function fetchTour(tour: typeof TOURS[number], key: string) {

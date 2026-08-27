@@ -11,7 +11,6 @@ import { ensureArtistCatalogSchema } from "./lib/artist-catalog-schema";
 import { startArtistDataQualityScheduler } from "./lib/artist-data-quality-scheduler";
 import { startYoutubeIntradayShadowScheduler } from "./lib/youtube-intraday-shadow-scheduler";
 import { startChartArchiveScheduler } from "./lib/chart-archive-scheduler";
-import { startTicketmasterTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow-scheduler";
 import { startTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow";
 import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-monitor";
 import { startTouringAlertDelivery } from "./lib/touring-alert-delivery";
@@ -53,7 +52,6 @@ app.listen(port, async (err) => {
   startArtistDataQualityScheduler();
   startYoutubeIntradayShadowScheduler();
   startChartArchiveScheduler();
-  startTicketmasterTouringShadowScheduler();
   startTouringShadowScheduler();
   startTouringAnnouncementMonitor();
   startTouringAlertDelivery();
