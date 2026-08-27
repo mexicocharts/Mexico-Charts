@@ -1,5 +1,6 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { recalculatePublicTouringEstimates } from "./ticketmaster-touring-public-estimation";
 
 type DbClient = {
   query: <T = Record<string, unknown>>(
@@ -218,6 +219,14 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
     const finishedAt = new Date();
     summary = { status,startedAt,finishedAt:finishedAt.toISOString(),fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,errors };
     await persistCanonicalRunOutcome(client, runId, summary, nextCanonicalRunAt(finishedAt, cadence));
+    if (status === "complete" && runId) {
+      try {
+        await recalculatePublicTouringEstimates(runId, "canonical-snapshot");
+      } catch (error) {
+        // The canonical monitor remains authoritative even if the additive estimate layer is unavailable.
+        logger.warn({ error, runId }, "[touring-shadow] public estimation refresh skipped");
+      }
+    }
     processLastResult=summary; return summary;
   } catch (error) {
     const failedSummary = failedCanonicalRun(summary ?? { status: "failed", ...base }, error);

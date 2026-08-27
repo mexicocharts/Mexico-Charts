@@ -10,6 +10,15 @@ import {
   runTouringShadow,
   touringShadowStatus,
 } from "../lib/ticketmaster-touring-shadow";
+import {
+  getAdminTouringEstimationReport,
+  getPublicEstimateAlerts,
+  getPublicEstimateHistory,
+  getPublicEstimationEvidenceAudit,
+  getPublicTouringEstimationReport,
+  recalculatePublicTouringEstimates,
+  upsertPublicEstimationEvidence,
+} from "../lib/ticketmaster-touring-public-estimation";
 
 const router = Router();
 
@@ -370,7 +379,8 @@ router.get("/touring/lab", async (_req, res) => {
   try {
     res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     const history = await publicTouringLab();
-    if (history.available || !TM_KEY) return res.json(history);
+    const estimation = await getPublicTouringEstimationReport();
+    if (history.available || !TM_KEY) return res.json({ ...history, estimation });
 
     // A new deployment should be useful before the shadow history has accumulated.
     // Seed the public lab from the same documented Discovery API used by /concerts.
@@ -407,6 +417,7 @@ router.get("/touring/lab", async (_req, res) => {
     });
     return res.json({
       ...history,
+      estimation,
       available: tours.length > 0,
       coverageState: "seeded-live-metadata",
       methodology: "Cobertura inicial basada en metadatos públicos actuales mientras se acumula el historial automatizado. No representa inventario, ventas, sell-through ni gross.",
@@ -422,6 +433,12 @@ router.get("/touring/lab", async (_req, res) => {
       message: "El historial automatizado aún no tiene observaciones suficientes.",
       tours: [],
       recentChanges: [],
+      estimation: {
+        available: false,
+        label: "Mexico Charts Estimate — not promoter reported",
+        events: [],
+        tours: [],
+      },
     });
   }
 });
@@ -486,6 +503,99 @@ router.post("/admin/touring/shadow/force-run", async (req, res) => {
   } catch (error) {
     logger.error({ error }, "[touring-shadow] force run failed");
     res.status(500).json({ error: "Unable to run Ticketmaster touring shadow tracker" });
+  }
+});
+
+router.get("/admin/touring/estimates", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(await getAdminTouringEstimationReport());
+  } catch (error) {
+    logger.error({ error }, "[touring-public-estimation] admin report lookup failed");
+    return res.status(500).json({ error: "Unable to read public Touring Lab estimates" });
+  }
+});
+
+router.get("/admin/touring/estimates/:eventId/history", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    return res.json({
+      ...(await getPublicEstimateHistory(String(req.params.eventId ?? ""))),
+      ...(await getPublicEstimationEvidenceAudit(String(req.params.eventId ?? ""))),
+    });
+  } catch (error) {
+    logger.error({ error }, "[touring-public-estimation] history lookup failed");
+    return res.status(500).json({ error: "Unable to read estimate history" });
+  }
+});
+
+router.get("/admin/touring/estimates/alerts", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    return res.json(await getPublicEstimateAlerts());
+  } catch (error) {
+    logger.error({ error }, "[touring-public-estimation] alert lookup failed");
+    return res.status(500).json({ error: "Unable to read estimate alerts" });
+  }
+});
+
+router.put("/admin/touring/estimates/:eventId/evidence", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  const eventId = String(req.params.eventId ?? "").trim();
+  if (!/^[A-Za-z0-9_-]{3,80}$/.test(eventId)) return res.status(400).json({ error: "Invalid event id" });
+  const body = req.body ?? {};
+  const required = ["artistId", "artistName", "tourName", "eventDate", "venueName"];
+  if (required.some((field) => !String(body[field] ?? "").trim())) {
+    return res.status(400).json({ error: "artistId, artistName, tourName, eventDate and venueName are required" });
+  }
+  try {
+    const result = await upsertPublicEstimationEvidence({
+      eventId,
+      artistId: String(body.artistId).trim(),
+      artistName: String(body.artistName).trim(),
+      tourName: String(body.tourName).trim(),
+      eventDate: String(body.eventDate).trim(),
+      venueName: String(body.venueName).trim(),
+      venueCity: body.venueCity == null ? null : String(body.venueCity).trim(),
+      configuredCapacity: body.configuredCapacity == null || body.configuredCapacity === "" ? null : Number(body.configuredCapacity),
+      capacitySource: body.capacitySource == null ? null : String(body.capacitySource).trim(),
+      standardPriceMin: body.standardPriceMin == null || body.standardPriceMin === "" ? null : Number(body.standardPriceMin),
+      standardPriceMax: body.standardPriceMax == null || body.standardPriceMax === "" ? null : Number(body.standardPriceMax),
+      standardPriceCurrency: body.standardPriceCurrency == null ? null : String(body.standardPriceCurrency).trim().toUpperCase(),
+      fxRateMxnPerUsd: body.fxRateMxnPerUsd == null || body.fxRateMxnPerUsd === "" ? null : Number(body.fxRateMxnPerUsd),
+      fxRateDate: body.fxRateDate == null || body.fxRateDate === "" ? null : String(body.fxRateDate).trim(),
+      offerBreakdown: Array.isArray(body.offerBreakdown) ? body.offerBreakdown : [],
+      demandSignal: body.demandSignal == null ? null : String(body.demandSignal).trim(),
+      comparableKey: body.comparableKey == null ? null : String(body.comparableKey).trim(),
+      sourceQuality: body.sourceQuality && typeof body.sourceQuality === "object" ? body.sourceQuality : {},
+      evidenceTimestamp: body.evidenceTimestamp ? String(body.evidenceTimestamp) : undefined,
+      updatedBy: String(body.updatedBy ?? req.headers["x-admin-key"] ?? "admin").slice(0, 160),
+      overrideTicketsSold: body.overrideTicketsSold == null || body.overrideTicketsSold === "" ? null : Number(body.overrideTicketsSold),
+      overrideGrossUsd: body.overrideGrossUsd == null || body.overrideGrossUsd === "" ? null : Number(body.overrideGrossUsd),
+      overrideAverageTicketUsd: body.overrideAverageTicketUsd == null || body.overrideAverageTicketUsd === "" ? null : Number(body.overrideAverageTicketUsd),
+      overrideConfidencePercent: body.overrideConfidencePercent == null || body.overrideConfidencePercent === "" ? null : Number(body.overrideConfidencePercent),
+      notes: body.notes == null ? null : String(body.notes).trim(),
+    });
+    return res.json(result);
+  } catch (error) {
+    logger.error({ error, eventId }, "[touring-public-estimation] evidence update failed");
+    return res.status(400).json({ error: error instanceof Error ? error.message : "Unable to save evidence" });
+  }
+});
+
+router.post("/admin/touring/estimates/recalculate", async (req, res) => {
+  if (!requireShadowAdmin(req, res)) return;
+  try {
+    const status = await touringShadowStatus();
+    const latestRun = status.runs?.[0] as { id?: string; status?: string } | undefined;
+    if (!latestRun?.id || latestRun.status !== "complete") {
+      return res.status(409).json({ error: "A complete canonical touring run is required before recalculation." });
+    }
+    return res.json(await recalculatePublicTouringEstimates(latestRun.id, "admin-recalculate"));
+  } catch (error) {
+    logger.error({ error }, "[touring-public-estimation] admin recalculation failed");
+    return res.status(500).json({ error: "Unable to recalculate public estimates" });
   }
 });
 
