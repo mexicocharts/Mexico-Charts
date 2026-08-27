@@ -17,8 +17,8 @@ function formatDate(iso: string): string {
   return `${d} ${months[parseInt(m, 10) - 1]} ${y}`;
 }
 
-function formatUsd(value: number | null | undefined): string {
-  return value == null ? "Pendiente" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+function formatUsd(value: number | null | undefined, maximumFractionDigits = 0): string {
+  return value == null ? "Pendiente" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits }).format(value);
 }
 
 function publicPrice(event: { source?: string; priceRanges?: { currency: string | null; min: number | null; max: number | null }[] }) {
@@ -196,7 +196,7 @@ const COUNTRY_LABELS: Record<CountryFilter, string> = {
 
 export default function TouringHub() {
   const { data: artists, isLoading, isError } = useTouring();
-  const { data: touringLab } = useTouringLab();
+  const { data: touringLab, isLoading: isTouringLabLoading, isError: isTouringLabError } = useTouringLab();
   const { data: fuerzaRegidaFeed } = useArtistTouring("fuerza-regida");
   const { data: carinLeonFeed } = useArtistTouring("carin-leon");
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
@@ -279,6 +279,16 @@ export default function TouringHub() {
   const touringFreshness = artists?.length
     ? freshnessLabel(Math.max(...artists.map((artist) => artist.fetchedAt).filter(Boolean)))
     : "consulta actual";
+  const publicEstimation = touringLab?.estimation;
+  const natanaelEvents = publicEstimation?.events.filter((event) =>
+    event.artistId.toLowerCase() === "natanael-cano" ||
+    event.artistName.toLowerCase().includes("natanael"),
+  ) ?? [];
+  const natanaelTour = publicEstimation?.tours.find((tour) =>
+    tour.artistId.toLowerCase() === "natanael-cano" ||
+    tour.artistName.toLowerCase().includes("natanael"),
+  );
+  const pendingEstimationEvents = publicEstimation?.events.filter((event) => event.status === "pending") ?? [];
 
   const allShowsFlat = sortedArtists
     .flatMap(a => a.events.slice(0, 8).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
@@ -919,9 +929,9 @@ export default function TouringHub() {
       <TouringCommandCenter />
 
       {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
-      <section className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707" }}>
+      <section id="touring-lab" aria-labelledby="touring-lab-heading" className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707", scrollMarginTop: 72 }}>
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
-        <SectionHeading white="Touring" green="Lab" />
+        <div id="touring-lab-heading"><SectionHeading white="Touring" green="Lab" /></div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, marginBottom: 24 }}>
           <span style={{ border: "1px solid rgba(57,255,20,.28)", color: "#39FF14", padding: "5px 9px", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em" }}>Point estimates</span>
           <span style={{ border: "1px solid #202020", color: "rgba(255,255,255,.5)", padding: "5px 9px", fontSize: 8, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".13em" }}>Evidence-gated</span>
@@ -930,6 +940,104 @@ export default function TouringHub() {
         <p style={{ maxWidth: 760, color: "rgba(255,255,255,.48)", fontSize: 11, lineHeight: 1.7, margin: "0 0 24px" }}>
           {touringLab?.methodology ?? touringLab?.message ?? "Estamos construyendo un historial automatizado de cambios públicos. Todavía no existe evidencia autorizada suficiente para estimar demanda, inventario, boletos vendidos, sell-through o gross."}
         </p>
+        <div style={{ border: "1px solid rgba(57,255,20,.38)", background: "linear-gradient(135deg, rgba(57,255,20,.07), rgba(7,7,7,.96) 48%)", padding: 22, marginBottom: 26 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 900, letterSpacing: ".2em", textTransform: "uppercase" }}>Public Touring Lab estimate</div>
+              <h2 className="th-anton" style={{ color: "#fff", fontSize: 28, lineHeight: 1, textTransform: "uppercase", margin: "10px 0 6px" }}>
+                Natanael Cano — Vol. 1 Tour Estimates
+              </h2>
+              <p style={{ color: "rgba(255,255,255,.54)", fontSize: 11, lineHeight: 1.6, margin: 0, maxWidth: 690 }}>
+                Tres observaciones publicadas con evidencia; los valores son puntos estimados y no reportes del promotor.
+              </p>
+            </div>
+            {publicEstimation?.fxReference && (
+              <span style={{ color: "rgba(255,255,255,.42)", fontSize: 9, textTransform: "uppercase", letterSpacing: ".1em" }}>
+                FIX {publicEstimation.fxReference.rate.toFixed(4)} · {publicEstimation.fxReference.date}
+              </span>
+            )}
+          </div>
+          {isTouringLabLoading && (
+            <div role="status" style={{ border: "1px solid #202020", color: "rgba(255,255,255,.6)", padding: 18, marginTop: 18, fontSize: 11 }}>
+              Cargando estimaciones públicas…
+            </div>
+          )}
+          {isTouringLabError && (
+            <div role="alert" style={{ border: "1px solid rgba(240,180,41,.45)", color: "#f0b429", padding: 18, marginTop: 18, fontSize: 11 }}>
+              No se pudieron cargar las estimaciones públicas. Intenta actualizar la página.
+            </div>
+          )}
+          {!isTouringLabLoading && !isTouringLabError && publicEstimation && natanaelEvents.length === 0 && (
+            <div style={{ border: "1px solid #202020", color: "rgba(255,255,255,.6)", padding: 18, marginTop: 18, fontSize: 11 }}>
+              Aún no hay observaciones publicadas para este tour.
+            </div>
+          )}
+          {!isTouringLabLoading && !isTouringLabError && natanaelEvents.length > 0 && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 20 }}>
+                {natanaelEvents.map((event) => (
+                  <a key={event.eventId} href={`/touring/event/${encodeURIComponent(event.eventId)}`} style={{ border: "1px solid rgba(255,255,255,.14)", background: "#0b0b0b", padding: 16, textDecoration: "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                      <span style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, letterSpacing: ".16em", textTransform: "uppercase" }}>{event.status === "estimated" ? "Estimate published" : "Estimate pending"}</span>
+                      <span style={{ color: "#777", fontSize: 9 }}>{formatDate(event.date)}</span>
+                    </div>
+                    <strong style={{ display: "block", color: "#fff", fontSize: 14, marginTop: 12, textTransform: "uppercase" }}>{event.eventName}</strong>
+                    <span style={{ display: "block", color: "#888", fontSize: 10, marginTop: 4 }}>{event.venue}{event.city ? ` · ${event.city}` : ""}</span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 18 }}>
+                      <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{event.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"}</strong><span style={{ color: "#666", fontSize: 8, textTransform: "uppercase" }}>tickets</span></div>
+                      <div><strong style={{ display: "block", color: "#39FF14", fontSize: 15 }}>{formatUsd(event.estimatedGrossUsd)}</strong><span style={{ color: "#666", fontSize: 8, textTransform: "uppercase" }}>gross USD</span></div>
+                      <div><strong style={{ display: "block", color: "#fff", fontSize: 18 }}>{event.confidencePercent == null ? "—" : `${event.confidencePercent}%`}</strong><span style={{ color: "#666", fontSize: 8, textTransform: "uppercase" }}>confidence</span></div>
+                    </div>
+                    <div style={{ borderTop: "1px solid #222", color: "rgba(255,255,255,.46)", fontSize: 8, lineHeight: 1.7, marginTop: 16, paddingTop: 10 }}>
+                      {event.status === "pending" ? "Estimate pending — insufficient evidence" : event.estimateLabel}
+                      <br />
+                      {event.evidenceTimestamp ? `Evidence ${new Date(event.evidenceTimestamp).toLocaleString("es-MX")}` : "Evidence pending"} · {event.methodologyVersion}
+                    </div>
+                  </a>
+                ))}
+              </div>
+              {natanaelTour && (
+                <div style={{ borderTop: "1px solid rgba(57,255,20,.22)", marginTop: 18, paddingTop: 16 }}>
+                  <div style={{ color: "rgba(255,255,255,.55)", fontSize: 9, fontWeight: 900, letterSpacing: ".15em", textTransform: "uppercase" }}>Tour summary · Natanael Cano — Vol. 1 Tour</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12, marginTop: 12 }}>
+                    <div><strong style={{ color: "#fff", fontSize: 24 }}>{natanaelTour.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>tickets estimated</span></div>
+                    <div><strong style={{ color: "#39FF14", fontSize: 24 }}>{formatUsd(natanaelTour.estimatedGrossUsd)}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>gross estimated</span></div>
+                    <div><strong style={{ color: "#fff", fontSize: 24 }}>{formatUsd(natanaelTour.estimatedAverageTicketUsd, 2)}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>average ticket</span></div>
+                    <div><strong style={{ color: "#fff", fontSize: 24 }}>{natanaelTour.confidencePercent == null ? "—" : `${natanaelTour.confidencePercent}%`}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>confidence</span></div>
+                  </div>
+                </div>
+              )}
+              <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 900, letterSpacing: ".13em", marginTop: 18, textTransform: "uppercase" }}>
+                Mexico Charts Estimate — not promoter reported
+              </div>
+            </>
+          )}
+        </div>
+        {!isTouringLabLoading && !isTouringLabError && publicEstimation && (
+          <div style={{ borderTop: "1px solid #202020", paddingTop: 20, marginBottom: 26 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>Monitored events pending evidence</div>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, marginTop: 5 }}>These public listings do not meet the evidence gate for a point estimate.</div>
+              </div>
+              <span style={{ color: "#f0b429", fontSize: 9, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>{pendingEstimationEvents.length} pending</span>
+            </div>
+            {pendingEstimationEvents.length === 0 ? (
+              <p style={{ color: "#39FF14", fontSize: 11 }}>No monitored events are pending evidence.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 14 }}>
+                {pendingEstimationEvents.map((event) => (
+                  <a key={event.eventId} href={`/touring/event/${encodeURIComponent(event.eventId)}`} style={{ border: "1px solid rgba(240,180,41,.25)", background: "#0b0b0b", padding: 14, textDecoration: "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: "#f0b429", fontSize: 8, fontWeight: 900, letterSpacing: ".14em", textTransform: "uppercase" }}>Estimate pending</span><span style={{ color: "#777", fontSize: 9 }}>{formatDate(event.date)}</span></div>
+                    <strong style={{ display: "block", color: "#fff", fontSize: 13, marginTop: 10, textTransform: "uppercase" }}>{event.artistName}</strong>
+                    <span style={{ display: "block", color: "#888", fontSize: 10, marginTop: 4 }}>{event.eventName} · {event.venue}</span>
+                    <div style={{ color: "#f0b429", fontSize: 9, lineHeight: 1.5, marginTop: 12 }}>Estimate pending — insufficient evidence</div>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {showFallbackTourCards && (
           <div>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 12 }}>
