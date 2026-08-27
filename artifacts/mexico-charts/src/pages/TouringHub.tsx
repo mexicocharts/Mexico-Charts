@@ -212,7 +212,7 @@ export default function TouringHub() {
       document.getElementById("touring-lab")?.scrollIntoView({ block: "start" });
     }, 100);
     return () => window.clearTimeout(scrollToLab);
-  }, []);
+  }, [artists, touringLab]);
 
   async function submitNewsletter(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
