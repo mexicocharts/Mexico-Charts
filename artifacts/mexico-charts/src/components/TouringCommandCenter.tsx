@@ -79,6 +79,31 @@ export default function TouringCommandCenter() {
           })}
         </div>
 
+        {intelligence.data.publicEstimation?.tours?.length > 0 && (
+          <div style={{ marginTop: 28, borderTop: "1px solid #1b1b1b", paddingTop: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
+              <div>
+                <h3 style={{ color: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: ".16em", textTransform: "uppercase", margin: 0 }}>Tour totals · Mexico Charts Estimate</h3>
+                <p style={{ color: "#666", fontSize: 9, margin: "6px 0 0" }}>Point estimates con evidencia; no son reportes de promotor ni inventario.</p>
+              </div>
+              <span style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>{intelligence.data.publicEstimation.label}</span>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(235px,1fr))", gap: 9, marginTop: 12 }}>
+              {intelligence.data.publicEstimation.tours.slice(0, 6).map((tour) => (
+                <article key={`${tour.artistId}-${tour.tourName}`} style={{ border: "1px solid rgba(57,255,20,.22)", padding: 13, background: "rgba(57,255,20,.025)" }}>
+                  <strong style={{ color: "#fff", fontSize: 13, textTransform: "uppercase" }}>{tour.artistName}</strong>
+                  <div style={{ color: "#666", fontSize: 9, marginTop: 4 }}>{tour.tourName}</div>
+                  <div style={{ display: "flex", gap: 18, marginTop: 12 }}>
+                    <span style={{ color: "#fff", fontSize: 14, fontWeight: 900 }}>{tour.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"}<small style={{ display: "block", color: "#555", fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase" }}>tickets</small></span>
+                    <span style={{ color: "#39FF14", fontSize: 14, fontWeight: 900 }}>{tour.estimatedGrossUsd == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(tour.estimatedGrossUsd)}<small style={{ display: "block", color: "#555", fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase" }}>gross</small></span>
+                    <span style={{ color: "#aaa", fontSize: 14, fontWeight: 900 }}>{tour.confidencePercent ?? "—"}%<small style={{ display: "block", color: "#555", fontSize: 7, letterSpacing: ".1em", textTransform: "uppercase" }}>confianza</small></span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+
         {changes.length > 0 && (
           <div style={{ marginTop: 30 }}>
             <h3 style={{ color: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: ".16em", textTransform: "uppercase" }}>Cambios recientes observados</h3>

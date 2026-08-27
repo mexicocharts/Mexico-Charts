@@ -998,6 +998,49 @@ export default function TouringHub() {
             ))}
           </div>
         )}
+        {touringLab?.estimation && (
+          <div style={{ marginTop: 34 }}>
+            <div style={{ borderTop: "1px solid rgba(57,255,20,.24)", paddingTop: 18, display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 900, letterSpacing: ".18em", textTransform: "uppercase" }}>Touring economics · public estimate</div>
+                <p style={{ color: "rgba(255,255,255,.46)", fontSize: 10, lineHeight: 1.6, margin: "7px 0 0", maxWidth: 700 }}>{touringLab.estimation.sourceNote ?? touringLab.estimation.label}</p>
+              </div>
+              {touringLab.estimation.fxReference && <span style={{ color: "rgba(255,255,255,.35)", fontSize: 9 }}>FIX {touringLab.estimation.fxReference.rate.toFixed(4)} · {touringLab.estimation.fxReference.date}</span>}
+            </div>
+            {touringLab.estimation.tours.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 10, marginTop: 14 }}>
+                {touringLab.estimation.tours.map((tour) => (
+                  <article key={`${tour.artistId}-${tour.tourName}`} style={{ border: "1px solid rgba(57,255,20,.24)", background: "rgba(57,255,20,.035)", padding: 16 }}>
+                    <div style={{ color: "#fff", fontSize: 15, fontWeight: 900, textTransform: "uppercase" }}>{tour.artistName}</div>
+                    <div style={{ color: "rgba(255,255,255,.4)", fontSize: 9, marginTop: 4 }}>{tour.tourName} · {tour.eventCount} eventos</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
+                      <div><strong style={{ color: "#fff", fontSize: 17 }}>{tour.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>tickets estimados</span></div>
+                      <div><strong style={{ color: "#39FF14", fontSize: 17 }}>{formatUsd(tour.estimatedGrossUsd)}</strong><span style={{ display: "block", color: "#666", fontSize: 8, textTransform: "uppercase" }}>gross estimado</span></div>
+                    </div>
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,.09)", marginTop: 13, paddingTop: 10, color: "rgba(255,255,255,.52)", fontSize: 9 }}>
+                      ATP {formatUsd(tour.estimatedAverageTicketUsd)} · {tour.confidencePercent ?? "—"}% confianza · {tour.pendingEventCount} pendientes
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+            {touringLab.estimation.events.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 10, marginTop: 12 }}>
+                {touringLab.estimation.events.map((event) => (
+                  <a key={event.eventId} href={`/touring/event/${encodeURIComponent(event.eventId)}`} style={{ border: "1px solid #1b1b1b", background: "#0c0c0c", padding: 15, textDecoration: "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, letterSpacing: ".14em", textTransform: "uppercase" }}>{event.status === "estimated" ? "Estimado" : "Pendiente"}</span><span style={{ color: "#555", fontSize: 8 }}>{formatDate(event.date)}</span></div>
+                    <strong style={{ display: "block", color: "#fff", fontSize: 14, marginTop: 9, textTransform: "uppercase" }}>{event.artistName}</strong>
+                    <span style={{ display: "block", color: "#777", fontSize: 10, marginTop: 3 }}>{event.venue}</span>
+                    <div style={{ display: "flex", gap: 14, marginTop: 13, color: "rgba(255,255,255,.75)", fontSize: 10 }}>
+                      <span>{event.estimatedTicketsSold?.toLocaleString("en-US") ?? "—"} tickets</span><span>{formatUsd(event.estimatedGrossUsd)}</span>
+                    </div>
+                    <span style={{ display: "block", color: "#666", fontSize: 8, marginTop: 10 }}>{event.estimateLabel}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div style={{ color: "rgba(255,255,255,.3)", fontSize: 8, lineHeight: 1.7, textTransform: "uppercase", letterSpacing: ".11em", marginTop: 20 }}>
           Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"} · Agenda consultada: {touringFreshness}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica. Historial: collecting hasta contar con snapshots.
         </div>
