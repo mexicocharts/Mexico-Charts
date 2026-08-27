@@ -657,7 +657,7 @@ export async function recalculatePublicTouringEstimates(shadowRunId: string | nu
   }
 }
 
-async function latestCompleteReport(client: QueryClient) {
+async function latestCompleteReport(client: QueryClient): Promise<{ run: Record<string, unknown>; events: PublicEstimate[] } | null> {
   const run = await client.query<Record<string, unknown>>(`
     SELECT id,methodology_version,calculated_at::text,source_snapshot_count,estimated_event_count,pending_event_count
     FROM touring_public_estimation_runs WHERE status='complete' ORDER BY calculated_at DESC,id DESC LIMIT 1
@@ -728,16 +728,16 @@ export async function getPublicTouringEstimationReport() {
         bootstrapShadowId,
       };
     }
-    report ??= { run: null, events: [] };
+    const publicReport = report ?? { run: null, events: [] as PublicEstimate[] };
     return {
-      available: report.events.length > 0,
+      available: publicReport.events.length > 0,
       label: PUBLIC_ESTIMATION_LABEL,
-      methodologyVersion: String(report.run?.methodology_version ?? PUBLIC_ESTIMATION_METHODOLOGY_VERSION),
-      calculatedAt: report.run?.calculated_at ?? null,
+      methodologyVersion: String(publicReport.run?.methodology_version ?? PUBLIC_ESTIMATION_METHODOLOGY_VERSION),
+      calculatedAt: publicReport.run?.calculated_at ?? null,
       fxReference: { currency: "MXN/USD", rate: NATANAEL_FIX_RATE, date: NATANAEL_FIX_DATE, publisher: "Banco de México FIX" },
       sourceNote: "Point estimates use public evidence and conservative modeling. They are not promoter-reported sales, inventory, attendance, sell-through, or gross.",
-      events: report.events,
-      tours: aggregateTours(report.events),
+      events: publicReport.events,
+      tours: aggregateTours(publicReport.events),
     };
   } finally {
     client.release();

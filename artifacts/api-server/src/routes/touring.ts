@@ -588,7 +588,7 @@ router.post("/admin/touring/estimates/recalculate", async (req, res) => {
   if (!requireShadowAdmin(req, res)) return;
   try {
     const status = await touringShadowStatus();
-    const latestRun = status.runs?.[0] as { id?: string; status?: string } | undefined;
+    const latestRun = status.latestRuns?.[0] as { id?: string; status?: string } | undefined;
     if (!latestRun?.id || latestRun.status !== "complete") {
       return res.status(409).json({ error: "A complete canonical touring run is required before recalculation." });
     }
