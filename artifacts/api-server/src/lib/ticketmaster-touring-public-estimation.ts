@@ -733,7 +733,7 @@ export async function getPublicTouringEstimationReport() {
       fxReference: { currency: "MXN/USD", rate: NATANAEL_FIX_RATE, date: NATANAEL_FIX_DATE, publisher: "Banco de México FIX" },
       sourceNote: "Point estimates use public evidence and conservative modeling. They are not promoter-reported sales, inventory, attendance, sell-through, or gross.",
       events: publicReport.events,
-      tours: aggregatePublicTouringEstimates(publicReport.events),
+      tours: aggregatePublicTourEstimates(publicReport.events),
     };
   } finally {
     if (!released) client.release();
