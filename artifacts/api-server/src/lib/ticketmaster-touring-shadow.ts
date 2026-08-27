@@ -91,7 +91,7 @@ async function state() {
   return result.rows[0] ?? { last_at: null, next_run_at: null, days: null, sale_hours: null };
 }
 
-async function fetchTour(tour: typeof TOURS[number], key: string) {
+async function fetchTour(tour: typeof CANONICAL_TOURING_ROSTER[number], key: string) {
   const url = new URL(API);
   for (const [name, value] of Object.entries({ apikey: key, attractionId: tour.attractionId, size: "200", sort: "date,asc", startDateTime: `${tour.notBefore}T00:00:00Z` })) url.searchParams.set(name, value);
   const response = await fetch(url, { signal: AbortSignal.timeout(30_000) });
@@ -100,7 +100,7 @@ async function fetchTour(tour: typeof TOURS[number], key: string) {
   return (json._embedded?.events ?? []).filter(event => tour.pattern.test(event.name ?? ""));
 }
 
-async function save(tour: typeof TOURS[number], event: TmEvent, at: Date) {
+async function save(tour: typeof CANONICAL_TOURING_ROSTER[number], event: TmEvent, at: Date) {
   const venue = event._embedded?.venues?.[0] ?? {};
   const name = event.name ?? "";
   await pool.query(`INSERT INTO touring_tm_events(event_id,artist_id,artist_name,attraction_id,tour_name,event_name,event_kind,event_date,local_time,event_datetime,timezone,venue_id,venue_name,city,state,country,postal_code,ticket_url)
@@ -114,6 +114,21 @@ async function save(tour: typeof TOURS[number], event: TmEvent, at: Date) {
   return inserted.rows.length;
 }
 
+export function nextCanonicalRunAt(finishedAt: Date, cadence: number): Date {
+  return new Date(finishedAt.getTime() + cadence * 3_600_000);
+}
+
+export async function persistCanonicalNextRun(
+  client: Pick<DbClient, "query">,
+  runId: string,
+  nextRunAt: Date,
+) {
+  await client.query(
+    "UPDATE touring_tm_shadow_runs SET next_run_at=$2 WHERE id=$1",
+    [runId, nextRunAt.toISOString()],
+  );
+}
+
 export async function runTouringShadow(options: { force?: boolean } = {}): Promise<TouringShadowSummary> {
   const startedAt = new Date().toISOString();
   const base = { startedAt, fetchedArtists: 0, failedArtists: 0, eventsObserved: 0, snapshotsSaved: 0, errors: [] as string[] };
@@ -122,7 +137,11 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
   if (!key) return { status: "failed", ...base, errors: ["TICKETMASTER_API_KEY is not configured"] };
   const current = await state();
   const cadence = cadenceHours(current.days, current.sale_hours);
-  if (!options.force && current.last_at && Date.now()-new Date(current.last_at).getTime() < cadence*3_600_000) return { status: "not_due", ...base };
+  const nextRunAt = current.next_run_at ? new Date(current.next_run_at) : null;
+  if (!options.force && (
+    (nextRunAt && Date.now() < nextRunAt.getTime()) ||
+    (!nextRunAt && current.last_at && Date.now() - new Date(current.last_at).getTime() < cadence * 3_600_000)
+  )) return { status: "not_due", ...base };
   const client = await pool.connect();
   let locked = false;
   let runId: string | null = null;
@@ -136,13 +155,15 @@ export async function runTouringShadow(options: { force?: boolean } = {}): Promi
     const errors: string[] = [];
     let fetchedArtists=0, failedArtists=0, eventsObserved=0, snapshotsSaved=0;
     const at = bucket(cadence);
-    for (const tour of TOURS) try {
+    for (const tour of CANONICAL_TOURING_ROSTER) try {
       const events = await fetchTour(tour,key); fetchedArtists++; eventsObserved += events.length;
       for (const event of events) snapshotsSaved += await save(tour,event,at);
     } catch (error) { failedArtists++; errors.push(`${tour.artistName}: ${error instanceof Error ? error.message : String(error)}`); }
     const status = failedArtists===0 ? "complete" : fetchedArtists>0 ? "partial" : "failed";
-    const summary: TouringShadowSummary = { status,startedAt,finishedAt:new Date().toISOString(),fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,errors };
+    const finishedAt = new Date();
+    const summary: TouringShadowSummary = { status,startedAt,finishedAt:finishedAt.toISOString(),fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,errors };
     await pool.query("UPDATE touring_tm_shadow_runs SET status=$2,fetched_artists=$3,failed_artists=$4,events_observed=$5,snapshots_saved=$6,errors=$7::jsonb,finished_at=now() WHERE id=$1", [runId,status,fetchedArtists,failedArtists,eventsObserved,snapshotsSaved,JSON.stringify(errors)]);
+    await persistCanonicalNextRun(client, runId, nextCanonicalRunAt(finishedAt, cadence));
     processLastResult=summary; return summary;
   } catch (error) {
     const message=error instanceof Error?error.message:String(error);
