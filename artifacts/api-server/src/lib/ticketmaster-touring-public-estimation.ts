@@ -314,6 +314,13 @@ function publicEstimateFromRow(row: Record<string, unknown>): PublicEstimate {
 
 async function ensurePublicTables(client: QueryClient) {
   await client.query(`
+    CREATE TABLE IF NOT EXISTS touring_venue_capacities (
+      venue_id text PRIMARY KEY, venue_name text NOT NULL, configuration text NOT NULL,
+      capacity_low integer NOT NULL CHECK(capacity_low>0), capacity_high integer NOT NULL CHECK(capacity_high>=capacity_low),
+      source_url text NOT NULL, source_label text NOT NULL,
+      confidence text NOT NULL CHECK(confidence IN ('high','medium','limited')),
+      verified_at timestamptz NOT NULL, updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS touring_public_estimation_runs (
       id bigserial PRIMARY KEY,
       shadow_run_id bigint,
@@ -696,16 +703,30 @@ function aggregateTours(events: PublicEstimate[]): PublicTourEstimate[] {
 
 export async function getPublicTouringEstimationReport() {
   const client = await pool.connect() as unknown as QueryClient;
+  let shouldBootstrap = false;
+  let bootstrapShadowId: string | null = null;
   try {
     await ensurePublicTables(client);
     let report = await latestCompleteReport(client);
     if (!report) {
       const shadow = await client.query<{ id: string }>(`SELECT id FROM touring_tm_shadow_runs WHERE status='complete' ORDER BY finished_at DESC,id DESC LIMIT 1`);
       if (shadow.rows[0]) {
-        await client.release();
-        await recalculatePublicTouringEstimates(shadow.rows[0].id, "public-report-bootstrap");
-        return getPublicTouringEstimationReport();
+        shouldBootstrap = true;
+        bootstrapShadowId = shadow.rows[0].id;
       }
+    }
+    if (shouldBootstrap && bootstrapShadowId) {
+      return {
+        available: false,
+        label: PUBLIC_ESTIMATION_LABEL,
+        methodologyVersion: PUBLIC_ESTIMATION_METHODOLOGY_VERSION,
+        calculatedAt: null,
+        fxReference: { currency: "MXN/USD", rate: NATANAEL_FIX_RATE, date: NATANAEL_FIX_DATE, publisher: "Banco de México FIX" },
+        sourceNote: "Estimates are initializing from the latest complete public snapshot.",
+        events: [],
+        tours: [],
+        bootstrapShadowId,
+      };
     }
     report ??= { run: null, events: [] };
     return {
@@ -719,7 +740,7 @@ export async function getPublicTouringEstimationReport() {
       tours: aggregateTours(report.events),
     };
   } finally {
-    if (client) client.release();
+    client.release();
   }
 }
 
