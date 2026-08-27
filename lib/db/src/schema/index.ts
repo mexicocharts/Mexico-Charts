@@ -44,3 +44,4 @@ export * from "./youtube_shadow";
 export * from "./runtime_tables";
 export * from "./ticketmaster_touring_shadow";
 export * from "./ticketmaster_touring_estimation";
+export * from "./ticketmaster_touring_public_estimation";

@@ -114,7 +114,7 @@ export type PublicTourEstimate = {
   lastUpdated: string;
 };
 
-const NATANAEL_SEEDS: EvidenceRecord[] = [
+export const APPROVED_NATANAEL_ESTIMATE_SEEDS: EvidenceRecord[] = [
   {
     event_id: "140064E7A6C847E4",
     artist_id: "natanael-cano",
@@ -214,6 +214,8 @@ const NATANAEL_SEEDS: EvidenceRecord[] = [
     notes: `Preliminary approved output. MXN conversions use Banco de México FIX ${NATANAEL_FIX_RATE.toFixed(4)} on ${NATANAEL_FIX_DATE}.`,
   },
 ];
+
+const NATANAEL_SEEDS = APPROVED_NATANAEL_ESTIMATE_SEEDS;
 
 const asNumber = (value: unknown): number | null => {
   if (value == null || value === "") return null;
@@ -673,7 +675,7 @@ async function latestCompleteReport(client: QueryClient): Promise<{ run: Record<
   return { run: run.rows[0], events: events.rows.map(publicEstimateFromRow) };
 }
 
-function aggregateTours(events: PublicEstimate[]): PublicTourEstimate[] {
+export function aggregatePublicTourEstimates(events: PublicEstimate[]): PublicTourEstimate[] {
   const grouped = new Map<string, PublicEstimate[]>();
   for (const event of events) {
     const key = `${event.artistId}|${event.tourName}`;
@@ -705,6 +707,7 @@ export async function getPublicTouringEstimationReport() {
   const client = await pool.connect() as unknown as QueryClient;
   let shouldBootstrap = false;
   let bootstrapShadowId: string | null = null;
+  let released = false;
   try {
     await ensurePublicTables(client);
     let report = await latestCompleteReport(client);
@@ -716,17 +719,10 @@ export async function getPublicTouringEstimationReport() {
       }
     }
     if (shouldBootstrap && bootstrapShadowId) {
-      return {
-        available: false,
-        label: PUBLIC_ESTIMATION_LABEL,
-        methodologyVersion: PUBLIC_ESTIMATION_METHODOLOGY_VERSION,
-        calculatedAt: null,
-        fxReference: { currency: "MXN/USD", rate: NATANAEL_FIX_RATE, date: NATANAEL_FIX_DATE, publisher: "Banco de México FIX" },
-        sourceNote: "Estimates are initializing from the latest complete public snapshot.",
-        events: [],
-        tours: [],
-        bootstrapShadowId,
-      };
+      client.release();
+      released = true;
+      await recalculatePublicTouringEstimates(bootstrapShadowId, "public-report-bootstrap");
+      return getPublicTouringEstimationReport();
     }
     const publicReport = report ?? { run: null, events: [] as PublicEstimate[] };
     return {
@@ -737,10 +733,10 @@ export async function getPublicTouringEstimationReport() {
       fxReference: { currency: "MXN/USD", rate: NATANAEL_FIX_RATE, date: NATANAEL_FIX_DATE, publisher: "Banco de México FIX" },
       sourceNote: "Point estimates use public evidence and conservative modeling. They are not promoter-reported sales, inventory, attendance, sell-through, or gross.",
       events: publicReport.events,
-      tours: aggregateTours(publicReport.events),
+      tours: aggregatePublicTouringEstimates(publicReport.events),
     };
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }
 
