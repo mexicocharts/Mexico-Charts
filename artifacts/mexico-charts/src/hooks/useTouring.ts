@@ -33,6 +33,13 @@ export interface TouringLabData {
   demandScore: null; demandConfidence: "unavailable"; methodology?: string; message?: string;
   tours: TouringLabTour[];
   recentChanges: { eventId: string; artistName: string; eventName: string; observedAt: string; changedFields: string[] }[];
+  estimation?: {
+    available: boolean; label: string; methodologyVersion?: string; calculatedAt?: string | null;
+    fxReference?: { currency: string; rate: number; date: string; publisher: string };
+    sourceNote?: string;
+    events: Array<{ eventId: string; artistId: string; artistName: string; tourName: string; eventName: string; date: string; venue: string; city: string | null; status: "estimated" | "pending"; estimatedTicketsSold: number | null; estimatedGrossUsd: number | null; estimatedAverageTicketUsd: number | null; estimatedCapacityUtilization: number | null; confidencePercent: number | null; confidenceLabel: string; evidenceTimestamp: string | null; methodologyVersion: string; estimateLabel: string; lastUpdated: string }>;
+    tours: Array<{ artistId: string; artistName: string; tourName: string; eventCount: number; estimatedTicketsSold: number | null; estimatedGrossUsd: number | null; estimatedAverageTicketUsd: number | null; estimatedCapacityUtilization: number | null; confidencePercent: number | null; confidenceLabel: string; estimatedEventCount: number; pendingEventCount: number; lastUpdated: string }>;
+  };
 }
 
 export interface ArtistTours {

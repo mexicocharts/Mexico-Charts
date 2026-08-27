@@ -2,6 +2,7 @@ import { Router } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
 import { publicTouringLab, touringShadowStatus } from "../lib/ticketmaster-touring-shadow";
+import { getPublicTouringEstimationReport } from "../lib/ticketmaster-touring-public-estimation";
 import { clerkUserId, requireClerkUser } from "../lib/auth";
 import { generateAndQueueTouringWeeklySummary } from "../lib/touring-weekly-summary";
 
@@ -79,6 +80,8 @@ router.get("/touring/intelligence", async (_req, res) => {
   try {
     await ensureTables();
     const lab = await publicTouringLab();
+    const estimation = await getPublicTouringEstimationReport();
+    const estimateByEvent = new Map(estimation.events.map((estimate) => [estimate.eventId, estimate]));
     const rows = await pool.query<{
       event_id: string; venue_id: string | null; venue_name: string | null; capacity_low: number | null;
       capacity_high: number | null; configuration: string | null; confidence: string | null; source_url: string | null;
@@ -90,13 +93,22 @@ router.get("/touring/intelligence", async (_req, res) => {
     const events = rows.rows.map(row => {
       const price = (row.price_ranges ?? []).find(item => !item.type || /standard|regular/iu.test(item.type));
       const priced = price?.currency === "USD" && Number.isFinite(price.min) && Number.isFinite(price.max);
-      const estimable = Boolean(row.capacity_low && row.capacity_high && priced);
+      const estimate = estimateByEvent.get(row.event_id);
       return {
         eventId: row.event_id,
         venue: { id: row.venue_id, name: row.venue_name },
         capacity: row.capacity_low ? { low: row.capacity_low, high: row.capacity_high, configuration: row.configuration, confidence: row.confidence, sourceUrl: row.source_url } : null,
         standardPrimaryPrice: priced ? { currency: "USD", min: price!.min, max: price!.max } : null,
-        estimatedGrossUsd: estimable ? { low: Math.round(row.capacity_low! * Number(price!.min)), high: Math.round(row.capacity_high! * Number(price!.max)), confidence: row.confidence === "high" ? "medium" : "limited" } : null,
+        estimateStatus: estimate?.status ?? "pending",
+        estimatedTicketsSold: estimate?.estimatedTicketsSold ?? null,
+        estimatedGrossUsd: estimate?.estimatedGrossUsd ?? null,
+        estimatedAverageTicketUsd: estimate?.estimatedAverageTicketUsd ?? null,
+        estimatedCapacityUtilization: estimate?.estimatedCapacityUtilization ?? null,
+        estimateConfidencePercent: estimate?.confidencePercent ?? null,
+        estimateConfidenceLabel: estimate?.confidenceLabel ?? "insufficient",
+        estimateEvidenceTimestamp: estimate?.evidenceTimestamp ?? null,
+        estimateMethodologyVersion: estimate?.methodologyVersion ?? null,
+        estimateLabel: estimate?.estimateLabel ?? null,
       };
     });
     const tours = lab.tours.map(tour => {
@@ -126,7 +138,8 @@ router.get("/touring/intelligence", async (_req, res) => {
       ORDER BY e.artist_name,market LIMIT 500`);
     res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
     return res.json({ generatedAt: new Date().toISOString(), tours, events, recentChanges: lab.recentChanges,
-      comparisons: comparisons.rows, rules: { inventory: "not inferred", gross: "requires verified configuration capacity and USD standard-primary prices" } });
+      publicEstimation: estimation, comparisons: comparisons.rows,
+      rules: { inventory: "not inferred", gross: "Point estimate requires evidence gating; never promoter reported." } });
   } catch (error) {
     logger.warn({ error }, "[touring-intelligence] failed");
     return res.status(503).json({ error: "Touring intelligence temporarily unavailable" });

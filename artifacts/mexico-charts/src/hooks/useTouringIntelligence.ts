@@ -10,11 +10,39 @@ export interface EventEconomics {
   eventId: string; venue: { id: string | null; name: string | null };
   capacity: { low: number; high: number; configuration: string; confidence: Confidence; sourceUrl: string } | null;
   standardPrimaryPrice: { currency: "USD"; min: number; max: number } | null;
-  estimatedGrossUsd: { low: number; high: number; confidence: Confidence } | null;
+  estimateStatus: "estimated" | "pending";
+  estimatedTicketsSold: number | null;
+  estimatedGrossUsd: number | null;
+  estimatedAverageTicketUsd: number | null;
+  estimatedCapacityUtilization: number | null;
+  estimateConfidencePercent: number | null;
+  estimateConfidenceLabel: string;
+  estimateEvidenceTimestamp: string | null;
+  estimateMethodologyVersion: string | null;
+  estimateLabel: string | null;
+}
+export interface PublicEstimate {
+  eventId: string; artistId: string; artistName: string; tourName: string; eventName: string; date: string;
+  venue: string; city: string | null; status: "estimated" | "pending";
+  estimatedTicketsSold: number | null; estimatedGrossUsd: number | null; estimatedAverageTicketUsd: number | null;
+  estimatedCapacityUtilization: number | null; confidencePercent: number | null; confidenceLabel: string;
+  evidenceTimestamp: string | null; methodologyVersion: string; estimateLabel: string; lastUpdated: string;
+}
+export interface PublicTourEstimate {
+  artistId: string; artistName: string; tourName: string; eventCount: number;
+  estimatedTicketsSold: number | null; estimatedGrossUsd: number | null; estimatedAverageTicketUsd: number | null;
+  estimatedCapacityUtilization: number | null; confidencePercent: number | null; confidenceLabel: string;
+  estimatedEventCount: number; pendingEventCount: number; lastUpdated: string;
+}
+export interface PublicEstimationReport {
+  available: boolean; label: string; methodologyVersion: string; calculatedAt: string | null;
+  fxReference: { currency: string; rate: number; date: string; publisher: string };
+  sourceNote: string; events: PublicEstimate[]; tours: PublicTourEstimate[];
 }
 export interface TouringIntelligence {
   generatedAt: string; tours: IntelligenceTour[]; events: EventEconomics[];
   recentChanges: Array<{ eventId: string; artistName: string; eventName: string; observedAt: string; changedFields: string[] }>;
+  publicEstimation: PublicEstimationReport;
   rules: { inventory: string; gross: string };
 }
 export interface WatchArtist {
