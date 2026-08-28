@@ -22,6 +22,7 @@ import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentat
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
+import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";
 
 export { slugify };
 
@@ -1545,6 +1546,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             </div>
           </motion.section>
         )}
+
+        <ArtistIntelligenceLab artistName={artist.name} data={songstatsArtist} />
 
         {momentumSources.length > 0 && (
           <motion.section
