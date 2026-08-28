@@ -125,10 +125,13 @@ function requestedLimit(raw: unknown): number {
 }
 
 function configuredExtendedSyncLimit(): number {
-  const parsed = Number(process.env["SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS"] ?? "5");
+  const monthlyLimit = configuredSyncLimit();
+  const parsed = Number(
+    process.env["SONGSTATS_EXTENDED_SYNC_MAX_ARTISTS"] ?? monthlyLimit,
+  );
   return Number.isFinite(parsed)
-    ? Math.max(1, Math.min(25, Math.floor(parsed)))
-    : 5;
+    ? Math.max(1, Math.min(monthlyLimit, Math.floor(parsed)))
+    : monthlyLimit;
 }
 
 function requestedExtendedLimit(raw: unknown): number {
@@ -448,7 +451,8 @@ router.post("/admin/songstats/sync-current", async (req, res) => {
 
 // ADMIN: persists a bounded historical window plus the latest audience,
 // country-level audience details, and catalog payloads. Raw provider payloads
-// remain server-side; this route is deliberately limited to small batches.
+// remain server-side. The configured monthly artist ceiling is still enforced;
+// request concurrency and retries are handled inside the extended sync service.
 router.post("/admin/songstats/sync-extended", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const limit = requestedExtendedLimit(req.query["limit"]);

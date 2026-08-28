@@ -64,6 +64,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function withExtendedRetry<T>(request: () => Promise<T>): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await request();
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await sleep(attempt * 500);
+    }
+  }
+  throw lastError;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown Songstats error";
 }
@@ -218,41 +231,41 @@ async function fetchExtendedPayloads(
 
   const requests = options.endpoints.map(async endpoint => {
     if (endpoint === "info") {
-      return [endpoint, await getSongstatsArtistInfo(identifier)] as const;
+      return [endpoint, await withExtendedRetry(() => getSongstatsArtistInfo(identifier))] as const;
     }
     if (endpoint === "historic") {
       return [
         endpoint,
-        await getSongstatsArtistHistoricStats(identifier, {
+        await withExtendedRetry(() => getSongstatsArtistHistoricStats(identifier, {
           source: "all",
           startDate: options.historyStartDate,
           endDate: options.historyEndDate,
           withAggregates: true,
-        }),
+        })),
       ] as const;
     }
     if (endpoint === "audience") {
-      return [endpoint, await getSongstatsArtistAudience(identifier, "all")] as const;
+      return [endpoint, await withExtendedRetry(() => getSongstatsArtistAudience(identifier, "all"))] as const;
     }
     if (endpoint === "catalog") {
       return [
         endpoint,
-        await getSongstatsArtistCatalog(identifier, {
+        await withExtendedRetry(() => getSongstatsArtistCatalog(identifier, {
           limit: options.catalogLimit,
           offset: 0,
           withLinks: true,
-        }),
+        })),
       ] as const;
     }
 
     const detailResults = await Promise.allSettled(
       options.audienceDetailsSources.map(async source => [
         source,
-        await getSongstatsArtistAudienceDetails(
+        await withExtendedRetry(() => getSongstatsArtistAudienceDetails(
           identifier,
           options.countryCode,
           source,
-        ),
+        )),
       ] as const),
     );
     const sources: Record<string, unknown> = {};

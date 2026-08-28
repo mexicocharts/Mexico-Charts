@@ -243,10 +243,12 @@ export async function runScheduledSongstatsSnapshot(): Promise<
     );
 
     // Build the profile Intelligence Lab from stored, normalized catalog and
-    // audience payloads. Process a bounded rotating batch so the licensed
-    // roster fills automatically without creating a large traffic spike.
+    // audience payloads. Cover the complete licensed roster on the first pass;
+    // syncSongstatsExtendedData controls request concurrency and skips payloads
+    // that are already fresh, so this is rate-limited without stretching a
+    // launch backfill across multiple weeks.
     const intelligence = await syncSongstatsExtendedData({
-      limit: Math.min(limit, 25),
+      limit,
       endpoints: ["audience", "audience_details", "catalog"],
       historyStartDate: daysBefore(snapshotDate, 90),
       historyEndDate: snapshotDate,
