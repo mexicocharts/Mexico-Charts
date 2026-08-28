@@ -242,6 +242,30 @@ export async function runScheduledSongstatsSnapshot(): Promise<
       "[songstats] daily historic-stats refresh complete",
     );
 
+    // Build the profile Intelligence Lab from stored, normalized catalog and
+    // audience payloads. Process a bounded rotating batch so the licensed
+    // roster fills automatically without creating a large traffic spike.
+    const intelligence = await syncSongstatsExtendedData({
+      limit: Math.min(limit, 25),
+      endpoints: ["audience", "audience_details", "catalog"],
+      historyStartDate: daysBefore(snapshotDate, 90),
+      historyEndDate: snapshotDate,
+      countryCode: "MX",
+      audienceDetailsSources: ["spotify"],
+      catalogLimit: 100,
+      refreshAfter: daysBefore(snapshotDate, 30),
+    });
+    logger.info(
+      {
+        snapshotDate,
+        requested: intelligence.requested,
+        saved: intelligence.saved,
+        partial: intelligence.partial,
+        failed: intelligence.failed,
+      },
+      "[songstats] artist-intelligence payload refresh complete",
+    );
+
     const result = summary ?? { snapshotDate, status: "already_complete" as const };
     const finalProgress = await snapshotProgress(snapshotDate, limit);
     lastResult = {
@@ -264,6 +288,15 @@ export async function runScheduledSongstatsSnapshot(): Promise<
         partial: historic.partial,
         failed: historic.failed,
         incompleteArtistKeys: historic.results
+          .filter(item => item.status !== "saved")
+          .map(item => item.artistKey),
+      },
+      intelligence: {
+        requested: intelligence.requested,
+        saved: intelligence.saved,
+        partial: intelligence.partial,
+        failed: intelligence.failed,
+        incompleteArtistKeys: intelligence.results
           .filter(item => item.status !== "saved")
           .map(item => item.artistKey),
       },

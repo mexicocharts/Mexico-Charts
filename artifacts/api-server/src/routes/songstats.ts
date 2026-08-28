@@ -263,6 +263,7 @@ router.get("/providers/songstats/artist", async (req, res) => {
         historic_stats: unknown;
         audience: unknown;
         audience_details: unknown;
+        catalog: unknown;
         updated_at: Date;
       }>(
         `
@@ -271,6 +272,7 @@ router.get("/providers/songstats/artist", async (req, res) => {
             historic_stats,
             audience,
             audience_details,
+            catalog,
             updated_at
           FROM songstats_artist_extended_data
           WHERE artist_key = ANY($1::text[])
@@ -295,6 +297,7 @@ router.get("/providers/songstats/artist", async (req, res) => {
         historicStats: extended.historic_stats,
         audience: extended.audience,
         audienceDetails: extended.audience_details,
+        catalog: extended.catalog,
       })
       : null;
 
@@ -371,6 +374,16 @@ router.get("/providers/songstats/artist", async (req, res) => {
       growth: insight?.growth ?? {},
       trends: insight?.trends ?? {},
       topMexicoCities: insight?.topMexicoCities ?? [],
+      catalog: insight?.catalog ?? {
+        releaseCount: 0,
+        trackCount: 0,
+        albumCount: 0,
+        releasesLast90Days: 0,
+        medianReleaseGapDays: null,
+        newestReleaseDate: null,
+        releases: [],
+      },
+      latestReleaseImpact: insight?.latestReleaseImpact ?? null,
     });
   } catch (error) {
     logger.error({ error }, "[songstats] saved artist lookup failed");

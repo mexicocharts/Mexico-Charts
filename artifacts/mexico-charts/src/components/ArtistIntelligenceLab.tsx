@@ -25,6 +25,20 @@ function percentage(value: number | null | undefined) {
   return `${value > 0 ? "+" : ""}${value.toLocaleString("es-MX", { maximumFractionDigits: 1 })}%`;
 }
 
+function dateLabel(value: string | null | undefined) {
+  if (!value) return "Sin fecha";
+  return new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", year: "numeric" })
+    .format(new Date(`${value}T12:00:00`));
+}
+
+function releaseTypeLabel(value: string) {
+  if (value === "album") return "Álbum";
+  if (value === "single") return "Single";
+  if (value === "ep") return "EP";
+  if (value === "track") return "Canción";
+  return "Lanzamiento";
+}
+
 function normalizedSeries(points: SongstatsTrendPoint[]) {
   const first = points[0]?.value;
   if (!first || points.length < 2) return [];
@@ -87,6 +101,8 @@ export default function ArtistIntelligenceLab({
     ].filter(series => series.points.length >= 2);
   }, [data]);
   const conversionReady = conversionSeries.length >= 2;
+  const catalog = data?.catalog;
+  const impact = data?.latestReleaseImpact;
 
   if (!data) {
     return (
@@ -171,9 +187,31 @@ export default function ArtistIntelligenceLab({
             </div>
           ) : <EmptyState title="Audience Atlas está recopilando datos" body="Aparecerá automáticamente cuando Songstats entregue ciudades verificadas para este artista. Un dato ausente nunca se representa como cero." />)}
 
-          {activeTab === "catalog" && (
-            <EmptyState title="Catalog Pulse está recopilando datos" body="El catálogo licenciado todavía no está normalizado en este perfil. Cuando esté disponible, aquí se mostrarán frecuencia de lanzamientos, profundidad del catálogo y movimiento de catálogo reciente frente a histórico." />
-          )}
+          {activeTab === "catalog" && (catalog?.releaseCount ? (
+            <div className="grid gap-4 lg:grid-cols-[.75fr_1.25fr]">
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
+                <h3 className="text-sm font-black text-white">Catalog Pulse</h3>
+                <p className="mt-1 text-[10px] font-bold text-zinc-600">Actividad del catálogo guardado</p>
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.releaseCount}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Lanzamientos</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-[#39FF14]">{catalog.releasesLast90Days}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Últimos 90d</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.albumCount}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Álbumes</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.medianReleaseGapDays == null ? "—" : `${catalog.medianReleaseGapDays}d`}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Intervalo mediano</div></div>
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
+                <div className="flex items-center justify-between"><h3 className="text-sm font-black text-white">Lanzamientos recientes</h3><Disc3 className="h-5 w-5 text-[#39FF14]/70" /></div>
+                <div className="mt-3 divide-y divide-white/[0.06]">
+                  {catalog.releases.slice(0, 6).map(release => (
+                    <div key={release.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
+                      <div className="min-w-0"><div className="truncate text-xs font-black text-zinc-200">{release.title}</div><div className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-zinc-700">{releaseTypeLabel(release.type)}{release.platformCount > 0 ? ` · ${release.platformCount} plataformas` : ""}</div></div>
+                      <div className="text-[9px] font-black text-zinc-500">{dateLabel(release.releaseDate)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : <EmptyState title="Catalog Pulse está recopilando datos" body="El catálogo licenciado todavía no está disponible para este perfil. Cuando llegue una observación guardada, se mostrarán automáticamente la frecuencia, profundidad y actividad reciente." />)}
 
           {activeTab === "conversion" && (conversionReady ? (
             <div className="grid gap-4 lg:grid-cols-[1.25fr_.75fr]">
@@ -195,9 +233,27 @@ export default function ArtistIntelligenceLab({
             </div>
           ) : <EmptyState title="Conversion Lab está recopilando historial" body="Se necesitan al menos dos plataformas con suficientes fechas coincidentes. Las líneas y puntuaciones aparecerán automáticamente cuando la comparación sea confiable." />)}
 
-          {activeTab === "impact" && (
-            <EmptyState title="Release Impact está esperando lanzamientos normalizados" body="Después de vincular las fechas del catálogo con el historial diario, este módulo medirá la respuesta a 7, 30 y 90 días y mostrará una puntuación derivada de Mexico Charts." />
-          )}
+          {activeTab === "impact" && (impact ? (
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
+                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Último lanzamiento medible</div>
+                <h3 className="mt-2 text-xl font-black text-white">{impact.release.title}</h3>
+                <p className="mt-1 text-[10px] font-bold text-zinc-600">{releaseTypeLabel(impact.release.type)} · {dateLabel(impact.release.releaseDate)}</p>
+                <div className="mt-6 grid grid-cols-3 gap-2">
+                  {[["7 días", impact.lift7], ["30 días", impact.lift30], ["90 días", impact.lift90]].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className={`text-lg font-black ${typeof value === "number" && value > 0 ? "text-[#39FF14]" : "text-white"}`}>{percentage(value as number | null)}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">{label}</div></div>
+                  ))}
+                </div>
+                <p className="mt-4 text-[9px] font-medium leading-4 text-zinc-700">Cambio promedio entre las plataformas con historial anterior y posterior suficiente. Asociación temporal; no afirma causalidad.</p>
+              </div>
+              <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
+                <h3 className="text-sm font-black text-white">Release Impact Score</h3>
+                <div className="mt-5 text-6xl font-black leading-none text-[#39FF14]">{impact.score ?? "—"}</div>
+                <div className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">{impact.score == null ? "Recopilando ventana posterior" : "Puntuación Mexico Charts · 0–100"}</div>
+                <div className="mt-6 border-t border-white/[0.07] pt-4 text-xs font-medium leading-5 text-zinc-500"><b className="text-zinc-300">Confianza: </b>{impact.confidence === "high" ? "Alta" : impact.confidence === "medium" ? "Media" : "En recopilación"}<br /><b className="text-zinc-300">Plataformas medidas: </b>{impact.platformsMeasured}</div>
+              </div>
+            </div>
+          ) : <EmptyState title="Release Impact está esperando historial compatible" body="Se necesita al menos un lanzamiento fechado y observaciones anteriores y posteriores. La puntuación aparecerá automáticamente cuando la ventana sea suficiente." />)}
         </div>
 
         <p className="mt-4 text-[8px] font-bold leading-4 text-zinc-700">Las métricas directas proceden de fuentes licenciadas. Las lecturas, comparaciones y futuras puntuaciones son cálculos de Mexico Charts.</p>

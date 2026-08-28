@@ -40,6 +40,35 @@ export interface SongstatsMexicoCity {
   peakListeners: number | null;
 }
 
+export interface SongstatsRelease {
+  id: string;
+  title: string;
+  type: "album" | "single" | "ep" | "track" | "release";
+  releaseDate: string | null;
+  artworkUrl: string | null;
+  platformCount: number;
+}
+
+export interface SongstatsCatalogSummary {
+  releaseCount: number;
+  trackCount: number;
+  albumCount: number;
+  releasesLast90Days: number;
+  medianReleaseGapDays: number | null;
+  newestReleaseDate: string | null;
+  releases: SongstatsRelease[];
+}
+
+export interface SongstatsReleaseImpact {
+  release: SongstatsRelease;
+  score: number | null;
+  confidence: "high" | "medium" | "collecting";
+  platformsMeasured: number;
+  lift7: number | null;
+  lift30: number | null;
+  lift90: number | null;
+}
+
 export interface SongstatsArtistData {
   artistKey: string;
   name: string | null;
@@ -66,6 +95,8 @@ export interface SongstatsArtistData {
     SongstatsTrendPoint[]
   >>;
   topMexicoCities: SongstatsMexicoCity[];
+  catalog: SongstatsCatalogSummary;
+  latestReleaseImpact: SongstatsReleaseImpact | null;
 }
 
 async function fetchSongstatsArtist(artistKey: string): Promise<SongstatsArtistData | null> {
