@@ -202,6 +202,11 @@ export default function TouringHub() {
   const [countryFilter, setCountryFilter] = useState<CountryFilter>("ALL");
   const [cityFilter, setCityFilter] = useState("ALL");
   const [showAll, setShowAll] = useState(false);
+  const [showAllActiveTours, setShowAllActiveTours] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [pendingArtistFilter, setPendingArtistFilter] = useState("ALL");
+  const [pendingSearch, setPendingSearch] = useState("");
+  const [watchlistSearch, setWatchlistSearch] = useState("");
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const PAGE_SIZE = 8;
@@ -231,6 +236,10 @@ export default function TouringHub() {
   const sortedArtists = artists
     ? [...artists].sort((a, b) => b.events.length - a.events.length)
     : [];
+
+  const activeArtists = sortedArtists.filter((artist) => artist.events.length > 0);
+  const monitoredArtists = sortedArtists.filter((artist) => artist.events.length === 0);
+  const visibleActiveArtists = showAllActiveTours ? activeArtists : activeArtists.slice(0, 8);
 
   const totalShows = sortedArtists.reduce((sum, a) => sum + a.events.length, 0);
 
@@ -298,7 +307,39 @@ export default function TouringHub() {
     tour.artistId.toLowerCase() === "natanael-cano" ||
     tour.artistName.toLowerCase().includes("natanael"),
   );
-  const pendingEstimationEvents = publicEstimation?.events.filter((event) => event.status === "pending") ?? [];
+  const normalizeIdentity = (value: string) => value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  const estimatedEventKeys = new Set(natanaelEvents.map((event) =>
+    [event.date, normalizeIdentity(event.artistName), normalizeIdentity(event.venue)].join("|"),
+  ));
+  const estimatedArtistDateKeys = new Set(natanaelEvents.map((event) =>
+    [event.date, normalizeIdentity(event.artistName)].join("|"),
+  ));
+  const pendingEstimationEvents = (publicEstimation?.events.filter((event) => event.status === "pending") ?? [])
+    .filter((event, index, events) => {
+      const key = [event.date, normalizeIdentity(event.artistName), normalizeIdentity(event.venue)].join("|");
+      const artistDateKey = [event.date, normalizeIdentity(event.artistName)].join("|");
+      if (estimatedEventKeys.has(key) || estimatedArtistDateKeys.has(artistDateKey)) return false;
+      return events.findIndex((candidate) =>
+        [candidate.date, normalizeIdentity(candidate.artistName), normalizeIdentity(candidate.venue)].join("|") === key,
+      ) === index;
+    });
+  const pendingArtistNames = [...new Set(pendingEstimationEvents.map((event) => event.artistName))]
+    .sort((a, b) => a.localeCompare(b, "es"));
+  const filteredPendingEvents = pendingEstimationEvents.filter((event) => {
+    const matchesArtist = pendingArtistFilter === "ALL" || event.artistName === pendingArtistFilter;
+    const query = normalizeIdentity(pendingSearch);
+    const matchesSearch = !query || normalizeIdentity(`${event.artistName} ${event.eventName} ${event.venue} ${event.city}`).includes(query);
+    return matchesArtist && matchesSearch;
+  });
+  const visiblePendingEvents = showAllPending ? filteredPendingEvents : filteredPendingEvents.slice(0, 6);
+  const visibleMonitoredArtists = monitoredArtists.filter((artist) =>
+    normalizeIdentity(artist.name).includes(normalizeIdentity(watchlistSearch)),
+  );
 
   const allShowsFlat = sortedArtists
     .flatMap(a => a.events.slice(0, 8).map(ev => ({ ...ev, artistName: a.name, artistId: a.id })))
@@ -365,6 +406,10 @@ export default function TouringHub() {
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;900&display=swap');
         .th-anton { font-family: 'Anton', sans-serif !important; }
+        .th-main-flow { display: flex; flex-direction: column; }
+        .th-main-flow > #touring-lab { order: 1; }
+        .th-main-flow > .th-active-tours { order: 2; }
+        .th-main-flow > #agenda { order: 3; }
         button { cursor: pointer; }
         a { text-decoration: none; }
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.35 } }
@@ -762,7 +807,7 @@ export default function TouringHub() {
                 </div>
                 <div style={{ width: 1, background: "rgba(255,255,255,0.1)", alignSelf: "stretch" }} />
                 <div>
-                  <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{sortedArtists.filter(a => a.events.length > 0).length}</div>
+                  <div style={{ color: "#39FF14", fontSize: 28, fontWeight: 900, lineHeight: 1, letterSpacing: "-0.02em" }}>{activeArtists.length}</div>
                   <div style={{ color: "rgba(255,255,255,0.62)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 4 }}>Artistas en gira</div>
                 </div>
               </div>
@@ -783,8 +828,9 @@ export default function TouringHub() {
         </div>
       </section>
 
+      <main className="th-main-flow">
       {/* ── Próximas giras ── */}
-      <section style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
+      <section className="th-active-tours" style={{ paddingTop: 32, paddingBottom: 32, borderBottom: "1px solid #111" }}>
         <div className="th-shelf-heading" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 32px", marginBottom: 22 }}>
           <span style={{ color: "#39FF14", fontSize: 13 }}>◈</span>
           <h2 style={{ color: "rgba(255,255,255,0.65)", fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", margin: 0 }}>
@@ -808,7 +854,7 @@ export default function TouringHub() {
           </div>
         )}
 
-        {!isLoading && !isError && sortedArtists.length === 0 && (
+        {!isLoading && !isError && activeArtists.length === 0 && (
           <div style={{ margin: "0 32px", background: "#0d0d0d", border: "1px solid rgba(255,255,255,0.08)", padding: "14px 20px", color: "rgba(255,255,255,0.42)", fontSize: 11, lineHeight: 1.6 }}>
             Aún no hay giras activas para mostrar.
           </div>
@@ -817,7 +863,7 @@ export default function TouringHub() {
         <div className="th-shelf-track" style={{ display: "flex", gap: 14, overflowX: "auto", padding: "4px 32px 16px", scrollSnapType: "x mandatory", scrollbarWidth: "none", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
           {isLoading
             ? Array.from({ length: 8 }).map((_, i) => <SkeletonShelfCard key={i} />)
-            : sortedArtists.map((artist, idx) => (
+            : visibleActiveArtists.map((artist, idx) => (
                 <ShelfCard
                   key={artist.id}
                   artist={artist}
@@ -826,6 +872,28 @@ export default function TouringHub() {
                 />
               ))}
         </div>
+        {!isLoading && activeArtists.length > 8 && (
+          <div style={{ textAlign: "center", padding: "0 32px 8px" }}>
+            <button type="button" className="th-ver-mas-btn" onClick={() => setShowAllActiveTours((value) => !value)} aria-expanded={showAllActiveTours}>
+              {showAllActiveTours ? "Ver menos giras ↑" : `Ver todas las giras activas · ${activeArtists.length} →`}
+            </button>
+          </div>
+        )}
+        {!isLoading && monitoredArtists.length > 0 && (
+          <details style={{ margin: "18px 32px 0", borderTop: "1px solid #151515", paddingTop: 14 }}>
+            <summary style={{ color: "rgba(255,255,255,.55)", cursor: "pointer", fontSize: 9, fontWeight: 800, letterSpacing: ".14em", textTransform: "uppercase" }}>
+              Artistas monitoreados sin fechas · {monitoredArtists.length}
+            </summary>
+            <div style={{ marginTop: 14 }}>
+              <input className="th-city-select" value={watchlistSearch} onChange={(event) => setWatchlistSearch(event.target.value)} placeholder="Buscar artista" aria-label="Buscar artistas monitoreados sin fechas" style={{ width: "100%", maxWidth: 360 }} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
+                {visibleMonitoredArtists.slice(0, 60).map((artist) => (
+                  <span key={artist.id} style={{ border: "1px solid #1c1c1c", color: "rgba(255,255,255,.52)", padding: "6px 9px", fontSize: 9 }}>{artist.name}</span>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
       </section>
 
       {/* ── ALL UPCOMING SHOWS — flat list ── */}
@@ -1032,24 +1100,41 @@ export default function TouringHub() {
           <div style={{ borderTop: "1px solid #202020", paddingTop: 20, marginBottom: 26 }}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
               <div>
-                <div style={{ color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>Monitored events pending evidence</div>
-                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, marginTop: 5 }}>These public listings do not meet the evidence gate for a point estimate.</div>
+                <div style={{ color: "#fff", fontSize: 12, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>Evidencia en recolección</div>
+                <div style={{ color: "rgba(255,255,255,.42)", fontSize: 10, marginTop: 5 }}>Conciertos monitoreados que todavía no cumplen el mínimo de evidencia para publicar una estimación.</div>
               </div>
-              <span style={{ color: "#f0b429", fontSize: 9, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>{pendingEstimationEvents.length} pending</span>
+              <span style={{ color: "#f0b429", fontSize: 9, fontWeight: 900, letterSpacing: ".12em", textTransform: "uppercase" }}>{pendingEstimationEvents.length} pendientes · {pendingArtistNames.length} artistas</span>
             </div>
             {pendingEstimationEvents.length === 0 ? (
-              <p style={{ color: "#39FF14", fontSize: 11 }}>No monitored events are pending evidence.</p>
+              <p style={{ color: "#39FF14", fontSize: 11 }}>No hay conciertos esperando evidencia.</p>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 14 }}>
-                {pendingEstimationEvents.map((event) => (
+              <>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                  <input className="th-city-select" value={pendingSearch} onChange={(event) => { setPendingSearch(event.target.value); setShowAllPending(false); }} placeholder="Buscar concierto" aria-label="Buscar conciertos pendientes" style={{ width: "100%", maxWidth: 320 }} />
+                  <select className="th-city-select" value={pendingArtistFilter} onChange={(event) => { setPendingArtistFilter(event.target.value); setShowAllPending(false); }} aria-label="Filtrar pendientes por artista">
+                    <option value="ALL">Todos los artistas ({pendingEstimationEvents.length})</option>
+                    {pendingArtistNames.map((artistName) => <option key={artistName} value={artistName}>{artistName}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(230px,1fr))", gap: 10, marginTop: 14 }}>
+                {visiblePendingEvents.map((event) => (
                   <a key={event.eventId} href={`/touring/event/${encodeURIComponent(event.eventId)}`} style={{ border: "1px solid rgba(240,180,41,.25)", background: "#0b0b0b", padding: 14, textDecoration: "none" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: "#f0b429", fontSize: 8, fontWeight: 900, letterSpacing: ".14em", textTransform: "uppercase" }}>Estimate pending</span><span style={{ color: "#777", fontSize: 9 }}>{formatDate(event.date)}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: "#f0b429", fontSize: 8, fontWeight: 900, letterSpacing: ".14em", textTransform: "uppercase" }}>Recolectando evidencia</span><span style={{ color: "#777", fontSize: 9 }}>{formatDate(event.date)}</span></div>
                     <strong style={{ display: "block", color: "#fff", fontSize: 13, marginTop: 10, textTransform: "uppercase" }}>{event.artistName}</strong>
                     <span style={{ display: "block", color: "#888", fontSize: 10, marginTop: 4 }}>{event.eventName} · {event.venue}</span>
-                    <div style={{ color: "#f0b429", fontSize: 9, lineHeight: 1.5, marginTop: 12 }}>Estimate pending — insufficient evidence</div>
+                    <div style={{ color: "#f0b429", fontSize: 9, lineHeight: 1.5, marginTop: 12 }}>Estimación pendiente · evidencia insuficiente</div>
                   </a>
                 ))}
-              </div>
+                </div>
+                {filteredPendingEvents.length === 0 && <p style={{ color: "rgba(255,255,255,.5)", fontSize: 11 }}>No hay resultados para este filtro.</p>}
+                {filteredPendingEvents.length > 6 && (
+                  <div style={{ textAlign: "center", marginTop: 16 }}>
+                    <button type="button" className="th-ver-mas-btn" onClick={() => setShowAllPending((value) => !value)} aria-expanded={showAllPending}>
+                      {showAllPending ? "Ver menos ↑" : `Ver más · ${filteredPendingEvents.length - 6} pendientes →`}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -1107,7 +1192,7 @@ export default function TouringHub() {
           </div>
         )}
         {touringLab?.available && touringLab.tours.length > 0 && (
-          <div className="th-lab-grid">
+          <div className="th-lab-grid" style={{ display: "none" }} aria-hidden="true">
             {touringLab.tours.map(tour => (
               <article key={tour.artistId} className="th-lab-card">
                 <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 10 }}>{tour.status === "active" ? "En gira" : tour.status === "upcoming" ? "Próxima" : tour.status === "completed" ? "Finalizada" : "Estado desconocido"}</div>
@@ -1122,7 +1207,7 @@ export default function TouringHub() {
           </div>
         )}
         {touringLab?.estimation && (
-          <div style={{ marginTop: 34 }}>
+          <div style={{ marginTop: 34, display: "none" }} aria-hidden="true">
             <div style={{ borderTop: "1px solid rgba(57,255,20,.24)", paddingTop: 18, display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div>
                 <div style={{ color: "#39FF14", fontSize: 9, fontWeight: 900, letterSpacing: ".18em", textTransform: "uppercase" }}>Touring economics · public estimate</div>
@@ -1175,7 +1260,14 @@ export default function TouringHub() {
         </div>
       </section>
 
-      <TouringCommandCenter />
+      </main>
+
+      <details style={{ borderBottom: "1px solid #111", background: "#070707" }}>
+        <summary style={{ cursor: "pointer", padding: "18px 32px", color: "rgba(255,255,255,.58)", fontSize: 9, fontWeight: 900, letterSpacing: ".16em", textTransform: "uppercase" }}>
+          Ver centro de monitoreo y metodología avanzada
+        </summary>
+        <TouringCommandCenter />
+      </details>
 
       {/* ── NEWSLETTER ── */}
       <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
