@@ -144,6 +144,7 @@ async function listExtendedSyncArtists(options: {
   endpoints: SongstatsExtendedEndpoint[];
   historyStartDate: string;
   historyEndDate: string;
+  refreshAfter?: string;
 }): Promise<SongstatsCatalogArtist[]> {
   const explicitArtistKeys = options.artistKeys?.length
     ? options.artistKeys
@@ -172,12 +173,15 @@ async function listExtendedSyncArtists(options: {
   }
   if (options.endpoints.includes("audience")) {
     completeConditions.push(`audience IS NOT NULL`);
+    if (options.refreshAfter) completeConditions.push(`audience_fetched_at >= $${params.push(options.refreshAfter)}`);
   }
   if (options.endpoints.includes("audience_details")) {
     completeConditions.push(`audience_details IS NOT NULL`);
+    if (options.refreshAfter) completeConditions.push(`audience_details_fetched_at >= $${params.push(options.refreshAfter)}`);
   }
   if (options.endpoints.includes("catalog")) {
     completeConditions.push(`catalog IS NOT NULL`);
+    if (options.refreshAfter) completeConditions.push(`catalog_fetched_at >= $${params.push(options.refreshAfter)}`);
   }
 
   const completed = await pool.query<{ artist_key: string }>(
@@ -473,6 +477,7 @@ export async function syncSongstatsExtendedData(options: {
   countryCode: string;
   audienceDetailsSources: SongstatsSource[];
   catalogLimit: number;
+  refreshAfter?: string;
 }): Promise<SongstatsExtendedSyncSummary> {
   await Promise.all([
     ensureSongstatsTables(),
@@ -487,6 +492,7 @@ export async function syncSongstatsExtendedData(options: {
     endpoints: options.endpoints,
     historyStartDate: options.historyStartDate,
     historyEndDate: options.historyEndDate,
+    refreshAfter: options.refreshAfter,
   });
   const results = new Array<SongstatsExtendedSyncResult>(artists.length);
   let nextArtistIndex = 0;

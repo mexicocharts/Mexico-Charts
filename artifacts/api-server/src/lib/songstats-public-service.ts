@@ -36,6 +36,35 @@ export interface SongstatsPublicCity {
   peakListeners: number | null;
 }
 
+export interface SongstatsPublicRelease {
+  id: string;
+  title: string;
+  type: "album" | "single" | "ep" | "track" | "release";
+  releaseDate: string | null;
+  artworkUrl: string | null;
+  platformCount: number;
+}
+
+export interface SongstatsPublicCatalog {
+  releaseCount: number;
+  trackCount: number;
+  albumCount: number;
+  releasesLast90Days: number;
+  medianReleaseGapDays: number | null;
+  newestReleaseDate: string | null;
+  releases: SongstatsPublicRelease[];
+}
+
+export interface SongstatsPublicReleaseImpact {
+  release: SongstatsPublicRelease;
+  score: number | null;
+  confidence: "high" | "medium" | "collecting";
+  platformsMeasured: number;
+  lift7: number | null;
+  lift30: number | null;
+  lift90: number | null;
+}
+
 export interface SongstatsPublicInsight {
   name: string | null;
   avatarUrl: string | null;
@@ -45,6 +74,8 @@ export interface SongstatsPublicInsight {
   growth: Partial<Record<SongstatsPublicMetricKey, SongstatsPublicMetricGrowth>>;
   trends: Partial<Record<SongstatsPublicMetricKey, SongstatsPublicTrendPoint[]>>;
   topMexicoCities: SongstatsPublicCity[];
+  catalog: SongstatsPublicCatalog;
+  latestReleaseImpact: SongstatsPublicReleaseImpact | null;
 }
 
 function normalizedPlatformLinks(artistInfo: JsonObject | null) {
@@ -158,6 +189,122 @@ function numberValue(value: unknown): number | null {
   if (typeof value !== "string") return null;
   const parsed = Number(value.replace(/,/g, "").trim());
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function firstString(record: JsonObject | null, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = stringValue(record?.[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function isoDateValue(value: unknown): string | null {
+  const raw = stringValue(value);
+  if (!raw) return null;
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0]!;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+}
+
+function firstDate(record: JsonObject | null, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = isoDateValue(record?.[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function firstArrayAtKeys(root: JsonObject | null, keys: string[]): unknown[] {
+  if (!root) return [];
+  const queue: JsonObject[] = [root];
+  const visited = new Set<JsonObject>();
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    for (const key of keys) {
+      const candidate = current[key];
+      if (Array.isArray(candidate)) return candidate;
+    }
+    for (const value of Object.values(current)) {
+      const nested = objectValue(value);
+      if (nested) queue.push(nested);
+    }
+  }
+  return [];
+}
+
+function releaseType(record: JsonObject | null, fallback: SongstatsPublicRelease["type"]) {
+  const raw = firstString(record, ["type", "release_type", "album_type", "kind"])?.toLowerCase();
+  if (raw?.includes("album")) return "album";
+  if (raw?.includes("single")) return "single";
+  if (raw === "ep" || raw?.includes("extended")) return "ep";
+  if (raw?.includes("track")) return "track";
+  return fallback;
+}
+
+function releaseFromRow(raw: unknown, fallback: SongstatsPublicRelease["type"]): SongstatsPublicRelease | null {
+  const row = objectValue(raw);
+  if (!row) return null;
+  const nestedAlbum = objectValue(row["album"] ?? row["release"]);
+  const title = firstString(row, ["name", "title", "track_name", "album_name", "release_name"])
+    ?? firstString(nestedAlbum, ["name", "title", "album_name"]);
+  if (!title) return null;
+  const releaseDate = firstDate(row, ["release_date", "releaseDate", "released_at", "date", "published_at"])
+    ?? firstDate(nestedAlbum, ["release_date", "releaseDate", "released_at", "date"]);
+  const id = firstString(row, ["id", "track_id", "album_id", "release_id", "spotify_id", "isrc", "upc"])
+    ?? `${title.toLowerCase()}|${releaseDate ?? "unknown"}`;
+  const artworkUrl = firstString(row, ["artwork_url", "image_url", "cover_url", "thumbnail_url"])
+    ?? firstString(nestedAlbum, ["artwork_url", "image_url", "cover_url", "thumbnail_url"]);
+  const links = arrayValue(row["links"] ?? row["platform_links"] ?? row["sources"]);
+  return {
+    id,
+    title,
+    type: releaseType(row, fallback),
+    releaseDate,
+    artworkUrl: artworkUrl && /^https?:\/\//i.test(artworkUrl) ? artworkUrl : null,
+    platformCount: links.length,
+  };
+}
+
+function median(values: number[]): number | null {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle]! : Math.round((sorted[middle - 1]! + sorted[middle]!) / 2);
+}
+
+function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCatalog {
+  const trackRows = firstArrayAtKeys(catalogPayload, ["tracks", "songs", "recordings"]);
+  const albumRows = firstArrayAtKeys(catalogPayload, ["albums", "releases", "discography"]);
+  const candidates = [
+    ...albumRows.map(row => releaseFromRow(row, "album")),
+    ...trackRows.map(row => releaseFromRow(row, "track")),
+  ].filter((release): release is SongstatsPublicRelease => release != null);
+  const deduped = [...new Map(candidates.map(release => [release.id, release])).values()]
+    .sort((a, b) => (b.releaseDate ?? "").localeCompare(a.releaseDate ?? ""));
+  const dated = deduped.filter(release => release.releaseDate != null);
+  const latest = dated[0]?.releaseDate ?? null;
+  const ninetyDayCutoff = latest ? new Date(`${latest}T12:00:00.000Z`) : null;
+  ninetyDayCutoff?.setUTCDate(ninetyDayCutoff.getUTCDate() - 89);
+  const gaps = dated.slice(1).flatMap((release, index) => {
+    const newer = dated[index]?.releaseDate;
+    if (!newer || !release.releaseDate) return [];
+    return [Math.round((Date.parse(`${newer}T12:00:00Z`) - Date.parse(`${release.releaseDate}T12:00:00Z`)) / 86_400_000)];
+  }).filter(gap => gap >= 0);
+  return {
+    releaseCount: deduped.length,
+    trackCount: trackRows.length,
+    albumCount: albumRows.length,
+    releasesLast90Days: ninetyDayCutoff
+      ? dated.filter(release => Date.parse(`${release.releaseDate}T12:00:00Z`) >= ninetyDayCutoff.getTime()).length
+      : 0,
+    medianReleaseGapDays: median(gaps),
+    newestReleaseDate: latest,
+    releases: deduped.slice(0, 12),
+  };
 }
 
 function sourceHistories(historicStats: JsonObject | null) {
@@ -279,14 +426,70 @@ function topMexicoCities(
     .slice(0, 5);
 }
 
+function pointAtOrAfter(points: SongstatsPublicTrendPoint[], targetDate: string) {
+  return points.find(point => point.date >= targetDate) ?? null;
+}
+
+function dateOffset(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function releaseLift(points: SongstatsPublicTrendPoint[], releaseDate: string, days: number) {
+  const baseline = closestPointAtOrBefore(points, new Date(`${dateOffset(releaseDate, -1)}T12:00:00.000Z`));
+  const after = pointAtOrAfter(points, dateOffset(releaseDate, days));
+  if (!baseline || !after || baseline.value <= 0) return null;
+  return Math.round(((after.value - baseline.value) / baseline.value) * 1_000) / 10;
+}
+
+function average(values: Array<number | null>) {
+  const available = values.filter((value): value is number => value != null);
+  if (!available.length) return null;
+  return Math.round((available.reduce((sum, value) => sum + value, 0) / available.length) * 10) / 10;
+}
+
+function latestReleaseImpact(
+  catalog: SongstatsPublicCatalog,
+  trends: SongstatsPublicInsight["trends"],
+): SongstatsPublicReleaseImpact | null {
+  const release = catalog.releases.find(item => item.releaseDate != null);
+  if (!release?.releaseDate) return null;
+  const series = [
+    trends.spotifyMonthlyListeners ?? [],
+    trends.instagramFollowers ?? [],
+    trends.tiktokFollowers ?? [],
+    trends.youtubeSubscribers ?? [],
+  ].filter(points => points.length >= 2);
+  if (!series.length) {
+    return { release, score: null, confidence: "collecting", platformsMeasured: 0, lift7: null, lift30: null, lift90: null };
+  }
+  const lift7 = average(series.map(points => releaseLift(points, release.releaseDate!, 7)));
+  const lift30 = average(series.map(points => releaseLift(points, release.releaseDate!, 30)));
+  const lift90 = average(series.map(points => releaseLift(points, release.releaseDate!, 90)));
+  const measured = series.filter(points => releaseLift(points, release.releaseDate!, 30) != null).length;
+  const score = lift30 == null ? null : Math.max(0, Math.min(100, Math.round((Math.max(0, lift30) / 40) * 100)));
+  return {
+    release,
+    score,
+    confidence: measured >= 3 ? "high" : measured >= 2 ? "medium" : "collecting",
+    platformsMeasured: measured,
+    lift7,
+    lift30,
+    lift90,
+  };
+}
+
 export function buildSongstatsPublicInsight(input: {
   historicStats: unknown;
   audience: unknown;
   audienceDetails: unknown;
+  catalog?: unknown;
 }): SongstatsPublicInsight {
   const historicStats = objectValue(input.historicStats);
   const audience = objectValue(input.audience);
   const audienceDetails = objectValue(input.audienceDetails);
+  const catalog = normalizedCatalog(objectValue(input.catalog));
   const histories = sourceHistories(historicStats);
   const current = Object.fromEntries(
     METRICS.map(metric => [metric.key, null]),
@@ -325,5 +528,7 @@ export function buildSongstatsPublicInsight(input: {
     growth,
     trends,
     topMexicoCities: topMexicoCities(audience, audienceDetails),
+    catalog,
+    latestReleaseImpact: latestReleaseImpact(catalog, trends),
   };
 }
