@@ -9,6 +9,7 @@ import {
 import { syncSongstatsExtendedData } from "./songstats-extended-service";
 
 const LOCK_KEY = 831_905_224;
+const INTELLIGENCE_LOCK_KEY = 831_905_225;
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 const RETRY_INTERVAL_MINUTES = 60;
 const MAX_DAILY_ATTEMPTS = 6;
@@ -19,6 +20,11 @@ let lastStartedAt: string | null = null;
 let lastFinishedAt: string | null = null;
 let lastError: string | null = null;
 let lastResult: unknown = null;
+let intelligenceRunning = false;
+let intelligenceLastStartedAt: string | null = null;
+let intelligenceLastFinishedAt: string | null = null;
+let intelligenceLastError: string | null = null;
+let intelligenceLastResult: unknown = null;
 function todayIso(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -242,32 +248,6 @@ export async function runScheduledSongstatsSnapshot(): Promise<
       "[songstats] daily historic-stats refresh complete",
     );
 
-    // Build the profile Intelligence Lab from stored, normalized catalog and
-    // audience payloads. Cover the complete licensed roster on the first pass;
-    // syncSongstatsExtendedData controls request concurrency and skips payloads
-    // that are already fresh, so this is rate-limited without stretching a
-    // launch backfill across multiple weeks.
-    const intelligence = await syncSongstatsExtendedData({
-      limit,
-      endpoints: ["audience", "audience_details", "catalog"],
-      historyStartDate: daysBefore(snapshotDate, 90),
-      historyEndDate: snapshotDate,
-      countryCode: "MX",
-      audienceDetailsSources: ["spotify"],
-      catalogLimit: 100,
-      refreshAfter: daysBefore(snapshotDate, 30),
-    });
-    logger.info(
-      {
-        snapshotDate,
-        requested: intelligence.requested,
-        saved: intelligence.saved,
-        partial: intelligence.partial,
-        failed: intelligence.failed,
-      },
-      "[songstats] artist-intelligence payload refresh complete",
-    );
-
     const result = summary ?? { snapshotDate, status: "already_complete" as const };
     const finalProgress = await snapshotProgress(snapshotDate, limit);
     lastResult = {
@@ -293,15 +273,6 @@ export async function runScheduledSongstatsSnapshot(): Promise<
           .filter(item => item.status !== "saved")
           .map(item => item.artistKey),
       },
-      intelligence: {
-        requested: intelligence.requested,
-        saved: intelligence.saved,
-        partial: intelligence.partial,
-        failed: intelligence.failed,
-        incompleteArtistKeys: intelligence.results
-          .filter(item => item.status !== "saved")
-          .map(item => item.artistKey),
-      },
     };
     return result;
   } catch (error) {
@@ -314,6 +285,56 @@ export async function runScheduledSongstatsSnapshot(): Promise<
     }
     if (locked) {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => undefined);
+    }
+    client.release();
+  }
+}
+
+async function runSongstatsIntelligenceBackfill(): Promise<void> {
+  if (intelligenceRunning) return;
+  const client = await pool.connect();
+  let locked = false;
+  try {
+    const lock = await client.query<{ locked: boolean }>(
+      "SELECT pg_try_advisory_lock($1) AS locked",
+      [INTELLIGENCE_LOCK_KEY],
+    );
+    locked = lock.rows[0]?.locked === true;
+    if (!locked) return;
+
+    intelligenceRunning = true;
+    intelligenceLastStartedAt = new Date().toISOString();
+    intelligenceLastError = null;
+    const snapshotDate = todayIso();
+    const intelligence = await syncSongstatsExtendedData({
+      limit: syncLimit(),
+      endpoints: ["audience", "audience_details", "catalog"],
+      historyStartDate: daysBefore(snapshotDate, 90),
+      historyEndDate: snapshotDate,
+      countryCode: "MX",
+      audienceDetailsSources: ["spotify"],
+      catalogLimit: 100,
+      refreshAfter: daysBefore(snapshotDate, 30),
+    });
+    intelligenceLastResult = {
+      snapshotDate,
+      requested: intelligence.requested,
+      saved: intelligence.saved,
+      partial: intelligence.partial,
+      failed: intelligence.failed,
+      incompleteArtistKeys: intelligence.results
+        .filter(item => item.status !== "saved")
+        .map(item => item.artistKey),
+    };
+    logger.info(intelligenceLastResult, "[songstats] full artist-intelligence backfill complete");
+  } catch (error) {
+    intelligenceLastError = error instanceof Error ? error.message : String(error);
+    throw error;
+  } finally {
+    intelligenceRunning = false;
+    intelligenceLastFinishedAt = new Date().toISOString();
+    if (locked) {
+      await client.query("SELECT pg_advisory_unlock($1)", [INTELLIGENCE_LOCK_KEY]).catch(() => undefined);
     }
     client.release();
   }
@@ -340,6 +361,13 @@ export async function getSongstatsSchedulerStatus(): Promise<Record<string, unkn
     lastFinishedAt,
     lastError,
     lastResult,
+    intelligence: {
+      running: intelligenceRunning,
+      lastStartedAt: intelligenceLastStartedAt,
+      lastFinishedAt: intelligenceLastFinishedAt,
+      lastError: intelligenceLastError,
+      lastResult: intelligenceLastResult,
+    },
   };
 }
 
@@ -349,6 +377,7 @@ async function scheduledCheck(): Promise<void> {
   }
 
   try {
+    await runSongstatsIntelligenceBackfill();
     await runScheduledSongstatsSnapshot();
   } catch (error) {
     logger.error({ error }, "[songstats] daily snapshot scheduler failed");
