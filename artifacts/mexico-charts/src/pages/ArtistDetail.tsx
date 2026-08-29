@@ -98,6 +98,7 @@ function YoutubeDailySparkline({
   color,
   gradientId,
   ariaLabel = "Tendencia diaria de vistas del canal de YouTube",
+  compact = false,
 }: {
   points: Array<{
     date: string;
@@ -108,6 +109,7 @@ function YoutubeDailySparkline({
   color: string;
   gradientId?: string;
   ariaLabel?: string;
+  compact?: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? point.value ?? 0);
@@ -149,7 +151,12 @@ function YoutubeDailySparkline({
   const tooltipY = 2;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full overflow-visible sm:h-48" role="img" aria-label={ariaLabel}>
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className={compact ? "h-28 w-full sm:h-32" : "h-40 w-full overflow-visible sm:h-48"}
+      role="img"
+      aria-label={ariaLabel}
+    >
       <defs>
         <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.34" />
@@ -1587,45 +1594,48 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                 </span>
                               )}
                             </div>
-                            <div className="mt-3 h-14">
+                            <div className="mt-4 overflow-hidden rounded-lg border border-white/[0.05] bg-black/20 px-1 pt-1">
                               <YoutubeDailySparkline
                                 points={card.points}
                                 color={card.color}
                                 gradientId={`songstats-${slug}-${card.key}`}
                                 ariaLabel={`Tendencia reciente de ${card.label}`}
+                                compact
                               />
                             </div>
-                            {card.historyDate && (
-                              <div className="mt-2 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">
-                                Histórico hasta {formatShortDateEs(card.historyDate)}
-                              </div>
-                            )}
-                            <div className="mt-3 grid grid-cols-3 gap-1.5">
-                              {([
-                                ["7 días", card.growth?.days7],
-                                ["30 días", card.growth?.days30],
-                                ["90 días", card.growth?.days90],
-                              ] as const).map(([label, window]) => (
-                                <div key={label} className="min-w-0 rounded-lg bg-black/20 px-2 py-2">
-                                  <div className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
-                                    {label}
-                                  </div>
-                                  <div
-                                    className="mt-1 truncate text-[10px] font-black"
-                                    style={{
-                                      color: window?.absolute != null && window.absolute < 0
-                                        ? "#fb7185"
-                                        : window?.absolute != null
-                                          ? card.color
-                                          : "#52525b",
-                                    }}
-                                  >
-                                    {window?.absolute != null
-                                      ? `${window.absolute > 0 ? "+" : ""}${Math.round(window.absolute).toLocaleString("es-MX")}`
-                                      : "—"}
-                                  </div>
+                            <div className="mt-3 border-t border-white/[0.06] pt-3">
+                              {card.historyDate && (
+                                <div className="mb-2 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-600">
+                                  Histórico hasta {formatShortDateEs(card.historyDate)}
                                 </div>
-                              ))}
+                              )}
+                              <div className="grid grid-cols-3 gap-1.5">
+                                {([
+                                  ["7 días", card.growth?.days7],
+                                  ["30 días", card.growth?.days30],
+                                  ["90 días", card.growth?.days90],
+                                ] as const).map(([label, window]) => (
+                                  <div key={label} className="min-w-0 rounded-lg border border-white/[0.04] bg-black/25 px-2 py-2">
+                                    <div className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                                      {label}
+                                    </div>
+                                    <div
+                                      className="mt-1 truncate text-[10px] font-black"
+                                      style={{
+                                        color: window?.absolute != null && window.absolute < 0
+                                          ? "#fb7185"
+                                          : window?.absolute != null
+                                            ? card.color
+                                            : "#52525b",
+                                      }}
+                                    >
+                                      {window?.absolute != null
+                                        ? `${window.absolute > 0 ? "+" : ""}${Math.round(window.absolute).toLocaleString("es-MX")}`
+                                        : "—"}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         );
