@@ -1223,6 +1223,63 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
   }
 });
 
+// Public operational coverage for the live-video feature. This intentionally
+// exposes aggregate readiness only, never discovery evidence or credentials.
+router.get("/providers/youtube/live-coverage", async (_req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    await ensureYoutubeIntradayShadowTables(client);
+    const coverage = await client.query(`
+      SELECT
+        (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
+        (SELECT count(DISTINCT artist_key)::int FROM youtube_artist_video_links
+          WHERE active=true AND confidence_score >= 80) mapped_artists,
+        (SELECT count(DISTINCT artist_key)::int FROM youtube_music_catalog_candidates
+          WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_artists,
+        (SELECT count(DISTINCT c.artist_key)::int
+          FROM youtube_music_catalog_candidates c
+          WHERE c.status IN ('review','verified') AND c.sampling_status='shadow'
+            AND EXISTS (SELECT 1 FROM youtube_video_intraday_shadow_snapshots s WHERE s.video_id=c.video_id)
+        ) observed_artists,
+        (SELECT count(DISTINCT c.artist_key)::int
+          FROM youtube_music_catalog_candidates c
+          WHERE c.status IN ('review','verified') AND c.sampling_status='shadow'
+            AND EXISTS (
+              SELECT 1 FROM youtube_video_intraday_shadow_snapshots s
+              WHERE s.video_id=c.video_id AND s.observed_at >= now() - interval '6 hours'
+            )
+        ) fresh_artists,
+        (SELECT count(DISTINCT video_id)::int FROM youtube_music_catalog_candidates
+          WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_videos,
+        (SELECT max(observed_at)::text FROM youtube_video_intraday_shadow_snapshots) latest_observed_at
+    `);
+    const row = coverage.rows[0] ?? {};
+    const rosterArtists = Number(row.roster_artists ?? 0);
+    const mappedArtists = Number(row.mapped_artists ?? 0);
+    const catalogArtists = Number(row.catalog_artists ?? 0);
+    const observedArtists = Number(row.observed_artists ?? 0);
+    const freshArtists = Number(row.fresh_artists ?? 0);
+    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+    res.json({
+      rosterArtists,
+      mappedArtists,
+      catalogArtists,
+      observedArtists,
+      freshArtists,
+      awaitingVideoMapping: Math.max(0, rosterArtists - mappedArtists),
+      awaitingFirstObservation: Math.max(0, catalogArtists - observedArtists),
+      catalogVideos: Number(row.catalog_videos ?? 0),
+      latestObservedAt: row.latest_observed_at ?? null,
+      collectionCadenceMinutes: 5,
+      maxVideosPerPass: 250,
+    });
+  } finally {
+    client.release();
+  }
+});
+
 router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const artistKey = String(req.query["artistKey"] ?? "").trim();
