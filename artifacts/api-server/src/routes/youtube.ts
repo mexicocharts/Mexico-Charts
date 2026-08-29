@@ -1198,6 +1198,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
         AND c.status IN ('review','verified')
         AND c.sampling_status='shadow'
       ORDER BY latest.view_count DESC, c.title
+      LIMIT 25
     `, [artistKey]);
 
     const latestObservedAt = videos.rows.reduce<string | null>((latest, video) => {
