@@ -170,6 +170,7 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
       trustedBrowseId: Boolean(trustedBrowseId),
       trustedIdentityCandidates: resolvedIdentity.ambiguous ? resolvedIdentity.candidates : undefined,
       write: true,
+      dbClient: client,
     });
     const failure = youtubeShadowDiscoveryFailure(result);
     if (failure) {
@@ -206,6 +207,7 @@ async function bootstrapPilotCatalog(client: PgClient, force: boolean) {
         sourceChannelId: source.channelId,
         evidenceSource: source.evidenceSource,
         write: true,
+        dbClient: client,
       });
       if (result.error) {
         errors.push(`${pilot.artistName} (${source.evidenceSource}): ${result.error}`);
@@ -274,6 +276,7 @@ async function bootstrapActiveCatalog(client: PgClient) {
       trustedBrowseId: Boolean(resolvedIdentity.identity),
       trustedIdentityCandidates: resolvedIdentity.ambiguous ? resolvedIdentity.candidates : undefined,
       write: true,
+      dbClient: client,
     });
     const failure = youtubeShadowDiscoveryFailure(result);
     if (failure) {
@@ -604,10 +607,14 @@ export function startYoutubeIntradayShadowScheduler() {
       false,
       false,
     ).then(summary => {
+      logger.info(summary, "[youtube-shadow:intraday] run complete");
       if (forceMidnightAnchor && summary.status !== "complete") lastEasternMidnightAnchorDate = null;
+    }).catch(error => {
+      logger.error({ error, reason }, "[youtube-shadow:intraday] scheduler invocation failed");
+      if (forceMidnightAnchor) lastEasternMidnightAnchorDate = null;
     });
   };
-  setTimeout(() => runScheduledCheck("startup"), 2 * 60 * 1000).unref();
+  setTimeout(() => runScheduledCheck("startup"), 15 * 1000).unref();
   setInterval(() => runScheduledCheck("five-minute-check"), CHECK_MS).unref();
   logger.info({ dailyBudget: dailyBudget(), maxVideosPerRun: maxVideosPerRun() }, "[youtube-shadow:intraday] private automation enabled");
 }
