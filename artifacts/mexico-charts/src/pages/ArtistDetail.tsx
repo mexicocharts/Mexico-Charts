@@ -109,6 +109,7 @@ function YoutubeDailySparkline({
   gradientId?: string;
   ariaLabel?: string;
 }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? point.value ?? 0);
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values, 1);
@@ -117,8 +118,8 @@ function YoutubeDailySparkline({
   const domainMin = Math.max(0, rawMin - visualRange * 0.18);
   const domainMax = rawMax + visualRange * 0.18;
   const width = 560;
-  const height = 190;
-  const padding = { top: 18, right: 16, bottom: 30, left: 54 };
+  const height = 176;
+  const padding = { top: 14, right: 16, bottom: 26, left: 54 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const fillId = gradientId ?? `trendFill-${color.replace(/[^a-z0-9]/gi, "")}`;
@@ -133,9 +134,22 @@ function YoutubeDailySparkline({
   const gridValues = [domainMax, domainMin + (domainMax - domainMin) / 2, domainMin];
   const peakIndex = values.indexOf(rawMax);
   const labeledIndexes = new Set([peakIndex, values.length - 1]);
+  const dateMarkerIndexes = Array.from(new Set([
+    0,
+    Math.round((points.length - 1) / 3),
+    Math.round(((points.length - 1) * 2) / 3),
+    points.length - 1,
+  ])).filter(index => index >= 0);
+  const hoveredPoint = hoveredIndex == null ? null : coordinates[hoveredIndex];
+  const tooltipWidth = 132;
+  const tooltipHeight = 36;
+  const tooltipX = hoveredPoint
+    ? Math.min(width - padding.right - tooltipWidth, Math.max(padding.left, hoveredPoint.x - tooltipWidth / 2))
+    : 0;
+  const tooltipY = 2;
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full overflow-visible sm:h-52" role="img" aria-label={ariaLabel}>
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-40 w-full overflow-visible sm:h-48" role="img" aria-label={ariaLabel}>
       <defs>
         <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.34" />
@@ -171,28 +185,68 @@ function YoutubeDailySparkline({
       />
 
       {coordinates.map((point, index) => (
-        <g key={`${point.date}-${index}`} className="cursor-crosshair">
-          <circle cx={point.x} cy={point.y} r="10" fill="transparent">
-            <title>{`${formatShortDateEs(point.date)}: ${Math.round(point.value).toLocaleString("es-MX")}`}</title>
-          </circle>
+        <g
+          key={`${point.date}-${index}`}
+          className="cursor-crosshair"
+          onMouseEnter={() => setHoveredIndex(index)}
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
+          <circle cx={point.x} cy={point.y} r="10" fill="transparent" />
           <circle
             cx={point.x}
             cy={point.y}
-            r={labeledIndexes.has(index) ? 4.5 : values.length <= 12 ? 2.5 : 1.5}
-            fill={labeledIndexes.has(index) ? color : "#090909"}
+            r={hoveredIndex === index ? 5 : labeledIndexes.has(index) ? 4 : values.length <= 12 ? 2.5 : 1.5}
+            fill={hoveredIndex === index || labeledIndexes.has(index) ? color : "#090909"}
             stroke={color}
-            strokeWidth={labeledIndexes.has(index) ? 2 : 1.5}
+            strokeWidth={hoveredIndex === index ? 3 : labeledIndexes.has(index) ? 2 : 1.5}
             pointerEvents="none"
           />
         </g>
       ))}
 
-      <text x={padding.left} y={height - 8} fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="700">
-        {formatChartDateEs(points[0]?.date)}
-      </text>
-      <text x={width - padding.right} y={height - 8} textAnchor="end" fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="700">
-        {formatChartDateEs(points.at(-1)?.date)}
-      </text>
+      {dateMarkerIndexes.map((index, markerPosition) => (
+        <text
+          key={`${fillId}-date-${index}`}
+          x={coordinates[index]?.x ?? padding.left}
+          y={height - 7}
+          textAnchor={markerPosition === 0 ? "start" : markerPosition === dateMarkerIndexes.length - 1 ? "end" : "middle"}
+          fill="rgba(255,255,255,0.34)"
+          fontSize="8.5"
+          fontWeight="700"
+        >
+          {formatChartDateEs(points[index]?.date)}
+        </text>
+      ))}
+
+      {hoveredPoint && (
+        <g pointerEvents="none">
+          <line
+            x1={hoveredPoint.x}
+            x2={hoveredPoint.x}
+            y1={padding.top}
+            y2={padding.top + plotHeight}
+            stroke={color}
+            strokeOpacity="0.38"
+            strokeDasharray="3 4"
+          />
+          <rect
+            x={tooltipX}
+            y={tooltipY}
+            width={tooltipWidth}
+            height={tooltipHeight}
+            rx="8"
+            fill="#090909"
+            stroke={color}
+            strokeOpacity="0.55"
+          />
+          <text x={tooltipX + 10} y={tooltipY + 13} fill="rgba(255,255,255,0.52)" fontSize="8" fontWeight="800">
+            {formatShortDateEs(hoveredPoint.date).toUpperCase()}
+          </text>
+          <text x={tooltipX + 10} y={tooltipY + 28} fill="#ffffff" fontSize="11" fontWeight="900">
+            {Math.round(hoveredPoint.value).toLocaleString("es-MX")}
+          </text>
+        </g>
+      )}
     </svg>
   );
 }
@@ -1781,14 +1835,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <>
 	                              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
 	                                <div>
-	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Tendencia disponible</div>
+	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Últimos 30 días</div>
 	                                  <div className="mt-1 text-[10px] font-bold text-zinc-500">
-	                                    {source.points.length} observaciones · {formatChartDateEs(source.points[0]?.date)} → {formatChartDateEs(source.points.at(-1)?.date)}
+	                                    {source.points.length} lecturas diarias exactas
 	                                  </div>
 	                                </div>
 	                                <div className="flex flex-wrap gap-2 sm:justify-end">
 	                                  <span className={`rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${metricTone(periodChange)}`}>
-	                                    Periodo {formatSignedCompactCount(periodChange)}{periodChangePct != null ? ` · ${pctLabel(periodChangePct)}` : ""}
+	                                    Cambio {formatSignedCompactCount(periodChange)}{periodChangePct != null ? ` · ${pctLabel(periodChangePct)}` : ""}
 	                                  </span>
 	                                  <span className="rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
 	                                    Pico <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
