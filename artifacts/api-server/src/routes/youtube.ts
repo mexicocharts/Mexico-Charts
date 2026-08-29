@@ -1144,22 +1144,56 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
     await ensureYoutubeShadowTables(client);
     await ensureYoutubeIntradayShadowTables(client);
     const videos = await client.query(`
+      WITH eastern_bounds AS (
+        SELECT
+          (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
+          ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
+      )
       SELECT
         c.video_id,
         COALESCE(NULLIF(v.title, ''), c.title) title,
         v.thumbnail_url,
         c.canonical_url,
         latest.view_count,
-        latest.observed_at::text observed_at
+        latest.view_delta,
+        latest.seconds_since_previous,
+        latest.observed_at::text observed_at,
+        CASE WHEN previous_start.view_count IS NULL OR today_start.view_count IS NULL THEN NULL
+          ELSE GREATEST(0, today_start.view_count - previous_start.view_count) END views_24h,
+        previous_start.observed_at::text views_24h_started_at,
+        today_start.observed_at::text views_24h_ended_at,
+        CASE WHEN today_start.view_count IS NULL OR latest.view_count IS NULL THEN NULL
+          ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
+        today_start.observed_at::text views_today_et_started_at,
+        CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
       FROM youtube_music_catalog_candidates c
+      CROSS JOIN eastern_bounds bounds
       JOIN youtube_tracked_videos v ON v.video_id=c.video_id
       JOIN LATERAL (
-        SELECT s.view_count, s.observed_at
+        SELECT s.view_count, s.view_delta, s.seconds_since_previous, s.observed_at
         FROM youtube_video_intraday_shadow_snapshots s
         WHERE s.video_id=c.video_id
         ORDER BY s.observed_at DESC
         LIMIT 1
       ) latest ON true
+      LEFT JOIN LATERAL (
+        SELECT s.view_count, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+          AND s.observed_at >= bounds.previous_start
+          AND s.observed_at < bounds.previous_start + interval '30 minutes'
+        ORDER BY s.observed_at
+        LIMIT 1
+      ) previous_start ON true
+      LEFT JOIN LATERAL (
+        SELECT s.view_count, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+          AND s.observed_at >= bounds.today_start
+          AND s.observed_at < bounds.today_start + interval '30 minutes'
+        ORDER BY s.observed_at
+        LIMIT 1
+      ) today_start ON true
       WHERE c.artist_key=$1
         AND c.status IN ('review','verified')
         AND c.sampling_status='shadow'
@@ -1171,15 +1205,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
       artistKey,
       artistName: pilot.artistName,
       exact: true,
-      videos: videos.rows.map(video => ({
-        ...video,
-        views_24h: null,
-        views_24h_started_at: null,
-        views_24h_ended_at: null,
-        views_today_et: null,
-        views_today_et_started_at: null,
-        views_today_et_ended_at: null,
-      })),
+      videos: videos.rows,
     });
   } finally {
     client.release();
