@@ -254,9 +254,9 @@ function releaseFromRow(raw: unknown, fallback: SongstatsPublicRelease["type"]):
   if (!title) return null;
   const releaseDate = firstDate(row, ["release_date", "releaseDate", "released_at", "date", "published_at"])
     ?? firstDate(nestedAlbum, ["release_date", "releaseDate", "released_at", "date"]);
-  const id = firstString(row, ["id", "track_id", "album_id", "release_id", "spotify_id", "isrc", "upc"])
+  const id = firstString(row, ["id", "songstats_track_id", "track_id", "album_id", "release_id", "spotify_id", "isrc", "upc"])
     ?? `${title.toLowerCase()}|${releaseDate ?? "unknown"}`;
-  const artworkUrl = firstString(row, ["artwork_url", "image_url", "cover_url", "thumbnail_url"])
+  const artworkUrl = firstString(row, ["avatar", "artwork_url", "image_url", "cover_url", "thumbnail_url"])
     ?? firstString(nestedAlbum, ["artwork_url", "image_url", "cover_url", "thumbnail_url"]);
   const links = arrayValue(row["links"] ?? row["platform_links"] ?? row["sources"]);
   return {
@@ -277,7 +277,7 @@ function median(values: number[]): number | null {
 }
 
 function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCatalog {
-  const trackRows = firstArrayAtKeys(catalogPayload, ["tracks", "songs", "recordings"]);
+  const trackRows = firstArrayAtKeys(catalogPayload, ["catalog", "tracks", "songs", "recordings"]);
   const albumRows = firstArrayAtKeys(catalogPayload, ["albums", "releases", "discography"]);
   const candidates = [
     ...albumRows.map(row => releaseFromRow(row, "album")),

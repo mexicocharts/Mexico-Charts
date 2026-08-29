@@ -36,6 +36,34 @@ test("normalizes saved Songstats catalog releases without exposing raw payloads"
   assert.equal(result.catalog.releases[0]?.platformCount, 1);
 });
 
+test("normalizes the stored Songstats production catalog shape", () => {
+  const result = buildSongstatsPublicInsight({
+    historicStats: { stats: [] },
+    audience: null,
+    audienceDetails: null,
+    catalog: {
+      result: "success",
+      tracks_total: 100,
+      catalog: [
+        {
+          songstats_track_id: "track-production-1",
+          title: "Lanzamiento real",
+          release_date: "2026-08-20",
+          avatar: "https://example.com/artwork.jpg",
+          isrcs: ["MXAAA2600001"],
+          artists: [{ name: "Artista", songstats_artist_id: "artist-1" }],
+        },
+      ],
+    },
+  });
+
+  assert.equal(result.catalog.trackCount, 1);
+  assert.equal(result.catalog.releaseCount, 1);
+  assert.equal(result.catalog.newestReleaseDate, "2026-08-20");
+  assert.equal(result.catalog.releases[0]?.id, "track-production-1");
+  assert.equal(result.catalog.releases[0]?.artworkUrl, "https://example.com/artwork.jpg");
+});
+
 test("derives release impact only from dated releases and available histories", () => {
   const result = buildSongstatsPublicInsight({
     historicStats: {
