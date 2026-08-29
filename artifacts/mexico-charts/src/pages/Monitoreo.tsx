@@ -139,10 +139,10 @@ export default function Monitoreo() {
   const selectedPlan = plans.find(plan => plan.id === selectedPlanId) ?? plans[0];
   const planBenefits: Record<MonitoringPlanId, string[]> = {
     individual: [
-      pick("Panel diario para 1 artista", "Daily dashboard for 1 artist"),
-      pick("Métricas actuales de audiencia y streaming", "Current audience and streaming metrics"),
-      pick("Historial por día, mes y año", "Daily, monthly and yearly history"),
-      pick("Cambios de audiencia por periodo", "Audience changes by period"),
+      pick("Artist Pulse: qué cambió desde ayer", "Artist Pulse: what changed since yesterday"),
+      pick("Ganancias, descensos e hitos detectados", "Detected gains, declines and milestones"),
+      pick("Historial privado que crece cada día", "Private history that grows every day"),
+      pick("Señales de lanzamientos nuevos", "New-release signals"),
       pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
     ],
     seleccion: [
@@ -218,7 +218,7 @@ export default function Monitoreo() {
     { icon: BarChart3, title: pick("Métricas actuales", "Current metrics"), body: pick("Audiencia de Spotify, YouTube y plataformas sociales en un solo resumen", "Available Spotify, YouTube and social-platform audiences in one summary") },
     { icon: TrendingUp, title: pick("Evolución por periodo", "Period changes"), body: pick("Crecimiento de 7, 30 y 90 días, además del historial disponible del artista", "7-, 30- and 90-day growth plus the artist's available history") },
     { icon: MapPin, title: pick("Audiencia en México", "Mexico audience"), body: pick("Ciudades y datos de audiencia mexicana cuando la fuente los ofrece", "Mexican audience and city information when available from the source") },
-    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Revisa el monitor cada día y conserva el historial acumulado", "Open the monitor every day and keep its accumulated history") },
+    { icon: BellRing, title: pick("Artist Pulse", "Artist Pulse"), body: pick("Abre el monitor y entiende en segundos qué cambió desde la lectura anterior", "Open the monitor and understand in seconds what changed since the prior reading") },
   ];
 
   return (

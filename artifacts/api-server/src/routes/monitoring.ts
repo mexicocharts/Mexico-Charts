@@ -54,6 +54,108 @@ function normalizedSnapshot(row: MonitoringSnapshotRow) {
   };
 }
 
+type NormalizedMonitoringSnapshot = ReturnType<typeof normalizedSnapshot>;
+type PulseMetricKey = Exclude<keyof NormalizedMonitoringSnapshot, "date" | "spotifyPopularity">;
+
+const PULSE_METRICS: Array<{ key: PulseMetricKey; label: string; platform: string }> = [
+  { key: "spotifyMonthlyListeners", label: "Oyentes mensuales", platform: "Spotify" },
+  { key: "spotifyFollowers", label: "Seguidores", platform: "Spotify" },
+  { key: "youtubeSubscribers", label: "Suscriptores", platform: "YouTube" },
+  { key: "youtubeChannelViews", label: "Vistas del canal", platform: "YouTube" },
+  { key: "instagramFollowers", label: "Seguidores", platform: "Instagram" },
+  { key: "tiktokFollowers", label: "Seguidores", platform: "TikTok" },
+  { key: "facebookFollowers", label: "Seguidores", platform: "Facebook" },
+  { key: "twitterFollowers", label: "Seguidores", platform: "X" },
+  { key: "soundcloudFollowers", label: "Seguidores", platform: "SoundCloud" },
+  { key: "deezerFollowers", label: "Fans", platform: "Deezer" },
+];
+
+function milestoneStep(value: number): number {
+  if (value < 100_000) return 10_000;
+  if (value < 1_000_000) return 100_000;
+  if (value < 10_000_000) return 1_000_000;
+  if (value < 100_000_000) return 5_000_000;
+  return 10_000_000;
+}
+
+function buildDailyPulse(history: NormalizedMonitoringSnapshot[], catalog: { newestReleaseDate: string | null; releases: Array<{ title: string; releaseDate: string | null }> }) {
+  const current = history.at(-1);
+  const previous = history.at(-2);
+  if (!current || !previous) {
+    return {
+      status: "collecting" as const,
+      currentDate: current?.date ?? null,
+      previousDate: null,
+      headline: "Preparando tu primer Pulso diario",
+      summary: "Se necesitan dos lecturas guardadas para calcular cambios reales.",
+      metricsChanged: 0,
+      signals: [],
+    };
+  }
+
+  const movements = PULSE_METRICS.flatMap(metric => {
+    const currentValue = current[metric.key];
+    const previousValue = previous[metric.key];
+    if (currentValue == null || previousValue == null) return [];
+    const delta = currentValue - previousValue;
+    const percentage = previousValue === 0 ? null : (delta / previousValue) * 100;
+    return [{ ...metric, currentValue, previousValue, delta, percentage }];
+  });
+  const changed = movements.filter(movement => movement.delta !== 0);
+  const strongest = [...changed].sort((a, b) => Math.abs(b.percentage ?? 0) - Math.abs(a.percentage ?? 0))[0] ?? null;
+  const signals: Array<Record<string, unknown>> = [];
+
+  for (const movement of [...changed].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 4)) {
+    signals.push({
+      kind: movement.delta > 0 ? "gain" : "decline",
+      platform: movement.platform,
+      metric: movement.label,
+      currentValue: movement.currentValue,
+      delta: movement.delta,
+      percentage: movement.percentage,
+      title: `${movement.platform}: ${movement.delta > 0 ? "subió" : "bajó"} ${movement.label.toLowerCase()}`,
+    });
+    const step = milestoneStep(movement.currentValue);
+    const crossed = Math.floor(movement.currentValue / step) > Math.floor(movement.previousValue / step);
+    if (movement.delta > 0 && crossed) {
+      signals.push({
+        kind: "milestone",
+        platform: movement.platform,
+        metric: movement.label,
+        currentValue: movement.currentValue,
+        delta: movement.delta,
+        percentage: movement.percentage,
+        title: `${movement.platform}: nuevo hito alcanzado`,
+      });
+    }
+  }
+
+  const recentRelease = catalog.releases.find(release => release.releaseDate && release.releaseDate <= current.date && release.releaseDate > previous.date);
+  if (recentRelease) {
+    signals.unshift({
+      kind: "release",
+      platform: "Catálogo",
+      metric: "Nuevo lanzamiento",
+      currentValue: null,
+      delta: null,
+      percentage: null,
+      title: `Nuevo lanzamiento detectado: ${recentRelease.title}`,
+      releaseDate: recentRelease.releaseDate,
+    });
+  }
+
+  const direction = strongest?.delta === 0 || !strongest ? "sin cambios materiales" : strongest.delta > 0 ? "en crecimiento" : "a la baja";
+  return {
+    status: "ready" as const,
+    currentDate: current.date,
+    previousDate: previous.date,
+    headline: strongest ? `${strongest.platform} lideró el movimiento diario` : "Día estable en las métricas observadas",
+    summary: strongest ? `${strongest.label} está ${direction}; revisa las señales para ver la variación exacta.` : "No se detectaron cambios entre las dos lecturas más recientes.",
+    metricsChanged: changed.length,
+    signals: signals.slice(0, 6),
+  };
+}
+
 async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
   const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
   const subscription = await pool.query<{
@@ -116,6 +218,15 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     catalog: extendedRow.catalog,
   }) : null;
   const history = snapshots.rows.map(normalizedSnapshot);
+  const catalog = insight?.catalog ?? {
+    releaseCount: 0,
+    trackCount: 0,
+    albumCount: 0,
+    releasesLast90Days: 0,
+    medianReleaseGapDays: null,
+    newestReleaseDate: null,
+    releases: [],
+  };
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -125,17 +236,10 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     },
     current: history.at(-1) ?? null,
     history,
+    dailyPulse: buildDailyPulse(history, catalog),
     growth: insight?.growth ?? {},
     topMexicoCities: insight?.topMexicoCities ?? [],
-    catalog: insight?.catalog ?? {
-      releaseCount: 0,
-      trackCount: 0,
-      albumCount: 0,
-      releasesLast90Days: 0,
-      medianReleaseGapDays: null,
-      newestReleaseDate: null,
-      releases: [],
-    },
+    catalog,
   };
 }
 
