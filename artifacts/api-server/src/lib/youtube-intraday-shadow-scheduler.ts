@@ -47,6 +47,22 @@ interface YoutubeVideoItem {
   contentDetails?: { duration?: string };
 }
 
+interface StoredChannelRow {
+  artist_key: string;
+  artist_name: string;
+  channel_id: string;
+}
+
+interface StoredChannelVideo {
+  artistKey: string;
+  artistName: string;
+  channelId: string;
+  videoId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  publishedAt: string | null;
+}
+
 interface VideoStats {
   videoId: string;
   channelId: string | null;
@@ -74,6 +90,10 @@ export interface YoutubeIntradayShadowSummary {
   bootstrapErrors: string[];
   seededCatalogVideos: number;
   seededCatalogArtists: number;
+  reusedStoredVideos: number;
+  reusedStoredArtists: number;
+  importedChannelVideos: number;
+  importedChannelArtists: number;
   error?: string;
 }
 
@@ -428,6 +448,288 @@ async function seedApprovedVideoLinksIntoIntradayCatalog(client: PgClient) {
   };
 }
 
+async function reuseStoredYoutubeSources(client: PgClient) {
+  // Kworb snapshots already contain public video IDs and titles. Reuse the
+  // newest stored snapshot per artist instead of spending Search quota to
+  // rediscover the same videos.
+  await client.query(`
+    WITH latest AS (
+      SELECT DISTINCT ON (s.artist_key)
+        s.artist_key,
+        COALESCE(c.artist_name, s.artist_key) artist_name,
+        s.value
+      FROM kworb_snapshots s
+      LEFT JOIN kworb_coverage c ON c.artist_key=s.artist_key
+      WHERE s.metric_type='youtube'
+      ORDER BY s.artist_key, s.fetched_at DESC NULLS LAST
+    ), videos AS (
+      SELECT
+        latest.artist_key,
+        latest.artist_name,
+        item->>'videoId' video_id,
+        COALESCE(item->>'title', '') title,
+        NULLIF(item->>'thumbnailUrl', '') thumbnail_url,
+        CASE
+          WHEN COALESCE(item->>'views', '') ~ '^[0-9,]+$'
+            THEN replace(item->>'views', ',', '')::bigint
+          ELSE NULL
+        END view_count
+      FROM latest
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(latest.value->'topVideos')='array'
+          THEN latest.value->'topVideos' ELSE '[]'::jsonb END
+      ) item
+      WHERE COALESCE(item->>'videoId', '') ~ '^[A-Za-z0-9_-]{11}$'
+    )
+    INSERT INTO youtube_tracked_videos (
+      video_id, title, thumbnail_url, view_count, metadata, last_seen_at, updated_at
+    )
+    SELECT DISTINCT ON (video_id)
+      video_id,
+      title,
+      thumbnail_url,
+      view_count,
+      jsonb_build_object('seedSource', 'kworb_top_videos_reuse'),
+      now(),
+      now()
+    FROM videos
+    ORDER BY video_id, view_count DESC NULLS LAST
+    ON CONFLICT (video_id) DO UPDATE SET
+      title=COALESCE(NULLIF(excluded.title, ''), youtube_tracked_videos.title),
+      thumbnail_url=COALESCE(excluded.thumbnail_url, youtube_tracked_videos.thumbnail_url),
+      view_count=COALESCE(excluded.view_count, youtube_tracked_videos.view_count),
+      metadata=youtube_tracked_videos.metadata || excluded.metadata,
+      last_seen_at=now(),
+      updated_at=now()
+  `);
+
+  const kworbLinks = await client.query<{ artist_key: string }>(`
+    WITH latest AS (
+      SELECT DISTINCT ON (s.artist_key)
+        s.artist_key,
+        COALESCE(c.artist_name, s.artist_key) artist_name,
+        s.value
+      FROM kworb_snapshots s
+      LEFT JOIN kworb_coverage c ON c.artist_key=s.artist_key
+      WHERE s.metric_type='youtube'
+      ORDER BY s.artist_key, s.fetched_at DESC NULLS LAST
+    ), videos AS (
+      SELECT
+        latest.artist_key,
+        latest.artist_name,
+        item->>'videoId' video_id,
+        COALESCE(item->>'title', '') title
+      FROM latest
+      CROSS JOIN LATERAL jsonb_array_elements(
+        CASE WHEN jsonb_typeof(latest.value->'topVideos')='array'
+          THEN latest.value->'topVideos' ELSE '[]'::jsonb END
+      ) item
+      WHERE COALESCE(item->>'videoId', '') ~ '^[A-Za-z0-9_-]{11}$'
+    )
+    INSERT INTO youtube_artist_video_links (
+      artist_key, artist_name, video_id, source_type,
+      confidence_score, priority, active, metadata, updated_at
+    )
+    SELECT DISTINCT ON (artist_key, video_id)
+      artist_key,
+      artist_name,
+      video_id,
+      'kworb_top_videos',
+      88,
+      80,
+      true,
+      jsonb_build_object('seedSource', 'kworb_top_videos_reuse', 'title', title),
+      now()
+    FROM videos
+    ON CONFLICT (artist_key, video_id) DO UPDATE SET
+      artist_name=COALESCE(NULLIF(excluded.artist_name, ''), youtube_artist_video_links.artist_name),
+      confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
+      priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
+      active=true,
+      metadata=youtube_artist_video_links.metadata || excluded.metadata,
+      updated_at=now()
+    RETURNING artist_key
+  `);
+
+  // Reuse any videos already fetched for verified profile channels, even when
+  // the older tracker never created the artist/video association.
+  const channelLinks = await client.query<{ artist_key: string }>(`
+    INSERT INTO youtube_artist_video_links (
+      artist_key, artist_name, video_id, source_type,
+      confidence_score, priority, active, metadata, updated_at
+    )
+    SELECT DISTINCT ON (yc.artist_key, v.video_id)
+      yc.artist_key,
+      COALESCE(c.artist_name, yc.title, yc.artist_key),
+      v.video_id,
+      'verified_profile_channel',
+      90,
+      90,
+      true,
+      jsonb_build_object('seedSource', 'verified_profile_channel', 'channelId', yc.channel_id),
+      now()
+    FROM youtube_channels yc
+    JOIN youtube_tracked_videos v ON v.channel_id=yc.channel_id
+    LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
+    WHERE yc.channel_id IS NOT NULL
+    ON CONFLICT (artist_key, video_id) DO UPDATE SET
+      confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
+      priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
+      active=true,
+      metadata=youtube_artist_video_links.metadata || excluded.metadata,
+      updated_at=now()
+    RETURNING artist_key
+  `);
+
+  const artistKeys = [...kworbLinks.rows, ...channelLinks.rows].map(row => row.artist_key);
+  return { videos: kworbLinks.rows.length + channelLinks.rows.length, artists: new Set(artistKeys).size };
+}
+
+async function fetchYoutubeJson<T>(path: string, params: Record<string, string>): Promise<T> {
+  const apiKey = process.env["YOUTUBE_API_KEY"];
+  if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY.");
+  const url = new URL(`${YOUTUBE_API_BASE}/${path}`);
+  url.searchParams.set("key", apiKey);
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`YouTube API ${response.status}: ${(await response.text()).slice(0, 240)}`);
+  return await response.json() as T;
+}
+
+async function importStoredProfileChannelUploads(client: PgClient, callsAvailable: number) {
+  const artistLimit = Math.max(0, Math.min(50, callsAvailable - 1));
+  if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
+  const channels = await client.query<StoredChannelRow>(`
+    SELECT
+      yc.artist_key,
+      COALESCE(c.artist_name, yc.title, yc.artist_key) artist_name,
+      yc.channel_id
+    FROM youtube_channels yc
+    LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
+    WHERE yc.channel_id ~ '^UC[A-Za-z0-9_-]{22}$'
+      AND NOT EXISTS (
+        SELECT 1 FROM youtube_artist_video_links l
+        WHERE l.artist_key=yc.artist_key AND l.active=true AND l.confidence_score >= 80
+      )
+    ORDER BY yc.artist_key
+    LIMIT $1
+  `, [artistLimit]);
+  if (!channels.rows.length) return { artists: 0, videos: 0, apiCalls: 0 };
+
+  const channelData = await fetchYoutubeJson<{
+    items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
+  }>("channels", {
+    part: "contentDetails",
+    id: channels.rows.map(row => row.channel_id).join(","),
+    maxResults: String(channels.rows.length),
+  });
+  await recordUsage(client, 0, 0);
+  let apiCalls = 1;
+  const uploadsByChannel = new Map(
+    (channelData.items ?? []).flatMap(item => {
+      const uploads = item.contentDetails?.relatedPlaylists?.uploads;
+      return uploads ? [[item.id, uploads] as const] : [];
+    }),
+  );
+
+  const videos: StoredChannelVideo[] = [];
+  for (const group of batch(channels.rows, 10)) {
+    const results = await Promise.all(group.map(async artist => {
+      const playlistId = uploadsByChannel.get(artist.channel_id);
+      if (!playlistId) return { artist, items: [] as StoredChannelVideo[] };
+      const data = await fetchYoutubeJson<{
+        items?: Array<{ snippet?: {
+          title?: string;
+          publishedAt?: string;
+          thumbnails?: Record<string, { url?: string }>;
+          resourceId?: { videoId?: string };
+        } }>;
+      }>("playlistItems", { part: "snippet", playlistId, maxResults: "10" });
+      const items = (data.items ?? []).flatMap(item => {
+        const videoId = item.snippet?.resourceId?.videoId;
+        if (!videoId) return [];
+        const thumbs = item.snippet?.thumbnails ?? {};
+        return [{
+          artistKey: artist.artist_key,
+          artistName: artist.artist_name,
+          channelId: artist.channel_id,
+          videoId,
+          title: item.snippet?.title ?? "",
+          thumbnailUrl: thumbs.maxres?.url ?? thumbs.standard?.url ?? thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url ?? null,
+          publishedAt: item.snippet?.publishedAt ?? null,
+        }];
+      });
+      return { artist, items };
+    }));
+    for (const result of results) {
+      if (!uploadsByChannel.has(result.artist.channel_id)) continue;
+      apiCalls += 1;
+      await recordUsage(client, 10, result.items.length);
+      videos.push(...result.items);
+    }
+  }
+  if (!videos.length) return { artists: 0, videos: 0, apiCalls };
+
+  const payload = JSON.stringify(videos.map(video => ({
+    artist_key: video.artistKey,
+    artist_name: video.artistName,
+    channel_id: video.channelId,
+    video_id: video.videoId,
+    title: video.title,
+    thumbnail_url: video.thumbnailUrl,
+    published_at: video.publishedAt,
+  })));
+  await client.query("BEGIN");
+  try {
+    await client.query(`
+      INSERT INTO youtube_tracked_videos (
+        video_id, channel_id, title, thumbnail_url, published_at,
+        metadata, last_seen_at, updated_at
+      )
+      SELECT DISTINCT ON (video_id)
+        video_id, channel_id, title, thumbnail_url, published_at,
+        jsonb_build_object('seedSource', 'verified_profile_channel_uploads'), now(), now()
+      FROM jsonb_to_recordset($1::jsonb) AS input(
+        artist_key text, artist_name text, channel_id text, video_id text,
+        title text, thumbnail_url text, published_at timestamptz
+      )
+      ON CONFLICT (video_id) DO UPDATE SET
+        channel_id=COALESCE(excluded.channel_id, youtube_tracked_videos.channel_id),
+        title=COALESCE(NULLIF(excluded.title, ''), youtube_tracked_videos.title),
+        thumbnail_url=COALESCE(excluded.thumbnail_url, youtube_tracked_videos.thumbnail_url),
+        published_at=COALESCE(excluded.published_at, youtube_tracked_videos.published_at),
+        metadata=youtube_tracked_videos.metadata || excluded.metadata,
+        last_seen_at=now(), updated_at=now()
+    `, [payload]);
+    await client.query(`
+      INSERT INTO youtube_artist_video_links (
+        artist_key, artist_name, video_id, source_type,
+        confidence_score, priority, active, metadata, updated_at
+      )
+      SELECT DISTINCT ON (artist_key, video_id)
+        artist_key, artist_name, video_id, 'verified_profile_channel',
+        90, 90, true,
+        jsonb_build_object('seedSource', 'verified_profile_channel_uploads', 'channelId', channel_id),
+        now()
+      FROM jsonb_to_recordset($1::jsonb) AS input(
+        artist_key text, artist_name text, channel_id text, video_id text,
+        title text, thumbnail_url text, published_at timestamptz
+      )
+      ON CONFLICT (artist_key, video_id) DO UPDATE SET
+        confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
+        priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
+        active=true,
+        metadata=youtube_artist_video_links.metadata || excluded.metadata,
+        updated_at=now()
+    `, [payload]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  }
+  return { artists: new Set(videos.map(video => video.artistKey)).size, videos: videos.length, apiCalls };
+}
+
 function numeric(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const parsed = Number(value);
@@ -666,6 +968,8 @@ export async function runYoutubeIntradayShadow(
     bootstrapArtists: 0, bootstrapSavedCandidates: 0,
     bootstrapErrors: [],
     seededCatalogVideos: 0, seededCatalogArtists: 0,
+    reusedStoredVideos: 0, reusedStoredArtists: 0,
+    importedChannelVideos: 0, importedChannelArtists: 0,
   };
   if (!force && !enabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -677,6 +981,17 @@ export async function runYoutubeIntradayShadow(
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
+      const usedBeforeImport = await callsUsedToday(client);
+      const importedChannels = await importStoredProfileChannelUploads(
+        client,
+        Math.max(0, dailyBudget() - usedBeforeImport),
+      );
+      summary.importedChannelVideos = importedChannels.videos;
+      summary.importedChannelArtists = importedChannels.artists;
+      summary.apiCalls += importedChannels.apiCalls;
+      const reusedStored = await reuseStoredYoutubeSources(client);
+      summary.reusedStoredVideos = reusedStored.videos;
+      summary.reusedStoredArtists = reusedStored.artists;
       const seededCatalog = await seedApprovedVideoLinksIntoIntradayCatalog(client);
       summary.seededCatalogVideos = seededCatalog.videos;
       summary.seededCatalogArtists = seededCatalog.artists;

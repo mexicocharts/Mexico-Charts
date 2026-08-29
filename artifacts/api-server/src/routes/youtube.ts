@@ -1236,6 +1236,12 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
         (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
         (SELECT count(DISTINCT artist_key)::int FROM youtube_artist_video_links
           WHERE active=true AND confidence_score >= 80) mapped_artists,
+        (SELECT count(*)::int FROM youtube_channels WHERE channel_id IS NOT NULL) profile_channel_artists,
+        (SELECT count(DISTINCT artist_key)::int FROM kworb_snapshots
+          WHERE metric_type='youtube'
+            AND jsonb_typeof(value->'topVideos')='array'
+            AND jsonb_array_length(value->'topVideos') > 0
+        ) kworb_video_artists,
         (SELECT count(DISTINCT artist_key)::int FROM youtube_music_catalog_candidates
           WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_artists,
         (SELECT count(DISTINCT c.artist_key)::int
@@ -1265,6 +1271,8 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     res.json({
       rosterArtists,
       mappedArtists,
+      profileChannelArtists: Number(row.profile_channel_artists ?? 0),
+      kworbVideoArtists: Number(row.kworb_video_artists ?? 0),
       catalogArtists,
       observedArtists,
       freshArtists,
