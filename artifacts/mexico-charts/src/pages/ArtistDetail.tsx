@@ -486,21 +486,15 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const { data: songstatsArtist } = useSongstatsArtist(canonicalArtistKey);
 
   useEffect(() => {
-    const artistKey = ["peso-pluma", "fuerza-regida", "natanael-cano", "luis-miguel"].includes(slug)
-      ? slug
-      : "";
-    if (!artistKey) {
-      setYoutubeLiveVideos([]);
-      return;
-    }
+    const artistKey = slug;
 
     let cancelled = false;
     const load = async () => {
       try {
         const response = await fetch(`/api/providers/youtube/live-videos?artistKey=${encodeURIComponent(artistKey)}`);
         if (!response.ok) return;
-        const payload = await response.json() as { videos?: YouTubeLivePreviewVideo[] };
-        if (!cancelled) setYoutubeLiveVideos(payload.videos ?? []);
+        const payload = await response.json() as { fresh?: boolean; videos?: YouTubeLivePreviewVideo[] };
+        if (!cancelled) setYoutubeLiveVideos(payload.fresh ? payload.videos ?? [] : []);
       } catch {
         // The rest of the artist profile remains available if this optional
         // live read temporarily fails.

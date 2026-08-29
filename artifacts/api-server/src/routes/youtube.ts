@@ -1127,14 +1127,13 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
   }
 });
 
-// Public read-only counters for the explicitly approved pilot catalog. This
-// intentionally exposes only saved exact observations; discovery evidence,
-// review notes, rejected candidates, and admin controls remain private.
+// Public read-only counters for every artist with approved shadow observations.
+// Discovery evidence, review notes, rejected candidates, and admin controls
+// remain private.
 router.get("/providers/youtube/live-videos", async (req, res) => {
   const artistKey = String(req.query["artistKey"] ?? "").trim().toLowerCase();
-  const pilot = YOUTUBE_SHADOW_PILOT_ARTISTS.find(artist => artist.artistKey === artistKey);
-  if (!pilot) {
-    res.status(404).json({ error: "Contadores en vivo todavía no disponibles para este artista." });
+  if (!/^[a-z0-9-]{1,100}$/.test(artistKey)) {
+    res.status(400).json({ error: "artistKey inválido." });
     return;
   }
 
@@ -1150,6 +1149,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
           ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
       )
       SELECT
+        c.artist_name,
         c.video_id,
         COALESCE(NULLIF(v.title, ''), c.title) title,
         v.thumbnail_url,
@@ -1200,11 +1200,21 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
       ORDER BY latest.view_count DESC, c.title
     `, [artistKey]);
 
+    const latestObservedAt = videos.rows.reduce<string | null>((latest, video) => {
+      const observedAt = typeof video.observed_at === "string" ? video.observed_at : null;
+      if (!observedAt) return latest;
+      return !latest || new Date(observedAt).getTime() > new Date(latest).getTime() ? observedAt : latest;
+    }, null);
+    const fresh = latestObservedAt != null
+      && Date.now() - new Date(latestObservedAt).getTime() <= 6 * 60 * 60 * 1000;
+
     res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({
       artistKey,
-      artistName: pilot.artistName,
+      artistName: videos.rows[0]?.artist_name ?? null,
       exact: true,
+      fresh,
+      latestObservedAt,
       videos: videos.rows,
     });
   } finally {
