@@ -115,8 +115,8 @@ export default function Cuenta() {
             {!!data?.monitoringSubscriptions.length && (
               <section className="mt-8 overflow-hidden rounded-2xl border border-[#39FF14]/15 bg-[#39FF14]/[0.035]">
                 <div className="border-b border-white/[0.06] px-5 py-4"><p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">Mexico Charts Monitor</p></div>
-                {data.monitoringSubscriptions.map(item => (
-                  <Link key={item.stripeSubscriptionId} href={canonicalArtistHref(item.artistKey) ?? "/artists"} className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4 last:border-0 hover:bg-white/[0.025]"><span><strong className="block text-sm">{item.artistName}</strong><span className="mt-1 block text-[9px] font-black uppercase tracking-[0.14em] text-white/35">{item.status}</span></span><ChevronRight className="h-4 w-4 text-[#39FF14]" /></Link>
+                {data.monitoringSubscriptions.filter(item => item.status === "active" || item.status === "trialing").map(item => (
+                  <Link key={item.stripeSubscriptionId} href={`/monitoreo/${encodeURIComponent(item.artistKey)}`} className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4 last:border-0 hover:bg-white/[0.025]"><span><strong className="block text-sm">{item.artistName}</strong><span className="mt-1 block text-[9px] font-black uppercase tracking-[0.14em] text-white/35">{item.status}</span></span><ChevronRight className="h-4 w-4 text-[#39FF14]" /></Link>
                 ))}
               </section>
             )}

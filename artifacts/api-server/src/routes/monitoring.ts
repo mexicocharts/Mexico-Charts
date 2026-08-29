@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { listSongstatsCatalogArtists } from "../lib/songstats-snapshot-service";
+import { pool } from "@workspace/db";
+import {
+  listSongstatsCatalogArtists,
+  songstatsArtistKeyCandidates,
+} from "../lib/songstats-snapshot-service";
+import { buildSongstatsPublicInsight } from "../lib/songstats-public-service";
 import {
   auditMonitoringReadiness,
   getMonitoringReadyArtist,
@@ -9,6 +14,135 @@ import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
+const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
+
+type MonitoringSnapshotRow = {
+  snapshot_date: string;
+  spotify_followers: string | number | null;
+  spotify_monthly_listeners: string | number | null;
+  spotify_popularity: string | number | null;
+  youtube_subscribers: string | number | null;
+  youtube_channel_views: string | number | null;
+  instagram_followers: string | number | null;
+  tiktok_followers: string | number | null;
+  facebook_followers: string | number | null;
+  twitter_followers: string | number | null;
+  soundcloud_followers: string | number | null;
+  deezer_followers: string | number | null;
+};
+
+function nullableNumber(value: string | number | null): number | null {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizedSnapshot(row: MonitoringSnapshotRow) {
+  return {
+    date: row.snapshot_date,
+    spotifyFollowers: nullableNumber(row.spotify_followers),
+    spotifyMonthlyListeners: nullableNumber(row.spotify_monthly_listeners),
+    spotifyPopularity: nullableNumber(row.spotify_popularity),
+    youtubeSubscribers: nullableNumber(row.youtube_subscribers),
+    youtubeChannelViews: nullableNumber(row.youtube_channel_views),
+    instagramFollowers: nullableNumber(row.instagram_followers),
+    tiktokFollowers: nullableNumber(row.tiktok_followers),
+    facebookFollowers: nullableNumber(row.facebook_followers),
+    twitterFollowers: nullableNumber(row.twitter_followers),
+    soundcloudFollowers: nullableNumber(row.soundcloud_followers),
+    deezerFollowers: nullableNumber(row.deezer_followers),
+  };
+}
+
+async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
+  const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
+  const subscription = await pool.query<{
+    artist_key: string;
+    artist_name: string;
+    status: string;
+    created_at: Date;
+  }>(`
+    SELECT artist_key, artist_name, status, created_at
+    FROM monitoring_subscriptions
+    WHERE clerk_user_id = $1
+      AND lower(artist_key) = ANY($2::text[])
+      AND status = ANY($3::text[])
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `, [userId, lookupKeys, ACTIVE_SUBSCRIPTION_STATUSES]);
+  const active = subscription.rows[0];
+  if (!active) return null;
+
+  const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
+  const activationDate = active.created_at.toISOString().slice(0, 10);
+  const [snapshots, extended] = await Promise.all([
+    pool.query<MonitoringSnapshotRow>(`
+      SELECT
+        snapshot_date,
+        spotify_followers,
+        spotify_monthly_listeners,
+        spotify_popularity,
+        youtube_subscribers,
+        youtube_channel_views,
+        instagram_followers,
+        tiktok_followers,
+        facebook_followers,
+        twitter_followers,
+        soundcloud_followers,
+        deezer_followers
+      FROM songstats_artist_daily_snapshots
+      WHERE lower(artist_key) = ANY($1::text[])
+        AND snapshot_date >= $2
+      ORDER BY snapshot_date ASC
+    `, [activeKeys, activationDate]),
+    pool.query<{
+      historic_stats: unknown;
+      audience: unknown;
+      audience_details: unknown;
+      catalog: unknown;
+    }>(`
+      SELECT historic_stats, audience, audience_details, catalog
+      FROM songstats_artist_extended_data
+      WHERE lower(artist_key) = ANY($1::text[])
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `, [activeKeys]),
+  ]);
+  const extendedRow = extended.rows[0];
+  const insight = extendedRow ? buildSongstatsPublicInsight({
+    historicStats: extendedRow.historic_stats,
+    audience: extendedRow.audience,
+    audienceDetails: extendedRow.audience_details,
+    catalog: extendedRow.catalog,
+  }) : null;
+  const history = snapshots.rows.map(normalizedSnapshot);
+  return {
+    subscription: {
+      artistKey: active.artist_key,
+      artistName: active.artist_name,
+      status: active.status,
+      activatedAt: active.created_at.toISOString(),
+    },
+    current: history.at(-1) ?? null,
+    history,
+    growth: insight?.growth ?? {},
+    topMexicoCities: insight?.topMexicoCities ?? [],
+    catalog: insight?.catalog ?? {
+      releaseCount: 0,
+      trackCount: 0,
+      albumCount: 0,
+      releasesLast90Days: 0,
+      medianReleaseGapDays: null,
+      newestReleaseDate: null,
+      releases: [],
+    },
+  };
+}
+
+function csvCell(value: unknown): string {
+  const text = value == null ? "" : String(value);
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
 
 function siteOrigin(): string {
   return (process.env["PUBLIC_SITE_URL"] ?? "https://mexicochart.com").replace(/\/$/, "");
@@ -50,6 +184,85 @@ router.get("/monitoring/artists", async (_req, res) => {
   } catch (error) {
     logger.error({ error }, "Monitoring artist availability failed");
     res.status(503).json({ error: "Monitoring availability is temporarily unavailable" });
+  }
+});
+
+router.get("/monitoring/dashboard/:artistKey", requireClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  if (!artistKey || artistKey.length > 160) {
+    res.status(400).json({ error: "A valid artist key is required" });
+    return;
+  }
+  try {
+    const dashboard = await loadAuthorizedMonitoring(clerkUserId(res), artistKey);
+    if (!dashboard) {
+      res.status(403).json({ error: "An active subscription is required for this artist" });
+      return;
+    }
+    res.json(dashboard);
+  } catch (error) {
+    logger.error({ error, artistKey }, "Monitoring dashboard failed");
+    res.status(500).json({ error: "Unable to load monitoring dashboard" });
+  }
+});
+
+router.get("/monitoring/report/:artistKey", requireClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  const month = String(req.query.month ?? "").trim();
+  if (!artistKey || artistKey.length > 160 || !/^\d{4}-\d{2}$/.test(month)) {
+    res.status(400).json({ error: "A valid artist and month are required" });
+    return;
+  }
+  try {
+    const dashboard = await loadAuthorizedMonitoring(clerkUserId(res), artistKey);
+    if (!dashboard) {
+      res.status(403).json({ error: "An active subscription is required for this artist" });
+      return;
+    }
+    const rows = dashboard.history.filter(point => point.date.startsWith(month));
+    const header = [
+      "date",
+      "spotify_monthly_listeners",
+      "spotify_followers",
+      "youtube_subscribers",
+      "youtube_channel_views",
+      "instagram_followers",
+      "tiktok_followers",
+      "facebook_followers",
+      "twitter_followers",
+      "soundcloud_followers",
+      "deezer_followers",
+    ];
+    const lines = [
+      ["Mexico Charts monthly monitoring report"],
+      ["artist", dashboard.subscription.artistName],
+      ["month", month],
+      ["generated_at", new Date().toISOString()],
+      ["coverage", "Licensed and normalized metrics available after subscription activation"],
+      [],
+      header,
+      ...rows.map(point => [
+        point.date,
+        point.spotifyMonthlyListeners,
+        point.spotifyFollowers,
+        point.youtubeSubscribers,
+        point.youtubeChannelViews,
+        point.instagramFollowers,
+        point.tiktokFollowers,
+        point.facebookFollowers,
+        point.twitterFollowers,
+        point.soundcloudFollowers,
+        point.deezerFollowers,
+      ]),
+    ];
+    const csv = `\uFEFF${lines.map(line => line.map(csvCell).join(",")).join("\n")}`;
+    const safeArtist = dashboard.subscription.artistName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "artist";
+    res.setHeader("content-type", "text/csv; charset=utf-8");
+    res.setHeader("content-disposition", `attachment; filename="mexico-charts-${safeArtist}-${month}.csv"`);
+    res.send(csv);
+  } catch (error) {
+    logger.error({ error, artistKey, month }, "Monitoring report failed");
+    res.status(500).json({ error: "Unable to generate monitoring report" });
   }
 });
 
