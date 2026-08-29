@@ -9,6 +9,8 @@ export interface YouTubeLivePreviewVideo {
   thumbnail_url: string | null;
   canonical_url: string;
   view_count: string | number | null;
+  view_delta: string | number | null;
+  seconds_since_previous: string | number | null;
   observed_at: string | null;
   views_24h: string | number | null;
   views_24h_started_at: string | null;
@@ -31,6 +33,11 @@ function numberValue(value: string | number | null | undefined): number {
 
 function formatNumber(value: string | number | null | undefined): string {
   return new Intl.NumberFormat("en-US").format(numberValue(value));
+}
+
+function GainValue({ value }: { value: string | number | null | undefined }) {
+  if (value == null) return <span className="text-zinc-700">Pendiente</span>;
+  return <span className="tabular-nums text-[#39FF14]">+{formatNumber(value)}</span>;
 }
 
 function formatClock(iso: string | null): string {
@@ -143,6 +150,23 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
             <div className="line-clamp-2 text-base font-black leading-snug text-white transition-colors group-hover:text-red-200">{featured.title}</div>
             <div className="mt-2 text-[9px] font-bold uppercase tracking-[0.13em] text-zinc-600">Cada lectura reemplaza el total anterior con la cifra exacta más reciente.</div>
           </div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+              <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Última lectura</div>
+              <div className="mt-1 text-lg font-black"><GainValue value={featured.view_delta} /></div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">Desde el conteo anterior</div>
+            </div>
+            <div className="rounded-xl border border-[#39FF14]/10 bg-[#39FF14]/[0.025] p-3">
+              <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Hoy · ET</div>
+              <div className="mt-1 text-lg font-black"><GainValue value={featured.views_today_et} /></div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">Desde 12:00 a.m.</div>
+            </div>
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+              <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Último día completo</div>
+              <div className="mt-1 text-lg font-black"><GainValue value={featured.views_24h} /></div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">12 a.m. → 12 a.m. ET</div>
+            </div>
+          </div>
         </a>
 
         <div className="max-h-[620px] divide-y divide-white/[0.06] overflow-y-auto">
@@ -155,8 +179,14 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
                   <div className="mt-1 line-clamp-2 text-xs font-black leading-snug text-zinc-200 group-hover:text-white">{video.title}</div>
                 </div>
                 <div className="mt-2 flex items-end justify-between gap-2">
-                  <span className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Vistas totales</span>
-                  <span className="text-sm font-black tabular-nums text-white"><RollingCount value={video.view_count} /></span>
+                  <div>
+                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Última lectura</div>
+                    <div className="mt-0.5 text-xs font-black"><GainValue value={video.view_delta} /></div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Hoy desde 12 a.m. ET</div>
+                    <div className="mt-0.5 text-sm font-black"><GainValue value={video.views_today_et} /></div>
+                  </div>
                 </div>
               </div>
             </a>

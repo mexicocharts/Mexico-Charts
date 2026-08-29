@@ -2360,7 +2360,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         {/* ══════════════════════════════════════════════════════════
             KWORB — TOP YOUTUBE VIDEOS
         ══════════════════════════════════════════════════════════ */}
-        {kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && (
+        {youtubeLiveVideos.length === 0 && kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && (
           <motion.section
             className="order-6"
             initial={{ opacity: 0, y: 20 }}
