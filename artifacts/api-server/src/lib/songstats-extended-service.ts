@@ -193,7 +193,19 @@ async function listExtendedSyncArtists(options: {
     if (options.refreshAfter) completeConditions.push(`audience_details_fetched_at >= $${params.push(options.refreshAfter)}`);
   }
   if (options.endpoints.includes("catalog")) {
-    completeConditions.push(`catalog IS NOT NULL`);
+    completeConditions.push(`
+      catalog IS NOT NULL
+      AND (
+        jsonb_path_exists(catalog, '$.catalog[*]')
+        OR jsonb_path_exists(catalog, '$.tracks[*]')
+        OR jsonb_path_exists(catalog, '$.songs[*]')
+        OR jsonb_path_exists(catalog, '$.recordings[*]')
+        OR jsonb_path_exists(catalog, '$.result.catalog[*]')
+        OR jsonb_path_exists(catalog, '$.result.tracks[*]')
+        OR jsonb_path_exists(catalog, '$.result.songs[*]')
+        OR jsonb_path_exists(catalog, '$.result.recordings[*]')
+      )
+    `);
     if (options.refreshAfter) completeConditions.push(`catalog_fetched_at >= $${params.push(options.refreshAfter)}`);
   }
 
