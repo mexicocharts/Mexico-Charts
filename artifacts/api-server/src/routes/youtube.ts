@@ -1241,10 +1241,35 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     await ensureYoutubeShadowTables(client);
     await ensureYoutubeIntradayShadowTables(client);
     const coverage = await client.query(`
+      WITH roster_keys AS (
+        SELECT DISTINCT regexp_replace(
+          translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
+          '[^a-z0-9]', '', 'g'
+        ) artist_key
+        FROM kworb_coverage
+        WHERE status='active'
+      ), source_keys AS (
+        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+        FROM youtube_artist_video_links
+        WHERE active=true AND confidence_score >= 80
+        UNION
+        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+        FROM youtube_channels
+        WHERE channel_id IS NOT NULL
+        UNION
+        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+        FROM kworb_snapshots
+        WHERE metric_type='youtube'
+          AND jsonb_typeof(value->'topVideos')='array'
+          AND jsonb_array_length(value->'topVideos') > 0
+      )
       SELECT
         (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1 FROM source_keys s WHERE s.artist_key=r.artist_key
+        )) mapped_artists,
         (SELECT count(DISTINCT artist_key)::int FROM youtube_artist_video_links
-          WHERE active=true AND confidence_score >= 80) mapped_artists,
+          WHERE active=true AND confidence_score >= 80) approved_link_artists,
         (SELECT count(*)::int FROM youtube_channels WHERE channel_id IS NOT NULL) profile_channel_artists,
         (SELECT count(DISTINCT artist_key)::int FROM kworb_snapshots
           WHERE metric_type='youtube'
@@ -1280,6 +1305,7 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     res.json({
       rosterArtists,
       mappedArtists,
+      approvedLinkArtists: Number(row.approved_link_artists ?? 0),
       profileChannelArtists: Number(row.profile_channel_artists ?? 0),
       kworbVideoArtists: Number(row.kworb_video_artists ?? 0),
       catalogArtists,
