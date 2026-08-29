@@ -32,6 +32,7 @@ const CommunityContribute = lazy(() => import("@/pages/CommunityContributePrevie
 const Monitoreo = lazy(() => import("@/pages/Monitoreo"));
 const MonitoringSuccess = lazy(() => import("@/pages/MonitoringSuccess"));
 const MonitoringDashboard = lazy(() => import("@/pages/MonitoringDashboard"));
+const MonitoringFeaturePreview = lazy(() => import("@/pages/MonitoringFeaturePreview"));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
@@ -140,6 +141,7 @@ function Router() {
           <Route path="/contribuir" component={CommunityContribute} />
           <Route path="/cuenta" component={Cuenta} />
           <Route path="/monitoreo/exito" component={MonitoringSuccess} />
+          <Route path="/monitoreo/demo/peso-pluma" component={MonitoringFeaturePreview} />
           <Route path="/monitoreo/:artistKey" component={MonitoringDashboard} />
           <Route path="/monitoreo" component={Monitoreo} />
           <Route path="/admin/social-templates" component={SocialTemplates} />
