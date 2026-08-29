@@ -103,7 +103,6 @@ const LOCK_KEY = 392_410_604;
 const CHECK_MS = 5 * 60 * 1000;
 let schedulerStarted = false;
 let discoveryRunning = false;
-let lastEasternMidnightAnchorDate: string | null = null;
 
 export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shouldAnchor: boolean } {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -119,7 +118,7 @@ export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shoul
   const dateKey = `${value("year")}-${value("month")}-${value("day")}`;
   const hour = Number(value("hour"));
   const minute = Number(value("minute"));
-  return { dateKey, shouldAnchor: hour === 0 && minute < 15 };
+  return { dateKey, shouldAnchor: hour === 0 && minute < 30 };
 }
 
 function enabled() {
@@ -1068,7 +1067,20 @@ export async function runYoutubeIntradayShadow(
         SELECT * FROM (
           SELECT DISTINCT ON (c.video_id)
             c.video_id, c.artist_key, c.refresh_tier, c.last_observed_at::text,
-            v.published_at::text, v.view_count, daily.daily_view_delta
+            v.published_at::text, v.view_count, daily.daily_view_delta,
+            EXISTS (
+              SELECT 1
+              FROM youtube_music_catalog_candidates artist_candidate
+              JOIN youtube_video_intraday_shadow_snapshots artist_sample
+                ON artist_sample.video_id=artist_candidate.video_id
+              WHERE artist_candidate.artist_key=c.artist_key
+                AND artist_sample.observed_at >= (
+                  date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York'
+                )
+                AND artist_sample.observed_at < (
+                  date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York'
+                ) + interval '30 minutes'
+            ) artist_has_midnight_anchor
           FROM youtube_music_catalog_candidates c
           JOIN youtube_tracked_videos v ON v.video_id=c.video_id
           LEFT JOIN LATERAL (
@@ -1100,7 +1112,14 @@ export async function runYoutubeIntradayShadow(
           ORDER BY c.video_id,
                    CASE c.refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END
         ) due
-        ORDER BY min(last_observed_at) OVER (PARTITION BY artist_key) ASC NULLS FIRST,
+        ORDER BY CASE WHEN $3::boolean AND artist_has_midnight_anchor THEN 1 ELSE 0 END,
+                 CASE WHEN $3::boolean THEN
+                   row_number() OVER (
+                     PARTITION BY artist_key
+                     ORDER BY view_count DESC NULLS LAST, video_id
+                   )
+                 ELSE 1 END,
+                 min(last_observed_at) OVER (PARTITION BY artist_key) ASC NULLS FIRST,
                  row_number() OVER (
                    PARTITION BY artist_key
                    ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
@@ -1152,15 +1171,17 @@ export function startYoutubeIntradayShadowScheduler() {
   }
   const runScheduledCheck = (reason: string) => {
     const eastern = youtubeEasternMidnightAnchor(new Date());
-    const forceMidnightAnchor = eastern.shouldAnchor && lastEasternMidnightAnchorDate !== eastern.dateKey;
-    if (forceMidnightAnchor) lastEasternMidnightAnchorDate = eastern.dateKey;
+    // Run every five-minute pass in the anchor window. Each pass excludes
+    // videos already sampled in that window and prioritizes artists that do
+    // not have any midnight sample yet, so the whole roster receives a daily
+    // boundary instead of stopping after the first 250-video batch.
+    const forceMidnightAnchor = eastern.shouldAnchor;
     void runYoutubeIntradayShadow(
       forceMidnightAnchor ? "eastern-midnight-anchor" : reason,
       false,
       false,
     ).then(summary => {
       logger.info(summary, "[youtube-shadow:intraday] run complete");
-      if (forceMidnightAnchor && summary.status !== "complete") lastEasternMidnightAnchorDate = null;
       if (!discoveryRunning) {
         discoveryRunning = true;
         void bootstrapActiveCatalog()
@@ -1170,7 +1191,6 @@ export function startYoutubeIntradayShadowScheduler() {
       }
     }).catch(error => {
       logger.error({ error, reason }, "[youtube-shadow:intraday] scheduler invocation failed");
-      if (forceMidnightAnchor) lastEasternMidnightAnchorDate = null;
     });
   };
   setTimeout(() => runScheduledCheck("startup"), 1_000).unref();
