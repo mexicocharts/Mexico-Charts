@@ -10,12 +10,16 @@ import {
 } from "./youtube-shadow-bootstrap-policy";
 import { youtubeEasternMidnightAnchor } from "./youtube-intraday-shadow-scheduler";
 
-test("identifies the first fifteen minutes of the Eastern reporting day", () => {
+test("identifies the first thirty minutes of the Eastern reporting day", () => {
   assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:07:00Z")), {
     dateKey: "2026-08-21",
     shouldAnchor: true,
   });
   assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:15:00Z")), {
+    dateKey: "2026-08-21",
+    shouldAnchor: true,
+  });
+  assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:30:00Z")), {
     dateKey: "2026-08-21",
     shouldAnchor: false,
   });
