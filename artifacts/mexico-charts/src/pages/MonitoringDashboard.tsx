@@ -355,11 +355,11 @@ export default function MonitoringDashboard() {
 
   return (
     <div className="min-h-screen bg-[#070707] text-white">
-      <PageSEO title="Luis Miguel Monitor — Mexico Charts" description="Vista previa privada del panel de monitoreo de Luis Miguel." path="/internal/monitoring/dashboard" noindex />
+      <PageSEO title="Luis Miguel Monitor — Mexico Charts" description="Vista previa privada del panel de monitoreo de Luis Miguel." path="/admin/monitoring-demo" noindex />
 
       <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#080808]/95 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-4 px-4 sm:px-6 lg:px-8">
-          <Link href="/internal/monitoring" className="flex items-center gap-3">
+          <Link href="/monitoreo" className="flex items-center gap-3">
             <img src={`${import.meta.env.BASE_URL}mexico-charts-logo.png`} alt="Mexico Charts" className="h-9 w-9 object-contain" />
             <div className="hidden sm:block">
               <p className="text-[10px] font-black uppercase tracking-[0.16em]">Mexico Charts</p>
@@ -379,7 +379,7 @@ export default function MonitoringDashboard() {
       <div className="mx-auto grid max-w-[1600px] grid-cols-[minmax(0,1fr)] lg:grid-cols-[230px_minmax(0,1fr)]">
         <aside className="border-b border-white/[0.07] bg-[#090909] lg:min-h-[calc(100vh-4rem)] lg:border-b-0 lg:border-r">
           <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:block lg:px-4 lg:py-6">
-            <Link href="/internal/monitoring" className="mb-5 hidden items-center gap-2 px-3 text-[9px] font-black uppercase tracking-[0.14em] text-white/30 hover:text-white lg:flex"><ArrowLeft className="h-3.5 w-3.5" /> Volver</Link>
+            <Link href="/monitoreo" className="mb-5 hidden items-center gap-2 px-3 text-[9px] font-black uppercase tracking-[0.14em] text-white/30 hover:text-white lg:flex"><ArrowLeft className="h-3.5 w-3.5" /> Volver</Link>
             {nav.map(({ id, label, icon: Icon }) => (
               <button key={id} type="button" onClick={() => setView(id)} className={`flex shrink-0 items-center gap-3 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.12em] transition lg:mb-1 lg:w-full ${view === id ? "bg-[#39FF14] text-black" : "text-white/40 hover:bg-white/[0.04] hover:text-white"}`}>
                 <Icon className="h-4 w-4" /> {label}

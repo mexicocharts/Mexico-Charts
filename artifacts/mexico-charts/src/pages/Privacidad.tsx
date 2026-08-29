@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { BarChart3, ChevronRight, Cookie, ExternalLink, Home, Mail, MousePointer2, ShieldCheck, UserRound } from "lucide-react";
+import { BarChart3, ChevronRight, Cookie, CreditCard, ExternalLink, Home, Mail, MousePointer2, ShieldCheck, UserRound } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
 import { CONTACT_EMAIL, SITE_DOMAIN, SITE_URL } from "@/config/brand";
@@ -17,6 +17,7 @@ export default function Privacidad() {
     { title: pick("Servicios de terceros", "Third-party services"), body: pick("Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.", "Mexico Charts may link to or integrate content from external platforms such as Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster and others. Each external platform has its own privacy policies."), icon: ExternalLink },
     { title: pick("Datos personales", "Personal data"), body: pick("Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar su mensaje.", "Mexico Charts does not sell users' personal information. If someone contacts us by email or social media, the information shared is used only to respond to or manage the inquiry."), icon: UserRound },
     { title: pick("Cuentas y preferencias", "Accounts and preferences"), body: pick("Si creas una cuenta, el proveedor de autenticación gestiona el acceso seguro y Mexico Charts conserva los datos necesarios para tu perfil, plan, artistas guardados y preferencias de alertas. No exigimos una cuenta para ver las páginas públicas.", "If you create an account, the authentication provider manages secure access and Mexico Charts stores the information needed for your profile, plan, saved artists and alert preferences. An account is not required to view public pages."), icon: ShieldCheck },
+    { title: pick("Pagos y suscripciones", "Payments and subscriptions"), body: pick("Stripe procesa los datos de facturación de las suscripciones y comparte con Mexico Charts los identificadores y el estado necesarios para vincular el plan con tu cuenta y el artista seleccionado. Mexico Charts no almacena números completos de tarjeta.", "Stripe processes subscription billing details and shares the identifiers and status Mexico Charts needs to link the plan to your account and selected artist. Mexico Charts does not store complete card numbers."), icon: CreditCard },
     { title: pick("Cambios", "Changes"), body: pick("Esta política puede actualizarse conforme el sitio evolucione.", "This policy may be updated as the site evolves."), icon: MousePointer2 },
   ];
   const privacyJsonLd = {
@@ -120,7 +121,7 @@ export default function Privacidad() {
         </section>
 
         <p className="mt-8 max-w-3xl text-xs font-medium leading-6 text-zinc-700">
-          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 9 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 9, 2026.")}
+          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 29 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 29, 2026.")}
         </p>
       </div>
 

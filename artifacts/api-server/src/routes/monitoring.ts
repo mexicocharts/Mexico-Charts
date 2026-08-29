@@ -31,7 +31,7 @@ router.get("/monitoring/config", (_req, res) => {
     checkoutEnabled: paidMonitoringEnabled() && Boolean(stripeSecret()) && clerkConfigured(),
     accountsEnabled: clerkConfigured(),
     priceUsdCents: PRICE_USD_CENTS,
-    delivery: "daily_dashboard_monthly_report",
+    delivery: "daily_dashboard",
   });
 });
 
@@ -112,8 +112,8 @@ router.post("/monitoring/checkout", requireClerkUser, async (req, res) => {
     params.set(
       "line_items[0][price_data][product_data][description]",
       language === "en"
-        ? "Daily artist dashboard with permanent streaming history and a monthly report"
-        : "Panel diario del artista con historial permanente de streaming y reporte mensual",
+        ? "Daily artist monitoring with an accumulated metrics history"
+        : "Monitoreo diario del artista con historial acumulado de métricas",
     );
     params.set("metadata[artist_key]", catalogArtist.artistKey);
     params.set("metadata[artist_name]", artistName);
