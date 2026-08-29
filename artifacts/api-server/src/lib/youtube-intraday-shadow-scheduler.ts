@@ -72,6 +72,8 @@ export interface YoutubeIntradayShadowSummary {
   bootstrapArtists: number;
   bootstrapSavedCandidates: number;
   bootstrapErrors: string[];
+  seededCatalogVideos: number;
+  seededCatalogArtists: number;
   error?: string;
 }
 
@@ -348,6 +350,84 @@ function roundRobinArtists(rows: DueVideoRow[], limit: number): DueVideoRow[] {
   return selected;
 }
 
+async function seedApprovedVideoLinksIntoIntradayCatalog(client: PgClient) {
+  const seeded = await client.query<{ artist_key: string }>(`
+    INSERT INTO youtube_music_catalog_candidates (
+      artist_key,
+      artist_name,
+      artist_browse_id,
+      video_id,
+      title,
+      canonical_url,
+      evidence_source,
+      evidence_sources,
+      confidence_score,
+      status,
+      sampling_status,
+      refresh_tier,
+      evidence,
+      last_checked_at,
+      updated_at
+    )
+    SELECT
+      l.artist_key,
+      COALESCE(NULLIF(l.artist_name, ''), l.artist_key),
+      COALESCE(v.channel_id, yc.channel_id, 'existing-link:' || l.artist_key),
+      l.video_id,
+      COALESCE(v.title, ''),
+      'https://www.youtube.com/watch?v=' || l.video_id,
+      'approved_artist_video_link',
+      jsonb_build_array('approved_artist_video_link', l.source_type),
+      l.confidence_score,
+      'review',
+      'shadow',
+      CASE
+        WHEN COALESCE(v.published_at, now() - interval '10 years') >= now() - interval '14 days' THEN 'hot'
+        WHEN COALESCE(v.published_at, now() - interval '10 years') >= now() - interval '90 days' THEN 'warm'
+        ELSE 'baseline'
+      END,
+      jsonb_build_object(
+        'seedSource', 'youtube_artist_video_links',
+        'linkSourceType', l.source_type,
+        'linkConfidenceScore', l.confidence_score
+      ),
+      now(),
+      now()
+    FROM youtube_artist_video_links l
+    JOIN youtube_tracked_videos v ON v.video_id=l.video_id
+    LEFT JOIN youtube_channels yc ON yc.artist_key=l.artist_key
+    WHERE l.active=true
+      AND l.confidence_score >= 80
+    ON CONFLICT (artist_key, video_id) DO UPDATE SET
+      artist_name=excluded.artist_name,
+      artist_browse_id=CASE
+        WHEN youtube_music_catalog_candidates.artist_browse_id LIKE 'existing-link:%'
+          THEN excluded.artist_browse_id
+        ELSE youtube_music_catalog_candidates.artist_browse_id
+      END,
+      title=COALESCE(NULLIF(excluded.title, ''), youtube_music_catalog_candidates.title),
+      confidence_score=GREATEST(youtube_music_catalog_candidates.confidence_score, excluded.confidence_score),
+      sampling_status=CASE
+        WHEN youtube_music_catalog_candidates.status='rejected' THEN youtube_music_catalog_candidates.sampling_status
+        ELSE 'shadow'
+      END,
+      evidence_sources=(
+        SELECT jsonb_agg(DISTINCT source)
+        FROM jsonb_array_elements(
+          youtube_music_catalog_candidates.evidence_sources || excluded.evidence_sources
+        ) source
+      ),
+      evidence=youtube_music_catalog_candidates.evidence || excluded.evidence,
+      updated_at=now()
+    WHERE youtube_music_catalog_candidates.status <> 'rejected'
+    RETURNING artist_key
+  `);
+  return {
+    videos: seeded.rows.length,
+    artists: new Set(seeded.rows.map(row => row.artist_key)).size,
+  };
+}
+
 function numeric(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const parsed = Number(value);
@@ -585,6 +665,7 @@ export async function runYoutubeIntradayShadow(
     fetched: 0, saved: 0, missing: 0, artistsUpdated: 0,
     bootstrapArtists: 0, bootstrapSavedCandidates: 0,
     bootstrapErrors: [],
+    seededCatalogVideos: 0, seededCatalogArtists: 0,
   };
   if (!force && !enabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -596,6 +677,9 @@ export async function runYoutubeIntradayShadow(
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
+      const seededCatalog = await seedApprovedVideoLinksIntoIntradayCatalog(client);
+      summary.seededCatalogVideos = seededCatalog.videos;
+      summary.seededCatalogArtists = seededCatalog.artists;
       const used = await callsUsedToday(client);
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
@@ -633,8 +717,7 @@ export async function runYoutubeIntradayShadow(
           ORDER BY c.video_id,
                    CASE c.refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END
         ) due
-        ORDER BY CASE WHEN artist_key IN ('peso-pluma','fuerza-regida','natanael-cano','luis-miguel') THEN 0 ELSE 1 END,
-                 min(last_observed_at) OVER (PARTITION BY artist_key) ASC NULLS FIRST,
+        ORDER BY min(last_observed_at) OVER (PARTITION BY artist_key) ASC NULLS FIRST,
                  row_number() OVER (
                    PARTITION BY artist_key
                    ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
