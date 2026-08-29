@@ -1270,8 +1270,35 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
       <div className="max-w-[1200px] mx-auto px-5 sm:px-6 py-8 sm:py-10 flex flex-col gap-8 sm:gap-10">
 
+        <nav
+          aria-label="Secciones del perfil"
+          className="order-0 sticky top-[4.25rem] z-40 -mx-2 overflow-x-auto rounded-2xl border border-white/[0.07] bg-[#090909]/95 p-2 shadow-2xl backdrop-blur-xl"
+          data-testid="artist-profile-nav"
+        >
+          <div className="flex min-w-max items-center gap-1">
+            {[
+              ["#actualidad-resumen", "Actualidad"],
+              ["#musica", "Música"],
+              ["#audiencia", "Audiencia"],
+              ["#inteligencia", "Inteligencia"],
+              ["#touring", "Touring"],
+              ["#relacionados", "Relacionados"],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className="rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#39FF14]/30"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        </nav>
+
         {youtubeLiveVideos.length > 0 && (
-          <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} />
+          <div id="actualidad" className="order-1 scroll-mt-36">
+            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} />
+          </div>
         )}
 
         {/* ══════════════════════════════════════════════════════════
@@ -1280,6 +1307,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {hasAudienceStats && (
           <motion.section
+            id="audiencia"
+            className="order-7 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
@@ -1547,10 +1576,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
           </motion.section>
         )}
 
-        <ArtistIntelligenceLab artistName={artist.name} data={songstatsArtist} />
+        <div id="inteligencia" className="order-8 scroll-mt-36">
+          <ArtistIntelligenceLab artistName={artist.name} data={songstatsArtist} />
+        </div>
 
         {momentumSources.length > 0 && (
           <motion.section
+            id="actualidad-resumen"
+            className="order-2 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -1724,7 +1757,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         )}
 
         {kworbStats?._status === "pending" && !kworbStats.spotify && !kworbStats.youtube && !kworbStats.chartPositions && (
-          <section className="rounded-2xl border border-white/10 bg-white/[0.025] p-5" data-testid="section-kworb-pending">
+          <section className="order-6 rounded-2xl border border-white/10 bg-white/[0.025] p-5" data-testid="section-kworb-pending">
             <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Datos de streaming</div>
             <div className="mt-2 text-lg font-black text-white">Importación en proceso</div>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
@@ -1738,6 +1771,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {enrichment && (enrichment.spotify || enrichment.youtube || enrichment.musicbrainz) && (
           <motion.section
+            className="order-9"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
@@ -1896,6 +1930,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {topTracks.length > 0 && (
           <motion.section
+            id="musica"
+            className="order-3 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -2002,6 +2038,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {(kworbStats?.spotify || kworbStats?.youtube) && (
           <motion.section
+            className="order-4"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -2121,6 +2158,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {kworbStats?.chartPositions && kworbStats.chartPositions.length > 0 && (
           <motion.section
+            className="order-5"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -2323,6 +2361,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && (
           <motion.section
+            className="order-6"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -2446,6 +2485,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         ══════════════════════════════════════════════════════════ */}
         {artist.tours.length > 0 && (
           <motion.section
+            id="touring"
+            className="order-10 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
@@ -2498,6 +2539,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
         {similarArtists.length > 0 && (
           <motion.section
+            id="relacionados"
+            className="order-11 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
