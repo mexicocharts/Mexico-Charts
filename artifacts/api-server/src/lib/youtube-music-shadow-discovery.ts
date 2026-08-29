@@ -465,7 +465,7 @@ export async function resolveTrustedYoutubeIdentity(
 }
 
 async function fetchYoutubeJson<T extends { error?: { message?: string } }>(url: URL): Promise<T> {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   const payload = await response.json().catch(() => ({})) as T;
   if (!response.ok) {
     const error = new Error(payload.error?.message || `YouTube Data API request failed with status ${response.status}.`) as Error & {
@@ -769,6 +769,7 @@ export async function discoverYoutubeMusicArtist(input: {
   trustedIdentityCandidates?: YoutubeArtistIdentityMatch[];
   write?: boolean;
   includeCandidates?: boolean;
+  dbClient?: PgClient;
 }): Promise<YoutubeMusicDiscoverySummary> {
   const summary: YoutubeMusicDiscoverySummary = {
     artistKey: input.artistKey,
@@ -785,14 +786,20 @@ export async function discoverYoutubeMusicArtist(input: {
     parserWarnings: [],
   };
   let client: PgClient | null = null;
+  let ownsClient = false;
   let runId: number | null = null;
   let retryAttempts = 0;
   const onRetry = () => { retryAttempts += 1; };
   try {
     if (input.write) {
-      const { pool } = await import("@workspace/db");
       const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
-      client = await pool.connect();
+      if (input.dbClient) {
+        client = input.dbClient;
+      } else {
+        const { pool } = await import("@workspace/db");
+        client = await pool.connect();
+        ownsClient = true;
+      }
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       const run = await client.query<{ id: number }>(
@@ -943,7 +950,7 @@ export async function discoverYoutubeMusicArtist(input: {
          [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
-    client?.release();
+    if (ownsClient) client?.release();
   }
 }
 
@@ -954,6 +961,7 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
   sourceChannelId: string;
   evidenceSource: string;
   write?: boolean;
+  dbClient?: PgClient;
 }): Promise<YoutubeMusicDiscoverySummary> {
   const summary: YoutubeMusicDiscoverySummary = {
     artistKey: input.artistKey,
@@ -970,14 +978,20 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
     savedCandidates: 0,
   };
   let client: PgClient | null = null;
+  let ownsClient = false;
   let runId: number | null = null;
   let retryAttempts = 0;
   const onRetry = () => { retryAttempts += 1; };
   try {
     if (input.write) {
-      const { pool } = await import("@workspace/db");
       const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
-      client = await pool.connect();
+      if (input.dbClient) {
+        client = input.dbClient;
+      } else {
+        const { pool } = await import("@workspace/db");
+        client = await pool.connect();
+        ownsClient = true;
+      }
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       const run = await client.query<{ id: number }>(
@@ -1012,6 +1026,6 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
          [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
-    client?.release();
+    if (ownsClient) client?.release();
   }
 }
