@@ -628,7 +628,7 @@ export function startYoutubeIntradayShadowScheduler() {
       if (forceMidnightAnchor) lastEasternMidnightAnchorDate = null;
     });
   };
-  setTimeout(() => runScheduledCheck("startup"), 15 * 1000).unref();
+  setTimeout(() => runScheduledCheck("startup"), 1_000).unref();
   setInterval(() => runScheduledCheck("five-minute-check"), CHECK_MS).unref();
   logger.info({ dailyBudget: dailyBudget(), maxVideosPerRun: maxVideosPerRun() }, "[youtube-shadow:intraday] private automation enabled");
 }
