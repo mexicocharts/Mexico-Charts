@@ -176,7 +176,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   if (!active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
-  const [snapshots, extended, liveVideos] = await Promise.all([
+  const [snapshots, extended, liveVideos, liveVideoHistory] = await Promise.all([
     pool.query<MonitoringSnapshotRow>(`
       SELECT
         snapshot_date,
@@ -271,6 +271,33 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY latest.view_count DESC, c.title
       LIMIT 100
     `, [activeKeys]),
+    pool.query(`
+      SELECT
+        s.video_id,
+        s.snapshot_date,
+        s.view_count,
+        s.daily_view_delta
+      FROM youtube_video_daily_snapshots s
+      WHERE s.snapshot_date >= to_char(
+          (now() AT TIME ZONE 'America/New_York')::date - 29,
+          'YYYY-MM-DD'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM youtube_music_catalog_candidates c
+          WHERE c.video_id=s.video_id
+            AND (
+              lower(c.artist_key) = ANY($1::text[])
+              OR regexp_replace(
+                translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($1::text[])
+            )
+            AND c.status IN ('review','verified')
+            AND c.sampling_status='shadow'
+        )
+      ORDER BY s.video_id, s.snapshot_date
+    `, [activeKeys]),
   ]);
   const extendedRow = extended.rows[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
@@ -303,6 +330,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     liveVideos: liveVideos.rows,
+    liveVideoHistory: liveVideoHistory.rows,
   };
 }
 
