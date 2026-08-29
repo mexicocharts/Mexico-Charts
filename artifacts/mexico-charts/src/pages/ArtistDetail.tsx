@@ -1282,6 +1282,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               ["#audiencia", "Audiencia"],
               ["#inteligencia", "Inteligencia"],
               ["#touring", "Touring"],
+              ["#logros", "Logros"],
               ["#relacionados", "Relacionados"],
             ].map(([href, label]) => (
               <a
@@ -2535,12 +2536,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         {/* ══════════════════════════════════════════════════════════
             AMPROFON CERTIFICATIONS
         ══════════════════════════════════════════════════════════ */}
-        <ArtistCertifications artistName={artist.name} accent={artist.accent} />
+        <div id="logros" className="order-11 scroll-mt-36">
+          <ArtistCertifications artistName={artist.name} accent={artist.accent} />
+        </div>
 
         {similarArtists.length > 0 && (
           <motion.section
             id="relacionados"
-            className="order-11 scroll-mt-36"
+            className="order-12 scroll-mt-36"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
