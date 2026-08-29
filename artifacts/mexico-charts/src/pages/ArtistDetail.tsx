@@ -171,17 +171,20 @@ function YoutubeDailySparkline({
       />
 
       {coordinates.map((point, index) => (
-        <circle
-          key={`${point.date}-${index}`}
-          cx={point.x}
-          cy={point.y}
-          r={labeledIndexes.has(index) ? 4.5 : values.length <= 12 ? 2.5 : 1.5}
-          fill={labeledIndexes.has(index) ? color : "#090909"}
-          stroke={color}
-          strokeWidth={labeledIndexes.has(index) ? 2 : 1.5}
-        >
-          <title>{`${formatShortDateEs(point.date)}: ${Math.round(point.value).toLocaleString("es-MX")}`}</title>
-        </circle>
+        <g key={`${point.date}-${index}`} className="cursor-crosshair">
+          <circle cx={point.x} cy={point.y} r="10" fill="transparent">
+            <title>{`${formatShortDateEs(point.date)}: ${Math.round(point.value).toLocaleString("es-MX")}`}</title>
+          </circle>
+          <circle
+            cx={point.x}
+            cy={point.y}
+            r={labeledIndexes.has(index) ? 4.5 : values.length <= 12 ? 2.5 : 1.5}
+            fill={labeledIndexes.has(index) ? color : "#090909"}
+            stroke={color}
+            strokeWidth={labeledIndexes.has(index) ? 2 : 1.5}
+            pointerEvents="none"
+          />
+        </g>
       ))}
 
       <text x={padding.left} y={height - 8} fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="700">
@@ -1683,7 +1686,6 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       ? source.key === "youtube" ? "Vistas hoy" : "Streams hoy"
                       : source.key === "youtube" ? "Vistas totales" : "Streams totales";
                     const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
-                    const displayedDailyPoints = source.points.slice(-30);
                     const plottedValues = source.points.map(point => (
                       source.key === "youtube" ? point.dailyViews ?? 0 : point.dailyStreams ?? 0
                     ));
@@ -1799,28 +1801,6 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                 gradientId={`momentum-${source.key}-fill`}
                                 ariaLabel={`Tendencia diaria de ${source.label}`}
                               />
-                              <div className="mt-4 border-t border-white/[0.055] pt-4">
-	                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
-	                                  {source.key === "youtube" ? "Vistas diarias" : "Streams diarios"} · 30 días
-	                                </div>
-	                                <div className="text-[9px] font-bold text-zinc-700">Cada fecha y valor almacenado</div>
-	                              </div>
-	                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-6">
-                                {displayedDailyPoints.map(point => {
-                                  const value = source.key === "youtube" ? point.dailyViews : point.dailyStreams;
-                                  return (
-	                                    <div key={`${source.key}-${point.date}`} className="min-w-0 rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2.5">
-	                                      <div className="text-[8px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatChartDateEs(point.date)}</div>
-	                                      <div className="mt-1 break-words text-xs font-black tabular-nums text-zinc-200">{(value ?? 0).toLocaleString("es-MX")}</div>
-	                                      <div className="mt-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-zinc-800">
-	                                        {source.key === "youtube" ? "vistas" : "streams"}
-	                                      </div>
-	                                    </div>
-                                  );
-                                })}
-	                              </div>
-                              </div>
                             </>
                           ) : (
                             <div className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5">
