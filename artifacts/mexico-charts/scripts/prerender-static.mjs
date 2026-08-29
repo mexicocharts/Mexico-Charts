@@ -121,6 +121,22 @@ const routes = [
     ],
   },
   {
+    path: "/monitoreo",
+    title: "Monitoreo de artistas — Mexico Charts",
+    description:
+      "Monitorea artistas elegibles con historial acumulado, métricas de audiencia, streaming y planes desde $6 USD al mes.",
+    eyebrow: "Mexico Charts Monitor",
+    heading: "Sigue la evolución de tus artistas",
+    body:
+      "Planes de monitoreo para conservar el historial disponible de audiencia, streaming y catálogo de artistas elegibles.",
+    links: [
+      ["/monitoreo", "Monitoreo"],
+      ["/artists", "Artistas"],
+      ["/terminos", "Términos"],
+      ["/privacidad", "Privacidad"],
+    ],
+  },
+  {
     path: "/legacy-acts",
     title: "Legacy Acts — Mexico Charts",
     description:

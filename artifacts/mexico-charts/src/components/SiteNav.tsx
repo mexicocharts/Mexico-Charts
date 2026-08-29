@@ -11,6 +11,7 @@ const G = "#39FF14";
 const ARTISTAS_ITEMS = [
   { es: "Directorio", en: "Directory", href: "/artists", descriptionEs: "Roster completo con filtros", descriptionEn: "Complete roster with filters" },
   { es: "Comparar artistas", en: "Compare artists", href: "/compare", descriptionEs: "Dos perfiles, señales lado a lado", descriptionEn: "Two profiles, side by side" },
+  { es: "Monitorear artista", en: "Monitor an artist", href: "/monitoreo", descriptionEs: "Desde $6 USD al mes", descriptionEn: "From $6 USD per month" },
 ];
 
 const CHARTS_ITEMS = [
@@ -64,7 +65,7 @@ export default function SiteNav({ homeActive = false, showSearch = true }: Props
   const isActive = (href: string) => {
     if (homeActive) return href === "/";
     if (href === "/") return location === "/";
-    if (href === "/artists") return location === "/artists" || location.startsWith("/artist/") || location === "/compare";
+    if (href === "/artists") return location === "/artists" || location.startsWith("/artist/") || location === "/compare" || location.startsWith("/monitoreo");
     if (href === "/charts") return location === "/charts" || location === "/esta-semana";
     if (href === "/touring") return location === "/touring" || location.startsWith("/touring/");
     if (href === "/industria") return industryActive || location.startsWith("/insights/");

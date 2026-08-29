@@ -10,7 +10,7 @@ export default function MonitoringSuccess() {
   const { pick } = useLanguage();
   return (
     <div className="min-h-screen bg-[#070707] text-white">
-      <PageSEO title={pick("Monitoreo activado — Mexico Charts", "Monitoring activated — Mexico Charts")} description={pick("Confirmación del monitoreo mensual de Mexico Charts.", "Confirmation of Mexico Charts monthly monitoring.")} path="/internal/monitoring/success" noindex />
+      <PageSEO title={pick("Monitoreo activado — Mexico Charts", "Monitoring activated — Mexico Charts")} description={pick("Confirmación del monitoreo mensual de Mexico Charts.", "Confirmation of Mexico Charts monthly monitoring.")} path="/monitoreo/exito" noindex />
       <SiteNav />
       <main className="mx-auto flex min-h-[72vh] max-w-3xl items-center px-6 py-16 text-center lg:px-10">
         <div className="w-full rounded-3xl border border-[#39FF14]/20 bg-gradient-to-br from-[#39FF14]/[0.08] to-white/[0.02] p-8 sm:p-12">

@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink, PencilLine } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, BellRing, Database, ExternalLink, PencilLine } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
@@ -1179,6 +1179,15 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   >
                     <PencilLine className="h-3.5 w-3.5" />
                     Editar perfil
+                  </Link>
+                  <Link
+                    href={`/monitoreo?artist=${encodeURIComponent(canonicalArtistKey)}`}
+                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
+                    style={{ background: artist.accent, boxShadow: `0 0 18px ${artist.accent}30` }}
+                    data-testid="artist-monitoring-cta"
+                  >
+                    <BellRing className="h-3.5 w-3.5" />
+                    Monitorear desde $6/mes
                   </Link>
               </div>
             )}

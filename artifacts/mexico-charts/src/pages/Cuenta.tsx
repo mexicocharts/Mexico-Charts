@@ -9,7 +9,10 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 type AccountPayload = {
+  plan: string;
+  subscriptionStatus: string | null;
   savedArtists: Array<{ artistKey: string; artistName: string; alertsEnabled: boolean }>;
+  monitoringSubscriptions: Array<{ stripeSubscriptionId: string; artistKey: string; artistName: string; status: string }>;
   profile: null | {
     username: string;
     displayName: string | null;
@@ -103,10 +106,20 @@ export default function Cuenta() {
               <button onClick={() => void auth.signOut()} className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/40 hover:text-white"><LogOut className="h-4 w-4" />{pick("Cerrar sesión", "Sign out")}</button>
             </header>
 
-            <section className="mt-10 grid gap-4 sm:grid-cols-2">
+            <section className="mt-10 grid gap-4 sm:grid-cols-3">
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bookmark className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Artistas guardados", "Saved artists")}</p></article>
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bell className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.filter(a => a.alertsEnabled).length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Alertas activas", "Active alerts")}</p></article>
+              <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Sparkles className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.monitoringSubscriptions.filter(item => item.status === "active" || item.status === "trialing").length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Monitoreos activos", "Active monitoring")}</p></article>
             </section>
+
+            {!!data?.monitoringSubscriptions.length && (
+              <section className="mt-8 overflow-hidden rounded-2xl border border-[#39FF14]/15 bg-[#39FF14]/[0.035]">
+                <div className="border-b border-white/[0.06] px-5 py-4"><p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">Mexico Charts Monitor</p></div>
+                {data.monitoringSubscriptions.map(item => (
+                  <Link key={item.stripeSubscriptionId} href={canonicalArtistHref(item.artistKey) ?? "/artists"} className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4 last:border-0 hover:bg-white/[0.025]"><span><strong className="block text-sm">{item.artistName}</strong><span className="mt-1 block text-[9px] font-black uppercase tracking-[0.14em] text-white/35">{item.status}</span></span><ChevronRight className="h-4 w-4 text-[#39FF14]" /></Link>
+                ))}
+              </section>
+            )}
 
             {formMessage && (
               <div className="mt-6 flex items-center gap-3 rounded-xl border border-[#39FF14]/20 bg-[#39FF14]/[0.06] px-4 py-3 text-xs text-white/65">
