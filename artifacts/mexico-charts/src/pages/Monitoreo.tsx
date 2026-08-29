@@ -144,6 +144,8 @@ export default function Monitoreo() {
       pick("Historial privado que crece cada día", "Private history that grows every day"),
       pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"),
       pick("Señales de lanzamientos nuevos", "New-release signals"),
+      pick("Release Impact de cada lanzamiento", "Release Impact for every release"),
+      pick("Resumen ejecutivo listo para imprimir", "Print-ready executive summary"),
       pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
     ],
     seleccion: [
@@ -152,6 +154,8 @@ export default function Monitoreo() {
       pick("Audiencia, crecimiento y catálogo de cada artista", "Audience, growth and catalog for every artist"),
       pick("Alertas individuales por artista", "Individual alerts for every artist"),
       pick("Vista consolidada de la selección", "Consolidated selection view"),
+      pick("Ranking de videos entre los 3 artistas", "Cross-artist video ranking"),
+      pick("Resumen semanal combinado", "Combined weekly summary"),
     ],
     profesional: [
       pick("Paneles diarios para hasta 10 artistas", "Daily dashboards for up to 10 artists"),
@@ -159,6 +163,8 @@ export default function Monitoreo() {
       pick("Reportes individuales y consolidados", "Individual and consolidated reports"),
       pick("Exportaciones para análisis y presentaciones", "Exports for analysis and presentations"),
       pick("Activación y soporte prioritarios", "Priority setup and support"),
+      pick("Calendario de lanzamientos del portafolio", "Portfolio release calendar"),
+      pick("Benchmarks del grupo seleccionado", "Selected-group benchmarks"),
     ],
     catalogo: [
       pick("Acceso a todos los artistas elegibles", "Access to every eligible artist"),
@@ -166,6 +172,8 @@ export default function Monitoreo() {
       pick("Historial, discografías y alertas", "History, catalogs and alerts"),
       pick("Reportes generales y por artista", "Catalog-wide and artist reports"),
       pick("Acceso sujeto a confirmación comercial", "Access subject to commercial confirmation"),
+      pick("Radar de crecimiento y nuevos lanzamientos", "Growth and new-release radar"),
+      pick("Rankings generales del catálogo", "Catalog-wide rankings"),
     ],
   };
 

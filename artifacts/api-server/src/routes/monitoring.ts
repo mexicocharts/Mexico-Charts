@@ -329,6 +329,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     growth: insight?.growth ?? {},
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
+    latestReleaseImpact: insight?.latestReleaseImpact ?? null,
     liveVideos: liveVideos.rows,
     liveVideoHistory: liveVideoHistory.rows,
   };
