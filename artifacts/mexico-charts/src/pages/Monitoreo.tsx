@@ -297,7 +297,7 @@ export default function Monitoreo() {
             <div>
               <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#39FF14]"><Sparkles className="h-3.5 w-3.5" /> {pick("Más que una cifra", "More than a number")}</span>
               <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente; el Monitor conserva el historial", "The profile shows today; Monitor keeps the history")}</h2>
-              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por conservar su evolución, revisar el catálogo disponible y volver a cada lectura guardada desde tu activación.", "You are not paying to see a public number again. You are paying to preserve its evolution, review the available catalog and return to each reading saved after activation.")}</p>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("El perfil gratuito muestra el presente y 15 días de tendencia. El Monitor abre 30 días, 90 días y todo el historial real guardado disponible.", "The free profile shows the present and a 15-day trend. Monitor unlocks 30 days, 90 days and all available stored history.")}</p>
             </div>
 
             <div className="grid overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] sm:grid-cols-2">
@@ -305,7 +305,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">{pick("Perfil gratuito", "Free profile")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La foto de hoy", "Today's snapshot")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/40">
-                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Resumen general del artista", "General artist overview"), pick("Datos públicos disponibles", "Available visible context")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
+                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Tendencia máxima de 15 días", "Maximum 15-day trend"), pick("Resumen general del artista", "General artist overview")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
                 </ul>
               </div>
               <div className="relative overflow-hidden bg-[linear-gradient(145deg,rgba(57,255,20,0.10),rgba(57,255,20,0.015)_62%)] p-6 sm:p-8">
@@ -313,7 +313,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Métricas diarias disponibles", "Available daily metrics"), pick("Historial acumulado por fecha", "Accumulated history by date"), pick("Cambios y tendencias", "Changes and trends"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function Monitoreo() {
                 </div>
 
                 <div className="flex gap-6 overflow-hidden border-b border-white/[0.07] px-4 sm:px-6">
-                  {[pick("Resumen", "Overview"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience"), pick("Alertas", "Alerts")].map((tab, index) => (
+                  {[pick("Resumen", "Overview"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience"), "Artist Pulse"].map((tab, index) => (
                     <span key={tab} className={`relative shrink-0 py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-black" : "text-white/25"}`}>
                       {index === 0 && <span className="absolute -inset-x-3 inset-y-0 bg-[#39FF14]" />}
                       <span className="relative">{tab}</span>

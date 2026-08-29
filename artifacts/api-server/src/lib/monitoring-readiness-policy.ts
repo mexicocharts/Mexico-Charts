@@ -104,7 +104,7 @@ export function evaluateMonitoringReadiness(
     historicStats: input.historicStats,
     audience: input.audience,
     audienceDetails: input.audienceDetails,
-  });
+  }, { access: "monitoring" });
   const current = mergedCurrent(insight, input.currentMetrics);
   const availablePlatformMetrics = PLATFORM_METRICS.filter(key => positive(current[key])).length;
   const completeGrowthMetrics = Object.values(insight.growth).filter(growth => (

@@ -176,7 +176,6 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   if (!active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
-  const activationDate = active.created_at.toISOString().slice(0, 10);
   const [snapshots, extended] = await Promise.all([
     pool.query<MonitoringSnapshotRow>(`
       SELECT
@@ -194,9 +193,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         deezer_followers
       FROM songstats_artist_daily_snapshots
       WHERE lower(artist_key) = ANY($1::text[])
-        AND snapshot_date >= $2
       ORDER BY snapshot_date ASC
-    `, [activeKeys, activationDate]),
+    `, [activeKeys]),
     pool.query<{
       historic_stats: unknown;
       audience: unknown;
@@ -216,7 +214,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     audience: extendedRow.audience,
     audienceDetails: extendedRow.audience_details,
     catalog: extendedRow.catalog,
-  }) : null;
+  }, { access: "monitoring" }) : null;
   const history = snapshots.rows.map(normalizedSnapshot);
   const catalog = insight?.catalog ?? {
     releaseCount: 0,
