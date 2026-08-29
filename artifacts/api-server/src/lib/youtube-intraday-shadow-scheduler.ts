@@ -586,8 +586,15 @@ export async function runYoutubeIntradayShadow(
           ORDER BY c.video_id,
                    CASE c.refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END
         ) due
-        ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
-                 last_observed_at ASC NULLS FIRST, video_id
+        ORDER BY row_number() OVER (
+                   PARTITION BY artist_key
+                   ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
+                            last_observed_at ASC NULLS FIRST, video_id
+                 ),
+                 artist_key,
+                 CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
+                 last_observed_at ASC NULLS FIRST,
+                 video_id
         LIMIT $1
       `, [maxVideosPerRun() * 10, forceMeasure, fillEasternMidnightAnchor]);
       summary.dueVideos = rows.rows.length;
