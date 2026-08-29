@@ -64,6 +64,13 @@ function syncLimit(): number {
   return configuredSongstatsMonthlyArtistLimit();
 }
 
+function intelligenceBatchSize(): number {
+  const parsed = Number(process.env["SONGSTATS_INTELLIGENCE_BATCH_SIZE"] ?? "10");
+  return Number.isFinite(parsed)
+    ? Math.max(1, Math.min(50, Math.floor(parsed)))
+    : 10;
+}
+
 async function snapshotProgress(
   snapshotDate: string,
   limit: number,
@@ -307,7 +314,11 @@ async function runSongstatsIntelligenceBackfill(): Promise<void> {
     intelligenceLastError = null;
     const snapshotDate = todayIso();
     const intelligence = await syncSongstatsExtendedData({
-      limit: syncLimit(),
+      // Process a small rotating batch on every scheduler pass. The extended
+      // service selects stale/incomplete artists first, so the full licensed
+      // roster still fills automatically without one long job starving public
+      // API and image requests of database connections.
+      limit: Math.min(syncLimit(), intelligenceBatchSize()),
       endpoints: ["audience", "audience_details", "catalog"],
       historyStartDate: daysBefore(snapshotDate, 90),
       historyEndDate: snapshotDate,
@@ -377,8 +388,10 @@ async function scheduledCheck(): Promise<void> {
   }
 
   try {
-    await runSongstatsIntelligenceBackfill();
+    // Keep the public daily snapshot ahead of the heavier profile-intelligence
+    // backfill so current metrics recover promptly after a deploy or restart.
     await runScheduledSongstatsSnapshot();
+    await runSongstatsIntelligenceBackfill();
   } catch (error) {
     logger.error({ error }, "[songstats] daily snapshot scheduler failed");
   }
