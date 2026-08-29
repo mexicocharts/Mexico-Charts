@@ -1430,7 +1430,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
         {youtubeLiveVideos.length > 0 && (
           <div id="actualidad" className="order-1 scroll-mt-36">
-            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} />
+            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} publicPreview />
           </div>
         )}
 

@@ -32,6 +32,7 @@ import SiteNav from "@/components/SiteNav";
 import { EditorialFooter } from "@/components/EditorialLayout";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import { useLanguage } from "@/i18n/LanguageContext";
+import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 
 const G = "#39FF14";
 type MetricKey =
@@ -109,8 +110,9 @@ type DashboardPayload = {
       platformCount: number;
     }>;
   };
+  liveVideos: YouTubeLivePreviewVideo[];
 };
-type View = "resumen" | "historial" | "catalogo" | "audiencia" | "reportes";
+type View = "resumen" | "videos" | "historial" | "catalogo" | "audiencia" | "reportes";
 type HistoryRange = "30d" | "90d" | "all";
 
 function exact(value: number | null | undefined) {
@@ -428,6 +430,7 @@ export default function MonitoringDashboard() {
   }
   const tabs: Array<{ id: View; label: string }> = [
     { id: "resumen", label: pick("Resumen", "Overview") },
+    { id: "videos", label: pick("Videos en vivo", "Live videos") },
     { id: "historial", label: pick("Historial", "History") },
     { id: "catalogo", label: pick("Catálogo", "Catalog") },
     { id: "audiencia", label: pick("Audiencia", "Audience") },
@@ -695,6 +698,21 @@ export default function MonitoringDashboard() {
                 <div className="mt-7 h-80">
                   <HistoryChart data={chartData} />
                 </div>
+              </section>
+            )}
+            {view === "videos" && (
+              <section className="mt-7">
+                {data.liveVideos.length ? (
+                  <>
+                    <div className="mb-4 rounded-2xl border border-[#39FF14]/15 bg-[#39FF14]/[0.035] px-5 py-4">
+                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Acceso completo del Monitor</p>
+                      <p className="mt-1 text-sm text-white/55">{data.liveVideos.length} videos rastreados con conteo actual, cambio desde la lectura anterior, hoy ET y último día completo.</p>
+                    </div>
+                    <YouTubeLivePublicPreview artistName={data.subscription.artistName} videos={data.liveVideos} />
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-white/[0.08] p-10 text-center text-sm text-white/35">Todavía no hay videos verificados con contador para este artista.</div>
+                )}
               </section>
             )}
             {view === "catalogo" && (

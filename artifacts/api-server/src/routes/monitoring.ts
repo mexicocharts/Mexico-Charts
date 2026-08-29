@@ -176,7 +176,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   if (!active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
-  const [snapshots, extended] = await Promise.all([
+  const [snapshots, extended, liveVideos] = await Promise.all([
     pool.query<MonitoringSnapshotRow>(`
       SELECT
         snapshot_date,
@@ -206,6 +206,70 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY updated_at DESC
       LIMIT 1
+    `, [activeKeys]),
+    pool.query(`
+      WITH eastern_bounds AS (
+        SELECT
+          (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
+          ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
+      )
+      SELECT
+        c.artist_name,
+        c.video_id,
+        COALESCE(NULLIF(v.title, ''), c.title) title,
+        v.thumbnail_url,
+        c.canonical_url,
+        latest.view_count,
+        latest.view_delta,
+        latest.seconds_since_previous,
+        latest.observed_at::text observed_at,
+        CASE WHEN previous_start.view_count IS NULL OR today_start.view_count IS NULL THEN NULL
+          ELSE GREATEST(0, today_start.view_count - previous_start.view_count) END views_24h,
+        previous_start.observed_at::text views_24h_started_at,
+        today_start.observed_at::text views_24h_ended_at,
+        CASE WHEN today_start.view_count IS NULL OR latest.view_count IS NULL THEN NULL
+          ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
+        today_start.observed_at::text views_today_et_started_at,
+        CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
+      FROM youtube_music_catalog_candidates c
+      CROSS JOIN eastern_bounds bounds
+      JOIN youtube_tracked_videos v ON v.video_id=c.video_id
+      JOIN LATERAL (
+        SELECT s.view_count, s.view_delta, s.seconds_since_previous, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+        ORDER BY s.observed_at DESC
+        LIMIT 1
+      ) latest ON true
+      LEFT JOIN LATERAL (
+        SELECT s.view_count, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+          AND s.observed_at >= bounds.previous_start
+          AND s.observed_at < bounds.previous_start + interval '30 minutes'
+        ORDER BY s.observed_at
+        LIMIT 1
+      ) previous_start ON true
+      LEFT JOIN LATERAL (
+        SELECT s.view_count, s.observed_at
+        FROM youtube_video_intraday_shadow_snapshots s
+        WHERE s.video_id=c.video_id
+          AND s.observed_at >= bounds.today_start
+          AND s.observed_at < bounds.today_start + interval '30 minutes'
+        ORDER BY s.observed_at
+        LIMIT 1
+      ) today_start ON true
+      WHERE (
+          lower(c.artist_key) = ANY($1::text[])
+          OR regexp_replace(
+            translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = ANY($1::text[])
+        )
+        AND c.status IN ('review','verified')
+        AND c.sampling_status='shadow'
+      ORDER BY latest.view_count DESC, c.title
+      LIMIT 100
     `, [activeKeys]),
   ]);
   const extendedRow = extended.rows[0];
@@ -238,6 +302,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     growth: insight?.growth ?? {},
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
+    liveVideos: liveVideos.rows,
   };
 }
 

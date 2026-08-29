@@ -142,6 +142,7 @@ export default function Monitoreo() {
       pick("Artist Pulse: qué cambió desde ayer", "Artist Pulse: what changed since yesterday"),
       pick("Ganancias, descensos e hitos detectados", "Detected gains, declines and milestones"),
       pick("Historial privado que crece cada día", "Private history that grows every day"),
+      pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"),
       pick("Señales de lanzamientos nuevos", "New-release signals"),
       pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
     ],
@@ -305,7 +306,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">{pick("Perfil gratuito", "Free profile")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La foto de hoy", "Today's snapshot")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/40">
-                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Tendencia máxima de 15 días", "Maximum 15-day trend"), pick("Resumen general del artista", "General artist overview")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
+                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Tendencia máxima de 15 días", "Maximum 15-day trend"), pick("10 videos con contador en vivo", "10 videos with live counters"), pick("Resumen general del artista", "General artist overview")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
                 </ul>
               </div>
               <div className="relative overflow-hidden bg-[linear-gradient(145deg,rgba(57,255,20,0.10),rgba(57,255,20,0.015)_62%)] p-6 sm:p-8">
@@ -313,7 +314,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
@@ -357,7 +358,7 @@ export default function Monitoreo() {
                 </div>
 
                 <div className="flex gap-6 overflow-hidden border-b border-white/[0.07] px-4 sm:px-6">
-                  {[pick("Resumen", "Overview"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience"), "Artist Pulse"].map((tab, index) => (
+                  {[pick("Resumen", "Overview"), pick("Videos en vivo", "Live videos"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience")].map((tab, index) => (
                     <span key={tab} className={`relative shrink-0 py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-black" : "text-white/25"}`}>
                       {index === 0 && <span className="absolute -inset-x-3 inset-y-0 bg-[#39FF14]" />}
                       <span className="relative">{tab}</span>
