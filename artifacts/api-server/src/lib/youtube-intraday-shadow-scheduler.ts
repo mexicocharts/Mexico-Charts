@@ -26,6 +26,7 @@ type PgClient = {
 };
 
 interface DueVideoRow {
+  artist_key: string;
   video_id: string;
   refresh_tier: YoutubeRefreshTier;
   last_observed_at: string | null;
@@ -325,6 +326,28 @@ function batch<T>(items: T[], size: number): T[][] {
   return groups;
 }
 
+function roundRobinArtists(rows: DueVideoRow[], limit: number): DueVideoRow[] {
+  const queues = new Map<string, DueVideoRow[]>();
+  for (const row of rows) {
+    const queue = queues.get(row.artist_key) ?? [];
+    queue.push(row);
+    queues.set(row.artist_key, queue);
+  }
+  const selected: DueVideoRow[] = [];
+  while (selected.length < limit) {
+    let added = false;
+    for (const queue of queues.values()) {
+      const row = queue.shift();
+      if (!row) continue;
+      selected.push(row);
+      added = true;
+      if (selected.length >= limit) break;
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
 function numeric(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const parsed = Number(value);
@@ -530,7 +553,7 @@ export async function runYoutubeIntradayShadow(
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
           SELECT DISTINCT ON (c.video_id)
-            c.video_id, c.refresh_tier, c.last_observed_at::text,
+            c.video_id, c.artist_key, c.refresh_tier, c.last_observed_at::text,
             v.published_at::text, v.view_count, daily.daily_view_delta
           FROM youtube_music_catalog_candidates c
           JOIN youtube_tracked_videos v ON v.video_id=c.video_id
@@ -566,11 +589,12 @@ export async function runYoutubeIntradayShadow(
         ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
                  last_observed_at ASC NULLS FIRST, video_id
         LIMIT $1
-      `, [maxVideosPerRun(), forceMeasure, fillEasternMidnightAnchor]);
+      `, [maxVideosPerRun() * 10, forceMeasure, fillEasternMidnightAnchor]);
       summary.dueVideos = rows.rows.length;
-      const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: dailyBudget(), callsUsed: used, requestedVideos: rows.rows.length });
+      const fairRows = roundRobinArtists(rows.rows, maxVideosPerRun());
+      const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: dailyBudget(), callsUsed: used, requestedVideos: fairRows.length });
       if (allowedBatches <= 0 && rows.rows.length) return { ...summary, status: "quota_exhausted" };
-      const selected = rows.rows.slice(0, allowedBatches * 50);
+      const selected = fairRows.slice(0, allowedBatches * 50);
       summary.requestedVideos = selected.length;
 
       for (const group of batch(selected, 50)) {
