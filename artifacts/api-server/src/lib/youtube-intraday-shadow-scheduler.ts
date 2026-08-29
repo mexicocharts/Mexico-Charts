@@ -586,7 +586,9 @@ export async function runYoutubeIntradayShadow(
           ORDER BY c.video_id,
                    CASE c.refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END
         ) due
-        ORDER BY row_number() OVER (
+        ORDER BY CASE WHEN artist_key IN ('peso-pluma','fuerza-regida','natanael-cano','luis-miguel') THEN 0 ELSE 1 END,
+                 min(last_observed_at) OVER (PARTITION BY artist_key) ASC NULLS FIRST,
+                 row_number() OVER (
                    PARTITION BY artist_key
                    ORDER BY CASE refresh_tier WHEN 'hot' THEN 1 WHEN 'warm' THEN 2 ELSE 3 END,
                             last_observed_at ASC NULLS FIRST, video_id
