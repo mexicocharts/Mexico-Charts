@@ -1194,7 +1194,16 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
         ORDER BY s.observed_at
         LIMIT 1
       ) today_start ON true
-      WHERE c.artist_key=$1
+      WHERE (
+          c.artist_key=$1
+          OR regexp_replace(
+            translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower($1), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+        )
         AND c.status IN ('review','verified')
         AND c.sampling_status='shadow'
       ORDER BY latest.view_count DESC, c.title
