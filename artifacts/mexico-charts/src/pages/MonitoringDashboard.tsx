@@ -111,6 +111,15 @@ type DashboardPayload = {
     }>;
   };
   liveVideos: YouTubeLivePreviewVideo[];
+  latestReleaseImpact: null | {
+    release: { id: string; title: string; type: string; releaseDate: string | null; artworkUrl: string | null; platformCount: number };
+    score: number | null;
+    confidence: "high" | "medium" | "collecting";
+    platformsMeasured: number;
+    lift7: number | null;
+    lift30: number | null;
+    lift90: number | null;
+  };
   liveVideoHistory: Array<{
     video_id: string;
     snapshot_date: string;
@@ -771,6 +780,17 @@ export default function MonitoringDashboard() {
             )}
             {view === "catalogo" && (
               <section className="mt-7">
+                {data.latestReleaseImpact && (
+                  <article className="mb-4 overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,.13),transparent_45%)] p-6 sm:p-8">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">Release Impact · análisis privado</p>
+                    <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
+                      <div><h2 className="text-2xl font-black">{data.latestReleaseImpact.release.title}</h2><p className="mt-2 text-sm text-white/40">Impacto observado después del lanzamiento · confianza {data.latestReleaseImpact.confidence} · {data.latestReleaseImpact.platformsMeasured} plataformas medidas</p></div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([["7 días", data.latestReleaseImpact.lift7], ["30 días", data.latestReleaseImpact.lift30], ["90 días", data.latestReleaseImpact.lift90]] as const).map(([label, value]) => <div key={label} className="min-w-24 rounded-xl border border-white/[0.08] bg-black/20 p-3 text-center"><p className="text-[8px] font-black uppercase text-white/30">{label}</p><p className={`mt-1 text-lg font-black ${(value ?? 0) >= 0 ? "text-[#39FF14]" : "text-red-400"}`}>{value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}</p></div>)}
+                      </div>
+                    </div>
+                  </article>
+                )}
                 <div className="grid gap-3 sm:grid-cols-3">
                   <MetricCard
                     label={pick("Lanzamientos", "Releases")}
@@ -888,6 +908,9 @@ export default function MonitoringDashboard() {
                     {reportLoading
                       ? pick("Generando…", "Generating…")
                       : pick("Descargar CSV", "Download CSV")}
+                  </button>
+                  <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white/65">
+                    <LayoutDashboard className="h-4 w-4" /> {pick("Imprimir resumen ejecutivo", "Print executive summary")}
                   </button>
                 </div>
                 {reportError && (
