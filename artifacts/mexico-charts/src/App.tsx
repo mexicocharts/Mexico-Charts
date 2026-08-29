@@ -140,13 +140,13 @@ function Router() {
           <Route path="/contribuir" component={CommunityContribute} />
           <Route path="/cuenta" component={Cuenta} />
           <Route path="/monitoreo/exito" component={MonitoringSuccess} />
+          <Route path="/monitoreo/:artistKey" component={MonitoringDashboard} />
           <Route path="/monitoreo" component={Monitoreo} />
           <Route path="/admin/social-templates" component={SocialTemplates} />
           <Route path="/admin/api-coverage" component={ApiCoverage} />
           <Route path="/admin/enrichment-review" component={EnrichmentReview} />
           <Route path="/admin/discovery-review" component={DiscoveryReview} />
           <Route path="/admin/touring" component={TouringAdmin} />
-          <Route path="/admin/monitoring-demo" component={MonitoringDashboard} />
           <Route path="/admin" component={AdminHub} />
           <Route component={NotFound} />
         </Switch>

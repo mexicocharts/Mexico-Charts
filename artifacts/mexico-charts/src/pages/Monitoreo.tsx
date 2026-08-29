@@ -143,7 +143,7 @@ export default function Monitoreo() {
       pick("Métricas actuales de audiencia y streaming", "Current audience and streaming metrics"),
       pick("Historial por día, mes y año", "Daily, monthly and yearly history"),
       pick("Cambios de audiencia por periodo", "Audience changes by period"),
-      pick("Historial acumulado desde la activación", "History accumulated from activation"),
+      pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
     ],
     seleccion: [
       pick("Paneles diarios para hasta 3 artistas", "Daily dashboards for up to 3 artists"),
@@ -313,7 +313,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Métricas diarias disponibles", "Available daily metrics"), pick("Historial acumulado por fecha", "Accumulated history by date"), pick("Cambios, tendencias y comparaciones", "Changes, trends and comparisons"), pick("Audiencia y catálogo licenciado", "Licensed audience and catalog")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Métricas diarias disponibles", "Available daily metrics"), pick("Historial acumulado por fecha", "Accumulated history by date"), pick("Cambios y tendencias", "Changes and trends"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
