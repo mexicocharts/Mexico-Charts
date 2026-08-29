@@ -49,6 +49,16 @@ function formatClock(iso: string | null): string {
   }).format(new Date(iso));
 }
 
+function formatInterval(value: string | number | null | undefined): string {
+  const seconds = numberValue(value);
+  if (seconds <= 0) return "intervalo pendiente";
+  if (seconds < 90) return `${Math.round(seconds)} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes} min`;
+  const hours = seconds / 3600;
+  return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)} h`;
+}
+
 function useRollingInteger(value: string | number | null | undefined) {
   const target = numberValue(value);
   const [displayed, setDisplayed] = useState(target);
@@ -154,7 +164,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
             <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
               <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Última lectura</div>
               <div className="mt-1 text-lg font-black"><GainValue value={featured.view_delta} /></div>
-              <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">Desde el conteo anterior</div>
+              <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">Desde el conteo anterior · {formatInterval(featured.seconds_since_previous)}</div>
             </div>
             <div className="rounded-xl border border-[#39FF14]/10 bg-[#39FF14]/[0.025] p-3">
               <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Hoy · ET</div>
@@ -182,6 +192,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
                   <div>
                     <div className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Última lectura</div>
                     <div className="mt-0.5 text-xs font-black"><GainValue value={video.view_delta} /></div>
+                    <div className="mt-0.5 text-[7px] font-bold uppercase tracking-[0.1em] text-zinc-700">{formatInterval(video.seconds_since_previous)}</div>
                   </div>
                   <div className="text-right">
                     <div className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Hoy desde 12 a.m. ET</div>
