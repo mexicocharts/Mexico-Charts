@@ -111,6 +111,12 @@ type DashboardPayload = {
     }>;
   };
   liveVideos: YouTubeLivePreviewVideo[];
+  liveVideoHistory: Array<{
+    video_id: string;
+    snapshot_date: string;
+    view_count: string | number | null;
+    daily_view_delta: string | number | null;
+  }>;
 };
 type View = "resumen" | "videos" | "historial" | "catalogo" | "audiencia" | "reportes";
 type HistoryRange = "30d" | "90d" | "all";
@@ -339,6 +345,7 @@ export default function MonitoringDashboard() {
   const [reportMonth, setReportMonth] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
+  const [selectedVideoId, setSelectedVideoId] = useState("");
   const { data, isLoading, error } = useQuery<DashboardPayload>({
     queryKey: ["monitoring-dashboard", auth.userId, artistKey],
     enabled: auth.configured && auth.isSignedIn && Boolean(artistKey),
@@ -386,6 +393,21 @@ export default function MonitoringDashboard() {
   );
   const current = data?.current;
   const growth30 = data?.growth?.spotifyMonthlyListeners?.days30;
+  const activeVideoId = selectedVideoId || data?.liveVideos[0]?.video_id || "";
+  const activeVideo = data?.liveVideos.find(video => video.video_id === activeVideoId) ?? null;
+  const videoHistory = useMemo(
+    () => (data?.liveVideoHistory ?? [])
+      .filter(point => point.video_id === activeVideoId && point.daily_view_delta != null)
+      .map(point => ({ date: point.snapshot_date, value: Number(point.daily_view_delta) })),
+    [activeVideoId, data?.liveVideoHistory],
+  );
+  const videoPulse = useMemo(() => {
+    const videos = data?.liveVideos ?? [];
+    const totalToday = videos.reduce((sum, video) => sum + (video.views_today_et == null ? 0 : Number(video.views_today_et)), 0);
+    const totalLastDay = videos.reduce((sum, video) => sum + (video.views_24h == null ? 0 : Number(video.views_24h)), 0);
+    const leader = [...videos].sort((a, b) => Number(b.views_today_et ?? -1) - Number(a.views_today_et ?? -1))[0] ?? null;
+    return { totalToday, totalLastDay, leader };
+  }, [data?.liveVideos]);
 
   async function downloadReport() {
     setReportLoading(true);
@@ -704,9 +726,41 @@ export default function MonitoringDashboard() {
               <section className="mt-7">
                 {data.liveVideos.length ? (
                   <>
-                    <div className="mb-4 rounded-2xl border border-[#39FF14]/15 bg-[#39FF14]/[0.035] px-5 py-4">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Acceso completo del Monitor</p>
-                      <p className="mt-1 text-sm text-white/55">{data.liveVideos.length} videos rastreados con conteo actual, cambio desde la lectura anterior, hoy ET y último día completo.</p>
+                    <div className="mb-4 overflow-hidden rounded-3xl border border-red-500/15 bg-[radial-gradient(circle_at_top_right,rgba(255,40,40,.10),transparent_46%)]">
+                      <div className="border-b border-white/[0.07] px-5 py-5 sm:px-7">
+                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-red-400">Video Pulse · exclusivo del Monitor</p>
+                        <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">Qué está moviendo al artista hoy</h2>
+                      </div>
+                      <div className="grid sm:grid-cols-3">
+                        <div className="border-b border-white/[0.07] p-5 sm:border-b-0 sm:border-r sm:p-6">
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Ganancia combinada hoy · ET</p>
+                          <p className="mt-2 text-3xl font-black text-[#39FF14]">+{exact(videoPulse.totalToday)}</p>
+                        </div>
+                        <div className="border-b border-white/[0.07] p-5 sm:border-b-0 sm:border-r sm:p-6">
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Último día completo</p>
+                          <p className="mt-2 text-3xl font-black">+{exact(videoPulse.totalLastDay)}</p>
+                        </div>
+                        <div className="p-5 sm:p-6">
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Video líder hoy</p>
+                          <p className="mt-2 line-clamp-2 text-sm font-black leading-5">{videoPulse.leader?.title ?? "Recopilando"}</p>
+                          <p className="mt-1 text-xs font-black text-[#39FF14]">{videoPulse.leader?.views_today_et == null ? "—" : `+${exact(Number(videoPulse.leader.views_today_et))}`}</p>
+                        </div>
+                      </div>
+                      <div className="border-t border-white/[0.07] p-5 sm:p-7">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Historia diaria · últimos 30 días</p>
+                            <p className="mt-1 max-w-xl truncate text-sm font-black">{activeVideo?.title ?? "Selecciona un video"}</p>
+                          </div>
+                          <select value={activeVideoId} onChange={event => setSelectedVideoId(event.target.value)} className="max-w-full rounded-xl border border-white/10 bg-[#111] px-4 py-3 text-xs font-bold text-white sm:max-w-sm">
+                            {data.liveVideos.map(video => <option key={video.video_id} value={video.video_id}>{video.title}</option>)}
+                          </select>
+                        </div>
+                        <div className="mt-5 h-64">
+                          <HistoryChart data={videoHistory} />
+                        </div>
+                        <p className="mt-3 text-[8px] font-bold uppercase tracking-[0.12em] text-white/25">Vistas ganadas por día · lecturas guardadas, sin interpolación</p>
+                      </div>
                     </div>
                     <YouTubeLivePublicPreview artistName={data.subscription.artistName} videos={data.liveVideos} />
                   </>
