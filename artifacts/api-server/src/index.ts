@@ -43,6 +43,9 @@ app.listen(port, async (err) => {
     logger.fatal({ err: schemaError }, "[artists] catalog schema initialization failed");
     process.exit(1);
   }
+  // Start the public live-counter collector first. Several legacy backfills can
+  // perform long startup work; live counters must not wait behind them.
+  startYoutubeIntradayShadowScheduler();
   startYoutubeChannelSnapshotScheduler();
   startSpotifyKworbSnapshotScheduler();
   startYoutubeVideoTrackerScheduler();
@@ -50,7 +53,6 @@ app.listen(port, async (err) => {
   startArtistSocialDiscoveryScheduler();
   startMexicanIdentityDiscoveryScheduler();
   startArtistDataQualityScheduler();
-  startYoutubeIntradayShadowScheduler();
   startChartArchiveScheduler();
   startTouringShadowScheduler();
   startTouringAnnouncementMonitor();
