@@ -448,51 +448,98 @@ async function recordUsage(client: PgClient, requested: number, returned: number
   );
 }
 
-async function saveObservation(client: PgClient, stats: VideoStats, previousTier: YoutubeRefreshTier) {
-  const previous = await client.query<{ view_count: string | number | null; observed_at: string }>(
-    `SELECT view_count, observed_at::text FROM youtube_video_intraday_shadow_snapshots WHERE video_id=$1 ORDER BY observed_at DESC LIMIT 1`,
-    [stats.videoId],
+async function saveObservationsBulk(
+  client: PgClient,
+  stats: VideoStats[],
+  previousTiers: Map<string, YoutubeRefreshTier>,
+) {
+  if (!stats.length) return 0;
+  const ids = stats.map(item => item.videoId);
+  const previous = await client.query<{ video_id: string; view_count: string | number | null; observed_at: string }>(
+    `SELECT DISTINCT ON (video_id) video_id, view_count, observed_at::text
+     FROM youtube_video_intraday_shadow_snapshots
+     WHERE video_id = ANY($1::text[])
+     ORDER BY video_id, observed_at DESC`,
+    [ids],
   );
-  const previousViews = numeric(previous.rows[0]?.view_count);
-  const previousAt = previous.rows[0]?.observed_at ? new Date(previous.rows[0].observed_at) : null;
+  const previousById = new Map(previous.rows.map(row => [row.video_id, row]));
   const now = new Date();
-  const delta = stats.viewCount == null || previousViews == null ? null : Math.max(0, stats.viewCount - previousViews);
-  const seconds = previousAt ? Math.max(0, Math.round((now.getTime() - previousAt.getTime()) / 1000)) : null;
-  const tier = chooseYoutubeRefreshTier({
-    publishedAt: stats.publishedAt,
-    viewCount: stats.viewCount,
-    dailyViewDelta: seconds && delta != null ? Math.round(delta * (86_400 / seconds)) : null,
+  const rows = stats.map(item => {
+    const prior = previousById.get(item.videoId);
+    const previousViews = numeric(prior?.view_count);
+    const previousAt = prior?.observed_at ? new Date(prior.observed_at) : null;
+    const delta = item.viewCount == null || previousViews == null ? null : Math.max(0, item.viewCount - previousViews);
+    const seconds = previousAt ? Math.max(0, Math.round((now.getTime() - previousAt.getTime()) / 1000)) : null;
+    const previousTier = previousTiers.get(item.videoId) ?? "baseline";
+    const tier = chooseYoutubeRefreshTier({
+      publishedAt: item.publishedAt,
+      viewCount: item.viewCount,
+      dailyViewDelta: seconds && delta != null ? Math.round(delta * (86_400 / seconds)) : null,
+    });
+    return {
+      video_id: item.videoId,
+      channel_id: item.channelId,
+      title: item.title,
+      thumbnail_url: item.thumbnailUrl,
+      published_at: item.publishedAt?.toISOString() ?? null,
+      duration: item.duration,
+      view_count: item.viewCount,
+      like_count: item.likeCount,
+      comment_count: item.commentCount,
+      refresh_tier: previousTier,
+      next_refresh_tier: tier,
+      bucket_start: observationBucket(now, previousTier).toISOString(),
+      view_delta: delta,
+      seconds_since_previous: seconds,
+    };
   });
-  const bucket = observationBucket(now, previousTier);
+  const payload = JSON.stringify(rows);
 
-  await client.query(
-    `
-      UPDATE youtube_tracked_videos SET
-        channel_id=COALESCE($2,channel_id), title=COALESCE(NULLIF($3,''),title),
-        thumbnail_url=COALESCE($4,thumbnail_url), published_at=COALESCE($5,published_at),
-        duration=COALESCE($6,duration), view_count=$7, like_count=$8, comment_count=$9,
+  await client.query("BEGIN");
+  try {
+    await client.query(`
+      UPDATE youtube_tracked_videos video SET
+        channel_id=COALESCE(input.channel_id,video.channel_id),
+        title=COALESCE(NULLIF(input.title,''),video.title),
+        thumbnail_url=COALESCE(input.thumbnail_url,video.thumbnail_url),
+        published_at=COALESCE(input.published_at,video.published_at),
+        duration=COALESCE(input.duration,video.duration),
+        view_count=input.view_count, like_count=input.like_count, comment_count=input.comment_count,
         last_seen_at=now(), updated_at=now()
-      WHERE video_id=$1
-    `,
-    [stats.videoId, stats.channelId, stats.title, stats.thumbnailUrl, stats.publishedAt, stats.duration, stats.viewCount, stats.likeCount, stats.commentCount],
-  );
-  await client.query(
-    `
+      FROM jsonb_to_recordset($1::jsonb) AS input(
+        video_id text, channel_id text, title text, thumbnail_url text, published_at timestamptz,
+        duration text, view_count bigint, like_count bigint, comment_count bigint
+      )
+      WHERE video.video_id=input.video_id
+    `, [payload]);
+    await client.query(`
       INSERT INTO youtube_video_intraday_shadow_snapshots (
         video_id, refresh_tier, bucket_start, observed_at, view_count, like_count, comment_count,
         view_delta, seconds_since_previous, updated_at
-      ) VALUES ($1,$2,$3,now(),$4,$5,$6,$7,$8,now())
+      )
+      SELECT video_id, refresh_tier, bucket_start, now(), view_count, like_count, comment_count,
+             view_delta, seconds_since_previous, now()
+      FROM jsonb_to_recordset($1::jsonb) AS input(
+        video_id text, refresh_tier text, bucket_start timestamptz, view_count bigint,
+        like_count bigint, comment_count bigint, view_delta bigint, seconds_since_previous integer
+      )
       ON CONFLICT (video_id, bucket_start) DO UPDATE SET
         observed_at=now(), view_count=excluded.view_count, like_count=excluded.like_count,
         comment_count=excluded.comment_count, view_delta=excluded.view_delta,
         seconds_since_previous=excluded.seconds_since_previous, updated_at=now()
-    `,
-    [stats.videoId, previousTier, bucket, stats.viewCount, stats.likeCount, stats.commentCount, delta, seconds],
-  );
-  await client.query(
-    `UPDATE youtube_music_catalog_candidates SET refresh_tier=$2, last_observed_at=now(), updated_at=now() WHERE video_id=$1 AND sampling_status='shadow'`,
-    [stats.videoId, tier],
-  );
+    `, [payload]);
+    await client.query(`
+      UPDATE youtube_music_catalog_candidates candidate SET
+        refresh_tier=input.next_refresh_tier, last_observed_at=now(), updated_at=now()
+      FROM jsonb_to_recordset($1::jsonb) AS input(video_id text, next_refresh_tier text)
+      WHERE candidate.video_id=input.video_id AND candidate.sampling_status='shadow'
+    `, [payload]);
+    await client.query("COMMIT");
+    return rows.length;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  }
 }
 
 async function rebuildCurrentArtistTotals(client: PgClient): Promise<number> {
@@ -613,10 +660,7 @@ export async function runYoutubeIntradayShadow(
         summary.missing += group.length - stats.length;
         await recordUsage(client, group.length, stats.length);
         const tiers = new Map(group.map(row => [row.video_id, row.refresh_tier]));
-        for (const item of stats) {
-          await saveObservation(client, item, tiers.get(item.videoId) ?? "baseline");
-          summary.saved += 1;
-        }
+        summary.saved += await saveObservationsBulk(client, stats, tiers);
       }
       summary.artistsUpdated = await rebuildCurrentArtistTotals(client);
       return summary;
