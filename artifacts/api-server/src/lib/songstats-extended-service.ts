@@ -196,14 +196,22 @@ async function listExtendedSyncArtists(options: {
     completeConditions.push(`
       catalog IS NOT NULL
       AND (
-        jsonb_path_exists(catalog, '$.catalog[*]')
-        OR jsonb_path_exists(catalog, '$.tracks[*]')
-        OR jsonb_path_exists(catalog, '$.songs[*]')
-        OR jsonb_path_exists(catalog, '$.recordings[*]')
-        OR jsonb_path_exists(catalog, '$.result.catalog[*]')
-        OR jsonb_path_exists(catalog, '$.result.tracks[*]')
-        OR jsonb_path_exists(catalog, '$.result.songs[*]')
-        OR jsonb_path_exists(catalog, '$.result.recordings[*]')
+        CASE WHEN jsonb_typeof(catalog->'catalog') = 'array'
+          THEN jsonb_array_length(catalog->'catalog') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'tracks') = 'array'
+          THEN jsonb_array_length(catalog->'tracks') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'songs') = 'array'
+          THEN jsonb_array_length(catalog->'songs') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'recordings') = 'array'
+          THEN jsonb_array_length(catalog->'recordings') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'result'->'catalog') = 'array'
+          THEN jsonb_array_length(catalog->'result'->'catalog') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'result'->'tracks') = 'array'
+          THEN jsonb_array_length(catalog->'result'->'tracks') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'result'->'songs') = 'array'
+          THEN jsonb_array_length(catalog->'result'->'songs') > 0 ELSE FALSE END
+        OR CASE WHEN jsonb_typeof(catalog->'result'->'recordings') = 'array'
+          THEN jsonb_array_length(catalog->'result'->'recordings') > 0 ELSE FALSE END
       )
     `);
     if (options.refreshAfter) completeConditions.push(`catalog_fetched_at >= $${params.push(options.refreshAfter)}`);
