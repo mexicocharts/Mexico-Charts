@@ -790,25 +790,26 @@ export async function discoverYoutubeMusicArtist(input: {
   let runId: number | null = null;
   let retryAttempts = 0;
   const onRetry = () => { retryAttempts += 1; };
-  try {
-    if (input.write) {
-      const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
-      if (input.dbClient) {
-        client = input.dbClient;
-      } else {
-        const { pool } = await import("@workspace/db");
-        client = await pool.connect();
-        ownsClient = true;
-      }
-      await ensureYoutubeVideoTrackerTables(client);
-      await ensureYoutubeShadowTables(client);
-      const run = await client.query<{ id: number }>(
-        `INSERT INTO youtube_music_shadow_runs (run_type, artist_key, status) VALUES ('discovery',$1,'running') RETURNING id`,
-        [input.artistKey],
-      );
-      runId = run.rows[0]?.id ?? null;
+  const openWriteClient = async (): Promise<PgClient | null> => {
+    if (!input.write || client) return client;
+    if (input.dbClient) {
+      client = input.dbClient;
+    } else {
+      const { pool } = await import("@workspace/db");
+      client = await pool.connect();
+      ownsClient = true;
     }
-
+    const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    const run = await client.query<{ id: number }>(
+      `INSERT INTO youtube_music_shadow_runs (run_type, artist_key, status) VALUES ('discovery',$1,'running') RETURNING id`,
+      [input.artistKey],
+    );
+    runId = run.rows[0]?.id ?? null;
+    return client;
+  };
+  try {
     if (input.trustedIdentityCandidates?.length && !summary.browseId) {
       summary.identityMatches = input.trustedIdentityCandidates;
       summary.mappingStatus = "ambiguous";
@@ -823,6 +824,7 @@ export async function discoverYoutubeMusicArtist(input: {
       const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId!, onRetry);
       summary.mappingStatus = "review";
       summary.retryAttempts = retryAttempts;
+      await openWriteClient();
       await finalizeDiscovery(summary, candidates, input, client);
       return summary;
     }
@@ -861,6 +863,7 @@ export async function discoverYoutubeMusicArtist(input: {
       const candidates = await discoverVerifiedChannelUploads(input.artistName, summary.browseId, onRetry);
       summary.mappingStatus = "review";
       summary.retryAttempts = retryAttempts;
+      await openWriteClient();
       await finalizeDiscovery(summary, candidates, input, client);
       return summary;
     }
@@ -932,6 +935,7 @@ export async function discoverYoutubeMusicArtist(input: {
     }
 
     summary.retryAttempts = retryAttempts;
+    await openWriteClient();
     await finalizeDiscovery(summary, candidates, input, client);
     return summary;
   } catch (error) {
@@ -944,13 +948,14 @@ export async function discoverYoutubeMusicArtist(input: {
     }
     return summary;
   } finally {
-    if (runId != null && client) {
-      await client.query(
+    const writeClient = await openWriteClient().catch(() => null);
+    if (runId != null && writeClient) {
+      await writeClient.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
          [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
-    if (ownsClient) client?.release();
+    if (ownsClient) writeClient?.release();
   }
 }
 
@@ -982,25 +987,26 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
   let runId: number | null = null;
   let retryAttempts = 0;
   const onRetry = () => { retryAttempts += 1; };
-  try {
-    if (input.write) {
-      const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
-      if (input.dbClient) {
-        client = input.dbClient;
-      } else {
-        const { pool } = await import("@workspace/db");
-        client = await pool.connect();
-        ownsClient = true;
-      }
-      await ensureYoutubeVideoTrackerTables(client);
-      await ensureYoutubeShadowTables(client);
-      const run = await client.query<{ id: number }>(
-        `INSERT INTO youtube_music_shadow_runs (run_type, artist_key, status, summary)
-         VALUES ('shared-channel-discovery',$1,'running',$2::jsonb) RETURNING id`,
-        [input.artistKey, JSON.stringify({ sourceChannelId: input.sourceChannelId, evidenceSource: input.evidenceSource })],
-      );
-      runId = run.rows[0]?.id ?? null;
+  const openWriteClient = async (): Promise<PgClient | null> => {
+    if (!input.write || client) return client;
+    if (input.dbClient) client = input.dbClient;
+    else {
+      const { pool } = await import("@workspace/db");
+      client = await pool.connect();
+      ownsClient = true;
     }
+    const { ensureYoutubeVideoTrackerTables } = await import("./youtube-video-tracker-scheduler");
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    const run = await client.query<{ id: number }>(
+      `INSERT INTO youtube_music_shadow_runs (run_type, artist_key, status, summary)
+       VALUES ('shared-channel-discovery',$1,'running',$2::jsonb) RETURNING id`,
+      [input.artistKey, JSON.stringify({ sourceChannelId: input.sourceChannelId, evidenceSource: input.evidenceSource })],
+    );
+    runId = run.rows[0]?.id ?? null;
+    return client;
+  };
+  try {
     const candidates = await discoverTrustedSharedChannelUploads(
       input.artistName,
       input.sourceChannelId,
@@ -1008,6 +1014,7 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
       onRetry,
     );
     summary.retryAttempts = retryAttempts;
+    await openWriteClient();
     await finalizeDiscovery(summary, candidates, { ...input, includeCandidates: false }, client);
     return summary;
   } catch (error) {
@@ -1020,12 +1027,13 @@ export async function discoverYoutubeTrustedSharedChannel(input: {
     }
     return summary;
   } finally {
-    if (runId != null && client) {
-      await client.query(
+    const writeClient = await openWriteClient().catch(() => null);
+    if (runId != null && writeClient) {
+      await writeClient.query(
         `UPDATE youtube_music_shadow_runs SET status=$2, summary=$3::jsonb, finished_at=now() WHERE id=$1`,
          [runId, discoveryRunStatus(summary), JSON.stringify(summary)],
       ).catch(() => {});
     }
-    if (ownsClient) client?.release();
+    if (ownsClient) writeClient?.release();
   }
 }

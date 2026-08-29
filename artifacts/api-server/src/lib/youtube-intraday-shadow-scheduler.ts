@@ -78,6 +78,7 @@ const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
 const LOCK_KEY = 392_410_604;
 const CHECK_MS = 5 * 60 * 1000;
 let schedulerStarted = false;
+let discoveryRunning = false;
 let lastEasternMidnightAnchorDate: string | null = null;
 
 export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shouldAnchor: boolean } {
@@ -225,11 +226,15 @@ function discoveryArtistsPerRun() {
   return Number.isFinite(raw) ? Math.max(0, Math.min(20, Math.floor(raw))) : 5;
 }
 
-async function bootstrapActiveCatalog(client: PgClient) {
+async function bootstrapActiveCatalog() {
   const limit = discoveryArtistsPerRun();
   if (limit === 0) return { artists: 0, savedCandidates: 0, errors: [] as string[] };
-
-  const pending = await client.query<{ artist_key: string; artist_name: string }>(`
+  const client = await pool.connect();
+  let candidates: Array<{ artist_key: string; artist_name: string; browse_id: string | null; ambiguous: boolean; identity_candidates: Array<{ browseId: string; name: string }> }> = [];
+  try {
+    await ensureYoutubeVideoTrackerTables(client);
+    await ensureYoutubeShadowTables(client);
+    const pending = await client.query<{ artist_key: string; artist_name: string }>(`
     SELECT c.artist_key, c.artist_name
     FROM kworb_coverage c
     LEFT JOIN LATERAL (
@@ -263,20 +268,30 @@ async function bootstrapActiveCatalog(client: PgClient) {
              latest.last_attempt_at ASC NULLS FIRST, c.artist_name
     LIMIT $1
   `, [limit]);
+    candidates = await Promise.all(pending.rows.map(async artist => {
+      const resolved = await resolveTrustedYoutubeIdentity(client, artist.artist_key, artist.artist_name);
+      return {
+        ...artist,
+        browse_id: resolved.identity?.browseId ?? null,
+        ambiguous: resolved.ambiguous,
+        identity_candidates: resolved.candidates,
+      };
+    }));
+  } finally {
+    client.release();
+  }
 
   let artists = 0;
   let savedCandidates = 0;
   const errors: string[] = [];
-  for (const artist of pending.rows) {
-    const resolvedIdentity = await resolveTrustedYoutubeIdentity(client, artist.artist_key, artist.artist_name);
+  for (const artist of candidates) {
     const result = await discoverYoutubeMusicArtist({
       artistKey: artist.artist_key,
       artistName: artist.artist_name,
-      browseId: resolvedIdentity.identity?.browseId,
-      trustedBrowseId: Boolean(resolvedIdentity.identity),
-      trustedIdentityCandidates: resolvedIdentity.ambiguous ? resolvedIdentity.candidates : undefined,
+      browseId: artist.browse_id,
+      trustedBrowseId: Boolean(artist.browse_id),
+      trustedIdentityCandidates: artist.ambiguous ? artist.identity_candidates : undefined,
       write: true,
-      dbClient: client,
     });
     const failure = youtubeShadowDiscoveryFailure(result);
     if (failure) {
@@ -509,14 +524,6 @@ export async function runYoutubeIntradayShadow(
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
-      const bootstrap = await bootstrapPilotCatalog(client, force);
-      summary.bootstrapArtists = bootstrap.artists;
-      summary.bootstrapSavedCandidates = bootstrap.savedCandidates;
-      summary.bootstrapErrors = bootstrap.errors;
-      const activeCatalogBootstrap = await bootstrapActiveCatalog(client);
-      summary.bootstrapArtists += activeCatalogBootstrap.artists;
-      summary.bootstrapSavedCandidates += activeCatalogBootstrap.savedCandidates;
-      summary.bootstrapErrors.push(...activeCatalogBootstrap.errors);
       const used = await callsUsedToday(client);
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
@@ -609,6 +616,13 @@ export function startYoutubeIntradayShadowScheduler() {
     ).then(summary => {
       logger.info(summary, "[youtube-shadow:intraday] run complete");
       if (forceMidnightAnchor && summary.status !== "complete") lastEasternMidnightAnchorDate = null;
+      if (!discoveryRunning) {
+        discoveryRunning = true;
+        void bootstrapActiveCatalog()
+          .then(result => logger.info(result, "[youtube-shadow:catalog] discovery pass complete"))
+          .catch(error => logger.error({ error }, "[youtube-shadow:catalog] discovery pass failed"))
+          .finally(() => { discoveryRunning = false; });
+      }
     }).catch(error => {
       logger.error({ error, reason }, "[youtube-shadow:intraday] scheduler invocation failed");
       if (forceMidnightAnchor) lastEasternMidnightAnchorDate = null;
