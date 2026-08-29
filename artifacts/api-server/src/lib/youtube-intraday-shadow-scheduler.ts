@@ -292,8 +292,11 @@ function dailyBudget() {
 }
 
 function maxVideosPerRun() {
-  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_MAX_VIDEOS"] ?? "5000");
-  return Number.isFinite(raw) ? Math.max(1, Math.min(50_000, Math.floor(raw))) : 5_000;
+  // Keep each five-minute pass short enough that public API/database work is
+  // never starved. The oldest-due ordering rotates through the complete
+  // catalog over successive passes.
+  const raw = Number(process.env["YOUTUBE_INTRADAY_SHADOW_MAX_VIDEOS"] ?? "250");
+  return Number.isFinite(raw) ? Math.max(1, Math.min(2_500, Math.floor(raw))) : 250;
 }
 
 function batch<T>(items: T[], size: number): T[][] {
