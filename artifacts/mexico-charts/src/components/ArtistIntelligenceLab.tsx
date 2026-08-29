@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BarChart3, Disc3, MapPin, Radar, Sparkles } from "lucide-react";
+import { BarChart3, Disc3, MapPin } from "lucide-react";
 import type {
   SongstatsArtistData,
   SongstatsMetricGrowth,
@@ -11,8 +11,6 @@ type IntelligenceTab = "audience" | "catalog" | "conversion" | "impact";
 const TABS: Array<{ key: IntelligenceTab; label: string; icon: typeof MapPin }> = [
   { key: "audience", label: "Audience Atlas", icon: MapPin },
   { key: "catalog", label: "Catalog Pulse", icon: Disc3 },
-  { key: "conversion", label: "Conversion Lab", icon: Radar },
-  { key: "impact", label: "Release Impact", icon: Sparkles },
 ];
 
 function compact(value: number | null | undefined) {
@@ -66,8 +64,8 @@ function strongestGrowth(growth: SongstatsArtistData["growth"]) {
     { label: "YouTube", growth: growth.youtubeSubscribers },
   ];
   return candidates
-    .filter(item => item.growth?.days30?.percentage != null)
-    .sort((a, b) => (b.growth?.days30?.percentage ?? -Infinity) - (a.growth?.days30?.percentage ?? -Infinity))[0] ?? null;
+    .filter(item => item.growth?.days15?.percentage != null)
+    .sort((a, b) => (b.growth?.days15?.percentage ?? -Infinity) - (a.growth?.days15?.percentage ?? -Infinity))[0] ?? null;
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
@@ -137,7 +135,7 @@ export default function ArtistIntelligenceLab({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2 lg:grid-cols-4" role="tablist" aria-label="Inteligencia del artista">
+        <div className="mt-5 grid grid-cols-2 gap-2" role="tablist" aria-label="Inteligencia del artista">
           {TABS.map(tab => {
             const Icon = tab.icon;
             const selected = activeTab === tab.key;
@@ -181,7 +179,7 @@ export default function ArtistIntelligenceLab({
                 <div className="mt-5 space-y-4">
                   <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Mercado principal observado</div><div className="mt-1 text-xl font-black text-white">{cities[0]?.name}</div></div>
                   <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Oyentes en top 5 MX</div><div className="mt-1 text-xl font-black text-[#39FF14]">{compact(cities.reduce((sum, city) => sum + city.currentListeners, 0))}</div></div>
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Mayor crecimiento 30d</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days30?.percentage)}` : "Recopilando historial"}</div></div>
+                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Mayor crecimiento 15d</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days15?.percentage)}` : "Recopilando historial"}</div></div>
                 </div>
               </div>
             </div>

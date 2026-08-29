@@ -23,6 +23,7 @@ export interface SongstatsGrowthWindow {
 
 export interface SongstatsMetricGrowth {
   days7: SongstatsGrowthWindow | null;
+  days15: SongstatsGrowthWindow | null;
   days30: SongstatsGrowthWindow | null;
   days90: SongstatsGrowthWindow | null;
 }

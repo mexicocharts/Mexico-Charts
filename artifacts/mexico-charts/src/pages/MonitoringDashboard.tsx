@@ -111,6 +111,7 @@ type DashboardPayload = {
   };
 };
 type View = "resumen" | "historial" | "catalogo" | "audiencia" | "reportes";
+type HistoryRange = "30d" | "90d" | "all";
 
 function exact(value: number | null | undefined) {
   return value == null ? "—" : new Intl.NumberFormat("es-MX").format(value);
@@ -332,6 +333,7 @@ export default function MonitoringDashboard() {
   const { pick } = useLanguage();
   const [view, setView] = useState<View>("resumen");
   const [metric, setMetric] = useState<MetricKey>("spotifyMonthlyListeners");
+  const [historyRange, setHistoryRange] = useState<HistoryRange>("30d");
   const [reportMonth, setReportMonth] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
@@ -363,14 +365,22 @@ export default function MonitoringDashboard() {
   );
   const selectedMonth =
     reportMonth || availableMonths[0] || new Date().toISOString().slice(0, 7);
+  const rangedHistory = useMemo(() => {
+    const history = data?.history ?? [];
+    if (historyRange === "all" || !history.length) return history;
+    const cutoff = new Date(`${history.at(-1)!.date}T12:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - (historyRange === "30d" ? 29 : 89));
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    return history.filter((point) => point.date >= cutoffDate);
+  }, [data?.history, historyRange]);
   const chartData = useMemo(
     () =>
-      (data?.history ?? []).flatMap((point) =>
+      rangedHistory.flatMap((point) =>
         point[metric] == null
           ? []
           : [{ date: point.date, value: point[metric] }],
       ),
-    [data?.history, metric],
+    [rangedHistory, metric],
   );
   const current = data?.current;
   const growth30 = data?.growth?.spotifyMonthlyListeners?.days30;
@@ -536,6 +546,26 @@ export default function MonitoringDashboard() {
                 </button>
               ))}
             </nav>
+            {(view === "resumen" || view === "historial") && (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="mr-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/25">
+                  Ventana privada
+                </span>
+                {([[
+                  "30d",
+                  "30 días",
+                ], ["90d", "90 días"], ["all", "Todo el historial"]] as const).map(([range, label]) => (
+                  <button
+                    key={range}
+                    type="button"
+                    onClick={() => setHistoryRange(range)}
+                    className={`rounded-full px-3.5 py-2 text-[8px] font-black uppercase tracking-[0.13em] ${historyRange === range ? "bg-white text-black" : "border border-white/[0.08] text-white/35"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
             {view === "resumen" && (
               <section className="mt-7">
                 <DailyPulse pulse={data.dailyPulse} />
@@ -575,8 +605,8 @@ export default function MonitoringDashboard() {
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#39FF14]">
                           {pick(
-                            "Historial desde la activación",
-                            "History since activation",
+                          "Historial completo disponible",
+                          "Complete available history",
                           )}
                         </p>
                         <h2 className="mt-2 text-xl font-black">
@@ -796,8 +826,8 @@ export default function MonitoringDashboard() {
                 <p className="mt-5 flex items-center gap-2 text-[9px] font-bold text-white/25">
                   <LayoutDashboard className="h-4 w-4" />
                   {pick(
-                    "Los reportes comienzan con la fecha de activación.",
-                    "Reports begin on the subscription activation date.",
+                    "Los reportes incluyen los meses con observaciones guardadas disponibles.",
+                    "Reports include available months with saved observations.",
                   )}
                 </p>
               </section>

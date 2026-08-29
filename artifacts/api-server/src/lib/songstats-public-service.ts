@@ -24,8 +24,13 @@ export interface SongstatsPublicGrowthWindow {
 
 export interface SongstatsPublicMetricGrowth {
   days7: SongstatsPublicGrowthWindow | null;
+  days15: SongstatsPublicGrowthWindow | null;
   days30: SongstatsPublicGrowthWindow | null;
   days90: SongstatsPublicGrowthWindow | null;
+}
+
+export interface SongstatsInsightAccessOptions {
+  access?: "public" | "monitoring";
 }
 
 export interface SongstatsPublicCity {
@@ -485,7 +490,8 @@ export function buildSongstatsPublicInsight(input: {
   audience: unknown;
   audienceDetails: unknown;
   catalog?: unknown;
-}): SongstatsPublicInsight {
+}, options: SongstatsInsightAccessOptions = {}): SongstatsPublicInsight {
+  const monitoringAccess = options.access === "monitoring";
   const historicStats = objectValue(input.historicStats);
   const audience = objectValue(input.audience);
   const audienceDetails = objectValue(input.audienceDetails);
@@ -508,12 +514,17 @@ export function buildSongstatsPublicInsight(input: {
     if (points.length >= 2) {
       growth[metric.key] = {
         days7: growthWindow(points, 7),
-        days30: growthWindow(points, 30),
-        days90: growthWindow(points, 90),
+        days15: growthWindow(points, 15),
+        days30: monitoringAccess ? growthWindow(points, 30) : null,
+        days90: monitoringAccess ? growthWindow(points, 90) : null,
       };
     }
     if (TREND_KEYS.has(metric.key)) {
-      const sampled = downsampleRecent(points);
+      const sampled = downsampleRecent(
+        points,
+        monitoringAccess ? 36_500 : 15,
+        monitoringAccess ? 500 : 15,
+      );
       if (sampled.length >= 2) trends[metric.key] = sampled;
     }
   }
@@ -529,6 +540,6 @@ export function buildSongstatsPublicInsight(input: {
     trends,
     topMexicoCities: topMexicoCities(audience, audienceDetails),
     catalog,
-    latestReleaseImpact: latestReleaseImpact(catalog, trends),
+    latestReleaseImpact: monitoringAccess ? latestReleaseImpact(catalog, trends) : null,
   };
 }

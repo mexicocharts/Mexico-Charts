@@ -26,7 +26,7 @@ test("normalizes saved Songstats catalog releases without exposing raw payloads"
         ],
       },
     },
-  });
+  }, { access: "monitoring" });
 
   assert.equal(result.catalog.trackCount, 2);
   assert.equal(result.catalog.albumCount, 1);
@@ -76,11 +76,36 @@ test("derives release impact only from dated releases and available histories", 
     audience: null,
     audienceDetails: null,
     catalog: { releases: [{ id: "release-1", title: "Lanzamiento", release_date: "2026-05-01", type: "single" }] },
-  });
+  }, { access: "monitoring" });
 
   assert.equal(result.latestReleaseImpact?.release.title, "Lanzamiento");
   assert.equal(result.latestReleaseImpact?.platformsMeasured, 3);
   assert.equal(result.latestReleaseImpact?.confidence, "high");
   assert.ok((result.latestReleaseImpact?.lift30 ?? 0) > 0);
   assert.ok((result.latestReleaseImpact?.score ?? 0) > 0);
+});
+
+test("limits public artist history to 15 days and reserves long windows for monitoring", () => {
+  const payload = {
+    historicStats: {
+      stats: [
+        { source: "spotify", data: { history: history("monthly_listeners_current", 1_000_000, 4_000) } },
+        { source: "instagram", data: { history: history("followers_total", 500_000, 2_000) } },
+      ],
+    },
+    audience: null,
+    audienceDetails: null,
+    catalog: { releases: [{ id: "release-1", title: "Lanzamiento", release_date: "2026-05-01", type: "single" }] },
+  };
+  const publicInsight = buildSongstatsPublicInsight(payload);
+  const paidInsight = buildSongstatsPublicInsight(payload, { access: "monitoring" });
+
+  assert.ok((publicInsight.trends.spotifyMonthlyListeners?.length ?? 0) <= 15);
+  assert.equal(publicInsight.growth.spotifyMonthlyListeners?.days30, null);
+  assert.equal(publicInsight.growth.spotifyMonthlyListeners?.days90, null);
+  assert.equal(publicInsight.latestReleaseImpact, null);
+  assert.ok((paidInsight.trends.spotifyMonthlyListeners?.length ?? 0) > 15);
+  assert.ok(paidInsight.growth.spotifyMonthlyListeners?.days30);
+  assert.ok(paidInsight.growth.spotifyMonthlyListeners?.days90);
+  assert.ok(paidInsight.latestReleaseImpact);
 });
