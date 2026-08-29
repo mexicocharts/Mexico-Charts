@@ -98,7 +98,10 @@ export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shoul
 }
 
 function enabled() {
-  return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false";
+  // Intraday collection is a production feature. Ignore the legacy opt-in/
+  // opt-out flag left over from the four-artist pilot; retain one deliberately
+  // named emergency kill switch for incident response.
+  return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED"] !== "true";
 }
 
 export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
@@ -508,20 +511,6 @@ export async function runYoutubeIntradayShadow(
       summary.bootstrapArtists += activeCatalogBootstrap.artists;
       summary.bootstrapSavedCandidates += activeCatalogBootstrap.savedCandidates;
       summary.bootstrapErrors.push(...activeCatalogBootstrap.errors);
-      const ready = await client.query<{ ready_artists: number }>(`
-        SELECT count(*)::int ready_artists FROM (
-          SELECT artist_key FROM youtube_music_catalog_candidates
-          WHERE artist_key = ANY($1::text[]) AND status IN ('review','verified') AND sampling_status='shadow'
-          GROUP BY artist_key
-        ) ready
-      `, [YOUTUBE_SHADOW_PILOT_ARTISTS.map(pilot => pilot.artistKey)]);
-      if (bootstrap.errors.length && Number(ready.rows[0]?.ready_artists ?? 0) === 0) {
-        return {
-          ...summary,
-          status: "failed",
-          error: `No se pudo preparar el catálogo piloto. ${bootstrap.errors.join(" | ")}`,
-        };
-      }
       const used = await callsUsedToday(client);
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
@@ -600,7 +589,7 @@ export function startYoutubeIntradayShadowScheduler() {
   if (schedulerStarted) return;
   schedulerStarted = true;
   if (!enabled()) {
-    logger.info("[youtube-shadow:intraday] disabled by YOUTUBE_INTRADAY_SHADOW_AUTOMATION=false");
+    logger.info("[youtube-shadow:intraday] disabled by emergency kill switch");
     return;
   }
   const runScheduledCheck = (reason: string) => {
