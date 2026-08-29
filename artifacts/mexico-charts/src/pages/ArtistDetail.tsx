@@ -81,6 +81,18 @@ function formatShortDateEs(iso: string | null | undefined): string {
   }).format(date);
 }
 
+function formatChartDateEs(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+    ? new Date(`${iso}T12:00:00`)
+    : new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "short",
+  }).format(date);
+}
+
 function YoutubeDailySparkline({
   points,
   color,
@@ -97,40 +109,87 @@ function YoutubeDailySparkline({
   gradientId?: string;
   ariaLabel?: string;
 }) {
-  const values = points.map(point => (
-    point.dailyViews ?? point.dailyStreams ?? point.value ?? 0
-  ));
-  const max = Math.max(...values, 1);
-  const width = 300;
-  const height = 72;
+  const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? point.value ?? 0);
+  const rawMin = Math.min(...values);
+  const rawMax = Math.max(...values, 1);
+  const observedRange = rawMax - rawMin;
+  const visualRange = Math.max(observedRange, rawMax * 0.025, 1);
+  const domainMin = Math.max(0, rawMin - visualRange * 0.18);
+  const domainMax = rawMax + visualRange * 0.18;
+  const width = 560;
+  const height = 190;
+  const padding = { top: 18, right: 16, bottom: 30, left: 54 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
   const fillId = gradientId ?? `trendFill-${color.replace(/[^a-z0-9]/gi, "")}`;
-  const path = values.map((value, index) => {
-    const x = values.length <= 1 ? 0 : (index / (values.length - 1)) * width;
-    const y = height - (value / max) * (height - 8) - 4;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
+  const coordinates = values.map((value, index) => ({
+    x: padding.left + (values.length <= 1 ? 0 : (index / (values.length - 1)) * plotWidth),
+    y: padding.top + ((domainMax - value) / (domainMax - domainMin)) * plotHeight,
+    value,
+    date: points[index]?.date ?? "",
+  }));
+  const linePath = coordinates.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L${coordinates.at(-1)?.x ?? padding.left},${padding.top + plotHeight} L${padding.left},${padding.top + plotHeight} Z`;
+  const gridValues = [domainMax, domainMin + (domainMax - domainMin) / 2, domainMin];
+  const peakIndex = values.indexOf(rawMax);
+  const labeledIndexes = new Set([peakIndex, values.length - 1]);
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-20 w-full overflow-visible" role="img" aria-label={ariaLabel}>
+    <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full overflow-visible sm:h-52" role="img" aria-label={ariaLabel}>
       <defs>
         <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.34" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
+        <filter id={`${fillId}-glow`} x="-20%" y="-40%" width="140%" height="180%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
       </defs>
-      <polyline
-        points={`0,${height} ${path} ${width},${height}`}
-        fill={`url(#${fillId})`}
-        stroke="none"
-      />
-      <polyline
-        points={path}
+
+      {gridValues.map((value, index) => {
+        const y = padding.top + (index / (gridValues.length - 1)) * plotHeight;
+        return (
+          <g key={`${fillId}-grid-${index}`}>
+            <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 5" />
+            <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="rgba(255,255,255,0.32)" fontSize="9" fontWeight="700">
+              {formatCompactCount(value)}
+            </text>
+          </g>
+        );
+      })}
+
+      <path d={areaPath} fill={`url(#${fillId})`} stroke="none" />
+      <path
+        d={linePath}
         fill="none"
         stroke={color}
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeWidth="3"
+        strokeWidth="3.5"
+        filter={`url(#${fillId}-glow)`}
       />
+
+      {coordinates.map((point, index) => (
+        <circle
+          key={`${point.date}-${index}`}
+          cx={point.x}
+          cy={point.y}
+          r={labeledIndexes.has(index) ? 4.5 : values.length <= 12 ? 2.5 : 1.5}
+          fill={labeledIndexes.has(index) ? color : "#090909"}
+          stroke={color}
+          strokeWidth={labeledIndexes.has(index) ? 2 : 1.5}
+        >
+          <title>{`${formatShortDateEs(point.date)}: ${Math.round(point.value).toLocaleString("es-MX")}`}</title>
+        </circle>
+      ))}
+
+      <text x={padding.left} y={height - 8} fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="700">
+        {formatChartDateEs(points[0]?.date)}
+      </text>
+      <text x={width - padding.right} y={height - 8} textAnchor="end" fill="rgba(255,255,255,0.35)" fontSize="9" fontWeight="700">
+        {formatChartDateEs(points.at(-1)?.date)}
+      </text>
     </svg>
   );
 }
@@ -156,6 +215,12 @@ function formatCompactCount(value: number | null | undefined): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
   return value.toLocaleString("es-MX");
+}
+
+function formatSignedCompactCount(value: number | null | undefined): string {
+  if (value == null) return "—";
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : "−"}${formatCompactCount(Math.abs(value))}`;
 }
 
 function formatExactCount(value: number | null | undefined): string {
@@ -1618,7 +1683,16 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       ? source.key === "youtube" ? "Vistas hoy" : "Streams hoy"
                       : source.key === "youtube" ? "Vistas totales" : "Streams totales";
                     const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
-                    const latestPoints = source.points.slice(-8);
+                    const displayedDailyPoints = source.points.slice(-30);
+                    const plottedValues = source.points.map(point => (
+                      source.key === "youtube" ? point.dailyViews ?? 0 : point.dailyStreams ?? 0
+                    ));
+                    const firstPlottedValue = plottedValues[0] ?? 0;
+                    const latestPlottedValue = plottedValues.at(-1) ?? 0;
+                    const periodChange = latestPlottedValue - firstPlottedValue;
+                    const periodChangePct = firstPlottedValue > 0
+                      ? Math.round((periodChange / firstPlottedValue) * 10_000) / 100
+                      : null;
                     return (
                       <article
                         key={source.key}
@@ -1703,13 +1777,20 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 	                        <div className="border-t border-white/[0.06] bg-white/[0.018] px-3.5 pb-4 pt-3 sm:px-5 sm:pb-5">
                           {hasTrend ? (
                             <>
-	                              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">
-	                                  Últimos {source.points.length} días
+	                              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
+	                                <div>
+	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Tendencia disponible</div>
+	                                  <div className="mt-1 text-[10px] font-bold text-zinc-500">
+	                                    {source.points.length} observaciones · {formatChartDateEs(source.points[0]?.date)} → {formatChartDateEs(source.points.at(-1)?.date)}
+	                                  </div>
 	                                </div>
-	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600 sm:text-right">
-	                                  Pico: <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
-	                                  {source.biggestSpikeDate ? ` · ${formatShortDateEs(source.biggestSpikeDate)}` : ""}
+	                                <div className="flex flex-wrap gap-2 sm:justify-end">
+	                                  <span className={`rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${metricTone(periodChange)}`}>
+	                                    Periodo {formatSignedCompactCount(periodChange)}{periodChangePct != null ? ` · ${pctLabel(periodChangePct)}` : ""}
+	                                  </span>
+	                                  <span className="rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+	                                    Pico <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
+	                                  </span>
 	                                </div>
                               </div>
                               <YoutubeDailySparkline
@@ -1718,16 +1799,27 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                 gradientId={`momentum-${source.key}-fill`}
                                 ariaLabel={`Tendencia diaria de ${source.label}`}
                               />
-                              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                {latestPoints.slice(-4).map(point => {
+                              <div className="mt-4 border-t border-white/[0.055] pt-4">
+	                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+	                                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+	                                  {source.key === "youtube" ? "Vistas diarias" : "Streams diarios"} · 30 días
+	                                </div>
+	                                <div className="text-[9px] font-bold text-zinc-700">Cada fecha y valor almacenado</div>
+	                              </div>
+	                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-6">
+                                {displayedDailyPoints.map(point => {
                                   const value = source.key === "youtube" ? point.dailyViews : point.dailyStreams;
                                   return (
-	                                    <div key={`${source.key}-${point.date}`} className="min-w-0 rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2">
-	                                      <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatShortDateEs(point.date)}</div>
-	                                      <div className="mt-1 break-words text-xs font-black text-zinc-300">{(value ?? 0).toLocaleString("es-MX")}</div>
+	                                    <div key={`${source.key}-${point.date}`} className="min-w-0 rounded-lg border border-white/[0.055] bg-black/20 px-2.5 py-2.5">
+	                                      <div className="text-[8px] font-bold uppercase tracking-[0.12em] text-zinc-700">{formatChartDateEs(point.date)}</div>
+	                                      <div className="mt-1 break-words text-xs font-black tabular-nums text-zinc-200">{(value ?? 0).toLocaleString("es-MX")}</div>
+	                                      <div className="mt-0.5 text-[7px] font-black uppercase tracking-[0.12em] text-zinc-800">
+	                                        {source.key === "youtube" ? "vistas" : "streams"}
+	                                      </div>
 	                                    </div>
                                   );
                                 })}
+	                              </div>
                               </div>
                             </>
                           ) : (
