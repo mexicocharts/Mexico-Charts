@@ -47,6 +47,13 @@ interface YoutubeVideoItem {
   contentDetails?: { duration?: string };
 }
 
+interface YoutubeBatchStatsItem {
+  id: string;
+  snippet?: { publishTime?: string };
+  statistics?: { viewCount?: string; likeCount?: string; commentCount?: string };
+  contentDetails?: { duration?: string };
+}
+
 interface StoredChannelRow {
   artist_key: string;
   artist_name: string;
@@ -1057,9 +1064,15 @@ export async function ensureYoutubeIntradayShadowTables(client: PgClient) {
       api_calls integer NOT NULL DEFAULT 0,
       videos_requested integer NOT NULL DEFAULT 0,
       videos_returned integer NOT NULL DEFAULT 0,
+      batch_stats_api_calls integer NOT NULL DEFAULT 0,
+      batch_stats_videos_requested integer NOT NULL DEFAULT 0,
+      batch_stats_videos_returned integer NOT NULL DEFAULT 0,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   `);
+  await client.query(`ALTER TABLE youtube_shadow_api_usage ADD COLUMN IF NOT EXISTS batch_stats_api_calls integer NOT NULL DEFAULT 0;`);
+  await client.query(`ALTER TABLE youtube_shadow_api_usage ADD COLUMN IF NOT EXISTS batch_stats_videos_requested integer NOT NULL DEFAULT 0;`);
+  await client.query(`ALTER TABLE youtube_shadow_api_usage ADD COLUMN IF NOT EXISTS batch_stats_videos_returned integer NOT NULL DEFAULT 0;`);
   await client.query(`
     CREATE TABLE IF NOT EXISTS youtube_channel_upload_import_state (
       artist_key text PRIMARY KEY,
@@ -1112,6 +1125,33 @@ async function fetchYoutubeVideos(videoIds: string[]): Promise<VideoStats[]> {
   });
 }
 
+export function youtubeBatchStatsItems(items: YoutubeBatchStatsItem[]): VideoStats[] {
+  return items.map(item => ({
+    videoId: item.id,
+    channelId: null,
+    title: "",
+    thumbnailUrl: null,
+    publishedAt: item.snippet?.publishTime ? new Date(item.snippet.publishTime) : null,
+    duration: item.contentDetails?.duration ?? null,
+    viewCount: numeric(item.statistics?.viewCount),
+    likeCount: numeric(item.statistics?.likeCount),
+    commentCount: numeric(item.statistics?.commentCount),
+  }));
+}
+
+async function fetchYoutubeBatchStats(videoIds: string[]): Promise<VideoStats[]> {
+  const apiKey = process.env["YOUTUBE_API_KEY"];
+  if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY.");
+  const url = new URL(`${YOUTUBE_API_BASE}/videos:batchGetStats`);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set("part", "statistics,contentDetails,snippet");
+  url.searchParams.set("id", videoIds.join(","));
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`YouTube batch stats API ${response.status}: ${(await response.text()).slice(0, 240)}`);
+  const data = await response.json() as { items?: YoutubeBatchStatsItem[] };
+  return youtubeBatchStatsItems(data.items ?? []);
+}
+
 async function callsUsedToday(client: PgClient): Promise<number> {
   const date = new Date().toISOString().slice(0, 10);
   const result = await client.query<{ api_calls: number }>(
@@ -1119,6 +1159,15 @@ async function callsUsedToday(client: PgClient): Promise<number> {
     [date],
   );
   return result.rows[0]?.api_calls ?? 0;
+}
+
+async function batchStatsCallsUsedToday(client: PgClient): Promise<number> {
+  const date = new Date().toISOString().slice(0, 10);
+  const result = await client.query<{ batch_stats_api_calls: number }>(
+    `SELECT batch_stats_api_calls FROM youtube_shadow_api_usage WHERE usage_date=$1`,
+    [date],
+  );
+  return result.rows[0]?.batch_stats_api_calls ?? 0;
 }
 
 async function recordUsage(client: PgClient, requested: number, returned: number) {
@@ -1131,6 +1180,23 @@ async function recordUsage(client: PgClient, requested: number, returned: number
         api_calls = youtube_shadow_api_usage.api_calls + 1,
         videos_requested = youtube_shadow_api_usage.videos_requested + excluded.videos_requested,
         videos_returned = youtube_shadow_api_usage.videos_returned + excluded.videos_returned,
+        updated_at = now()
+    `,
+    [date, requested, returned],
+  );
+}
+
+async function recordBatchStatsUsage(client: PgClient, requested: number, returned: number) {
+  const date = new Date().toISOString().slice(0, 10);
+  await client.query(
+    `
+      INSERT INTO youtube_shadow_api_usage (
+        usage_date, batch_stats_api_calls, batch_stats_videos_requested, batch_stats_videos_returned
+      ) VALUES ($1,1,$2,$3)
+      ON CONFLICT (usage_date) DO UPDATE SET
+        batch_stats_api_calls = youtube_shadow_api_usage.batch_stats_api_calls + 1,
+        batch_stats_videos_requested = youtube_shadow_api_usage.batch_stats_videos_requested + excluded.batch_stats_videos_requested,
+        batch_stats_videos_returned = youtube_shadow_api_usage.batch_stats_videos_returned + excluded.batch_stats_videos_returned,
         updated_at = now()
     `,
     [date, requested, returned],
@@ -1320,7 +1386,8 @@ export async function runYoutubeIntradayShadow(
       const seededCatalog = await seedApprovedVideoLinksIntoIntradayCatalog(client);
       summary.seededCatalogVideos = seededCatalog.videos;
       summary.seededCatalogArtists = seededCatalog.artists;
-      const used = await callsUsedToday(client);
+      let oldApiCallsRemaining = Math.max(0, dailyBudget() - await callsUsedToday(client));
+      const batchStatsUsed = await batchStatsCallsUsedToday(client);
       const rows = await client.query<DueVideoRow>(`
         SELECT * FROM (
           SELECT DISTINCT ON (c.video_id)
@@ -1403,17 +1470,33 @@ export async function runYoutubeIntradayShadow(
       `, [maxVideosPerRun() * 10, forceMeasure, fillEasternMidnightAnchor]);
       summary.dueVideos = rows.rows.length;
       const fairRows = roundRobinArtists(rows.rows, maxVideosPerRun());
-      const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: dailyBudget(), callsUsed: used, requestedVideos: fairRows.length });
+      const allowedBatches = youtubeApiBatchesAllowed({ dailyBudget: 10_000, callsUsed: batchStatsUsed, requestedVideos: fairRows.length });
       if (allowedBatches <= 0 && rows.rows.length) return { ...summary, status: "quota_exhausted" };
       const selected = fairRows.slice(0, allowedBatches * 50);
       summary.requestedVideos = selected.length;
 
       for (const group of batch(selected, 50)) {
-        const stats = await fetchYoutubeVideos(group.map(row => row.video_id));
+        let stats: VideoStats[];
+        let usedBatchStats = true;
+        try {
+          stats = await fetchYoutubeBatchStats(group.map(row => row.video_id));
+        } catch (batchError) {
+          if (oldApiCallsRemaining <= 0) throw batchError;
+          logger.warn({ error: batchError }, "[youtube-shadow:intraday] batch stats failed; using videos.list fallback");
+          stats = await fetchYoutubeVideos(group.map(row => row.video_id));
+          usedBatchStats = false;
+          oldApiCallsRemaining -= 1;
+        }
+        const publishedAtById = new Map(group.map(row => [row.video_id, row.published_at]));
+        stats = stats.map(item => item.publishedAt ? item : {
+          ...item,
+          publishedAt: publishedAtById.get(item.videoId) ? new Date(publishedAtById.get(item.videoId)!) : null,
+        });
         summary.apiCalls += 1;
         summary.fetched += stats.length;
         summary.missing += group.length - stats.length;
-        await recordUsage(client, group.length, stats.length);
+        if (usedBatchStats) await recordBatchStatsUsage(client, group.length, stats.length);
+        else await recordUsage(client, group.length, stats.length);
         const tiers = new Map(group.map(row => [row.video_id, row.refresh_tier]));
         summary.saved += await saveObservationsBulk(client, stats, tiers);
       }
