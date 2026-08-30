@@ -232,6 +232,7 @@ async function loadAuthorizedMonitoring(
     liveVideoHistory,
     streamSummary,
     streamItems,
+    youtubeCoverage,
   ] = await Promise.all([
     pool.query<MonitoringSnapshotRow>(
       `
@@ -417,6 +418,65 @@ async function loadAuthorizedMonitoring(
     `,
       [activeKeys],
     ),
+    pool.query<{
+      channel_video_count: string | number | null;
+      videos_imported: string | number | null;
+      expected_total_videos: string | number | null;
+      import_status: "complete" | "retryable" | null;
+      next_page_token: string | null;
+      completed_at: string | null;
+      linked_video_count: string | number;
+      observed_video_count: string | number;
+    }>(
+      `
+      SELECT
+        yc.video_count channel_video_count,
+        import_state.videos_imported,
+        import_state.expected_total_videos,
+        import_state.status import_status,
+        import_state.next_page_token,
+        import_state.completed_at::text,
+        (
+          SELECT count(DISTINCT link.video_id)
+          FROM youtube_artist_video_links link
+          WHERE link.active=true
+            AND (
+              lower(link.artist_key) = ANY($1::text[])
+              OR regexp_replace(
+                translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($1::text[])
+            )
+        ) linked_video_count,
+        (
+          SELECT count(DISTINCT sample.video_id)
+          FROM youtube_video_intraday_shadow_snapshots sample
+          JOIN youtube_music_catalog_candidates candidate
+            ON candidate.video_id=sample.video_id
+          WHERE candidate.status IN ('review','verified')
+            AND candidate.sampling_status='shadow'
+            AND (
+              lower(candidate.artist_key) = ANY($1::text[])
+              OR regexp_replace(
+                translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($1::text[])
+            )
+        ) observed_video_count
+      FROM youtube_channels yc
+      LEFT JOIN youtube_channel_upload_import_state import_state
+        ON import_state.artist_key=yc.artist_key
+      WHERE (
+        lower(yc.artist_key) = ANY($1::text[])
+        OR regexp_replace(
+          translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+          '[^a-z0-9]', '', 'g'
+        ) = ANY($1::text[])
+      )
+      LIMIT 1
+    `,
+      [activeKeys],
+    ),
   ]);
   const extendedRow = extended.rows[0];
   const insight = extendedRow
@@ -463,6 +523,12 @@ async function loadAuthorizedMonitoring(
       rows.findIndex((candidate) => candidate.video_id === video.video_id) ===
       index,
   );
+  const youtubeCoverageRow = youtubeCoverage.rows[0] ?? null;
+  const youtubeChannelVideoCount = nullableNumber(
+    youtubeCoverageRow?.channel_video_count
+      ?? youtubeCoverageRow?.expected_total_videos
+      ?? null,
+  );
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -478,6 +544,24 @@ async function loadAuthorizedMonitoring(
     catalog,
     latestReleaseImpact: insight?.latestReleaseImpact ?? null,
     liveVideos: uniqueLiveVideos,
+    youtubeCoverage: {
+      channelVideoCount: youtubeChannelVideoCount,
+      importedVideoCount: nullableNumber(
+        youtubeCoverageRow?.videos_imported ?? null,
+      ) ?? 0,
+      linkedVideoCount: nullableNumber(
+        youtubeCoverageRow?.linked_video_count ?? null,
+      ) ?? 0,
+      observedVideoCount: nullableNumber(
+        youtubeCoverageRow?.observed_video_count ?? null,
+      ) ?? 0,
+      importStatus: youtubeCoverageRow?.import_status ?? "pending",
+      complete: Boolean(
+        youtubeCoverageRow?.import_status === "complete"
+        && youtubeCoverageRow?.completed_at
+        && !youtubeCoverageRow?.next_page_token,
+      ),
+    },
     liveVideoHistory: liveVideoHistory.rows,
     spotifyCatalog: {
       snapshotDate: latestStreamSummary?.snapshot_date ?? null,

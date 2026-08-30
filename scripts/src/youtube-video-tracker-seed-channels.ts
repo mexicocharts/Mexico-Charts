@@ -45,7 +45,10 @@ function parseArgs() {
   return {
     limit: Math.max(1, Math.min(Number(args.get("limit") ?? 100), 1000)),
     offset: Math.max(0, Number(args.get("offset") ?? 0)),
-    videosPerChannel: Math.max(1, Math.min(Number(args.get("videosPerChannel") ?? 50), 250)),
+    // The uploads playlist is paginated in 50-item pages. Keep walking until
+    // YouTube returns no nextPageToken so a channel is never silently treated
+    // as complete after a small first-page sample.
+    videosPerChannel: Math.max(1, Math.min(Number(args.get("videosPerChannel") ?? 10_000), 10_000)),
     write: args.get("write") === "true",
   };
 }

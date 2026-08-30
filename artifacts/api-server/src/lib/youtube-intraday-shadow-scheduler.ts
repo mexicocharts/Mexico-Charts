@@ -51,6 +51,12 @@ interface StoredChannelRow {
   artist_key: string;
   artist_name: string;
   channel_id: string;
+  playlist_id: string | null;
+  next_page_token: string | null;
+  videos_imported: number | null;
+  expected_total_videos: number | null;
+  import_status: "complete" | "retryable" | null;
+  completed_at: string | null;
 }
 
 interface StoredChannelVideo {
@@ -348,6 +354,41 @@ function batch<T>(items: T[], size: number): T[][] {
   return groups;
 }
 
+export function youtubeChannelUploadImportProgress(input: {
+  videosImported: number | null | undefined;
+  pageVideoCount: number;
+  nextPageToken: string | null | undefined;
+  expectedTotalVideos: number | null | undefined;
+  refreshingCompleteChannel?: boolean;
+}) {
+  const existingVideosImported = Math.max(0, Number(input.videosImported ?? 0));
+  const pageVideoCount = Math.max(0, Math.floor(input.pageVideoCount));
+  const nextPageToken = input.nextPageToken?.trim() || null;
+  const expectedTotalVideos = input.expectedTotalVideos == null
+    ? null
+    : Math.max(0, Math.floor(input.expectedTotalVideos));
+  if (input.refreshingCompleteChannel) {
+    return {
+      status: "complete" as const,
+      nextPageToken: null,
+      videosImported: Math.max(
+        existingVideosImported,
+        expectedTotalVideos ?? existingVideosImported,
+      ),
+      expectedTotalVideos,
+      complete: true,
+    };
+  }
+  const videosImported = existingVideosImported + pageVideoCount;
+  return {
+    status: nextPageToken ? "retryable" as const : "complete" as const,
+    nextPageToken,
+    videosImported,
+    expectedTotalVideos,
+    complete: !nextPageToken,
+  };
+}
+
 function roundRobinArtists(rows: DueVideoRow[], limit: number): DueVideoRow[] {
   const queues = new Map<string, DueVideoRow[]>();
   for (const row of rows) {
@@ -603,51 +644,106 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
     SELECT
       yc.artist_key,
       COALESCE(c.artist_name, yc.title, yc.artist_key) artist_name,
-      yc.channel_id
+      yc.channel_id,
+      import_state.playlist_id,
+      import_state.next_page_token,
+      import_state.videos_imported,
+      import_state.expected_total_videos,
+      import_state.status import_status,
+      import_state.completed_at::text
     FROM youtube_channels yc
     LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
     LEFT JOIN youtube_channel_upload_import_state import_state ON import_state.artist_key=yc.artist_key
     WHERE yc.channel_id ~ '^UC[A-Za-z0-9_-]{22}$'
-      AND NOT EXISTS (
-        SELECT 1 FROM youtube_artist_video_links l
-        WHERE l.artist_key=yc.artist_key AND l.active=true AND l.confidence_score >= 80
+      AND (
+        import_state.artist_key IS NULL
+        OR (
+          import_state.status='retryable'
+          AND (import_state.next_retry_at IS NULL OR import_state.next_retry_at <= now())
+        )
+        OR (
+          import_state.status='complete'
+          AND (
+            import_state.completed_at IS NULL
+            OR import_state.next_retry_at IS NULL
+            OR import_state.next_retry_at <= now()
+          )
+        )
       )
-      AND (import_state.next_retry_at IS NULL OR import_state.next_retry_at <= now())
-    ORDER BY yc.artist_key
+    ORDER BY
+      CASE WHEN import_state.next_page_token IS NOT NULL THEN 0
+           WHEN import_state.artist_key IS NULL THEN 1
+           ELSE 2 END,
+      import_state.last_attempt_at ASC NULLS FIRST,
+      yc.artist_key
     LIMIT $1
   `, [artistLimit]);
   if (!channels.rows.length) return { artists: 0, videos: 0, apiCalls: 0 };
 
-  const channelData = await fetchYoutubeJson<{
-    items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
-  }>("channels", {
-    part: "contentDetails",
-    id: channels.rows.map(row => row.channel_id).join(","),
-    maxResults: String(channels.rows.length),
-  });
-  await recordUsage(client, 0, 0);
-  let apiCalls = 1;
+  let apiCalls = 0;
   const uploadsByChannel = new Map(
-    (channelData.items ?? []).flatMap(item => {
-      const uploads = item.contentDetails?.relatedPlaylists?.uploads;
-      return uploads ? [[item.id, uploads] as const] : [];
-    }),
+    channels.rows.flatMap(row => row.playlist_id
+      ? [[row.channel_id, row.playlist_id] as const]
+      : []),
   );
+  const channelsMissingPlaylist = channels.rows.filter(row => !row.playlist_id);
+  if (channelsMissingPlaylist.length) {
+    const channelData = await fetchYoutubeJson<{
+      items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
+    }>("channels", {
+      part: "contentDetails",
+      id: channelsMissingPlaylist.map(row => row.channel_id).join(","),
+      maxResults: String(channelsMissingPlaylist.length),
+    });
+    apiCalls += 1;
+    await recordUsage(client, 0, 0);
+    for (const item of channelData.items ?? []) {
+      const uploads = item.contentDetails?.relatedPlaylists?.uploads;
+      if (uploads) uploadsByChannel.set(item.id, uploads);
+    }
+  }
 
   const videos: StoredChannelVideo[] = [];
+  const states: Array<{
+    artist_key: string;
+    channel_id: string;
+    playlist_id: string | null;
+    status: "complete" | "retryable";
+    error: string | null;
+    next_page_token: string | null;
+    videos_imported: number;
+    expected_total_videos: number | null;
+    next_retry_at: string | null;
+    completed_at: string | null;
+  }> = [];
   for (const group of batch(channels.rows, 10)) {
     const results = await Promise.all(group.map(async artist => {
       const playlistId = uploadsByChannel.get(artist.channel_id);
-      if (!playlistId) return { artist, attempted: false, items: [] as StoredChannelVideo[], error: "Uploads playlist unavailable." };
+      if (!playlistId) return {
+        artist,
+        playlistId: null,
+        attempted: false,
+        items: [] as StoredChannelVideo[],
+        nextPageToken: artist.next_page_token,
+        expectedTotalVideos: artist.expected_total_videos,
+        error: "Uploads playlist unavailable.",
+      };
       try {
         const data = await fetchYoutubeJson<{
+          nextPageToken?: string;
+          pageInfo?: { totalResults?: number };
           items?: Array<{ snippet?: {
             title?: string;
             publishedAt?: string;
             thumbnails?: Record<string, { url?: string }>;
             resourceId?: { videoId?: string };
           } }>;
-        }>("playlistItems", { part: "snippet", playlistId, maxResults: "10" });
+        }>("playlistItems", {
+          part: "snippet",
+          playlistId,
+          maxResults: "50",
+          ...(artist.next_page_token ? { pageToken: artist.next_page_token } : {}),
+        });
         const items = (data.items ?? []).flatMap(item => {
           const videoId = item.snippet?.resourceId?.videoId;
           if (!videoId) return [];
@@ -662,12 +758,23 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
             publishedAt: item.snippet?.publishedAt ?? null,
           }];
         });
-        return { artist, attempted: true, items, error: null };
+        return {
+          artist,
+          playlistId,
+          attempted: true,
+          items,
+          nextPageToken: data.nextPageToken ?? null,
+          expectedTotalVideos: data.pageInfo?.totalResults ?? artist.expected_total_videos,
+          error: null,
+        };
       } catch (error) {
         return {
           artist,
+          playlistId,
           attempted: true,
           items: [] as StoredChannelVideo[],
+          nextPageToken: artist.next_page_token,
+          expectedTotalVideos: artist.expected_total_videos,
           error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
         };
       }
@@ -675,107 +782,140 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
     for (const result of results) {
       if (result.attempted) {
         apiCalls += 1;
-        await recordUsage(client, 10, result.items.length);
+        await recordUsage(client, 50, result.items.length);
       }
       videos.push(...result.items);
+      const progress = youtubeChannelUploadImportProgress({
+        videosImported: result.artist.videos_imported,
+        pageVideoCount: result.items.length,
+        nextPageToken: result.nextPageToken,
+        expectedTotalVideos: result.expectedTotalVideos,
+        refreshingCompleteChannel: Boolean(
+          result.artist.completed_at && !result.artist.next_page_token,
+        ),
+      });
+      states.push({
+        artist_key: result.artist.artist_key,
+        channel_id: result.artist.channel_id,
+        playlist_id: result.playlistId,
+        status: result.error ? "retryable" : progress.status,
+        error: result.error,
+        next_page_token: progress.nextPageToken,
+        videos_imported: progress.videosImported,
+        expected_total_videos: progress.expectedTotalVideos,
+        next_retry_at: result.error
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          : progress.complete
+            ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            : new Date(Date.now() + CHECK_MS).toISOString(),
+        completed_at: result.error
+          ? result.artist.completed_at
+          : progress.complete
+            ? new Date().toISOString()
+            : null,
+      });
     }
-    const states = results.map(result => ({
-      artist_key: result.artist.artist_key,
-      channel_id: result.artist.channel_id,
-      status: result.error ? "retryable" : "complete",
-      error: result.error,
-      next_retry_at: result.error
-        ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        : null,
-    }));
+  }
+
+  await client.query("BEGIN");
+  try {
+    if (videos.length) {
+      const payload = JSON.stringify(videos.map(video => ({
+        artist_key: video.artistKey,
+        artist_name: video.artistName,
+        channel_id: video.channelId,
+        video_id: video.videoId,
+        title: video.title,
+        thumbnail_url: video.thumbnailUrl,
+        published_at: video.publishedAt,
+      })));
+      await client.query(`
+        INSERT INTO youtube_tracked_videos (
+          video_id, channel_id, title, thumbnail_url, published_at,
+          metadata, last_seen_at, updated_at
+        )
+        SELECT DISTINCT ON (video_id)
+          video_id, channel_id, title, thumbnail_url, published_at,
+          jsonb_build_object('seedSource', 'verified_profile_channel_uploads'), now(), now()
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          artist_key text, artist_name text, channel_id text, video_id text,
+          title text, thumbnail_url text, published_at timestamptz
+        )
+        ON CONFLICT (video_id) DO UPDATE SET
+          channel_id=COALESCE(excluded.channel_id, youtube_tracked_videos.channel_id),
+          title=COALESCE(NULLIF(excluded.title, ''), youtube_tracked_videos.title),
+          thumbnail_url=COALESCE(excluded.thumbnail_url, youtube_tracked_videos.thumbnail_url),
+          published_at=COALESCE(excluded.published_at, youtube_tracked_videos.published_at),
+          metadata=youtube_tracked_videos.metadata || excluded.metadata,
+          last_seen_at=now(), updated_at=now()
+      `, [payload]);
+      await client.query(`
+        INSERT INTO youtube_artist_video_links (
+          artist_key, artist_name, video_id, source_type,
+          confidence_score, priority, active, metadata, updated_at
+        )
+        SELECT DISTINCT ON (artist_key, video_id)
+          artist_key, artist_name, video_id, 'verified_profile_channel',
+          90, 90, true,
+          jsonb_build_object('seedSource', 'verified_profile_channel_uploads', 'channelId', channel_id),
+          now()
+        FROM jsonb_to_recordset($1::jsonb) AS input(
+          artist_key text, artist_name text, channel_id text, video_id text,
+          title text, thumbnail_url text, published_at timestamptz
+        )
+        ON CONFLICT (artist_key, video_id) DO UPDATE SET
+          confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
+          priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
+          active=true,
+          metadata=youtube_artist_video_links.metadata || excluded.metadata,
+          updated_at=now()
+      `, [payload]);
+    }
     await client.query(`
       INSERT INTO youtube_channel_upload_import_state (
-        artist_key, channel_id, status, error, last_attempt_at, next_retry_at, updated_at
+        artist_key, channel_id, playlist_id, status, error, next_page_token,
+        videos_imported, expected_total_videos, last_attempt_at, next_retry_at,
+        completed_at, updated_at
       )
-      SELECT artist_key, channel_id, status, error, now(), next_retry_at, now()
+      SELECT artist_key, channel_id, playlist_id, status, error, next_page_token,
+             videos_imported, expected_total_videos, now(), next_retry_at,
+             completed_at, now()
       FROM jsonb_to_recordset($1::jsonb) AS input(
-        artist_key text, channel_id text, status text, error text, next_retry_at timestamptz
+        artist_key text, channel_id text, playlist_id text, status text, error text,
+        next_page_token text, videos_imported integer, expected_total_videos integer,
+        next_retry_at timestamptz, completed_at timestamptz
       )
       ON CONFLICT (artist_key) DO UPDATE SET
         channel_id=excluded.channel_id,
+        playlist_id=COALESCE(excluded.playlist_id, youtube_channel_upload_import_state.playlist_id),
         status=excluded.status,
         error=excluded.error,
+        next_page_token=excluded.next_page_token,
+        videos_imported=GREATEST(youtube_channel_upload_import_state.videos_imported, excluded.videos_imported),
+        expected_total_videos=COALESCE(excluded.expected_total_videos, youtube_channel_upload_import_state.expected_total_videos),
         last_attempt_at=now(),
         next_retry_at=excluded.next_retry_at,
+        completed_at=CASE
+          WHEN excluded.error IS NOT NULL
+            THEN youtube_channel_upload_import_state.completed_at
+          ELSE excluded.completed_at
+        END,
         updated_at=now()
     `, [JSON.stringify(states)]);
-  }
-  const importErrors = await client.query<{ artist_key: string; error: string }>(`
-    SELECT artist_key, error
-    FROM youtube_channel_upload_import_state
-    WHERE last_attempt_at >= now() - interval '5 minutes' AND status='retryable'
-    ORDER BY artist_key
-    LIMIT 50
-  `);
-  if (!videos.length) return {
-    artists: 0,
-    videos: 0,
-    apiCalls,
-    errors: importErrors.rows.map(row => `${row.artist_key}: ${row.error}`),
-  };
-
-  const payload = JSON.stringify(videos.map(video => ({
-    artist_key: video.artistKey,
-    artist_name: video.artistName,
-    channel_id: video.channelId,
-    video_id: video.videoId,
-    title: video.title,
-    thumbnail_url: video.thumbnailUrl,
-    published_at: video.publishedAt,
-  })));
-  await client.query("BEGIN");
-  try {
-    await client.query(`
-      INSERT INTO youtube_tracked_videos (
-        video_id, channel_id, title, thumbnail_url, published_at,
-        metadata, last_seen_at, updated_at
-      )
-      SELECT DISTINCT ON (video_id)
-        video_id, channel_id, title, thumbnail_url, published_at,
-        jsonb_build_object('seedSource', 'verified_profile_channel_uploads'), now(), now()
-      FROM jsonb_to_recordset($1::jsonb) AS input(
-        artist_key text, artist_name text, channel_id text, video_id text,
-        title text, thumbnail_url text, published_at timestamptz
-      )
-      ON CONFLICT (video_id) DO UPDATE SET
-        channel_id=COALESCE(excluded.channel_id, youtube_tracked_videos.channel_id),
-        title=COALESCE(NULLIF(excluded.title, ''), youtube_tracked_videos.title),
-        thumbnail_url=COALESCE(excluded.thumbnail_url, youtube_tracked_videos.thumbnail_url),
-        published_at=COALESCE(excluded.published_at, youtube_tracked_videos.published_at),
-        metadata=youtube_tracked_videos.metadata || excluded.metadata,
-        last_seen_at=now(), updated_at=now()
-    `, [payload]);
-    await client.query(`
-      INSERT INTO youtube_artist_video_links (
-        artist_key, artist_name, video_id, source_type,
-        confidence_score, priority, active, metadata, updated_at
-      )
-      SELECT DISTINCT ON (artist_key, video_id)
-        artist_key, artist_name, video_id, 'verified_profile_channel',
-        90, 90, true,
-        jsonb_build_object('seedSource', 'verified_profile_channel_uploads', 'channelId', channel_id),
-        now()
-      FROM jsonb_to_recordset($1::jsonb) AS input(
-        artist_key text, artist_name text, channel_id text, video_id text,
-        title text, thumbnail_url text, published_at timestamptz
-      )
-      ON CONFLICT (artist_key, video_id) DO UPDATE SET
-        confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
-        priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
-        active=true,
-        metadata=youtube_artist_video_links.metadata || excluded.metadata,
-        updated_at=now()
-    `, [payload]);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;
   }
+  const importErrors = await client.query<{ artist_key: string; error: string }>(`
+    SELECT artist_key, error
+    FROM youtube_channel_upload_import_state
+    WHERE last_attempt_at >= now() - interval '5 minutes'
+      AND status='retryable'
+      AND error IS NOT NULL
+    ORDER BY artist_key
+    LIMIT 50
+  `);
   return {
     artists: new Set(videos.map(video => video.artistKey)).size,
     videos: videos.length,
@@ -832,13 +972,23 @@ export async function ensureYoutubeIntradayShadowTables(client: PgClient) {
     CREATE TABLE IF NOT EXISTS youtube_channel_upload_import_state (
       artist_key text PRIMARY KEY,
       channel_id text NOT NULL,
+      playlist_id text,
       status text NOT NULL CHECK (status IN ('complete','retryable')),
       error text,
+      next_page_token text,
+      videos_imported integer NOT NULL DEFAULT 0,
+      expected_total_videos integer,
       last_attempt_at timestamptz NOT NULL DEFAULT now(),
       next_retry_at timestamptz,
+      completed_at timestamptz,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   `);
+  await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS playlist_id text;`);
+  await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS next_page_token text;`);
+  await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS videos_imported integer NOT NULL DEFAULT 0;`);
+  await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS expected_total_videos integer;`);
+  await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS completed_at timestamptz;`);
   await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS youtube_video_intraday_shadow_video_bucket_unique ON youtube_video_intraday_shadow_snapshots(video_id, bucket_start);`);
   await client.query(`CREATE INDEX IF NOT EXISTS youtube_video_intraday_shadow_observed_idx ON youtube_video_intraday_shadow_snapshots(observed_at DESC);`);
 }
