@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { buildStructuredDataGraph } from "@/lib/structured-data.mjs";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
 const OG_IMAGE = `${SITE_URL}/opengraph.jpg`;
@@ -57,14 +58,12 @@ function upsertJsonLd(value: string) {
 export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd }: PageSEOProps) {
   const canonical = `${SITE_URL}${path}`;
   const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
-  const structuredData = JSON.stringify(jsonLd ?? {
-    "@context": "https://schema.org",
-    "@type": "WebPage",
-    name: fullTitle,
-    url: canonical,
+  const structuredData = JSON.stringify(buildStructuredDataGraph({
+    title: fullTitle,
     description,
-    inLanguage: "es-MX",
-  });
+    canonicalUrl: canonical,
+    additional: jsonLd ?? [],
+  }));
 
   useEffect(() => {
     document.title = fullTitle;

@@ -32,21 +32,54 @@
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Mexico Charts",
-      "alternateName": "Mexico Charts México",
-      "url": "https://mexicochart.com/",
-      "image": "https://mexicochart.com/mexico-charts-logo.png",
-      "description": "Charts de música mexicana, perfiles de artistas, streaming, touring, certificaciones e industria.",
-      "inLanguage": "es-MX",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://mexicochart.com/artists?q={search_term_string}"
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://mexicochart.com/#organization",
+          "name": "Mexico Charts",
+          "url": "https://mexicochart.com/",
+          "logo": { "@id": "https://mexicochart.com/#logo" },
+          "image": { "@id": "https://mexicochart.com/#logo" },
+          "sameAs": [
+            "https://www.instagram.com/mexicocharts/",
+            "https://www.tiktok.com/@mexicocharts",
+            "https://www.youtube.com/@mexicocharts"
+          ]
         },
-        "query-input": "required name=search_term_string"
-      }
+        {
+          "@type": "ImageObject",
+          "@id": "https://mexicochart.com/#logo",
+          "url": "https://mexicochart.com/mexico-charts-logo.png",
+          "contentUrl": "https://mexicochart.com/mexico-charts-logo.png",
+          "caption": "Mexico Charts"
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://mexicochart.com/#website",
+          "name": "Mexico Charts",
+          "url": "https://mexicochart.com/",
+          "publisher": { "@id": "https://mexicochart.com/#organization" },
+          "inLanguage": "es-MX",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+              "@type": "EntryPoint",
+              "urlTemplate": "https://mexicochart.com/artists?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "WebPage",
+          "@id": "https://mexicochart.com/#webpage",
+          "url": "https://mexicochart.com/",
+          "name": "Charts de música mexicana, artistas e industria | Mexico Charts",
+          "description": "Descubre quién lidera la música mexicana con charts de Spotify, YouTube, Apple Music y Deezer, perfiles de artistas, streaming, giras y certificaciones.",
+          "inLanguage": "es-MX",
+          "isPartOf": { "@id": "https://mexicochart.com/#website" },
+          "publisher": { "@id": "https://mexicochart.com/#organization" }
+        }
+      ]
     }
     </script>
 

@@ -772,8 +772,8 @@ export default function ChartsHub() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
-        title="Listas de música mexicana — YouTube, Spotify, Apple Music"
-        description="Listas semanales y diarias de música mexicana en YouTube, Spotify, Apple Music y Deezer. Corridos tumbados, regional mexicano, norteño y más."
+        title="Charts de música en México — Spotify, YouTube, Apple Music y Deezer"
+        description="Charts diarios y semanales de música en México con fuentes, fechas de actualización y rankings de Spotify, YouTube, Apple Music y Deezer."
         path="/charts"
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
@@ -794,20 +794,14 @@ export default function ChartsHub() {
               Listas Mexico Charts
             </motion.p>
             <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
-              className="max-w-[9ch] font-black uppercase leading-[0.88] md:hidden"
-              style={{ fontSize: "clamp(3.15rem,14vw,4.8rem)" }}>
-              <span className="block">Listas</span>
-              <span className="block" style={{ color: G }}>México</span>
-            </motion.h1>
-            <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
-              className="hidden max-w-6xl font-black uppercase leading-[0.86] md:block"
-              style={{ fontSize: "clamp(4.6rem,9.3vw,9.4rem)" }}>
-              Charts de música mexicana
+              className="max-w-6xl font-black uppercase leading-[0.86]"
+              style={{ fontSize: "clamp(3.15rem,9.3vw,9.4rem)" }}>
+              Charts de música en <span style={{ color: G }}>México</span>
             </motion.h1>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
               className="mt-4 max-w-3xl text-sm leading-relaxed sm:mt-5 md:text-lg"
               style={{ color: "rgba(255,255,255,0.58)" }}>
-              Rankings propios, números uno de la semana, géneros y listas oficiales de plataformas en un solo lugar.
+              Un hub consolidado para consultar rankings de Spotify, YouTube, Apple Music y Deezer en el mercado mexicano, con fuentes y fechas de actualización visibles.
             </motion.p>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
               className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">

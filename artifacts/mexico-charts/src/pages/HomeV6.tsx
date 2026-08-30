@@ -1466,7 +1466,7 @@ export default function HomeV6() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
               <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
-              <p className="text-zinc-500 text-xs leading-relaxed max-w-[220px]">{pick("La industria de la música mexicana, en movimiento.", "The Mexican music industry, in motion.")}</p>
+              <p className="text-zinc-500 text-xs leading-relaxed max-w-[260px]">{pick("Mexico Charts es una plataforma independiente de charts, artistas e industria de la música mexicana.", "Mexico Charts is an independent platform for Mexican music charts, artists and industry coverage.")}</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) =>
                   href ? (

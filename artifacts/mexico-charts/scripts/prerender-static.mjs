@@ -3,6 +3,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
+import { buildStructuredDataGraph } from "../src/lib/structured-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -20,7 +21,7 @@ const routes = [
     eyebrow: "Mexico Charts",
     heading: "La industria de la música mexicana, en movimiento",
     body:
-      "Una plataforma independiente sobre música mexicana: charts de Spotify, YouTube, Apple Music y Deezer; perfiles de artistas; industria; touring; certificaciones y metodología.",
+      "Mexico Charts es una plataforma independiente que reúne charts, perfiles de artistas y cobertura de la industria de la música mexicana.",
     links: [
       ["/charts", "Charts Mexico"],
       ["/artists", "Artistas"],
@@ -31,13 +32,17 @@ const routes = [
   },
   {
     path: "/charts",
-    title: "Charts Mexico — YouTube, Spotify, Apple Music y Deezer",
+    title: "Charts de música en México — Spotify, YouTube, Apple Music y Deezer",
     description:
       "Charts diarios y semanales de música en México con fuente, fecha de actualización y rankings de Spotify, YouTube, Apple Music y Deezer.",
-    eyebrow: "Charts Mexico",
-    heading: "Charts de musica en Mexico",
+    eyebrow: "Mexico Charts",
+    heading: "Charts de música en México",
     body:
-      "Rankings de YouTube, Spotify, Apple Music y Deezer para México. Incluye fuente de cada plataforma, fecha de actualización y vista filtrada por artistas mexicanos cuando aplica.",
+      "Un hub consolidado de rankings para el mercado mexicano con listas de Spotify, YouTube, Apple Music y Deezer en un solo lugar.",
+    sections: [
+      ["Rankings por plataforma", "Consulta canciones, artistas, videos y álbumes según las listas disponibles de cada servicio para México."],
+      ["Actualización y fuentes", "Las listas se actualizan de forma diaria, semanal o intradía según el calendario de cada plataforma, con su fuente y fecha visibles."],
+    ],
     links: [
       ["/charts", "Charts"],
       ["/metodologia", "Metodologia"],
@@ -407,34 +412,11 @@ function updateHead(html, route) {
       /<script type="application\/ld\+json">[\s\S]*?<\/script>/,
       `<script type="application/ld+json">
     ${JSON.stringify(
-      {
-        "@context": "https://schema.org",
-        "@type": route.path === "/" ? "WebSite" : "WebPage",
-        name: route.path === "/" ? "Mexico Charts" : route.title,
-        url,
+      buildStructuredDataGraph({
+        title: route.title,
         description: route.description,
-        inLanguage: "es-MX",
-        ...(route.path === "/"
-          ? {
-              image: `${siteUrl}/mexico-charts-logo.png`,
-              alternateName: "Mexico Charts México",
-              publisher: {
-                "@type": "Organization",
-                name: "Mexico Charts",
-                url: `${siteUrl}/`,
-                logo: `${siteUrl}/mexico-charts-logo.png`,
-              },
-              potentialAction: {
-                "@type": "SearchAction",
-                target: {
-                  "@type": "EntryPoint",
-                  urlTemplate: `${siteUrl}/artists?q={search_term_string}`,
-                },
-                "query-input": "required name=search_term_string",
-              },
-            }
-          : {}),
-      },
+        canonicalUrl: url,
+      }),
       null,
       6,
     )}
