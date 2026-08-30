@@ -10,8 +10,28 @@ import {
 } from "./youtube-shadow-bootstrap-policy";
 import {
   youtubeChannelUploadImportProgress,
+  youtubeBatchStatsItems,
   youtubeEasternMidnightAnchor,
 } from "./youtube-intraday-shadow-scheduler";
+
+test("maps batch stats without erasing catalog metadata", () => {
+  assert.deepEqual(youtubeBatchStatsItems([{
+    id: "video-1",
+    snippet: { publishTime: "2026-08-30T12:00:00Z" },
+    statistics: { viewCount: "123", likeCount: "9", commentCount: "2" },
+    contentDetails: { duration: "PT3M12S" },
+  }]), [{
+    videoId: "video-1",
+    channelId: null,
+    title: "",
+    thumbnailUrl: null,
+    publishedAt: new Date("2026-08-30T12:00:00Z"),
+    duration: "PT3M12S",
+    viewCount: 123,
+    likeCount: 9,
+    commentCount: 2,
+  }]);
+});
 
 test("keeps a channel import open while YouTube has another uploads page", () => {
   assert.deepEqual(youtubeChannelUploadImportProgress({

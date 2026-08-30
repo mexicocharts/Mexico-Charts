@@ -111,5 +111,8 @@ export const youtubeShadowApiUsage = pgTable("youtube_shadow_api_usage", {
   apiCalls: integer("api_calls").notNull().default(0),
   videosRequested: integer("videos_requested").notNull().default(0),
   videosReturned: integer("videos_returned").notNull().default(0),
+  batchStatsApiCalls: integer("batch_stats_api_calls").notNull().default(0),
+  batchStatsVideosRequested: integer("batch_stats_videos_requested").notNull().default(0),
+  batchStatsVideosReturned: integer("batch_stats_videos_returned").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
