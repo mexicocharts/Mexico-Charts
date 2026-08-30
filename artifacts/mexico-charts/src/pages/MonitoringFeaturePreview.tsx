@@ -14,8 +14,11 @@ import {
   LayoutDashboard,
   MapPin,
   Music2,
+  Play,
   Radar,
+  Search,
   Settings2,
+  SlidersHorizontal,
   TrendingDown,
   TrendingUp,
   Users,
@@ -33,6 +36,7 @@ import {
 } from "recharts";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { pesoPlumaMonitorDemo } from "@/data/pesoPlumaMonitorDemo";
 
 const G = "#39FF14";
 const REPORT_URL = ["", "reports", "peso-pluma-monitor-agosto-2026.pdf"].join(
@@ -43,6 +47,7 @@ const peso = {
   spotifyListeners: 44_948_653,
   spotifyFollowers: 30_018_680,
   youtubeViews: 13_125_619_666,
+  youtubeChannelVideos: 289,
   instagramFollowers: 16_453_239,
 };
 
@@ -112,51 +117,15 @@ const benchmarks = [
   },
 ];
 
-const videos = [
-  {
-    id: "fOT0BUpITw8",
-    title: "BELLAKEO",
-    image: "https://i.ytimg.com/vi/fOT0BUpITw8/hqdefault.jpg",
-    views: 755_225_298,
-    delta: 14_623,
-    interval: "67 min",
-    progress: 94.4,
-  },
-  {
-    id: "qkXIRZKSQ3k",
-    title: "NUEVA VIDA",
-    image: "https://i.ytimg.com/vi/qkXIRZKSQ3k/hqdefault.jpg",
-    views: 656_329_575,
-    delta: 25_773,
-    interval: "62 min",
-    progress: 93.8,
-  },
-  {
-    id: "rCL8-CiGSmc",
-    title: "HOLLYWOOD",
-    image: "https://i.ytimg.com/vi/rCL8-CiGSmc/hqdefault.jpg",
-    views: 481_069_561,
-    delta: 2_259_086,
-    interval: "111 h",
-    progress: 96.2,
-  },
-];
-
-const spotifyTracks = [
-  { title: "daño", total: 378_556_800, daily: 1_090_598 },
-  { title: "HOLLYWOOD", total: 675_604_922, daily: 760_832 },
-  { title: "LAGUNAS", total: 625_950_153, daily: 581_909 },
-  { title: "dopamina", total: 345_249_437, daily: 561_707 },
-  { title: "La Bebe - Remix", total: 1_426_786_807, daily: 527_186 },
-];
-
-const spotifyAlbums = [
-  { title: "DINASTÍA (DELUXE)", total: 2_509_056_715, daily: 4_864_657 },
-  { title: "DINASTÍA", total: 2_163_712_472, daily: 4_013_386 },
-  { title: "GÉNESIS", total: 7_426_261_146, daily: 3_160_326 },
-  { title: "ÉXODO", total: 5_357_897_851, daily: 2_953_424 },
-  { title: "INCÓMODO", total: 1_172_822_531, daily: 636_934 },
-];
+const videos = [...pesoPlumaMonitorDemo.youtube].sort(
+  (a, b) => b.views - a.views,
+);
+const spotifyTracks = [...pesoPlumaMonitorDemo.spotify.tracks].sort(
+  (a, b) => b.daily - a.daily,
+);
+const spotifyAlbums = [...pesoPlumaMonitorDemo.spotify.albums].sort(
+  (a, b) => b.daily - a.daily,
+);
 
 const spotifyCatalog = {
   trackCount: 187,
@@ -194,7 +163,7 @@ const navItems: Array<{
   { key: "resumen", label: "Panel", icon: LayoutDashboard },
   { key: "tendencias", label: "Tendencias", icon: BarChart3 },
   { key: "spotify", label: "Spotify", icon: Music2, note: "205" },
-  { key: "videos", label: "YouTube", icon: Video, note: "Todos" },
+  { key: "videos", label: "YouTube", icon: Video, note: String(videos.length) },
   { key: "mercados", label: "Mercados", icon: MapPin },
   { key: "comparar", label: "Comparar", icon: Radar },
   { key: "alertas", label: "Alertas", icon: BellRing, note: "2" },
@@ -209,6 +178,43 @@ const compact = (value: number) =>
 const exact = (value: number) => new Intl.NumberFormat("es-MX").format(value);
 const signed = (value: number) =>
   `${value >= 0 ? "+" : "−"}${exact(Math.abs(value))}`;
+const intervalLabel = (seconds: number) => {
+  if (seconds < 90) return `${Math.max(1, Math.round(seconds))} s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes} min`;
+  const hours = seconds / 3600;
+  return `${hours < 10 ? hours.toFixed(1) : Math.round(hours)} h`;
+};
+
+function SpotifyArtwork({
+  src,
+  title,
+  className = "",
+}: {
+  src: string | null;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`relative overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(30,215,96,.32),transparent_52%),linear-gradient(145deg,#171717,#050505)] ${className}`}
+    >
+      {src ? (
+        <img
+          src={src}
+          alt={`Portada de ${title}`}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center">
+          <Disc3 className="h-8 w-8 text-[#1ed760]/70" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+    </div>
+  );
+}
 
 function Kicker({ children }: { children: React.ReactNode }) {
   return (
@@ -621,29 +627,73 @@ function TrendsView({
 }
 
 function SpotifyView() {
-  const lists = [
-    {
-      title: "Canciones con más streams diarios",
-      icon: Music2,
-      items: spotifyTracks,
-    },
-    {
-      title: "Álbumes con más streams diarios",
-      icon: Disc3,
-      items: spotifyAlbums,
-    },
-  ];
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"daily" | "total">("daily");
+  const normalizedQuery = query.trim().toLocaleLowerCase("es-MX");
+  const visibleTracks = spotifyTracks
+    .filter((item) =>
+      normalizedQuery
+        ? item.title.toLocaleLowerCase("es-MX").includes(normalizedQuery)
+        : true,
+    )
+    .sort((a, b) => b[sortBy] - a[sortBy]);
+  const heroAlbums = spotifyAlbums.slice(0, 4);
   return (
-    <div className="space-y-4">
-      <Panel className="border-[#1ed760]/20 bg-[radial-gradient(circle_at_top_right,rgba(30,215,96,.11),transparent_45%)] p-6 sm:p-8">
-        <Kicker>Spotify</Kicker>
-        <h2 className="mt-3 text-3xl font-black tracking-[-.04em]">
-          Canciones y álbumes
-        </h2>
-        <p className="mt-3 text-xs text-white/35">
-          Streams acumulados y diarios · corte del 29 ago 2026
-        </p>
-        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-5">
+      <Panel className="relative overflow-hidden border-[#1ed760]/25 bg-[radial-gradient(circle_at_82%_18%,rgba(30,215,96,.2),transparent_35%),radial-gradient(circle_at_12%_0%,rgba(57,255,20,.08),transparent_32%)]">
+        <div className="grid lg:grid-cols-[1.05fr_.95fr]">
+          <div className="relative z-10 p-6 sm:p-9">
+            <div className="flex items-center gap-4">
+              <img
+                src={peso.avatar}
+                alt="Peso Pluma"
+                className="h-16 w-16 rounded-2xl border border-white/15 object-cover shadow-2xl"
+              />
+              <div>
+                <Kicker>Spotify completo</Kicker>
+                <p className="mt-1 text-sm font-black text-white/55">Peso Pluma</p>
+              </div>
+            </div>
+            <h2 className="mt-8 max-w-xl text-4xl font-black leading-[.98] tracking-[-.055em] sm:text-5xl">
+              Todas las canciones y todos los álbumes
+            </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-white/42">
+              Streams diarios y acumulados de cada lanzamiento registrado en Spotify
+            </p>
+            <div className="mt-7 flex flex-wrap gap-2">
+              <span className="rounded-full border border-[#1ed760]/25 bg-[#1ed760]/10 px-4 py-2 text-[9px] font-black uppercase tracking-[.14em] text-[#39FF14]">
+                {spotifyCatalog.trackCount} canciones
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/[.04] px-4 py-2 text-[9px] font-black uppercase tracking-[.14em] text-white/55">
+                {spotifyCatalog.albumCount} álbumes
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/[.04] px-4 py-2 text-[9px] font-black uppercase tracking-[.14em] text-white/55">
+                Corte 29 ago 2026
+              </span>
+            </div>
+          </div>
+          <div className="grid min-h-[330px] grid-cols-2 gap-2 p-4 lg:rotate-2 lg:scale-105 lg:p-7">
+            {heroAlbums.map((album, index) => (
+              <div
+                key={album.id}
+                className={`group relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl ${index % 2 ? "translate-y-5" : "-translate-y-1"}`}
+              >
+                <SpotifyArtwork
+                  src={album.artworkUrl}
+                  title={album.title}
+                  className="h-full min-h-36"
+                />
+                <div className="absolute inset-x-0 bottom-0 p-3">
+                  <p className="truncate text-xs font-black">{album.title}</p>
+                  <p className="mt-1 text-[9px] font-black text-[#39FF14]">
+                    +{compact(album.daily)} diarios
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="grid border-t border-white/[.07] sm:grid-cols-2 xl:grid-cols-4">
           {[
             [
               "Canciones · diario",
@@ -668,7 +718,7 @@ function SpotifyView() {
           ].map(([label, value, detail]) => (
             <div
               key={label}
-              className="rounded-2xl border border-white/[.07] bg-black/25 p-5"
+              className="border-b border-white/[.07] bg-black/25 p-5 last:border-b-0 sm:border-r xl:border-b-0 xl:last:border-r-0"
             >
               <p className="text-[8px] font-black uppercase tracking-[.15em] text-white/30">
                 {label}
@@ -679,135 +729,242 @@ function SpotifyView() {
           ))}
         </div>
       </Panel>
-      <section className="grid gap-4 xl:grid-cols-2">
-        {lists.map(({ title, icon: Icon, items }) => (
-          <Panel key={title} className="overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-white/[.07] p-6">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1ed760]/10">
-                <Icon className="h-5 w-5 text-[#1ed760]" />
-              </span>
-              <h3 className="text-lg font-black">{title}</h3>
-            </div>
-            <div>
-              {items.map((item, index) => (
-                <div
-                  key={`${title}-${item.title}`}
-                  className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[.06] px-6 py-4 last:border-0"
-                >
-                  <span className="text-[9px] font-black text-[#39FF14]">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
+      <Panel className="overflow-hidden">
+        <div className="flex flex-col gap-4 border-b border-white/[.07] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+          <div>
+            <Kicker>Discografía</Kicker>
+            <h3 className="mt-2 text-2xl font-black">Los {spotifyAlbums.length} álbumes</h3>
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
+            Todos los registros disponibles
+          </p>
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 2xl:grid-cols-4">
+          {spotifyAlbums.map((album, index) => (
+            <a
+              key={album.id}
+              href={album.spotifyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] transition hover:-translate-y-1 hover:border-[#1ed760]/30 hover:bg-[#1ed760]/[.04]"
+            >
+              <SpotifyArtwork
+                src={album.artworkUrl}
+                title={album.title}
+                className="aspect-square"
+              />
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-black">{item.title}</p>
-                    <p className="mt-1 text-[9px] text-white/25">
-                      {compact(item.total)} acumulados
-                    </p>
+                    <p className="text-[8px] font-black text-[#39FF14]">#{index + 1}</p>
+                    <p className="mt-1 truncate text-sm font-black">{album.title}</p>
+                  </div>
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#1ed760] text-black opacity-0 transition group-hover:opacity-100">
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/[.06] pt-3">
+                  <div>
+                    <p className="text-[8px] uppercase tracking-[.1em] text-white/25">Diarios</p>
+                    <p className="mt-1 text-sm font-black text-[#39FF14]">+{compact(album.daily)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-[#39FF14]">
-                      +{compact(item.daily)}
-                    </p>
-                    <p className="text-[8px] text-white/25">diarios</p>
+                    <p className="text-[8px] uppercase tracking-[.1em] text-white/25">Total</p>
+                    <p className="mt-1 text-sm font-black">{compact(album.total)}</p>
                   </div>
                 </div>
-              ))}
+              </div>
+            </a>
+          ))}
+        </div>
+      </Panel>
+      <Panel className="overflow-hidden">
+        <div className="border-b border-white/[.07] p-6 sm:p-7">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <Kicker>Catálogo completo</Kicker>
+              <h3 className="mt-2 text-2xl font-black">
+                {visibleTracks.length} de {spotifyTracks.length} canciones
+              </h3>
             </div>
-          </Panel>
-        ))}
-      </section>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label className="flex min-w-72 items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3">
+                <Search className="h-4 w-4 text-white/30" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Buscar una canción"
+                  className="w-full bg-transparent text-xs font-bold text-white outline-none placeholder:text-white/20"
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3">
+                <SlidersHorizontal className="h-4 w-4 text-white/30" />
+                <select
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.target.value as "daily" | "total")}
+                  className="bg-transparent text-xs font-bold text-white outline-none"
+                >
+                  <option value="daily">Streams diarios</option>
+                  <option value="total">Streams acumulados</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div className="grid lg:grid-cols-2">
+          {visibleTracks.map((track, index) => (
+            <a
+              key={track.id}
+              href={track.spotifyUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="group grid grid-cols-[34px_58px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[.055] px-4 py-3 transition hover:bg-[#1ed760]/[.045] lg:odd:border-r"
+            >
+              <span className="text-center text-[9px] font-black text-white/22">
+                {String(index + 1).padStart(3, "0")}
+              </span>
+              <SpotifyArtwork
+                src={track.artworkUrl}
+                title={track.title}
+                className="aspect-square rounded-xl border border-white/[.08]"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black transition group-hover:text-[#39FF14]">
+                  {track.title}
+                </p>
+                <p className="mt-1 text-[9px] text-white/25">
+                  {compact(track.total)} streams acumulados
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-[#39FF14]">+{compact(track.daily)}</p>
+                <p className="text-[8px] uppercase tracking-[.1em] text-white/22">diarios</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
 
 function VideosView() {
+  const totalTrackedViews = videos.reduce((total, video) => total + video.views, 0);
+  const totalLatestGain = videos.reduce((total, video) => total + video.delta, 0);
   return (
-    <div className="space-y-4">
-      <Panel className="overflow-hidden border-red-500/15 bg-[radial-gradient(circle_at_top_right,rgba(255,40,40,.08),transparent_45%)]">
-        <div className="p-6 sm:p-7">
-          <Kicker>YouTube en vivo</Kicker>
-          <h2 className="mt-2 text-3xl font-black">
-            Videos de YouTube con mayor actividad
-          </h2>
-          <p className="mt-2 text-xs text-white/35">
-            Cambios exactos entre las últimas lecturas guardadas
+    <div className="space-y-5">
+      <Panel className="relative overflow-hidden border-red-500/20 bg-[radial-gradient(circle_at_84%_10%,rgba(255,35,35,.22),transparent_33%),radial-gradient(circle_at_10%_0%,rgba(57,255,20,.08),transparent_30%)]">
+        <div className="grid lg:grid-cols-[1.05fr_.95fr]">
+          <div className="relative z-10 p-6 sm:p-9">
+            <div className="flex items-center gap-4">
+              <img
+                src={peso.avatar}
+                alt="Peso Pluma"
+                className="h-16 w-16 rounded-2xl border border-white/15 object-cover shadow-2xl"
+              />
+              <div>
+                <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.2em] text-red-300">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  YouTube en vivo
+                </p>
+                <p className="mt-1 text-sm font-black text-white/55">Peso Pluma</p>
+              </div>
+            </div>
+            <h2 className="mt-8 max-w-xl text-4xl font-black leading-[.98] tracking-[-.055em] sm:text-5xl">
+              YouTube en vivo, video por video
+            </h2>
+            <p className="mt-4 max-w-xl text-sm leading-6 text-white/42">
+              {videos.length} videos únicos tienen conteos exactos guardados de los {peso.youtubeChannelVideos} videos registrados en el canal
+            </p>
+            <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
+              {[
+                [compact(totalTrackedViews), "vistas monitoreadas"],
+                [`+${compact(totalLatestGain)}`, "últimas lecturas"],
+                [`${videos.length}/${peso.youtubeChannelVideos}`, "cobertura en vivo"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-2xl border border-white/10 bg-black/35 p-4">
+                  <p className="text-xl font-black sm:text-2xl">{value}</p>
+                  <p className="mt-1 text-[8px] font-black uppercase tracking-[.11em] text-white/27">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="relative min-h-[340px] overflow-hidden border-t border-white/[.07] lg:border-l lg:border-t-0">
+            <img
+              src={videos[0].image}
+              alt={`Miniatura de ${videos[0].title}`}
+              className="absolute inset-0 h-full w-full scale-105 object-cover blur-[1px]"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+              <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-red-500 text-white shadow-2xl shadow-red-950/50">
+                <Play className="ml-1 h-5 w-5 fill-current" />
+              </span>
+              <p className="mt-5 text-[9px] font-black uppercase tracking-[.16em] text-red-300">Video con más vistas</p>
+              <p className="mt-2 line-clamp-2 text-2xl font-black">{videos[0].title}</p>
+              <p className="mt-2 text-3xl font-black tracking-[-.04em]">{exact(videos[0].views)}</p>
+            </div>
+          </div>
+        </div>
+      </Panel>
+      <Panel className="overflow-hidden">
+        <div className="flex flex-col gap-3 border-b border-white/[.07] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
+          <div>
+            <Kicker>YouTube con contador activo</Kicker>
+            <h3 className="mt-2 text-2xl font-black">Los {videos.length} videos conectados</h3>
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
+            Todos los disponibles · sin duplicados
           </p>
         </div>
-        <div className="grid border-t border-white/[.07] lg:grid-cols-3">
+        <div className="grid gap-4 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
           {videos.map((video, index) => (
-            <article
+            <a
               key={video.id}
-              className="border-b border-white/[.07] p-5 last:border-0 lg:border-b-0 lg:border-r lg:last:border-r-0"
+              href={video.url}
+              target="_blank"
+              rel="noreferrer"
+              className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] transition hover:-translate-y-1 hover:border-red-400/30 hover:bg-red-500/[.035]"
             >
-              <div className="relative overflow-hidden rounded-2xl">
+              <div className="relative overflow-hidden">
                 <img
                   src={video.image}
                   alt={`Miniatura de ${video.title}`}
-                  className="aspect-video w-full object-cover"
+                  loading="lazy"
+                  className="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.035]"
                 />
-                <span className="absolute left-3 top-3 rounded-full bg-black/80 px-2.5 py-1 text-[8px] font-black">
-                  #{index + 1}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+                <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/75 px-3 py-1.5 text-[8px] font-black backdrop-blur">
+                  #{String(index + 1).padStart(2, "0")}
+                </span>
+                <span className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-red-500 text-white shadow-lg">
+                  <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
                 </span>
               </div>
-              <p className="mt-4 text-sm font-black">{video.title}</p>
-              <p className="mt-2 text-2xl font-black">{exact(video.views)}</p>
-              <p className="text-[9px] text-white/30">vistas totales</p>
-              <div className="mt-4 flex justify-between border-t border-white/[.06] pt-3">
-                <span className="text-[9px] text-white/30">
-                  últimos {video.interval}
-                </span>
-                <span className="text-xs font-black text-[#39FF14]">
-                  +{exact(video.delta)}
-                </span>
+              <div className="p-5">
+                <p className="line-clamp-2 min-h-10 text-sm font-black leading-5 transition group-hover:text-red-200">{video.title}</p>
+                <p className="mt-4 text-2xl font-black tracking-[-.035em]">{exact(video.views)}</p>
+                <p className="text-[8px] font-black uppercase tracking-[.11em] text-white/25">vistas totales</p>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/[.06] pt-4">
+                  <div>
+                    <p className="text-[8px] uppercase tracking-[.1em] text-white/25">Última lectura</p>
+                    <p className="mt-1 text-sm font-black text-[#39FF14]">+{exact(video.delta)}</p>
+                    <p className="text-[8px] text-white/20">en {intervalLabel(video.secondsSincePrevious)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[8px] uppercase tracking-[.1em] text-white/25">Próximo hito</p>
+                    <p className="mt-1 text-sm font-black">{compact(video.milestone)}</p>
+                    <p className="text-[8px] text-white/20">{video.progress}% completado</p>
+                  </div>
+                </div>
+                <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
+                  <div className="h-full rounded-full bg-gradient-to-r from-red-600 to-[#39FF14]" style={{ width: `${video.progress}%` }} />
+                </div>
               </div>
-              <div className="mt-4 h-1.5 rounded-full bg-white/[.07]">
-                <div
-                  className="h-full rounded-full bg-red-500"
-                  style={{ width: `${video.progress}%` }}
-                />
-              </div>
-              <p className="mt-2 text-[8px] text-white/25">
-                {video.progress}% del próximo hito
-              </p>
-            </article>
+            </a>
           ))}
         </div>
       </Panel>
-      <section className="grid gap-4 lg:grid-cols-2">
-        <Panel className="p-6">
-          <Kicker>Rendimiento reciente</Kicker>
-          <h3 className="mt-3 text-2xl font-black">
-            NUEVA VIDA lidera la última lectura
-          </h3>
-          <p className="mt-3 text-sm leading-7 text-white/40">
-            Sumó 25,773 vistas en 62 minutos frente a 14,623 de BELLAKEO en 67
-            minutos
-          </p>
-          <div className="mt-5 rounded-xl border border-[#39FF14]/20 bg-[#39FF14]/[.04] p-4 text-xs font-bold">
-            Próximo hito · NUEVA VIDA 700M
-          </div>
-        </Panel>
-        <Panel className="p-6">
-          <Kicker>Datos incluidos</Kicker>
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            {[
-              ["10", "videos de YouTube en perfil público"],
-              ["Todos", "videos oficiales de YouTube en Monitor"],
-              ["Cada hora", "actualización objetivo"],
-              ["24 h ET", "total diario"],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="rounded-xl border border-white/[.07] bg-black/25 p-4"
-              >
-                <p className="text-2xl font-black">{value}</p>
-                <p className="mt-1 text-[8px] font-black uppercase tracking-[.12em] text-white/25">
-                  {label}
-                </p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      </section>
     </div>
   );
 }

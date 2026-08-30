@@ -46,6 +46,7 @@ export interface MonitoringStreamItem {
   itemKey: string;
   title: string;
   spotifyUrl: string | null;
+  artworkUrl: string | null;
   totalStreams: number;
   dailyStreams: number;
   compilation: boolean;
@@ -107,6 +108,7 @@ function parseArgs() {
     uploadR2: args.get("uploadR2") === "true",
     eligibility: (args.get("eligibility") ?? "mapped") as EligibilityMode,
     auditEligibility: args.get("auditEligibility") === "true",
+    artwork: args.get("artwork") === "true",
   };
 }
 
@@ -203,6 +205,7 @@ export function parseMonitoringCatalog(html: string, itemType: ItemType): Monito
       itemKey: spotifyId ?? fallbackKey(title),
       title,
       spotifyUrl,
+      artworkUrl: null,
       totalStreams: parseNumber(match[2]),
       dailyStreams: parseNumber(match[3]),
       compilation: itemType === "album" && rawTitle.startsWith("^"),
@@ -219,11 +222,16 @@ async function ensureTables(pool: PoolLike) {
       item_key text NOT NULL,
       title text NOT NULL,
       spotify_url text,
+      artwork_url text,
       compilation boolean NOT NULL DEFAULT false,
       first_seen_at timestamptz NOT NULL DEFAULT now(),
       last_seen_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (artist_key, item_type, item_key)
     )
+  `);
+  await pool.query(`
+    ALTER TABLE monitoring_stream_items
+    ADD COLUMN IF NOT EXISTS artwork_url text
   `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS monitoring_stream_daily_snapshots (
@@ -302,6 +310,75 @@ async function fetchPageWithRetry(spotifyArtistId: string, itemType: ItemType): 
   throw lastError;
 }
 
+async function fetchSpotifyArtwork(spotifyUrl: string): Promise<string | null> {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(
+        `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; MexicoChartsMonitor/1.0)",
+          },
+          signal: AbortSignal.timeout(15_000),
+        },
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json() as { thumbnail_url?: unknown };
+      return typeof payload.thumbnail_url === "string"
+        ? payload.thumbnail_url
+        : null;
+    } catch {
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, attempt * 300));
+      }
+    }
+  }
+  return null;
+}
+
+async function hydrateArtwork(
+  pool: PoolLike,
+  artistKey: string,
+  items: MonitoringStreamItem[],
+): Promise<MonitoringStreamItem[]> {
+  const existing = await pool.query<{
+    item_type: ItemType;
+    item_key: string;
+    artwork_url: string | null;
+  }>(
+    `SELECT item_type, item_key, to_jsonb(monitoring_stream_items)->>'artwork_url' artwork_url
+     FROM monitoring_stream_items
+     WHERE artist_key=$1`,
+    [artistKey],
+  );
+  const artworkByKey = new Map(
+    existing.rows
+      .filter(row => row.artwork_url)
+      .map(row => [`${row.item_type}:${row.item_key}`, row.artwork_url]),
+  );
+  const output = [...items];
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < output.length) {
+      const index = cursor;
+      cursor += 1;
+      const item = output[index];
+      const cached = artworkByKey.get(`${item.itemType}:${item.itemKey}`);
+      if (cached) {
+        output[index] = { ...item, artworkUrl: cached };
+      } else if (item.spotifyUrl) {
+        output[index] = {
+          ...item,
+          artworkUrl: await fetchSpotifyArtwork(item.spotifyUrl),
+        };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(5, output.length) }, worker));
+  return output;
+}
+
 async function saveItems(pool: PoolLike, artistKey: string, snapshotDate: string, items: MonitoringStreamItem[]) {
   if (!items.length) return;
   const payload = JSON.stringify(items.map(item => ({
@@ -309,6 +386,7 @@ async function saveItems(pool: PoolLike, artistKey: string, snapshotDate: string
     item_key: item.itemKey,
     title: item.title,
     spotify_url: item.spotifyUrl,
+    artwork_url: item.artworkUrl,
     compilation: item.compilation,
     total_streams: item.totalStreams,
     daily_streams: item.dailyStreams,
@@ -316,17 +394,18 @@ async function saveItems(pool: PoolLike, artistKey: string, snapshotDate: string
   await pool.query(
     `WITH incoming AS (
        SELECT * FROM jsonb_to_recordset($2::jsonb) AS x(
-         item_type text, item_key text, title text, spotify_url text,
+         item_type text, item_key text, title text, spotify_url text, artwork_url text,
          compilation boolean, total_streams bigint, daily_streams bigint
        )
      )
      INSERT INTO monitoring_stream_items (
-       artist_key, item_type, item_key, title, spotify_url, compilation, last_seen_at
+       artist_key, item_type, item_key, title, spotify_url, artwork_url, compilation, last_seen_at
      )
-     SELECT $1, item_type, item_key, title, spotify_url, compilation, now() FROM incoming
+     SELECT $1, item_type, item_key, title, spotify_url, artwork_url, compilation, now() FROM incoming
      ON CONFLICT (artist_key, item_type, item_key) DO UPDATE SET
        title=excluded.title,
        spotify_url=COALESCE(excluded.spotify_url, monitoring_stream_items.spotify_url),
+       artwork_url=COALESCE(excluded.artwork_url, monitoring_stream_items.artwork_url),
        compilation=excluded.compilation,
        last_seen_at=now()`,
     [artistKey, payload],
@@ -334,7 +413,7 @@ async function saveItems(pool: PoolLike, artistKey: string, snapshotDate: string
   await pool.query(
     `WITH incoming AS (
        SELECT * FROM jsonb_to_recordset($3::jsonb) AS x(
-         item_type text, item_key text, title text, spotify_url text,
+         item_type text, item_key text, title text, spotify_url text, artwork_url text,
          compilation boolean, total_streams bigint, daily_streams bigint
        )
      )
@@ -491,7 +570,7 @@ async function uploadArchiveToR2(path: string, objectKey: string) {
 async function main() {
   const {
     artistKeys: requestedArtistKeys, all, offset, limit, snapshotDate, write,
-    storage, archiveDir, uploadR2, eligibility, auditEligibility,
+    storage, archiveDir, uploadR2, eligibility, auditEligibility, artwork,
   } = parseArgs();
   assertStorageMode(storage);
   assertEligibilityMode(eligibility);
@@ -572,7 +651,10 @@ async function main() {
         if (!tracks.length || !albums.length) {
           throw new Error(`incomplete_stream_catalog:tracks=${tracks.length},albums=${albums.length}`);
         }
-        const items = [...tracks, ...albums];
+        const parsedItems = [...tracks, ...albums];
+        const items = artwork && write
+          ? await hydrateArtwork(pool, artist.artist_key, parsedItems)
+          : parsedItems;
         const fetchedAt = new Date().toISOString();
         if (write && (storage === "postgres" || storage === "hybrid")) {
           await saveItems(pool, artist.artist_key, snapshotDate, items);

@@ -115,7 +115,8 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
   const ranked = [...videos]
     .filter(video => video.view_count != null)
     .sort((a, b) => numberValue(b.view_count) - numberValue(a.view_count));
-  const featured = ranked[0];
+  const visibleVideos = publicPreview ? ranked.slice(0, 10) : ranked;
+  const featured = visibleVideos[0];
 
   if (!featured) return null;
 
@@ -181,8 +182,8 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
           </div>
         </a>
 
-        <div className="max-h-[620px] divide-y divide-white/[0.06] overflow-y-auto">
-          {ranked.slice(1).map((video, index) => (
+        <div className={publicPreview ? "max-h-[620px] divide-y divide-white/[0.06] overflow-y-auto" : "divide-y divide-white/[0.06]"}>
+          {visibleVideos.slice(1).map((video, index) => (
             <a key={video.video_id} href={video.canonical_url} target="_blank" rel="noreferrer" className="group grid grid-cols-[112px_minmax(0,1fr)] gap-3 p-4 transition-colors hover:bg-white/[0.025]">
               <VideoThumb video={video} className="aspect-video rounded-lg border border-white/[0.07]" />
               <div className="flex min-w-0 flex-col justify-between py-0.5">
@@ -209,7 +210,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/[0.07] bg-white/[0.018] px-5 py-3 text-[9px] font-bold text-zinc-600 sm:px-7">
         <span className="inline-flex items-center gap-1.5"><Clock3 className="h-3.5 w-3.5" /> Lecturas exactas periódicas</span>
-        <span>{ranked.length} videos con contador individual</span>
+        <span>{visibleVideos.length} videos con contador individual</span>
         <span className="ml-auto inline-flex items-center gap-1.5 text-zinc-500"><Activity className="h-3.5 w-3.5" /> Sin estimaciones entre lecturas</span>
       </div>
       {publicPreview && ranked.length >= 10 && (

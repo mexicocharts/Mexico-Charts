@@ -390,6 +390,7 @@ async function loadAuthorizedMonitoring(
       item_key: string;
       title: string;
       spotify_url: string | null;
+      artwork_url: string | null;
       compilation: boolean;
       total_streams: string | number;
       daily_streams: string | number;
@@ -400,7 +401,9 @@ async function loadAuthorizedMonitoring(
         FROM monitoring_stream_daily_snapshots
         WHERE lower(artist_key) = ANY($1::text[])
       )
-      SELECT i.item_type, i.item_key, i.title, i.spotify_url, i.compilation,
+      SELECT i.item_type, i.item_key, i.title, i.spotify_url,
+             to_jsonb(i)->>'artwork_url' artwork_url,
+             i.compilation,
              s.total_streams, s.daily_streams
       FROM monitoring_stream_items i
       JOIN latest_date d ON true
@@ -438,6 +441,28 @@ async function loadAuthorizedMonitoring(
     releases: [],
   };
   const latestStreamSummary = streamSummary.rows[0] ?? null;
+  const normalizedReleaseTitle = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+-\s+(single|ep)$/i, "")
+      .replace(/\([^)]*(deluxe|version|remaster)[^)]*\)/gi, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const releaseArtwork = new Map(
+    catalog.releases
+      .filter((release) => release.artworkUrl)
+      .map((release) => [
+        normalizedReleaseTitle(release.title),
+        release.artworkUrl,
+      ]),
+  );
+  const uniqueLiveVideos = liveVideos.rows.filter(
+    (video, index, rows) =>
+      rows.findIndex((candidate) => candidate.video_id === video.video_id) ===
+      index,
+  );
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -452,7 +477,7 @@ async function loadAuthorizedMonitoring(
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     latestReleaseImpact: insight?.latestReleaseImpact ?? null,
-    liveVideos: liveVideos.rows,
+    liveVideos: uniqueLiveVideos,
     liveVideoHistory: liveVideoHistory.rows,
     spotifyCatalog: {
       snapshotDate: latestStreamSummary?.snapshot_date ?? null,
@@ -475,6 +500,10 @@ async function loadAuthorizedMonitoring(
         key: item.item_key,
         title: item.title,
         spotifyUrl: item.spotify_url,
+        artworkUrl:
+          item.artwork_url ??
+          releaseArtwork.get(normalizedReleaseTitle(item.title)) ??
+          null,
         compilation: item.compilation,
         totalStreams: nullableNumber(item.total_streams),
         dailyStreams: nullableNumber(item.daily_streams),

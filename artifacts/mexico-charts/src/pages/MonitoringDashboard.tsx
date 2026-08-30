@@ -14,6 +14,8 @@ import {
   LayoutDashboard,
   MapPin,
   Music2,
+  Search,
+  SlidersHorizontal,
   Sparkles,
   Users,
   Youtube,
@@ -148,6 +150,7 @@ type DashboardPayload = {
       key: string;
       title: string;
       spotifyUrl: string | null;
+      artworkUrl: string | null;
       compilation: boolean;
       totalStreams: number | null;
       dailyStreams: number | null;
@@ -382,33 +385,67 @@ function SpotifyCatalog({
 }: {
   catalog: DashboardPayload["spotifyCatalog"];
 }) {
-  const groups = [
-    {
-      type: "track" as const,
-      title: "Canciones",
-      icon: Music2,
-      items: catalog.items.filter((item) => item.type === "track"),
-    },
-    {
-      type: "album" as const,
-      title: "Álbumes",
-      icon: Disc3,
-      items: catalog.items.filter((item) => item.type === "album"),
-    },
-  ];
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"dailyStreams" | "totalStreams">(
+    "dailyStreams",
+  );
+  const albums = catalog.items
+    .filter((item) => item.type === "album")
+    .sort(
+      (a, b) =>
+        Number(b.dailyStreams ?? 0) - Number(a.dailyStreams ?? 0),
+    );
+  const normalizedQuery = query.trim().toLocaleLowerCase("es-MX");
+  const tracks = catalog.items
+    .filter(
+      (item) =>
+        item.type === "track" &&
+        (!normalizedQuery ||
+          item.title.toLocaleLowerCase("es-MX").includes(normalizedQuery)),
+    )
+    .sort(
+      (a, b) => Number(b[sortBy] ?? 0) - Number(a[sortBy] ?? 0),
+    );
+  const Artwork = ({
+    item,
+    className = "",
+  }: {
+    item: DashboardPayload["spotifyCatalog"]["items"][number];
+    className?: string;
+  }) => (
+    <div
+      className={`relative overflow-hidden bg-[radial-gradient(circle_at_30%_20%,rgba(30,215,96,.3),transparent_52%),linear-gradient(145deg,#171717,#050505)] ${className}`}
+    >
+      {item.artworkUrl ? (
+        <img
+          src={item.artworkUrl}
+          alt={`Portada de ${item.title}`}
+          loading="lazy"
+          className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+        />
+      ) : (
+        <div className="grid h-full w-full place-items-center">
+          <Disc3 className="h-7 w-7 text-[#1ed760]/70" />
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+    </div>
+  );
   return (
-    <section className="mt-7 space-y-4">
-      <article className="rounded-3xl border border-[#1ed760]/20 bg-[radial-gradient(circle_at_top_right,rgba(30,215,96,.12),transparent_45%)] p-6 sm:p-8">
+    <section className="mt-7 space-y-5">
+      <article className="overflow-hidden rounded-3xl border border-[#1ed760]/25 bg-[radial-gradient(circle_at_82%_10%,rgba(30,215,96,.19),transparent_36%)]">
+        <div className="p-6 sm:p-8">
         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#39FF14]">
-          Spotify
+          Spotify completo
         </p>
         <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
-          Canciones y álbumes
+          Todas las canciones y todos los álbumes
         </h2>
         <p className="mt-2 text-xs text-white/35">
           Streams acumulados y diarios · {dateLabel(catalog.snapshotDate)}
         </p>
-        <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        </div>
+        <div className="grid border-t border-white/[0.07] sm:grid-cols-2 lg:grid-cols-4">
           {[
             [
               "Canciones · diario",
@@ -433,7 +470,7 @@ function SpotifyCatalog({
           ].map(([label, value, detail]) => (
             <div
               key={label}
-              className="rounded-2xl border border-white/[0.08] bg-black/25 p-5"
+              className="border-b border-white/[0.07] bg-black/25 p-5 last:border-b-0 sm:border-r lg:border-b-0 lg:last:border-r-0"
             >
               <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/30">
                 {label}
@@ -444,67 +481,82 @@ function SpotifyCatalog({
           ))}
         </div>
       </article>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {groups.map(({ type, title, icon: Icon, items }) => (
-          <article
-            key={type}
-            className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]"
-          >
-            <div className="flex items-center justify-between border-b border-white/[0.07] p-5 sm:p-6">
-              <div className="flex items-center gap-3">
-                <Icon className="h-5 w-5 text-[#1ed760]" />
-                <h3 className="text-lg font-black">{title}</h3>
-              </div>
-              <span className="text-[9px] font-black text-white/30">
-                {items.length}
-              </span>
-            </div>
-            <div className="max-h-[620px] overflow-y-auto">
-              {items.length ? (
-                items.map((item, index) => (
-                  <div
-                    key={`${type}-${item.key}`}
-                    className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.06] px-5 py-4 last:border-0"
-                  >
-                    <span className="text-[9px] font-black text-[#39FF14]">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <div className="min-w-0">
-                      {item.spotifyUrl ? (
-                        <a
-                          href={item.spotifyUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block truncate text-sm font-black hover:text-[#39FF14]"
-                        >
-                          {item.title}
-                        </a>
-                      ) : (
-                        <p className="truncate text-sm font-black">
-                          {item.title}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[9px] text-white/25">
-                        {compact(item.totalStreams)} acumulados
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-[#39FF14]">
-                        {signed(item.dailyStreams)}
-                      </p>
-                      <p className="text-[8px] text-white/25">diarios</p>
-                    </div>
+      <article className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02]">
+        <div className="flex items-end justify-between border-b border-white/[0.07] p-5 sm:p-6">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Discografía</p>
+            <h3 className="mt-2 text-2xl font-black">Los {albums.length} álbumes</h3>
+          </div>
+          <Disc3 className="h-6 w-6 text-[#1ed760]" />
+        </div>
+        <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3 xl:grid-cols-4">
+          {albums.map((item, index) => (
+            <a
+              key={item.key}
+              href={item.spotifyUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-black/25 transition hover:-translate-y-1 hover:border-[#1ed760]/30"
+            >
+              <Artwork item={item} className="aspect-square" />
+              <div className="p-4">
+                <p className="text-[8px] font-black text-[#39FF14]">#{index + 1}</p>
+                <p className="mt-1 truncate text-sm font-black">{item.title}</p>
+                <div className="mt-3 flex items-end justify-between border-t border-white/[0.06] pt-3">
+                  <div>
+                    <p className="text-[8px] text-white/25">DIARIOS</p>
+                    <p className="mt-1 text-sm font-black text-[#39FF14]">{signed(item.dailyStreams)}</p>
                   </div>
-                ))
-              ) : (
-                <p className="p-8 text-center text-sm text-white/30">
-                  Sin datos de Spotify guardados
-                </p>
-              )}
-            </div>
-          </article>
-        ))}
-      </div>
+                  <p className="text-sm font-black">{compact(item.totalStreams)}</p>
+                </div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </article>
+      <article className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02]">
+        <div className="flex flex-col gap-4 border-b border-white/[0.07] p-5 sm:p-6 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Catálogo completo</p>
+            <h3 className="mt-2 text-2xl font-black">{tracks.length} canciones</h3>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="flex min-w-64 items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3">
+              <Search className="h-4 w-4 text-white/30" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar una canción" className="w-full bg-transparent text-xs font-bold text-white outline-none placeholder:text-white/20" />
+            </label>
+            <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/35 px-4 py-3">
+              <SlidersHorizontal className="h-4 w-4 text-white/30" />
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value as "dailyStreams" | "totalStreams")} className="bg-transparent text-xs font-bold text-white outline-none">
+                <option value="dailyStreams">Streams diarios</option>
+                <option value="totalStreams">Streams acumulados</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="grid lg:grid-cols-2">
+          {tracks.map((item, index) => (
+            <a
+              key={item.key}
+              href={item.spotifyUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              className="group grid grid-cols-[34px_56px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.055] px-4 py-3 transition hover:bg-[#1ed760]/[0.045] lg:odd:border-r"
+            >
+              <span className="text-center text-[9px] font-black text-white/22">{String(index + 1).padStart(3, "0")}</span>
+              <Artwork item={item} className="aspect-square rounded-xl border border-white/[0.08]" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black group-hover:text-[#39FF14]">{item.title}</p>
+                <p className="mt-1 text-[9px] text-white/25">{compact(item.totalStreams)} acumulados</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-[#39FF14]">{signed(item.dailyStreams)}</p>
+                <p className="text-[8px] text-white/25">diarios</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </article>
     </section>
   );
 }
