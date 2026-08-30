@@ -269,6 +269,13 @@ async function documentedSearch(client: PgClient, sessionId: string, query: stri
     const response=await fetch(url,{signal:AbortSignal.timeout(15_000)});
     const text=await response.text();
     if (response.ok) return JSON.parse(text) as YoutubeSearchResponse;
+    if (response.status===429 && /quota exceeded[\s\S]*per day/i.test(text)) {
+      await addUsage(client,sessionId,"errors",1,`search ${response.status}: ${text}`);
+      await client.query(`UPDATE youtube_discovery_validation_api_usage
+        SET search_request_attempts=${SEARCH_REQUEST_HARD_CAP},updated_at=now()
+        WHERE session_id=$1 AND usage_date=CURRENT_DATE`,[sessionId]);
+      throw new Error("Daily Search Queries quota exhausted; protected search stopped until the next quota day.");
+    }
     if (response.status!==429 || attempt>=2) {
       await addUsage(client,sessionId,"errors",1,`search ${response.status}: ${text}`);
       throw new Error(`YouTube search ${response.status}: ${text.slice(0,300)}`);
