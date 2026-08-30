@@ -340,10 +340,23 @@ async function snapshotDay(client: PgClient, sessionId: string) {
       'authorizedAccepted',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND association_status='accepted'),
       'innertubeDiscoveries',count(DISTINCT video_id) FILTER (WHERE source='innertube_comparator'),
       'overlap',count(DISTINCT video_id) FILTER (WHERE video_id IN (SELECT video_id FROM youtube_discovery_validation_events WHERE session_id=$1 AND source LIKE 'authorized_%') AND source='innertube_comparator'),
+      'authorizedMisses',count(DISTINCT video_id) FILTER (WHERE source='innertube_comparator' AND video_id NOT IN (SELECT video_id FROM youtube_discovery_validation_events WHERE session_id=$1 AND source LIKE 'authorized_%')),
       'topicCandidates',count(DISTINCT video_id) FILTER (WHERE uploader_type='topic' AND source LIKE 'authorized_%'),
       'vevoCandidates',count(DISTINCT video_id) FILTER (WHERE uploader_type='vevo' AND source LIKE 'authorized_%'),
       'labelSharedCandidates',count(DISTINCT video_id) FILTER (WHERE uploader_type='label_shared' AND source LIKE 'authorized_%'),
+      'artistOtherCandidates',count(DISTINCT video_id) FILTER (WHERE uploader_type='artist_other' AND source LIKE 'authorized_%'),
+      'collaborationCandidates',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND evidence->>'relationshipSource' ILIKE '%collaborat%'),
+      'releaseTrackCandidates',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND evidence->>'queryBasis'='recent_licensed_release'),
       'protectedReview',count(*) FILTER (WHERE association_status='protected_review'),
+      'falseAssociations',count(*) FILTER (WHERE association_status='rejected'),
+      'averageAuthorizedMinusComparatorSeconds',(
+        SELECT avg(EXTRACT(EPOCH FROM (authorized.first_seen_at-comparator.first_seen_at)))
+        FROM youtube_discovery_validation_events authorized
+        JOIN youtube_discovery_validation_events comparator
+          ON comparator.session_id=authorized.session_id AND comparator.video_id=authorized.video_id
+         AND comparator.source='innertube_comparator'
+        WHERE authorized.session_id=$1 AND authorized.source LIKE 'authorized_%'
+      ),
       'searchUsage',COALESCE((SELECT to_jsonb(u) FROM youtube_discovery_validation_api_usage u WHERE u.session_id=$1 AND u.usage_date=CURRENT_DATE),'{}'::jsonb)
     ) FROM youtube_discovery_validation_events WHERE session_id=$1
     ON CONFLICT (session_id,validation_day) DO UPDATE SET metrics=excluded.metrics,snapshot_at=now()`,[sessionId]);
