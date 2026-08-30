@@ -15,6 +15,7 @@
     "test:database-schema-coverage": "tsx --test ./src/database-schema-coverage.test.ts",
     "youtube-channel-candidates": "tsx ./src/youtube-channel-candidates.ts",
     "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
+    "youtube-official-revalidation": "tsx ./src/youtube-official-revalidation.ts",
     "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",
     "spotify-artist-backfill": "tsx ./src/spotify-artist-backfill.ts",
     "spotify-apply-verified-mappings": "tsx ./src/apply-verified-spotify-mappings.ts",
