@@ -195,6 +195,18 @@ async function main() {
         FROM youtube_channels yc
         LEFT JOIN kworb_coverage c ON c.artist_key = yc.artist_key
         WHERE yc.channel_id IS NOT NULL
+          AND EXISTS (
+            SELECT 1
+            FROM kworb_coverage roster
+            WHERE roster.status='active'
+              AND regexp_replace(
+                translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = regexp_replace(
+                translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              )
+          )
         ORDER BY yc.artist_key
         OFFSET $1
         LIMIT $2
