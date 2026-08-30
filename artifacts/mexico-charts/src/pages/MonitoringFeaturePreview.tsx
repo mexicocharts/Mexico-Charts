@@ -6,12 +6,14 @@ import {
   CheckCircle2,
   ChevronRight,
   Download,
+  Disc3,
   FileText,
   Flag,
   Headphones,
   Instagram,
   LayoutDashboard,
   MapPin,
+  Music2,
   Radar,
   Settings2,
   TrendingDown,
@@ -140,6 +142,31 @@ const videos = [
   },
 ];
 
+const spotifyTracks = [
+  { title: "daño", total: 378_556_800, daily: 1_090_598 },
+  { title: "HOLLYWOOD", total: 675_604_922, daily: 760_832 },
+  { title: "LAGUNAS", total: 625_950_153, daily: 581_909 },
+  { title: "dopamina", total: 345_249_437, daily: 561_707 },
+  { title: "La Bebe - Remix", total: 1_426_786_807, daily: 527_186 },
+];
+
+const spotifyAlbums = [
+  { title: "DINASTÍA (DELUXE)", total: 2_509_056_715, daily: 4_864_657 },
+  { title: "DINASTÍA", total: 2_163_712_472, daily: 4_013_386 },
+  { title: "GÉNESIS", total: 7_426_261_146, daily: 3_160_326 },
+  { title: "ÉXODO", total: 5_357_897_851, daily: 2_953_424 },
+  { title: "INCÓMODO", total: 1_172_822_531, daily: 636_934 },
+];
+
+const spotifyCatalog = {
+  trackCount: 187,
+  albumCount: 18,
+  trackDaily: 18_877_891,
+  albumDaily: 20_819_581,
+  trackTotal: 34_112_292_683,
+  albumTotal: 29_850_046_770,
+};
+
 const cities = [
   ["Ciudad de México", "CDMX", 3_997_897, 5_566_817],
   ["Guadalajara", "Jalisco", 1_435_286, 1_958_210],
@@ -151,6 +178,7 @@ const cities = [
 type View =
   | "resumen"
   | "tendencias"
+  | "spotify"
   | "videos"
   | "mercados"
   | "comparar"
@@ -163,9 +191,10 @@ const navItems: Array<{
   icon: typeof Activity;
   note?: string;
 }> = [
-  { key: "resumen", label: "Resumen", icon: LayoutDashboard },
+  { key: "resumen", label: "Panel", icon: LayoutDashboard },
   { key: "tendencias", label: "Tendencias", icon: BarChart3 },
-  { key: "videos", label: "Videos", icon: Video, note: "3" },
+  { key: "spotify", label: "Spotify", icon: Music2, note: "205" },
+  { key: "videos", label: "YouTube", icon: Video, note: "Todos" },
   { key: "mercados", label: "Mercados", icon: MapPin },
   { key: "comparar", label: "Comparar", icon: Radar },
   { key: "alertas", label: "Alertas", icon: BellRing, note: "2" },
@@ -383,16 +412,14 @@ function SummaryView({ open }: { open: (view: View) => void }) {
       </section>
       <section className="grid gap-4 xl:grid-cols-[1.45fr_.8fr]">
         <Panel className="overflow-hidden border-[#39FF14]/20 bg-[radial-gradient(circle_at_top_right,rgba(57,255,20,.1),transparent_45%)] p-6 sm:p-8">
-          <Kicker>Resumen semanal</Kicker>
+          <Kicker>Actividad semanal</Kicker>
           <h2 className="mt-3 max-w-2xl text-3xl font-black tracking-[-.04em]">
             YouTube lidera el crecimiento
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-white/45">
             YouTube registra{" "}
-            <strong className="text-white">
-              815.7M vistas en 30 días
-            </strong>
-            . Spotify ganó{" "}
+            <strong className="text-white">815.7M vistas en 30 días</strong>.
+            Spotify ganó{" "}
             <strong className="text-white">586.8K seguidores</strong> y perdió
             192.4K oyentes mensuales.
           </p>
@@ -429,7 +456,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
           </div>
           <div className="mt-6 space-y-3">
             {[
-              ["Video", "94"],
+              ["YouTube", "94"],
               ["Seguidores", "82"],
               ["Oyentes", "54"],
             ].map(([label, value]) => (
@@ -448,6 +475,32 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             ))}
           </div>
         </Panel>
+      </section>
+      <section className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+        <Panel className="p-6">
+          <Kicker>Spotify · canciones</Kicker>
+          <p className="mt-3 text-3xl font-black">
+            {compact(spotifyCatalog.trackDaily)}
+          </p>
+          <p className="mt-1 text-[9px] text-white/30">
+            streams diarios · {spotifyCatalog.trackCount} canciones
+          </p>
+        </Panel>
+        <Panel className="p-6">
+          <Kicker>Spotify · álbumes</Kicker>
+          <p className="mt-3 text-3xl font-black">
+            {compact(spotifyCatalog.albumDaily)}
+          </p>
+          <p className="mt-1 text-[9px] text-white/30">
+            streams diarios · {spotifyCatalog.albumCount} álbumes
+          </p>
+        </Panel>
+        <button
+          onClick={() => open("spotify")}
+          className="flex min-h-32 items-center justify-center gap-2 rounded-3xl border border-[#1ed760]/20 bg-[#1ed760]/[.06] px-7 text-[9px] font-black uppercase tracking-[.15em] text-[#39FF14]"
+        >
+          Abrir Spotify <ChevronRight className="h-4 w-4" />
+        </button>
       </section>
       <section className="grid gap-4 lg:grid-cols-3">
         <Panel className="p-6">
@@ -485,7 +538,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             El catálogo mantiene un consumo alto
           </p>
           <p className="mt-3 text-xs leading-6 text-white/40">
-            El crecimiento de video y seguidores continúa, pero los oyentes
+            El crecimiento de YouTube y seguidores continúa, pero los oyentes
             mensuales de Spotify llevan una tendencia negativa.
           </p>
           <button
@@ -507,7 +560,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             onClick={() => open("videos")}
             className="mt-5 rounded-xl bg-[#39FF14] px-4 py-3 text-[9px] font-black uppercase tracking-[.15em] text-black"
           >
-            Abrir videos
+            Abrir YouTube
           </button>
         </Panel>
       </section>
@@ -538,8 +591,8 @@ function TrendsView({
             "La cuenta sumó 586.8K seguidores en 30 días mientras bajaban los oyentes mensuales",
           ],
           [
-            "Catálogo",
-            "El video sostiene el crecimiento",
+            "YouTube",
+            "YouTube sostiene el crecimiento",
             "YouTube sumó 815.7M vistas en 30 días, la cifra más alta del grupo comparado",
           ],
         ].map(([k, title, body]) => (
@@ -567,14 +620,113 @@ function TrendsView({
   );
 }
 
+function SpotifyView() {
+  const lists = [
+    {
+      title: "Canciones con más streams diarios",
+      icon: Music2,
+      items: spotifyTracks,
+    },
+    {
+      title: "Álbumes con más streams diarios",
+      icon: Disc3,
+      items: spotifyAlbums,
+    },
+  ];
+  return (
+    <div className="space-y-4">
+      <Panel className="border-[#1ed760]/20 bg-[radial-gradient(circle_at_top_right,rgba(30,215,96,.11),transparent_45%)] p-6 sm:p-8">
+        <Kicker>Spotify</Kicker>
+        <h2 className="mt-3 text-3xl font-black tracking-[-.04em]">
+          Canciones y álbumes
+        </h2>
+        <p className="mt-3 text-xs text-white/35">
+          Streams acumulados y diarios · corte del 29 ago 2026
+        </p>
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            [
+              "Canciones · diario",
+              compact(spotifyCatalog.trackDaily),
+              `${spotifyCatalog.trackCount} canciones`,
+            ],
+            [
+              "Canciones · acumulado",
+              compact(spotifyCatalog.trackTotal),
+              "catálogo registrado",
+            ],
+            [
+              "Álbumes · diario",
+              compact(spotifyCatalog.albumDaily),
+              `${spotifyCatalog.albumCount} álbumes`,
+            ],
+            [
+              "Álbumes · acumulado",
+              compact(spotifyCatalog.albumTotal),
+              "álbumes registrados",
+            ],
+          ].map(([label, value, detail]) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-white/[.07] bg-black/25 p-5"
+            >
+              <p className="text-[8px] font-black uppercase tracking-[.15em] text-white/30">
+                {label}
+              </p>
+              <p className="mt-3 text-3xl font-black">{value}</p>
+              <p className="mt-1 text-[9px] text-white/25">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </Panel>
+      <section className="grid gap-4 xl:grid-cols-2">
+        {lists.map(({ title, icon: Icon, items }) => (
+          <Panel key={title} className="overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-white/[.07] p-6">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#1ed760]/10">
+                <Icon className="h-5 w-5 text-[#1ed760]" />
+              </span>
+              <h3 className="text-lg font-black">{title}</h3>
+            </div>
+            <div>
+              {items.map((item, index) => (
+                <div
+                  key={`${title}-${item.title}`}
+                  className="grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[.06] px-6 py-4 last:border-0"
+                >
+                  <span className="text-[9px] font-black text-[#39FF14]">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black">{item.title}</p>
+                    <p className="mt-1 text-[9px] text-white/25">
+                      {compact(item.total)} acumulados
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-[#39FF14]">
+                      +{compact(item.daily)}
+                    </p>
+                    <p className="text-[8px] text-white/25">diarios</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 function VideosView() {
   return (
     <div className="space-y-4">
       <Panel className="overflow-hidden border-red-500/15 bg-[radial-gradient(circle_at_top_right,rgba(255,40,40,.08),transparent_45%)]">
         <div className="p-6 sm:p-7">
-          <Kicker>Rendimiento de video</Kicker>
+          <Kicker>YouTube en vivo</Kicker>
           <h2 className="mt-2 text-3xl font-black">
-            Videos con mayor actividad
+            Videos de YouTube con mayor actividad
           </h2>
           <p className="mt-2 text-xs text-white/35">
             Cambios exactos entre las últimas lecturas guardadas
@@ -638,8 +790,8 @@ function VideosView() {
           <Kicker>Datos incluidos</Kicker>
           <div className="mt-5 grid grid-cols-2 gap-3">
             {[
-              ["10", "videos en perfil público"],
-              ["25", "videos en Monitor"],
+              ["10", "videos de YouTube en perfil público"],
+              ["Todos", "videos oficiales de YouTube en Monitor"],
               ["Cada hora", "actualización objetivo"],
               ["24 h ET", "total diario"],
             ].map(([value, label]) => (
@@ -835,7 +987,11 @@ function AlertsView() {
             ["YouTube suma +100M en 30 días", "Activada hoy", true],
             ["Oyentes Spotify bajan de 45M", "Activada hoy", true],
             ["Instagram cambia ±1% en 7 días", "Sin cambios", false],
-            ["Video alcanza un nuevo hito", "En seguimiento", false],
+            [
+              "Un video de YouTube alcanza un nuevo hito",
+              "En seguimiento",
+              false,
+            ],
           ].map(([label, status, on]) => (
             <div
               key={String(label)}
@@ -913,7 +1069,7 @@ function ReportsView() {
               Reporte semanal de rendimiento
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/45">
-              Cambios de la semana, tendencias de 30 y 90 días, videos,
+              Cambios de la semana, tendencias de 30 y 90 días, YouTube,
               mercados, comparaciones y recomendaciones
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
@@ -961,7 +1117,7 @@ function ReportsView() {
           ["Cambios", "YouTube +815.7M en 30 días · Spotify −192.4K oyentes"],
           [
             "Análisis",
-            "El catálogo mantiene crecimiento en video y seguidores mientras bajan los oyentes mensuales",
+            "El catálogo mantiene crecimiento en YouTube y seguidores mientras bajan los oyentes mensuales",
           ],
           [
             "Recomendaciones",
@@ -997,7 +1153,7 @@ function ReportsView() {
                 <p className="text-sm font-black">
                   Semana 35 · 23 al 29 agosto
                 </p>
-                <p className="mt-1 text-[9px] text-white/30">PDF · 7 páginas</p>
+                <p className="mt-1 text-[9px] text-white/30">PDF · 8 páginas</p>
               </div>
             </div>
             <a
@@ -1018,7 +1174,7 @@ function ReportsView() {
 export default function MonitoringFeaturePreview() {
   const [view, setView] = useState<View>("resumen");
   const [metric, setMetric] = useState<TrendKey>("spotify");
-  const label = navItems.find((item) => item.key === view)?.label ?? "Resumen";
+  const label = navItems.find((item) => item.key === view)?.label ?? "Panel";
   return (
     <div className="min-h-screen bg-[#050505] text-white">
       <PageSEO
@@ -1123,6 +1279,7 @@ export default function MonitoringFeaturePreview() {
           {view === "tendencias" && (
             <TrendsView metric={metric} setMetric={setMetric} />
           )}{" "}
+          {view === "spotify" && <SpotifyView />}{" "}
           {view === "videos" && <VideosView />}{" "}
           {view === "mercados" && <MarketsView />}{" "}
           {view === "comparar" && <CompareView />}{" "}

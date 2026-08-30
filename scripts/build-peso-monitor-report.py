@@ -16,6 +16,8 @@ spotify = [47137843,46993944,46940324,46835086,46892803,46561657,46404479,462085
 cities = [("Ciudad de Mexico",3997897,5566817),("Guadalajara",1435286,1958210),("Puebla",1344685,1643004),("Monterrey",1014895,1340069),("Zapopan",985815,1224283)]
 bench = [("Peso Pluma",44948653,-192445,815716080),("Natanael Cano",25334693,476327,313000517),("Luis Miguel",22041391,629267,310769062)]
 videos = [("BELLAKEO",755225298,14623,"67 min","bellakeo.jpg"),("NUEVA VIDA",656329575,25773,"62 min","nueva-vida.jpg"),("HOLLYWOOD",481069561,2259086,"111 h","hollywood.jpg")]
+spotify_tracks = [("daño",378556800,1090598),("HOLLYWOOD",675604922,760832),("LAGUNAS",625950153,581909),("dopamina",345249437,561707),("La Bebe - Remix",1426786807,527186)]
+spotify_albums = [("DINASTÍA (DELUXE)",2509056715,4864657),("DINASTÍA",2163712472,4013386),("GÉNESIS",7426261146,3160326),("ÉXODO",5357897851,2953424),("INCÓMODO",1172822531,636934)]
 
 def compact(n):
     if abs(n) >= 1_000_000_000: return f"{n/1_000_000_000:.1f}B"
@@ -41,12 +43,12 @@ def image(c, path, x, y, w, h):
 def header(c, section, page):
     text(c, 34, H-28, "MEXICO CHARTS / MONITOR", 8, GREEN, "Helvetica-Bold")
     text(c, 34, H-42, section.upper(), 8, MUTED, "Helvetica-Bold")
-    text(c, W-76, H-35, f"{page} / 7", 8, MUTED, "Helvetica-Bold")
+    text(c, W-76, H-35, f"{page} / 8", 8, MUTED, "Helvetica-Bold")
     c.setStrokeColor(LINE); c.line(34, H-50, W-34, H-50)
 
 def footer(c):
     c.setStrokeColor(LINE); c.line(34, 25, W-34, 25)
-    text(c, 34, 12, "Datos: Songstats y YouTube / Analisis: Mexico Charts", 6.5, MUTED)
+    text(c, 34, 12, "Datos: Songstats, Spotify y YouTube / Analisis: Mexico Charts", 6.5, MUTED)
     text(c, W-170, 12, "CORTE: 29 AGO 2026", 6.5, MUTED, "Helvetica-Bold")
 
 def sparkline(c, values, x, y, w, h, color=GREEN):
@@ -68,23 +70,23 @@ def cover(c):
     text(c, 44, 330, "PESO", 54, WHITE, "Helvetica-Bold")
     text(c, 44, 275, "PLUMA", 54, WHITE, "Helvetica-Bold")
     text(c, 47, 242, "23 AL 29 AGOSTO 2026", 15, GREEN, "Helvetica-Bold")
-    text(c, 47, 214, "Audiencia, video, mercados y comparaciones", 11, MUTED)
+    text(c, 47, 214, "Audiencia, Spotify, YouTube, mercados y comparaciones", 11, MUTED)
     panel(c,44,78,325,95)
-    text(c,62,145,"RESUMEN SEMANAL",7,GREEN,"Helvetica-Bold")
+    text(c,62,145,"REPORTE SEMANAL",7,GREEN,"Helvetica-Bold")
     text(c,62,122,"YouTube lidera el crecimiento",13,WHITE,"Helvetica-Bold",286)
-    text(c,62,98,"Tendencias 30d y 90d / 5 mercados / 3 videos",8,MUTED)
+    text(c,62,98,"Tendencias 30d y 90d / Spotify / YouTube / 5 mercados",8,MUTED)
     text(c, W-126, 42, "PRIVADO", 8, GREEN, "Helvetica-Bold")
 
 def executive_analysis(c):
-    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Resumen semanal",2)
-    text(c,34,H-86,"Resumen de la semana",24,WHITE,"Helvetica-Bold")
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Reporte semanal",2)
+    text(c,34,H-86,"Resultados de la semana",24,WHITE,"Helvetica-Bold")
     panel(c,34,365,724,105,fill=HexColor("#0A140B"),stroke=HexColor("#245D21"))
     text(c,54,438,"DATO PRINCIPAL",7,GREEN,"Helvetica-Bold")
     text(c,54,405,"YouTube lidera el crecimiento",24,WHITE,"Helvetica-Bold")
     text(c,54,382,"El canal registra +815.7M vistas en 30 dias mientras bajan los oyentes mensuales de Spotify",9,MUTED)
     columns=[
         ("CAMBIOS","YouTube +815.7M", "Spotify perdio 192.4K oyentes mensuales y gano 586.8K seguidores en 30 dias"),
-        ("ANALISIS","Catalogo en crecimiento", "El video y los seguidores mantienen cifras positivas mientras bajan los oyentes mensuales"),
+        ("ANALISIS","Catalogo en crecimiento", "YouTube y los seguidores mantienen cifras positivas mientras bajan los oyentes mensuales"),
         ("RECOMENDACIONES","Preparar nuevos hitos", "BELLAKEO se acerca a 800M y NUEVA VIDA se acerca a 700M vistas"),
     ]
     for i,(k,title,body) in enumerate(columns):
@@ -100,7 +102,7 @@ def executive_analysis(c):
         for j,value in enumerate(lines[:5]): text(c,x+16,256-j*15,value,8,MUTED)
     text(c,34,143,"PRIORIDAD DE LA SEMANA",7,GREEN,"Helvetica-Bold")
     text(c,34,116,"Preparar contenidos para BELLAKEO 800M y NUEVA VIDA 700M",11,WHITE,"Helvetica-Bold",724)
-    text(c,34,91,"Seguimiento: oyentes mensuales de Spotify y crecimiento de los tres videos principales",8,MUTED)
+    text(c,34,91,"Seguimiento: oyentes mensuales de Spotify y crecimiento de los tres videos principales de YouTube",8,MUTED)
     footer(c)
 
 def audience(c):
@@ -115,9 +117,38 @@ def audience(c):
     text(c,54,101,"30 MAY",6.5,MUTED,"Helvetica-Bold"); text(c,694,101,"28 AGO",6.5,MUTED,"Helvetica-Bold")
     footer(c)
 
+def spotify_catalog(c):
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Spotify",4)
+    text(c,34,H-86,"Canciones y álbumes en Spotify",22,WHITE,"Helvetica-Bold")
+    cards=[
+        ("CANCIONES / DIARIO","18.9M","187 canciones"),
+        ("CANCIONES / ACUMULADO","34.1B","catalogo registrado"),
+        ("ÁLBUMES / DIARIO","20.8M","18 álbumes"),
+        ("ÁLBUMES / ACUMULADO","29.9B","álbumes registrados"),
+    ]
+    for i,(label,value,detail) in enumerate(cards):
+        x=34+i*181; panel(c,x,395,169,85)
+        text(c,x+14,452,label,6.5,MUTED,"Helvetica-Bold")
+        text(c,x+14,422,value,22,WHITE,"Helvetica-Bold")
+        text(c,x+14,405,detail,7,GREEN,"Helvetica-Bold")
+    lists=[("CANCIONES CON MÁS STREAMS DIARIOS",spotify_tracks),("ÁLBUMES CON MÁS STREAMS DIARIOS",spotify_albums)]
+    for col,(title,items) in enumerate(lists):
+        x=34+col*366; panel(c,x,82,354,285)
+        text(c,x+18,340,title,7,GREEN,"Helvetica-Bold")
+        text(c,x+18,318,"TITULO",6,MUTED,"Helvetica-Bold")
+        text(c,x+232,318,"DIARIOS",6,MUTED,"Helvetica-Bold")
+        text(c,x+292,318,"TOTAL",6,MUTED,"Helvetica-Bold")
+        for i,(title,total,daily) in enumerate(items):
+            y=286-i*42
+            text(c,x+18,y,f"0{i+1}",7,GREEN,"Helvetica-Bold")
+            text(c,x+43,y,title,8.5,WHITE,"Helvetica-Bold",175)
+            text(c,x+232,y,"+"+compact(daily),8,GREEN,"Helvetica-Bold")
+            text(c,x+292,y,compact(total),8,WHITE,"Helvetica-Bold")
+    footer(c)
+
 def video_page(c):
-    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Videos e hitos",4)
-    text(c,34,H-86,"Videos con mayor actividad",22,WHITE,"Helvetica-Bold")
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"YouTube en vivo",5)
+    text(c,34,H-86,"Videos de YouTube con mayor actividad",22,WHITE,"Helvetica-Bold")
     for i,(title,views,delta,interval,filename) in enumerate(videos):
         x=34+i*242; panel(c,x,242,230,240); image(c,IMG/filename,x+12,348,206,116)
         text(c,x+14,324,f"0{i+1} / {title}",9,WHITE,"Helvetica-Bold"); text(c,x+14,292,compact(views),23,WHITE,"Helvetica-Bold")
@@ -129,7 +160,7 @@ def video_page(c):
     footer(c)
 
 def markets(c):
-    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Mercados, comparaciones y alertas",5)
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Mercados, comparaciones y alertas",6)
     text(c,34,H-86,"Mercados y rendimiento comparado",22,WHITE,"Helvetica-Bold")
     panel(c,34,202,355,280); text(c,52,454,"TOP MERCADOS MEXICO / SPOTIFY",7,GREEN,"Helvetica-Bold")
     for i,(name,current,peak) in enumerate(cities):
@@ -146,7 +177,7 @@ def markets(c):
     footer(c)
 
 def benchmark_actions(c):
-    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Comparacion y recomendaciones",6)
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Comparacion y recomendaciones",7)
     text(c,34,H-86,"Rendimiento frente a otros artistas",22,WHITE,"Helvetica-Bold")
     cards=[
         ("OYENTES","#1","44.9M oyentes / 77% mas que Natanael Cano"),
@@ -174,7 +205,7 @@ def benchmark_actions(c):
     footer(c)
 
 def appendix(c):
-    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Datos y fuentes",7)
+    c.setFillColor(BG); c.rect(0,0,W,H,fill=1,stroke=0); header(c,"Datos y fuentes",8)
     text(c,34,H-86,"Cifras exactas del reporte",22,WHITE,"Helvetica-Bold")
     panel(c,34,248,355,230); text(c,52,450,"METRICAS DEL CORTE",7,GREEN,"Helvetica-Bold")
     rows=[
@@ -189,13 +220,14 @@ def appendix(c):
     panel(c,403,248,355,230); text(c,421,450,"FUENTES",7,GREEN,"Helvetica-Bold")
     notes=[
         "Songstats: audiencia y estadisticas de plataformas",
-        "YouTube: conteos guardados por video y canal",
+        "Spotify: streams guardados por canción y álbum",
+        "YouTube: conteos guardados de videos y canal",
         "Cambios 30d y 90d: diferencia entre fechas guardadas",
         "Comparaciones: mismo corte para los tres artistas",
         "Las vistas no se estiman entre actualizaciones",
     ]
     for i,note in enumerate(notes):
-        y=410-i*38; text(c,421,y,f"0{i+1}",7,GREEN,"Helvetica-Bold"); text(c,448,y,note,7.5,MUTED,"Helvetica",285)
+        y=410-i*30; text(c,421,y,f"0{i+1}",7,GREEN,"Helvetica-Bold"); text(c,448,y,note,7.5,MUTED,"Helvetica",285)
     panel(c,34,78,724,140,fill=HexColor("#0A140B"),stroke=HexColor("#245D21"))
     text(c,54,187,"NOTAS",7,GREEN,"Helvetica-Bold")
     text(c,54,158,"Cifras de plataforma",10,WHITE,"Helvetica-Bold"); text(c,171,158,"Songstats y YouTube",10,MUTED)
@@ -206,7 +238,7 @@ def appendix(c):
 def main():
     OUT.parent.mkdir(parents=True,exist_ok=True)
     c=canvas.Canvas(str(OUT),pagesize=(W,H),pageCompression=1)
-    for fn in (cover,executive_analysis,audience,video_page,markets,benchmark_actions,appendix): fn(c); c.showPage()
+    for fn in (cover,executive_analysis,audience,spotify_catalog,video_page,markets,benchmark_actions,appendix): fn(c); c.showPage()
     c.save(); print(OUT)
 
 if __name__ == "__main__": main()

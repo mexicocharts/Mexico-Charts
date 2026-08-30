@@ -32,7 +32,9 @@ import SiteNav from "@/components/SiteNav";
 import { EditorialFooter } from "@/components/EditorialLayout";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import { useLanguage } from "@/i18n/LanguageContext";
-import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
+import YouTubeLivePublicPreview, {
+  type YouTubeLivePreviewVideo,
+} from "@/components/YouTubeLivePublicPreview";
 
 const G = "#39FF14";
 type MetricKey =
@@ -112,7 +114,14 @@ type DashboardPayload = {
   };
   liveVideos: YouTubeLivePreviewVideo[];
   latestReleaseImpact: null | {
-    release: { id: string; title: string; type: string; releaseDate: string | null; artworkUrl: string | null; platformCount: number };
+    release: {
+      id: string;
+      title: string;
+      type: string;
+      releaseDate: string | null;
+      artworkUrl: string | null;
+      platformCount: number;
+    };
     score: number | null;
     confidence: "high" | "medium" | "collecting";
     platformsMeasured: number;
@@ -126,8 +135,33 @@ type DashboardPayload = {
     view_count: string | number | null;
     daily_view_delta: string | number | null;
   }>;
+  spotifyCatalog: {
+    snapshotDate: string | null;
+    trackCount: number;
+    albumCount: number;
+    trackDailyStreams: number | null;
+    albumDailyStreams: number | null;
+    trackTotalStreams: number | null;
+    albumTotalStreams: number | null;
+    items: Array<{
+      type: "track" | "album";
+      key: string;
+      title: string;
+      spotifyUrl: string | null;
+      compilation: boolean;
+      totalStreams: number | null;
+      dailyStreams: number | null;
+    }>;
+  };
 };
-type View = "resumen" | "videos" | "historial" | "catalogo" | "audiencia" | "reportes";
+type View =
+  | "resumen"
+  | "spotify"
+  | "videos"
+  | "historial"
+  | "catalogo"
+  | "audiencia"
+  | "reportes";
 type HistoryRange = "30d" | "90d" | "all";
 
 function exact(value: number | null | undefined) {
@@ -253,7 +287,7 @@ function DailyPulse({ pulse }: { pulse: DashboardPayload["dailyPulse"] }) {
           </span>
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">
-              Artist Pulse
+              Actividad reciente
             </p>
             <h2 className="mt-1 text-2xl font-black">{pulse.headline}</h2>
           </div>
@@ -269,7 +303,7 @@ function DailyPulse({ pulse }: { pulse: DashboardPayload["dailyPulse"] }) {
         <div>
           <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">
             <Sparkles className="h-4 w-4" />
-            Artist Pulse · lectura diaria
+            Actividad reciente
           </div>
           <h2 className="mt-4 max-w-3xl text-3xl font-black tracking-[-0.04em] sm:text-4xl">
             {pulse.headline}
@@ -343,6 +377,138 @@ function DailyPulse({ pulse }: { pulse: DashboardPayload["dailyPulse"] }) {
   );
 }
 
+function SpotifyCatalog({
+  catalog,
+}: {
+  catalog: DashboardPayload["spotifyCatalog"];
+}) {
+  const groups = [
+    {
+      type: "track" as const,
+      title: "Canciones",
+      icon: Music2,
+      items: catalog.items.filter((item) => item.type === "track"),
+    },
+    {
+      type: "album" as const,
+      title: "Álbumes",
+      icon: Disc3,
+      items: catalog.items.filter((item) => item.type === "album"),
+    },
+  ];
+  return (
+    <section className="mt-7 space-y-4">
+      <article className="rounded-3xl border border-[#1ed760]/20 bg-[radial-gradient(circle_at_top_right,rgba(30,215,96,.12),transparent_45%)] p-6 sm:p-8">
+        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#39FF14]">
+          Spotify
+        </p>
+        <h2 className="mt-2 text-3xl font-black tracking-[-0.04em]">
+          Canciones y álbumes
+        </h2>
+        <p className="mt-2 text-xs text-white/35">
+          Streams acumulados y diarios · {dateLabel(catalog.snapshotDate)}
+        </p>
+        <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            [
+              "Canciones · diario",
+              compact(catalog.trackDailyStreams),
+              `${catalog.trackCount} canciones`,
+            ],
+            [
+              "Canciones · acumulado",
+              compact(catalog.trackTotalStreams),
+              "catálogo registrado",
+            ],
+            [
+              "Álbumes · diario",
+              compact(catalog.albumDailyStreams),
+              `${catalog.albumCount} álbumes`,
+            ],
+            [
+              "Álbumes · acumulado",
+              compact(catalog.albumTotalStreams),
+              "álbumes registrados",
+            ],
+          ].map(([label, value, detail]) => (
+            <div
+              key={label}
+              className="rounded-2xl border border-white/[0.08] bg-black/25 p-5"
+            >
+              <p className="text-[8px] font-black uppercase tracking-[0.14em] text-white/30">
+                {label}
+              </p>
+              <p className="mt-3 text-3xl font-black">{value}</p>
+              <p className="mt-1 text-[9px] text-white/25">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </article>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {groups.map(({ type, title, icon: Icon, items }) => (
+          <article
+            key={type}
+            className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]"
+          >
+            <div className="flex items-center justify-between border-b border-white/[0.07] p-5 sm:p-6">
+              <div className="flex items-center gap-3">
+                <Icon className="h-5 w-5 text-[#1ed760]" />
+                <h3 className="text-lg font-black">{title}</h3>
+              </div>
+              <span className="text-[9px] font-black text-white/30">
+                {items.length}
+              </span>
+            </div>
+            <div className="max-h-[620px] overflow-y-auto">
+              {items.length ? (
+                items.map((item, index) => (
+                  <div
+                    key={`${type}-${item.key}`}
+                    className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.06] px-5 py-4 last:border-0"
+                  >
+                    <span className="text-[9px] font-black text-[#39FF14]">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <div className="min-w-0">
+                      {item.spotifyUrl ? (
+                        <a
+                          href={item.spotifyUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-sm font-black hover:text-[#39FF14]"
+                        >
+                          {item.title}
+                        </a>
+                      ) : (
+                        <p className="truncate text-sm font-black">
+                          {item.title}
+                        </p>
+                      )}
+                      <p className="mt-1 text-[9px] text-white/25">
+                        {compact(item.totalStreams)} acumulados
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-[#39FF14]">
+                        {signed(item.dailyStreams)}
+                      </p>
+                      <p className="text-[8px] text-white/25">diarios</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="p-8 text-center text-sm text-white/30">
+                  Sin datos de Spotify guardados
+                </p>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function MonitoringDashboard() {
   const [, params] = useRoute("/monitoreo/:artistKey");
   const artistKey = decodeURIComponent(params?.artistKey ?? "");
@@ -403,18 +569,38 @@ export default function MonitoringDashboard() {
   const current = data?.current;
   const growth30 = data?.growth?.spotifyMonthlyListeners?.days30;
   const activeVideoId = selectedVideoId || data?.liveVideos[0]?.video_id || "";
-  const activeVideo = data?.liveVideos.find(video => video.video_id === activeVideoId) ?? null;
+  const activeVideo =
+    data?.liveVideos.find((video) => video.video_id === activeVideoId) ?? null;
   const videoHistory = useMemo(
-    () => (data?.liveVideoHistory ?? [])
-      .filter(point => point.video_id === activeVideoId && point.daily_view_delta != null)
-      .map(point => ({ date: point.snapshot_date, value: Number(point.daily_view_delta) })),
+    () =>
+      (data?.liveVideoHistory ?? [])
+        .filter(
+          (point) =>
+            point.video_id === activeVideoId && point.daily_view_delta != null,
+        )
+        .map((point) => ({
+          date: point.snapshot_date,
+          value: Number(point.daily_view_delta),
+        })),
     [activeVideoId, data?.liveVideoHistory],
   );
   const videoPulse = useMemo(() => {
     const videos = data?.liveVideos ?? [];
-    const totalToday = videos.reduce((sum, video) => sum + (video.views_today_et == null ? 0 : Number(video.views_today_et)), 0);
-    const totalLastDay = videos.reduce((sum, video) => sum + (video.views_24h == null ? 0 : Number(video.views_24h)), 0);
-    const leader = [...videos].sort((a, b) => Number(b.views_today_et ?? -1) - Number(a.views_today_et ?? -1))[0] ?? null;
+    const totalToday = videos.reduce(
+      (sum, video) =>
+        sum + (video.views_today_et == null ? 0 : Number(video.views_today_et)),
+      0,
+    );
+    const totalLastDay = videos.reduce(
+      (sum, video) =>
+        sum + (video.views_24h == null ? 0 : Number(video.views_24h)),
+      0,
+    );
+    const leader =
+      [...videos].sort(
+        (a, b) =>
+          Number(b.views_today_et ?? -1) - Number(a.views_today_et ?? -1),
+      )[0] ?? null;
     return { totalToday, totalLastDay, leader };
   }, [data?.liveVideos]);
 
@@ -460,8 +646,9 @@ export default function MonitoringDashboard() {
     }
   }
   const tabs: Array<{ id: View; label: string }> = [
-    { id: "resumen", label: pick("Resumen", "Overview") },
-    { id: "videos", label: pick("Videos en vivo", "Live videos") },
+    { id: "resumen", label: pick("Panel", "Dashboard") },
+    { id: "spotify", label: "Spotify" },
+    { id: "videos", label: pick("YouTube en vivo", "Live YouTube") },
     { id: "historial", label: pick("Historial", "History") },
     { id: "catalogo", label: pick("Catálogo", "Catalog") },
     { id: "audiencia", label: pick("Audiencia", "Audience") },
@@ -585,10 +772,13 @@ export default function MonitoringDashboard() {
                 <span className="mr-1 text-[8px] font-black uppercase tracking-[0.16em] text-white/25">
                   Ventana privada
                 </span>
-                {([[
-                  "30d",
-                  "30 días",
-                ], ["90d", "90 días"], ["all", "Todo el historial"]] as const).map(([range, label]) => (
+                {(
+                  [
+                    ["30d", "30 días"],
+                    ["90d", "90 días"],
+                    ["all", "Todo el historial"],
+                  ] as const
+                ).map(([range, label]) => (
                   <button
                     key={range}
                     type="button"
@@ -633,14 +823,36 @@ export default function MonitoringDashboard() {
                     accent="#f05aa6"
                   />
                 </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <MetricCard
+                    label={pick(
+                      "Spotify · canciones diarias",
+                      "Spotify · daily track streams",
+                    )}
+                    value={compact(data.spotifyCatalog.trackDailyStreams)}
+                    detail={`${data.spotifyCatalog.trackCount} ${pick("canciones", "tracks")}`}
+                    icon={Music2}
+                    accent="#1ed760"
+                  />
+                  <MetricCard
+                    label={pick(
+                      "Spotify · álbumes diarios",
+                      "Spotify · daily album streams",
+                    )}
+                    value={compact(data.spotifyCatalog.albumDailyStreams)}
+                    detail={`${data.spotifyCatalog.albumCount} ${pick("álbumes", "albums")}`}
+                    icon={Disc3}
+                    accent="#1ed760"
+                  />
+                </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
                   <article className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-7">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#39FF14]">
                           {pick(
-                          "Historial completo disponible",
-                          "Complete available history",
+                            "Historial completo disponible",
+                            "Complete available history",
                           )}
                         </p>
                         <h2 className="mt-2 text-xl font-black">
@@ -691,6 +903,9 @@ export default function MonitoringDashboard() {
                 </div>
               </section>
             )}
+            {view === "spotify" && (
+              <SpotifyCatalog catalog={data.spotifyCatalog} />
+            )}
             {view === "historial" && (
               <section className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -737,44 +952,90 @@ export default function MonitoringDashboard() {
                   <>
                     <div className="mb-4 overflow-hidden rounded-3xl border border-red-500/15 bg-[radial-gradient(circle_at_top_right,rgba(255,40,40,.10),transparent_46%)]">
                       <div className="border-b border-white/[0.07] px-5 py-5 sm:px-7">
-                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-red-400">Video Pulse · exclusivo del Monitor</p>
-                        <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">Qué está moviendo al artista hoy</h2>
+                        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-red-400">
+                          YouTube en vivo
+                        </p>
+                        <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">
+                          Videos de YouTube con mayor actividad
+                        </h2>
                       </div>
                       <div className="grid sm:grid-cols-3">
                         <div className="border-b border-white/[0.07] p-5 sm:border-b-0 sm:border-r sm:p-6">
-                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Ganancia combinada hoy · ET</p>
-                          <p className="mt-2 text-3xl font-black text-[#39FF14]">+{exact(videoPulse.totalToday)}</p>
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">
+                            Ganancia combinada hoy · ET
+                          </p>
+                          <p className="mt-2 text-3xl font-black text-[#39FF14]">
+                            +{exact(videoPulse.totalToday)}
+                          </p>
                         </div>
                         <div className="border-b border-white/[0.07] p-5 sm:border-b-0 sm:border-r sm:p-6">
-                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Último día completo</p>
-                          <p className="mt-2 text-3xl font-black">+{exact(videoPulse.totalLastDay)}</p>
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">
+                            Último día completo
+                          </p>
+                          <p className="mt-2 text-3xl font-black">
+                            +{exact(videoPulse.totalLastDay)}
+                          </p>
                         </div>
                         <div className="p-5 sm:p-6">
-                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Video líder hoy</p>
-                          <p className="mt-2 line-clamp-2 text-sm font-black leading-5">{videoPulse.leader?.title ?? "Recopilando"}</p>
-                          <p className="mt-1 text-xs font-black text-[#39FF14]">{videoPulse.leader?.views_today_et == null ? "—" : `+${exact(Number(videoPulse.leader.views_today_et))}`}</p>
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">
+                            YouTube líder hoy
+                          </p>
+                          <p className="mt-2 line-clamp-2 text-sm font-black leading-5">
+                            {videoPulse.leader?.title ?? "Recopilando"}
+                          </p>
+                          <p className="mt-1 text-xs font-black text-[#39FF14]">
+                            {videoPulse.leader?.views_today_et == null
+                              ? "—"
+                              : `+${exact(Number(videoPulse.leader.views_today_et))}`}
+                          </p>
                         </div>
                       </div>
                       <div className="border-t border-white/[0.07] p-5 sm:p-7">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                           <div>
-                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Historia diaria · últimos 30 días</p>
-                            <p className="mt-1 max-w-xl truncate text-sm font-black">{activeVideo?.title ?? "Selecciona un video"}</p>
+                            <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">
+                              Historia diaria · últimos 30 días
+                            </p>
+                            <p className="mt-1 max-w-xl truncate text-sm font-black">
+                              {activeVideo?.title ?? "Selecciona un video de YouTube"}
+                            </p>
                           </div>
-                          <select value={activeVideoId} onChange={event => setSelectedVideoId(event.target.value)} className="max-w-full rounded-xl border border-white/10 bg-[#111] px-4 py-3 text-xs font-bold text-white sm:max-w-sm">
-                            {data.liveVideos.map(video => <option key={video.video_id} value={video.video_id}>{video.title}</option>)}
+                          <select
+                            value={activeVideoId}
+                            onChange={(event) =>
+                              setSelectedVideoId(event.target.value)
+                            }
+                            className="max-w-full rounded-xl border border-white/10 bg-[#111] px-4 py-3 text-xs font-bold text-white sm:max-w-sm"
+                          >
+                            {data.liveVideos.map((video) => (
+                              <option
+                                key={video.video_id}
+                                value={video.video_id}
+                              >
+                                {video.title}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div className="mt-5 h-64">
                           <HistoryChart data={videoHistory} />
                         </div>
-                        <p className="mt-3 text-[8px] font-bold uppercase tracking-[0.12em] text-white/25">Vistas ganadas por día · lecturas guardadas, sin interpolación</p>
+                        <p className="mt-3 text-[8px] font-bold uppercase tracking-[0.12em] text-white/25">
+                          Vistas ganadas por día · lecturas guardadas, sin
+                          interpolación
+                        </p>
                       </div>
                     </div>
-                    <YouTubeLivePublicPreview artistName={data.subscription.artistName} videos={data.liveVideos} />
+                    <YouTubeLivePublicPreview
+                      artistName={data.subscription.artistName}
+                      videos={data.liveVideos}
+                    />
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-white/[0.08] p-10 text-center text-sm text-white/35">Todavía no hay videos verificados con contador para este artista.</div>
+                  <div className="rounded-2xl border border-white/[0.08] p-10 text-center text-sm text-white/35">
+                    Todavía no hay videos verificados con contador para este
+                    artista.
+                  </div>
                 )}
               </section>
             )}
@@ -782,11 +1043,45 @@ export default function MonitoringDashboard() {
               <section className="mt-7">
                 {data.latestReleaseImpact && (
                   <article className="mb-4 overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,.13),transparent_45%)] p-6 sm:p-8">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">Release Impact · análisis privado</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">
+                      Release Impact · análisis privado
+                    </p>
                     <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-                      <div><h2 className="text-2xl font-black">{data.latestReleaseImpact.release.title}</h2><p className="mt-2 text-sm text-white/40">Impacto observado después del lanzamiento · confianza {data.latestReleaseImpact.confidence} · {data.latestReleaseImpact.platformsMeasured} plataformas medidas</p></div>
+                      <div>
+                        <h2 className="text-2xl font-black">
+                          {data.latestReleaseImpact.release.title}
+                        </h2>
+                        <p className="mt-2 text-sm text-white/40">
+                          Impacto observado después del lanzamiento · confianza{" "}
+                          {data.latestReleaseImpact.confidence} ·{" "}
+                          {data.latestReleaseImpact.platformsMeasured}{" "}
+                          plataformas medidas
+                        </p>
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
-                        {([["7 días", data.latestReleaseImpact.lift7], ["30 días", data.latestReleaseImpact.lift30], ["90 días", data.latestReleaseImpact.lift90]] as const).map(([label, value]) => <div key={label} className="min-w-24 rounded-xl border border-white/[0.08] bg-black/20 p-3 text-center"><p className="text-[8px] font-black uppercase text-white/30">{label}</p><p className={`mt-1 text-lg font-black ${(value ?? 0) >= 0 ? "text-[#39FF14]" : "text-red-400"}`}>{value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}</p></div>)}
+                        {(
+                          [
+                            ["7 días", data.latestReleaseImpact.lift7],
+                            ["30 días", data.latestReleaseImpact.lift30],
+                            ["90 días", data.latestReleaseImpact.lift90],
+                          ] as const
+                        ).map(([label, value]) => (
+                          <div
+                            key={label}
+                            className="min-w-24 rounded-xl border border-white/[0.08] bg-black/20 p-3 text-center"
+                          >
+                            <p className="text-[8px] font-black uppercase text-white/30">
+                              {label}
+                            </p>
+                            <p
+                              className={`mt-1 text-lg font-black ${(value ?? 0) >= 0 ? "text-[#39FF14]" : "text-red-400"}`}
+                            >
+                              {value == null
+                                ? "—"
+                                : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </article>
@@ -909,8 +1204,16 @@ export default function MonitoringDashboard() {
                       ? pick("Generando…", "Generating…")
                       : pick("Descargar CSV", "Download CSV")}
                   </button>
-                  <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white/65">
-                    <LayoutDashboard className="h-4 w-4" /> {pick("Imprimir resumen ejecutivo", "Print executive summary")}
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white/65"
+                  >
+                    <LayoutDashboard className="h-4 w-4" />{" "}
+                    {pick(
+                      "Imprimir reporte ejecutivo",
+                      "Print executive summary",
+                    )}
                   </button>
                 </div>
                 {reportError && (
