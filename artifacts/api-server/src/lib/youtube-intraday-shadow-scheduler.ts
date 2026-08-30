@@ -459,6 +459,18 @@ async function seedApprovedVideoLinksIntoIntradayCatalog(client: PgClient) {
     LEFT JOIN youtube_channels yc ON yc.artist_key=l.artist_key
     WHERE l.active=true
       AND l.confidence_score >= 80
+      AND EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(l.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
     ON CONFLICT (artist_key, video_id) DO UPDATE SET
       artist_name=excluded.artist_name,
       artist_browse_id=CASE
@@ -489,6 +501,49 @@ async function seedApprovedVideoLinksIntoIntradayCatalog(client: PgClient) {
   };
 }
 
+async function enforceActiveYoutubeRosterScope(client: PgClient) {
+  const links = await client.query<{ artist_key: string }>(`
+    UPDATE youtube_artist_video_links link
+    SET active=false, updated_at=now()
+    WHERE link.active=true
+      AND NOT EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
+    RETURNING artist_key
+  `);
+  const candidates = await client.query<{ artist_key: string }>(`
+    UPDATE youtube_music_catalog_candidates candidate
+    SET sampling_status='disabled', updated_at=now()
+    WHERE candidate.sampling_status='shadow'
+      AND NOT EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
+    RETURNING artist_key
+  `);
+  return {
+    linksDisabled: links.rows.length,
+    candidatesDisabled: candidates.rows.length,
+  };
+}
+
 async function reuseStoredYoutubeSources(client: PgClient) {
   // Kworb snapshots already contain public video IDs and titles. Reuse the
   // newest stored snapshot per artist instead of spending Search quota to
@@ -500,7 +555,7 @@ async function reuseStoredYoutubeSources(client: PgClient) {
         COALESCE(c.artist_name, s.artist_key) artist_name,
         s.value
       FROM kworb_snapshots s
-      LEFT JOIN kworb_coverage c ON c.artist_key=s.artist_key
+      JOIN kworb_coverage c ON c.artist_key=s.artist_key AND c.status='active'
       WHERE s.metric_type='youtube'
       ORDER BY s.artist_key, s.fetched_at DESC NULLS LAST
     ), videos AS (
@@ -551,7 +606,7 @@ async function reuseStoredYoutubeSources(client: PgClient) {
         COALESCE(c.artist_name, s.artist_key) artist_name,
         s.value
       FROM kworb_snapshots s
-      LEFT JOIN kworb_coverage c ON c.artist_key=s.artist_key
+      JOIN kworb_coverage c ON c.artist_key=s.artist_key AND c.status='active'
       WHERE s.metric_type='youtube'
       ORDER BY s.artist_key, s.fetched_at DESC NULLS LAST
     ), videos AS (
@@ -613,6 +668,18 @@ async function reuseStoredYoutubeSources(client: PgClient) {
     JOIN youtube_tracked_videos v ON v.channel_id=yc.channel_id
     LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
     WHERE yc.channel_id IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
     ON CONFLICT (artist_key, video_id) DO UPDATE SET
       confidence_score=GREATEST(youtube_artist_video_links.confidence_score, excluded.confidence_score),
       priority=GREATEST(youtube_artist_video_links.priority, excluded.priority),
@@ -655,6 +722,18 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
     LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
     LEFT JOIN youtube_channel_upload_import_state import_state ON import_state.artist_key=yc.artist_key
     WHERE yc.channel_id ~ '^UC[A-Za-z0-9_-]{22}$'
+      AND EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
       AND (
         import_state.artist_key IS NULL
         OR (
@@ -1159,6 +1238,18 @@ async function rebuildCurrentArtistTotals(client: PgClient): Promise<number> {
       ORDER BY s.observed_at DESC LIMIT 1
     ) latest ON true
     WHERE c.status IN ('verified','review') AND c.sampling_status='shadow'
+      AND EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
     GROUP BY c.artist_key
     ON CONFLICT (artist_key) DO UPDATE SET
       tracked_video_count=excluded.tracked_video_count,
@@ -1197,6 +1288,10 @@ export async function runYoutubeIntradayShadow(
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
+      const rosterScope = await enforceActiveYoutubeRosterScope(client);
+      if (rosterScope.linksDisabled || rosterScope.candidatesDisabled) {
+        logger.info(rosterScope, "[youtube-shadow:intraday] disabled out-of-roster mappings");
+      }
       const usedBeforeImport = await callsUsedToday(client);
       const importedChannels = await importStoredProfileChannelUploads(
         client,
@@ -1239,6 +1334,18 @@ export async function runYoutubeIntradayShadow(
           ) daily ON true
           WHERE c.status IN ('verified','review')
             AND c.sampling_status='shadow'
+            AND EXISTS (
+              SELECT 1
+              FROM kworb_coverage roster
+              WHERE roster.status='active'
+                AND regexp_replace(
+                  translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+                  '[^a-z0-9]', '', 'g'
+                ) = regexp_replace(
+                  translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+                  '[^a-z0-9]', '', 'g'
+                )
+            )
             AND (
               $2::boolean OR
               ($3::boolean AND NOT EXISTS (

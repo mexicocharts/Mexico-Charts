@@ -1270,37 +1270,67 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
         (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
           SELECT 1 FROM source_keys s WHERE s.artist_key=r.artist_key
         )) mapped_artists,
-        (SELECT count(DISTINCT artist_key)::int FROM youtube_artist_video_links
-          WHERE active=true AND confidence_score >= 80) approved_link_artists,
-        (SELECT count(*)::int FROM youtube_channels WHERE channel_id IS NOT NULL) profile_channel_artists,
-        (SELECT count(DISTINCT artist_key)::int FROM kworb_snapshots
-          WHERE metric_type='youtube'
-            AND jsonb_typeof(value->'topVideos')='array'
-            AND jsonb_array_length(value->'topVideos') > 0
-        ) kworb_video_artists,
-        (SELECT count(DISTINCT artist_key)::int FROM youtube_music_catalog_candidates
-          WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_artists,
-        (SELECT count(DISTINCT c.artist_key)::int
-          FROM youtube_music_catalog_candidates c
-          WHERE c.status IN ('review','verified') AND c.sampling_status='shadow'
-            AND EXISTS (SELECT 1 FROM youtube_video_intraday_shadow_snapshots s WHERE s.video_id=c.video_id)
-        ) observed_artists,
-        (SELECT count(DISTINCT c.artist_key)::int
-          FROM youtube_music_catalog_candidates c
-          WHERE c.status IN ('review','verified') AND c.sampling_status='shadow'
-            AND EXISTS (
-              SELECT 1 FROM youtube_video_intraday_shadow_snapshots s
-              WHERE s.video_id=c.video_id AND s.observed_at >= now() - interval '6 hours'
-            )
-        ) fresh_artists,
-        (SELECT count(DISTINCT video_id)::int FROM youtube_music_catalog_candidates
-          WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_videos,
-        (SELECT count(DISTINCT video_id)::int
-          FROM youtube_video_intraday_shadow_snapshots) observed_videos,
-        (SELECT count(DISTINCT video_id)::int
-          FROM youtube_video_intraday_shadow_snapshots
-          WHERE observed_at >= now() - interval '6 hours') fresh_videos,
-        (SELECT max(observed_at)::text FROM youtube_video_intraday_shadow_snapshots) latest_observed_at
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1 FROM youtube_artist_video_links link
+          WHERE link.active=true AND link.confidence_score >= 80
+            AND regexp_replace(translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) approved_link_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1 FROM youtube_channels channel
+          WHERE channel.channel_id IS NOT NULL
+            AND regexp_replace(translate(lower(channel.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) profile_channel_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1 FROM kworb_snapshots snapshot
+          WHERE snapshot.metric_type='youtube'
+            AND jsonb_typeof(snapshot.value->'topVideos')='array'
+            AND jsonb_array_length(snapshot.value->'topVideos') > 0
+            AND regexp_replace(translate(lower(snapshot.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) kworb_video_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1 FROM youtube_music_catalog_candidates candidate
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
+            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) catalog_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1
+          FROM youtube_music_catalog_candidates candidate
+          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
+            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) observed_artists,
+        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
+          SELECT 1
+          FROM youtube_music_catalog_candidates candidate
+          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
+            AND sample.observed_at >= now() - interval '6 hours'
+            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+        )) fresh_artists,
+        (SELECT count(DISTINCT candidate.video_id)::int
+          FROM youtube_music_catalog_candidates candidate
+          JOIN roster_keys r
+            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') catalog_videos,
+        (SELECT count(DISTINCT candidate.video_id)::int
+          FROM youtube_music_catalog_candidates candidate
+          JOIN roster_keys r
+            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') observed_videos,
+        (SELECT count(DISTINCT candidate.video_id)::int
+          FROM youtube_music_catalog_candidates candidate
+          JOIN roster_keys r
+            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
+            AND sample.observed_at >= now() - interval '6 hours') fresh_videos,
+        (SELECT max(sample.observed_at)::text
+          FROM youtube_music_catalog_candidates candidate
+          JOIN roster_keys r
+            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
+          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
+          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') latest_observed_at
     `);
     const row = coverage.rows[0] ?? {};
     const rosterArtists = Number(row.roster_artists ?? 0);
