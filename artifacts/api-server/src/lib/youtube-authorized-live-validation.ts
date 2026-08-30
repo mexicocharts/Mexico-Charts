@@ -323,7 +323,7 @@ async function runPrioritizedSearches(client: PgClient, session:{id:string;start
 async function captureComparator(client: PgClient, session:{id:string;started_at:string}) {
   await client.query(`INSERT INTO youtube_discovery_validation_events
     (session_id,source,artist_key,video_id,title,uploader_channel_id,uploader_channel_title,uploader_type,association_status,first_seen_at,published_at,evidence)
-    SELECT $1,'innertube_comparator',c.artist_key,c.video_id,c.title,c.evidence->>'uploaderChannelId',NULL,
+    SELECT $1::bigint,'innertube_comparator',c.artist_key,c.video_id,c.title,c.evidence->>'uploaderChannelId',NULL,
       CASE WHEN c.evidence_sources::text ILIKE '%topic%' THEN 'topic' ELSE 'artist_other' END,
       'comparator',COALESCE(c.discovered_at,c.created_at),NULL,
       jsonb_build_object('evidenceSources',c.evidence_sources,'candidateStatus',c.status)
@@ -335,7 +335,7 @@ async function captureComparator(client: PgClient, session:{id:string;started_at
 
 async function snapshotDay(client: PgClient, sessionId: string) {
   await client.query(`INSERT INTO youtube_discovery_validation_daily_snapshots(session_id,validation_day,metrics)
-    SELECT $1,CURRENT_DATE,jsonb_build_object(
+    SELECT $1::bigint,CURRENT_DATE,jsonb_build_object(
       'authorizedDiscoveries',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND association_status IN ('accepted','protected_review')),
       'authorizedAccepted',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND association_status='accepted'),
       'innertubeDiscoveries',count(DISTINCT video_id) FILTER (WHERE source='innertube_comparator'),
