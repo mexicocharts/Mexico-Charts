@@ -122,7 +122,7 @@ async function activeSession(client: PgClient) {
   await client.query(`
     INSERT INTO youtube_discovery_validation_channels
       (session_id,artist_key,artist_name,channel_id,channel_title,relationship_source)
-    SELECT $1, yc.artist_key, COALESCE(k.artist_name,yc.title,yc.artist_key), yc.channel_id, yc.title,
+    SELECT $1::bigint, yc.artist_key, COALESCE(k.artist_name,yc.title,yc.artist_key), yc.channel_id, yc.title,
            'verified_youtube_channels_at_session_start'
     FROM youtube_channels yc
     LEFT JOIN kworb_coverage k ON k.artist_key=yc.artist_key
@@ -135,7 +135,7 @@ async function activeSession(client: PgClient) {
   await client.query(`
     INSERT INTO youtube_discovery_validation_channels
       (session_id,artist_key,artist_name,channel_id,channel_title,relationship_source)
-    SELECT DISTINCT $1, c.artist_key, c.artist_name, c.evidence->>'uploaderChannelId', NULL,
+    SELECT DISTINCT $1::bigint, c.artist_key, c.artist_name, c.evidence->>'uploaderChannelId', NULL,
            'documented_or_verified_relationship_at_session_start'
     FROM youtube_music_catalog_candidates c
     WHERE c.created_at < $2::timestamptz
@@ -218,7 +218,7 @@ async function scanAuthorizedChannels(client: PgClient, sessionId: string) {
         const accepted = !shared || exactLeadingCredit(title,channel.artist_name);
         await client.query(`INSERT INTO youtube_discovery_validation_events
           (session_id,source,artist_key,video_id,title,uploader_channel_id,uploader_channel_title,uploader_type,association_status,published_at,evidence)
-          SELECT $1,'authorized_playlist',$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb
+          SELECT $1::bigint,'authorized_playlist',$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb
           WHERE $9::timestamptz >= (SELECT started_at-interval '1 day' FROM youtube_discovery_validation_sessions WHERE id=$1)
           ON CONFLICT DO NOTHING`,[
           sessionId,channel.artist_key,videoId,title,channel.channel_id,item.snippet?.channelTitle ?? channel.channel_title,
