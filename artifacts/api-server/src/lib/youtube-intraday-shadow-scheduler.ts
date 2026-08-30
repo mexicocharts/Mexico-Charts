@@ -348,14 +348,6 @@ function maxVideosPerRun() {
   return Number.isFinite(raw) ? Math.max(1, Math.min(250, Math.floor(raw))) : 250;
 }
 
-function maxChannelPagesPerRun() {
-  // Catalog imports are cheap playlist-list calls. Process enough pages to
-  // finish the initial roster import quickly while the shared daily quota
-  // counter remains the hard safety boundary.
-  const raw = Number(process.env["YOUTUBE_CHANNEL_IMPORT_PAGES_PER_RUN"] ?? "200");
-  return Number.isFinite(raw) ? Math.max(1, Math.min(500, Math.floor(raw))) : 200;
-}
-
 function batch<T>(items: T[], size: number): T[][] {
   const groups: T[][] = [];
   for (let index = 0; index < items.length; index += size) groups.push(items.slice(index, index + size));
@@ -713,7 +705,7 @@ async function fetchYoutubeJson<T>(path: string, params: Record<string, string>)
 }
 
 async function importStoredProfileChannelUploads(client: PgClient, callsAvailable: number) {
-  const artistLimit = Math.max(0, Math.min(maxChannelPagesPerRun(), callsAvailable - 1));
+  const artistLimit = Math.max(0, Math.min(50, callsAvailable - 1));
   if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
   const channels = await client.query<StoredChannelRow>(`
     SELECT
