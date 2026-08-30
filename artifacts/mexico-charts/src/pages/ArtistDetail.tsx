@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, Database, ExternalLink, PencilLine } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, BellRing, Database, ExternalLink, PencilLine } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
@@ -814,12 +814,12 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
   const spotifyKworbDailyTrend = useMemo(
-    () => (kworbStats?.spotify?.history ?? []).filter(point => point.dailyStreams != null),
+    () => (kworbStats?.spotify?.history ?? []).filter(point => point.dailyStreams != null).slice(-15),
     [kworbStats?.spotify?.history],
   );
   const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
   const youtubeKworbDailyTrend = useMemo(
-    () => (kworbStats?.youtube?.history ?? []).filter(point => (point.dailyViews ?? 0) > 0),
+    () => (kworbStats?.youtube?.history ?? []).filter(point => (point.dailyViews ?? 0) > 0).slice(-15),
     [kworbStats?.youtube?.history],
   );
   const youtubeKworbAnalytics = kworbStats?.youtube?.analytics;
@@ -862,7 +862,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         totalValue: kworbStats.youtube.totalViewsFmt,
         totalLabel: "vistas totales",
         points: youtubeKworbDailyTrend,
-        availableDays: youtubeKworbAnalytics?.availableDays ?? youtubeKworbDailyTrend.length,
+        availableDays: youtubeKworbDailyTrend.length,
         snapshotLabel: formatShortDateEs(youtubeKworbDailyTrend.at(-1)?.date),
         average7: youtubeKworbAnalytics?.views.average7DayFmt ?? null,
         average30: youtubeKworbAnalytics?.views.average30DayFmt ?? null,
@@ -890,7 +890,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         totalValue: kworbStats.spotify.totalStreamsFmt,
         totalLabel: "streams totales",
         points: spotifyKworbDailyTrend,
-        availableDays: spotifyKworbAnalytics?.availableDays ?? spotifyKworbDailyTrend.length,
+        availableDays: spotifyKworbDailyTrend.length,
         snapshotLabel: formatShortDateEs(spotifyKworbDailyTrend.at(-1)?.date),
         average7: spotifyKworbAnalytics?.streams.average7DayFmt ?? null,
         average30: spotifyKworbAnalytics?.streams.average30DayFmt ?? null,
@@ -1180,6 +1180,15 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <PencilLine className="h-3.5 w-3.5" />
                     Editar perfil
                   </Link>
+                  <Link
+                    href={`/monitoreo?artist=${encodeURIComponent(canonicalArtistKey)}`}
+                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
+                    style={{ background: artist.accent, boxShadow: `0 0 18px ${artist.accent}30` }}
+                    data-testid="artist-monitoring-cta"
+                  >
+                    <BellRing className="h-3.5 w-3.5" />
+                    Monitorear desde $6/mes
+                  </Link>
               </div>
             )}
             <div className="mb-5 flex max-w-3xl flex-wrap gap-2">
@@ -1421,7 +1430,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
         {youtubeLiveVideos.length > 0 && (
           <div id="actualidad" className="order-1 scroll-mt-36">
-            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} />
+            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} publicPreview />
           </div>
         )}
 
@@ -1556,7 +1565,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     </div>
                     <div className="grid gap-3 md:grid-cols-3">
                       {songstatsGrowthCards.map(card => {
-                        const growth30 = formatGrowthPercentage(card.growth?.days30?.percentage);
+                        const growth15 = formatGrowthPercentage(card.growth?.days15?.percentage);
                         return (
                           <div
                             key={card.key}
@@ -1578,19 +1587,19 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   {formatExactCount(card.current)}
                                 </div>
                               </div>
-                              {growth30 && (
+                              {growth15 && (
                                 <span
                                   className="shrink-0 rounded-full px-2 py-1 text-[9px] font-black"
                                   style={{
-                                    background: card.growth?.days30?.absolute && card.growth.days30.absolute < 0
+                                    background: card.growth?.days15?.absolute && card.growth.days15.absolute < 0
                                       ? "rgba(244,63,94,0.10)"
                                       : `${card.color}12`,
-                                    color: card.growth?.days30?.absolute && card.growth.days30.absolute < 0
+                                    color: card.growth?.days15?.absolute && card.growth.days15.absolute < 0
                                       ? "#fb7185"
                                       : card.color,
                                   }}
                                 >
-                                  {growth30} · 30d
+                                  {growth15} · 15d
                                 </span>
                               )}
                             </div>
@@ -1609,11 +1618,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   Histórico hasta {formatShortDateEs(card.historyDate)}
                                 </div>
                               )}
-                              <div className="grid grid-cols-3 gap-1.5">
+                              <div className="grid grid-cols-2 gap-1.5">
                                 {([
                                   ["7 días", card.growth?.days7],
-                                  ["30 días", card.growth?.days30],
-                                  ["90 días", card.growth?.days90],
+                                  ["15 días", card.growth?.days15],
                                 ] as const).map(([label, window]) => (
                                   <div key={label} className="min-w-0 rounded-lg border border-white/[0.04] bg-black/25 px-2 py-2">
                                     <div className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
@@ -1759,6 +1767,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     const periodChangePct = firstPlottedValue > 0
                       ? Math.round((periodChange / firstPlottedValue) * 10_000) / 100
                       : null;
+                    const periodPeak = plottedValues.length ? Math.max(...plottedValues) : null;
                     return (
                       <article
                         key={source.key}
@@ -1820,21 +1829,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average7Pct)}`}>{pctLabel(source.average7Pct)}</div>
 	                              </div>
 	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 30 días</div>
-	                                <div className="mt-1 break-words text-sm font-black text-white">{source.average30 ?? "—"}</div>
-	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average30Pct)}`}>{pctLabel(source.average30Pct)}</div>
-	                              </div>
-	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Semana</div>
-	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
-	                                  {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
-	                                </div>
-	                              </div>
-	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Mes</div>
-	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(source.monthlyGrowth)}`}>
-	                                  {formatSignedMetric(source.monthlyGrowth, source.monthlyGrowthFmt)}
-	                                </div>
+	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Cambio 15 días</div>
+	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(periodChange)}`}>{formatSignedCompactCount(periodChange)}</div>
+	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(periodChangePct)}`}>{pctLabel(periodChangePct)}</div>
 	                              </div>
                             </div>
                           </div>
@@ -1845,7 +1842,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <>
 	                              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
 	                                <div>
-	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Últimos 30 días</div>
+	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Últimos 15 días</div>
 	                                  <div className="mt-1 text-[10px] font-bold text-zinc-500">
 	                                    {source.points.length} lecturas diarias exactas
 	                                  </div>
@@ -1855,7 +1852,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 	                                    Cambio {formatSignedCompactCount(periodChange)}{periodChangePct != null ? ` · ${pctLabel(periodChangePct)}` : ""}
 	                                  </span>
 	                                  <span className="rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
-	                                    Pico <span className="text-zinc-300">{source.biggestSpikeValue ?? "—"}</span>
+	                                    Pico <span className="text-zinc-300">{formatCompactCount(periodPeak)}</span>
 	                                  </span>
 	                                </div>
                               </div>

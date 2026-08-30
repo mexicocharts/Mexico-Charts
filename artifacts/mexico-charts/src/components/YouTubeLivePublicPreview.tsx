@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, Clock3, Eye, Play } from "lucide-react";
+import { Link } from "wouter";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -24,6 +25,7 @@ interface YouTubeLivePublicPreviewProps {
   artistName: string;
   videos: YouTubeLivePreviewVideo[];
   motionDemo?: boolean;
+  publicPreview?: boolean;
 }
 
 function numberValue(value: string | number | null | undefined): number {
@@ -109,7 +111,7 @@ function VideoThumb({ video, className = "" }: { video: YouTubeLivePreviewVideo;
   );
 }
 
-export default function YouTubeLivePublicPreview({ artistName, videos, motionDemo = false }: YouTubeLivePublicPreviewProps) {
+export default function YouTubeLivePublicPreview({ artistName, videos, motionDemo = false, publicPreview = false }: YouTubeLivePublicPreviewProps) {
   const ranked = [...videos]
     .filter(video => video.view_count != null)
     .sort((a, b) => numberValue(b.view_count) - numberValue(a.view_count));
@@ -210,6 +212,17 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
         <span>{ranked.length} videos con contador individual</span>
         <span className="ml-auto inline-flex items-center gap-1.5 text-zinc-500"><Activity className="h-3.5 w-3.5" /> Sin estimaciones entre lecturas</span>
       </div>
+      {publicPreview && ranked.length >= 10 && (
+        <div className="flex flex-col gap-4 border-t border-[#39FF14]/15 bg-[#39FF14]/[0.035] px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Vista pública · 10 videos</p>
+            <p className="mt-1 text-sm font-bold text-white/70">El Monitor desbloquea todos los videos rastreados de este artista.</p>
+          </div>
+          <Link href="/monitoreo" className="shrink-0 rounded-full bg-[#39FF14] px-5 py-3 text-center text-[9px] font-black uppercase tracking-[0.15em] text-black">
+            Ver Monitor · $6/mes
+          </Link>
+        </div>
+      )}
     </section>
   );
 }

@@ -33,7 +33,7 @@ type MonitoringConfig = {
   checkoutEnabled: boolean;
   accountsEnabled: boolean;
   priceUsdCents: number;
-  delivery: "daily_dashboard_monthly_report";
+  delivery: "daily_dashboard" | "daily_dashboard_monthly_report";
 };
 
 type MonitoringArtistAvailability = {
@@ -64,10 +64,7 @@ export default function Monitoreo() {
     queryFn: async () => {
       const response = await fetch("/api/monitoring/config");
       if (!response.ok) throw new Error("Monitoring configuration unavailable");
-      const previewConfig = await response.json() as MonitoringConfig;
-      // This restored page is an internal development preview. Checkout stays
-      // disabled here regardless of the server configuration.
-      return { ...previewConfig, checkoutEnabled: false };
+      return response.json() as Promise<MonitoringConfig>;
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -142,18 +139,23 @@ export default function Monitoreo() {
   const selectedPlan = plans.find(plan => plan.id === selectedPlanId) ?? plans[0];
   const planBenefits: Record<MonitoringPlanId, string[]> = {
     individual: [
-      pick("Panel diario para 1 artista", "Daily dashboard for 1 artist"),
-      pick("Streams diarios por canción y álbum", "Daily streams by song and album"),
-      pick("Historial por día, mes y año", "Daily, monthly and yearly history"),
-      pick("Cambios de audiencia por periodo", "Audience changes by period"),
-      pick("Reporte mensual descargable", "Downloadable monthly report"),
+      pick("Artist Pulse: qué cambió desde ayer", "Artist Pulse: what changed since yesterday"),
+      pick("Ganancias, descensos e hitos detectados", "Detected gains, declines and milestones"),
+      pick("Historial privado que crece cada día", "Private history that grows every day"),
+      pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"),
+      pick("Señales de lanzamientos nuevos", "New-release signals"),
+      pick("Release Impact de cada lanzamiento", "Release Impact for every release"),
+      pick("Resumen ejecutivo listo para imprimir", "Print-ready executive summary"),
+      pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
     ],
     seleccion: [
       pick("Paneles diarios para hasta 3 artistas", "Daily dashboards for up to 3 artists"),
       pick("Comparación directa entre artistas", "Side-by-side artist comparisons"),
-      pick("Streams e historial de cada discografía", "Streaming and catalog history for every artist"),
+      pick("Audiencia, crecimiento y catálogo de cada artista", "Audience, growth and catalog for every artist"),
       pick("Alertas individuales por artista", "Individual alerts for every artist"),
-      pick("Reporte mensual consolidado", "Consolidated monthly report"),
+      pick("Vista consolidada de la selección", "Consolidated selection view"),
+      pick("Ranking de videos entre los 3 artistas", "Cross-artist video ranking"),
+      pick("Resumen semanal combinado", "Combined weekly summary"),
     ],
     profesional: [
       pick("Paneles diarios para hasta 10 artistas", "Daily dashboards for up to 10 artists"),
@@ -161,6 +163,8 @@ export default function Monitoreo() {
       pick("Reportes individuales y consolidados", "Individual and consolidated reports"),
       pick("Exportaciones para análisis y presentaciones", "Exports for analysis and presentations"),
       pick("Activación y soporte prioritarios", "Priority setup and support"),
+      pick("Calendario de lanzamientos del portafolio", "Portfolio release calendar"),
+      pick("Benchmarks del grupo seleccionado", "Selected-group benchmarks"),
     ],
     catalogo: [
       pick("Acceso a todos los artistas elegibles", "Access to every eligible artist"),
@@ -168,6 +172,8 @@ export default function Monitoreo() {
       pick("Historial, discografías y alertas", "History, catalogs and alerts"),
       pick("Reportes generales y por artista", "Catalog-wide and artist reports"),
       pick("Acceso sujeto a confirmación comercial", "Access subject to commercial confirmation"),
+      pick("Radar de crecimiento y nuevos lanzamientos", "Growth and new-release radar"),
+      pick("Rankings generales del catálogo", "Catalog-wide rankings"),
     ],
   };
 
@@ -221,7 +227,7 @@ export default function Monitoreo() {
     { icon: BarChart3, title: pick("Métricas actuales", "Current metrics"), body: pick("Audiencia de Spotify, YouTube y plataformas sociales en un solo resumen", "Available Spotify, YouTube and social-platform audiences in one summary") },
     { icon: TrendingUp, title: pick("Evolución por periodo", "Period changes"), body: pick("Crecimiento de 7, 30 y 90 días, además del historial disponible del artista", "7-, 30- and 90-day growth plus the artist's available history") },
     { icon: MapPin, title: pick("Audiencia en México", "Mexico audience"), body: pick("Ciudades y datos de audiencia mexicana cuando la fuente los ofrece", "Mexican audience and city information when available from the source") },
-    { icon: BellRing, title: pick("Panel diario", "Daily dashboard"), body: pick("Revisa el monitor cada día y conserva el historial acumulado", "Open the monitor every day and keep its accumulated history") },
+    { icon: BellRing, title: pick("Artist Pulse", "Artist Pulse"), body: pick("Abre el monitor y entiende en segundos qué cambió desde la lectura anterior", "Open the monitor and understand in seconds what changed since the prior reading") },
   ];
 
   return (
@@ -229,7 +235,7 @@ export default function Monitoreo() {
       <PageSEO
         title={pick("Monitoreo de artistas — Mexico Charts", "Artist monitoring — Mexico Charts")}
         description={pick("Monitorea diariamente uno o varios artistas con streams, discografía, audiencia e historial permanente.", "Monitor one or more artists every day with streaming, catalog, audience and permanent history.")}
-        path="/internal/monitoring"
+        path="/monitoreo"
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "Service",
@@ -257,7 +263,7 @@ export default function Monitoreo() {
               {pick("Sigue el crecimiento de tu artista", "Understand your artist's growth")}
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-base font-medium leading-7 text-white/50 sm:text-xl sm:leading-8">
-              {pick("Streams diarios, discografía, audiencia e historial permanente reunidos en un solo panel", "Daily streaming, discography, audience and permanent history brought together in one dashboard")}
+              {pick("Audiencia, crecimiento, catálogo e historial acumulado reunidos en un solo panel", "Audience, growth, catalog and accumulated history brought together in one dashboard")}
             </p>
             <a href="#suscripcion" className="mt-8 inline-flex h-12 items-center justify-center gap-2 rounded-full bg-[#39FF14] px-7 text-[10px] font-black uppercase tracking-[0.16em] text-black">
               {pick("Elegir artista", "Choose an artist")} <ArrowRight className="h-4 w-4" />
@@ -300,7 +306,7 @@ export default function Monitoreo() {
             <div>
               <span className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-[#39FF14]"><Sparkles className="h-3.5 w-3.5" /> {pick("Más que una cifra", "More than a number")}</span>
               <h2 className="mt-5 text-balance text-4xl font-semibold leading-[1.02] tracking-[-0.05em] sm:text-5xl">{pick("El perfil muestra el presente; el Monitor conserva el historial", "The profile shows today; Monitor keeps the history")}</h2>
-              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("No pagas por volver a ver una cifra pública. Pagas por seguir su evolución, explorar su discografía completa y volver a cualquier fecha guardada.", "You are not paying to see a public number again. You are paying to follow its movement, explore the full discography and return to every saved day.")}</p>
+              <p className="mt-5 max-w-xl text-sm font-medium leading-7 text-white/40 sm:text-base">{pick("El perfil gratuito muestra el presente y 15 días de tendencia. El Monitor abre 30 días, 90 días y todo el historial real guardado disponible.", "The free profile shows the present and a 15-day trend. Monitor unlocks 30 days, 90 days and all available stored history.")}</p>
             </div>
 
             <div className="grid overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0a0a0a] sm:grid-cols-2">
@@ -308,7 +314,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/25">{pick("Perfil gratuito", "Free profile")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La foto de hoy", "Today's snapshot")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/40">
-                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Resumen general del artista", "General artist overview"), pick("Datos públicos disponibles", "Available visible context")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
+                  {[pick("Métricas públicas actuales", "Current public metrics"), pick("Tendencia máxima de 15 días", "Maximum 15-day trend"), pick("10 videos con contador en vivo", "10 videos with live counters"), pick("Resumen general del artista", "General artist overview")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/25" />{item}</li>)}
                 </ul>
               </div>
               <div className="relative overflow-hidden bg-[linear-gradient(145deg,rgba(57,255,20,0.10),rgba(57,255,20,0.015)_62%)] p-6 sm:p-8">
@@ -316,7 +322,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Streams diarios por canción y álbum", "Daily streams by song and album"), pick("Historial permanente por fecha", "Permanent history by date"), pick("Cambios, tendencias y comparaciones", "Changes, trends and comparisons"), pick("Alertas y reportes descargables", "Alerts and downloadable summary")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
@@ -360,7 +366,7 @@ export default function Monitoreo() {
                 </div>
 
                 <div className="flex gap-6 overflow-hidden border-b border-white/[0.07] px-4 sm:px-6">
-                  {[pick("Resumen", "Overview"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience"), pick("Alertas", "Alerts")].map((tab, index) => (
+                  {[pick("Resumen", "Overview"), pick("Videos en vivo", "Live videos"), pick("Historial", "History"), pick("Discografía", "Catalog"), pick("Audiencia", "Audience")].map((tab, index) => (
                     <span key={tab} className={`relative shrink-0 py-3 text-[7px] font-black uppercase tracking-[0.14em] ${index === 0 ? "text-black" : "text-white/25"}`}>
                       {index === 0 && <span className="absolute -inset-x-3 inset-y-0 bg-[#39FF14]" />}
                       <span className="relative">{tab}</span>
@@ -391,7 +397,7 @@ export default function Monitoreo() {
                     {[
                       { icon: BarChart3, label: pick("Oyentes mensuales", "Monthly listeners"), value: previewArtist?.spotifyListenersFmt || pick("Datos disponibles", "Data available") },
                       { icon: BellRing, label: pick("Suscriptores YouTube", "YouTube subscribers"), value: previewArtist?.youtubeSubscribersFmt || pick("Datos disponibles", "Data available") },
-                      { icon: Disc3, label: pick("Discografía", "Catalog"), value: pick("Streams diarios", "Daily streams") },
+                      { icon: Disc3, label: pick("Discografía", "Catalog"), value: pick("Catálogo disponible", "Available catalog") },
                       { icon: CalendarDays, label: pick("Historial", "History"), value: pick("Día, mes y año", "Day, month and year") },
                     ].map(({ icon: PreviewIcon, label, value }) => (
                       <div key={label} className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">

@@ -1127,7 +1127,8 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
   }
 });
 
-// Public read-only counters for every artist with approved shadow observations.
+// Public read-only preview for every artist with approved shadow observations.
+// The complete tracked set is reserved for the authenticated artist monitor.
 // Discovery evidence, review notes, rejected candidates, and admin controls
 // remain private.
 router.get("/providers/youtube/live-videos", async (req, res) => {
@@ -1207,7 +1208,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
         AND c.status IN ('review','verified')
         AND c.sampling_status='shadow'
       ORDER BY latest.view_count DESC, c.title
-      LIMIT 25
+      LIMIT 10
     `, [artistKey]);
 
     const latestObservedAt = videos.rows.reduce<string | null>((latest, video) => {
@@ -1226,6 +1227,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
       fresh,
       latestObservedAt,
       videos: videos.rows,
+      freeLimit: 10,
     });
   } finally {
     client.release();
