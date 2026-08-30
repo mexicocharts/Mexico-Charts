@@ -8,7 +8,56 @@ import {
   youtubeShadowDiscoveryRetryDelayMs,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
-import { youtubeEasternMidnightAnchor } from "./youtube-intraday-shadow-scheduler";
+import {
+  youtubeChannelUploadImportProgress,
+  youtubeEasternMidnightAnchor,
+} from "./youtube-intraday-shadow-scheduler";
+
+test("keeps a channel import open while YouTube has another uploads page", () => {
+  assert.deepEqual(youtubeChannelUploadImportProgress({
+    videosImported: 50,
+    pageVideoCount: 50,
+    nextPageToken: "NEXT_PAGE",
+    expectedTotalVideos: 289,
+  }), {
+    status: "retryable",
+    nextPageToken: "NEXT_PAGE",
+    videosImported: 100,
+    expectedTotalVideos: 289,
+    complete: false,
+  });
+});
+
+test("marks a channel complete only after the uploads playlist has no next page", () => {
+  assert.deepEqual(youtubeChannelUploadImportProgress({
+    videosImported: 250,
+    pageVideoCount: 39,
+    nextPageToken: null,
+    expectedTotalVideos: 289,
+  }), {
+    status: "complete",
+    nextPageToken: null,
+    videosImported: 289,
+    expectedTotalVideos: 289,
+    complete: true,
+  });
+});
+
+test("refreshes a completed channel from its newest page without recrawling its archive", () => {
+  assert.deepEqual(youtubeChannelUploadImportProgress({
+    videosImported: 289,
+    pageVideoCount: 50,
+    nextPageToken: "OLDER_UPLOADS",
+    expectedTotalVideos: 291,
+    refreshingCompleteChannel: true,
+  }), {
+    status: "complete",
+    nextPageToken: null,
+    videosImported: 291,
+    expectedTotalVideos: 291,
+    complete: true,
+  });
+});
 
 test("identifies the first thirty minutes of the Eastern reporting day", () => {
   assert.deepEqual(youtubeEasternMidnightAnchor(new Date("2026-08-21T04:07:00Z")), {

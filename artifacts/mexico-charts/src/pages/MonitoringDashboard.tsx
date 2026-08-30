@@ -111,6 +111,14 @@ type DashboardPayload = {
     }>;
   };
   liveVideos: YouTubeLivePreviewVideo[];
+  youtubeCoverage: {
+    channelVideoCount: number | null;
+    importedVideoCount: number;
+    linkedVideoCount: number;
+    observedVideoCount: number;
+    importStatus: "complete" | "retryable" | "pending";
+    complete: boolean;
+  };
   latestReleaseImpact: null | {
     release: { id: string; title: string; type: string; releaseDate: string | null; artworkUrl: string | null; platformCount: number };
     score: number | null;
@@ -740,7 +748,7 @@ export default function MonitoringDashboard() {
                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-red-400">Video Pulse · exclusivo del Monitor</p>
                         <h2 className="mt-2 text-2xl font-black tracking-[-0.03em]">Qué está moviendo al artista hoy</h2>
                       </div>
-                      <div className="grid sm:grid-cols-3">
+                      <div className="grid sm:grid-cols-2 xl:grid-cols-4">
                         <div className="border-b border-white/[0.07] p-5 sm:border-b-0 sm:border-r sm:p-6">
                           <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Ganancia combinada hoy · ET</p>
                           <p className="mt-2 text-3xl font-black text-[#39FF14]">+{exact(videoPulse.totalToday)}</p>
@@ -753,6 +761,24 @@ export default function MonitoringDashboard() {
                           <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">Video líder hoy</p>
                           <p className="mt-2 line-clamp-2 text-sm font-black leading-5">{videoPulse.leader?.title ?? "Recopilando"}</p>
                           <p className="mt-1 text-xs font-black text-[#39FF14]">{videoPulse.leader?.views_today_et == null ? "—" : `+${exact(Number(videoPulse.leader.views_today_et))}`}</p>
+                        </div>
+                        <div className="border-t border-white/[0.07] p-5 sm:p-6 xl:border-l xl:border-t-0">
+                          <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">
+                            Cobertura exacta
+                          </p>
+                          <p className="mt-2 text-3xl font-black">
+                            {exact(data.youtubeCoverage.observedVideoCount)}
+                            <span className="text-base text-white/25">
+                              /{data.youtubeCoverage.channelVideoCount == null
+                                ? "—"
+                                : exact(data.youtubeCoverage.channelVideoCount)}
+                            </span>
+                          </p>
+                          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.11em] text-white/28">
+                            {data.youtubeCoverage.complete
+                              ? "Canal importado completo"
+                              : `${exact(data.youtubeCoverage.importedVideoCount)} importados`}
+                          </p>
                         </div>
                       </div>
                       <div className="border-t border-white/[0.07] p-5 sm:p-7">

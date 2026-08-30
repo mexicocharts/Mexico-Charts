@@ -176,8 +176,17 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   if (!active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
-  const [snapshots, extended, liveVideos, liveVideoHistory] = await Promise.all([
-    pool.query<MonitoringSnapshotRow>(`
+  const [
+    snapshots,
+    extended,
+    liveVideos,
+    liveVideoHistory,
+    streamSummary,
+    streamItems,
+    youtubeCoverage,
+  ] = await Promise.all([
+    pool.query<MonitoringSnapshotRow>(
+      `
       SELECT
         snapshot_date,
         spotify_followers,
@@ -297,7 +306,120 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
             AND c.sampling_status='shadow'
         )
       ORDER BY s.video_id, s.snapshot_date
-    `, [activeKeys]),
+    `,
+      [activeKeys],
+    ),
+    pool.query<{
+      snapshot_date: string;
+      track_count: number;
+      album_count: number;
+      track_daily_streams: string | number;
+      album_daily_streams: string | number;
+      track_total_streams: string | number;
+      album_total_streams: string | number;
+    }>(
+      `
+      SELECT snapshot_date, track_count, album_count,
+             track_daily_streams, album_daily_streams,
+             track_total_streams, album_total_streams
+      FROM monitoring_stream_daily_artist_summaries
+      WHERE lower(artist_key) = ANY($1::text[])
+      ORDER BY snapshot_date DESC
+      LIMIT 1
+    `,
+      [activeKeys],
+    ),
+    pool.query<{
+      item_type: "track" | "album";
+      item_key: string;
+      title: string;
+      spotify_url: string | null;
+      artwork_url: string | null;
+      compilation: boolean;
+      total_streams: string | number;
+      daily_streams: string | number;
+    }>(
+      `
+      WITH latest_date AS (
+        SELECT max(snapshot_date) snapshot_date
+        FROM monitoring_stream_daily_snapshots
+        WHERE lower(artist_key) = ANY($1::text[])
+      )
+      SELECT i.item_type, i.item_key, i.title, i.spotify_url,
+             to_jsonb(i)->>'artwork_url' artwork_url,
+             i.compilation,
+             s.total_streams, s.daily_streams
+      FROM monitoring_stream_items i
+      JOIN latest_date d ON true
+      JOIN monitoring_stream_daily_snapshots s
+        ON s.artist_key=i.artist_key
+       AND s.item_type=i.item_type
+       AND s.item_key=i.item_key
+       AND s.snapshot_date=d.snapshot_date
+      WHERE lower(i.artist_key) = ANY($1::text[])
+      ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
+    `,
+      [activeKeys],
+    ),
+    pool.query<{
+      channel_video_count: string | number | null;
+      videos_imported: string | number | null;
+      expected_total_videos: string | number | null;
+      import_status: "complete" | "retryable" | null;
+      next_page_token: string | null;
+      completed_at: string | null;
+      linked_video_count: string | number;
+      observed_video_count: string | number;
+    }>(
+      `
+      SELECT
+        yc.video_count channel_video_count,
+        import_state.videos_imported,
+        import_state.expected_total_videos,
+        import_state.status import_status,
+        import_state.next_page_token,
+        import_state.completed_at::text,
+        (
+          SELECT count(DISTINCT link.video_id)
+          FROM youtube_artist_video_links link
+          WHERE link.active=true
+            AND (
+              lower(link.artist_key) = ANY($1::text[])
+              OR regexp_replace(
+                translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($1::text[])
+            )
+        ) linked_video_count,
+        (
+          SELECT count(DISTINCT sample.video_id)
+          FROM youtube_video_intraday_shadow_snapshots sample
+          JOIN youtube_music_catalog_candidates candidate
+            ON candidate.video_id=sample.video_id
+          WHERE candidate.status IN ('review','verified')
+            AND candidate.sampling_status='shadow'
+            AND (
+              lower(candidate.artist_key) = ANY($1::text[])
+              OR regexp_replace(
+                translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($1::text[])
+            )
+        ) observed_video_count
+      FROM youtube_channels yc
+      LEFT JOIN youtube_channel_upload_import_state import_state
+        ON import_state.artist_key=yc.artist_key
+      WHERE (
+        lower(yc.artist_key) = ANY($1::text[])
+        OR regexp_replace(
+          translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+          '[^a-z0-9]', '', 'g'
+        ) = ANY($1::text[])
+      )
+      LIMIT 1
+    `,
+      [activeKeys],
+    ),
   ]);
   const extendedRow = extended.rows[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
@@ -316,6 +438,35 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     newestReleaseDate: null,
     releases: [],
   };
+  const latestStreamSummary = streamSummary.rows[0] ?? null;
+  const normalizedReleaseTitle = (value: string) =>
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+-\s+(single|ep)$/i, "")
+      .replace(/\([^)]*(deluxe|version|remaster)[^)]*\)/gi, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const releaseArtwork = new Map(
+    catalog.releases
+      .filter((release) => release.artworkUrl)
+      .map((release) => [
+        normalizedReleaseTitle(release.title),
+        release.artworkUrl,
+      ]),
+  );
+  const uniqueLiveVideos = liveVideos.rows.filter(
+    (video, index, rows) =>
+      rows.findIndex((candidate) => candidate.video_id === video.video_id) ===
+      index,
+  );
+  const youtubeCoverageRow = youtubeCoverage.rows[0] ?? null;
+  const youtubeChannelVideoCount = nullableNumber(
+    youtubeCoverageRow?.channel_video_count
+      ?? youtubeCoverageRow?.expected_total_videos
+    ?? null,
+  );
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -330,8 +481,56 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     latestReleaseImpact: insight?.latestReleaseImpact ?? null,
-    liveVideos: liveVideos.rows,
+    liveVideos: uniqueLiveVideos,
+    youtubeCoverage: {
+      channelVideoCount: youtubeChannelVideoCount,
+      importedVideoCount: nullableNumber(
+        youtubeCoverageRow?.videos_imported ?? null,
+      ) ?? 0,
+      linkedVideoCount: nullableNumber(
+        youtubeCoverageRow?.linked_video_count ?? null,
+      ) ?? 0,
+      observedVideoCount: nullableNumber(
+        youtubeCoverageRow?.observed_video_count ?? null,
+      ) ?? 0,
+      importStatus: youtubeCoverageRow?.import_status ?? "pending",
+      complete: Boolean(
+        youtubeCoverageRow?.import_status === "complete"
+        && youtubeCoverageRow?.completed_at
+        && !youtubeCoverageRow?.next_page_token,
+      ),
+    },
     liveVideoHistory: liveVideoHistory.rows,
+    spotifyCatalog: {
+      snapshotDate: latestStreamSummary?.snapshot_date ?? null,
+      trackCount: latestStreamSummary?.track_count ?? 0,
+      albumCount: latestStreamSummary?.album_count ?? 0,
+      trackDailyStreams: nullableNumber(
+        latestStreamSummary?.track_daily_streams ?? null,
+      ),
+      albumDailyStreams: nullableNumber(
+        latestStreamSummary?.album_daily_streams ?? null,
+      ),
+      trackTotalStreams: nullableNumber(
+        latestStreamSummary?.track_total_streams ?? null,
+      ),
+      albumTotalStreams: nullableNumber(
+        latestStreamSummary?.album_total_streams ?? null,
+      ),
+      items: streamItems.rows.map((item) => ({
+        type: item.item_type,
+        key: item.item_key,
+        title: item.title,
+        spotifyUrl: item.spotify_url,
+        artworkUrl:
+          item.artwork_url ??
+          releaseArtwork.get(normalizedReleaseTitle(item.title)) ??
+          null,
+        compilation: item.compilation,
+        totalStreams: nullableNumber(item.total_streams),
+        dailyStreams: nullableNumber(item.daily_streams),
+      })),
+    },
   };
 }
 
