@@ -1372,14 +1372,20 @@ export async function runYoutubeIntradayShadow(
         logger.info(rosterScope, "[youtube-shadow:intraday] disabled out-of-roster mappings");
       }
       const usedBeforeImport = await callsUsedToday(client);
-      const importedChannels = await importStoredProfileChannelUploads(
-        client,
-        Math.max(0, dailyBudget() - usedBeforeImport),
-      );
-      summary.importedChannelVideos = importedChannels.videos;
-      summary.importedChannelArtists = importedChannels.artists;
-      summary.importedChannelErrors = importedChannels.errors ?? [];
-      summary.apiCalls += importedChannels.apiCalls;
+      try {
+        const importedChannels = await importStoredProfileChannelUploads(
+          client,
+          Math.max(0, dailyBudget() - usedBeforeImport),
+        );
+        summary.importedChannelVideos = importedChannels.videos;
+        summary.importedChannelArtists = importedChannels.artists;
+        summary.importedChannelErrors = importedChannels.errors ?? [];
+        summary.apiCalls += importedChannels.apiCalls;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        summary.importedChannelErrors.push(message);
+        logger.error({ error }, "[youtube-shadow:intraday] catalog import failed; continuing live measurements");
+      }
       const reusedStored = await reuseStoredYoutubeSources(client);
       summary.reusedStoredVideos = reusedStored.videos;
       summary.reusedStoredArtists = reusedStored.artists;
