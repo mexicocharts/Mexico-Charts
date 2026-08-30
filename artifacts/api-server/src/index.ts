@@ -10,6 +10,7 @@ import { seedSupplementalArtistCatalog } from "./lib/supplemental-artist-catalog
 import { ensureArtistCatalogSchema } from "./lib/artist-catalog-schema";
 import { startArtistDataQualityScheduler } from "./lib/artist-data-quality-scheduler";
 import { startYoutubeIntradayShadowScheduler } from "./lib/youtube-intraday-shadow-scheduler";
+import { startYoutubeAuthorizedLiveValidation } from "./lib/youtube-authorized-live-validation";
 import { startChartArchiveScheduler } from "./lib/chart-archive-scheduler";
 import { startTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow";
 import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-monitor";
@@ -46,6 +47,9 @@ app.listen(port, async (err) => {
   // Start the public live-counter collector first. Several legacy backfills can
   // perform long startup work; live counters must not wait behind them.
   startYoutubeIntradayShadowScheduler();
+  // Protected seven-day comparator: writes validation-only tables and leaves
+  // the Innertube discovery process and public catalog behavior unchanged.
+  startYoutubeAuthorizedLiveValidation();
   startYoutubeChannelSnapshotScheduler();
   startSpotifyKworbSnapshotScheduler();
   startYoutubeVideoTrackerScheduler();
