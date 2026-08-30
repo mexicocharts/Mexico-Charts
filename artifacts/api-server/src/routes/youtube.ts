@@ -1295,6 +1295,11 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
         ) fresh_artists,
         (SELECT count(DISTINCT video_id)::int FROM youtube_music_catalog_candidates
           WHERE status IN ('review','verified') AND sampling_status='shadow') catalog_videos,
+        (SELECT count(DISTINCT video_id)::int
+          FROM youtube_video_intraday_shadow_snapshots) observed_videos,
+        (SELECT count(DISTINCT video_id)::int
+          FROM youtube_video_intraday_shadow_snapshots
+          WHERE observed_at >= now() - interval '6 hours') fresh_videos,
         (SELECT max(observed_at)::text FROM youtube_video_intraday_shadow_snapshots) latest_observed_at
     `);
     const row = coverage.rows[0] ?? {};
@@ -1316,6 +1321,8 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
       awaitingVideoMapping: Math.max(0, rosterArtists - mappedArtists),
       awaitingFirstObservation: Math.max(0, catalogArtists - observedArtists),
       catalogVideos: Number(row.catalog_videos ?? 0),
+      observedVideos: Number(row.observed_videos ?? 0),
+      freshVideos: Number(row.fresh_videos ?? 0),
       latestObservedAt: row.latest_observed_at ?? null,
       collectionCadenceMinutes: 5,
       maxVideosPerPass: 250,
