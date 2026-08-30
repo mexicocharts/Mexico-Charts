@@ -69,6 +69,19 @@ interface StoredChannelVideo {
   publishedAt: string | null;
 }
 
+interface StoredChannelImportState {
+  artist_key: string;
+  channel_id: string;
+  playlist_id: string | null;
+  status: "complete" | "retryable";
+  error: string | null;
+  next_page_token: string | null;
+  videos_imported: number;
+  expected_total_videos: number | null;
+  next_retry_at: string | null;
+  completed_at: string | null;
+}
+
 interface VideoStats {
   videoId: string;
   channelId: string | null;
@@ -704,198 +717,11 @@ async function fetchYoutubeJson<T>(path: string, params: Record<string, string>)
   return await response.json() as T;
 }
 
-async function importStoredProfileChannelUploads(client: PgClient, callsAvailable: number) {
-  const artistLimit = Math.max(0, Math.min(50, callsAvailable - 1));
-  if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
-  const channels = await client.query<StoredChannelRow>(`
-    SELECT
-      yc.artist_key,
-      COALESCE(c.artist_name, yc.title, yc.artist_key) artist_name,
-      yc.channel_id,
-      import_state.playlist_id,
-      import_state.next_page_token,
-      import_state.videos_imported,
-      import_state.expected_total_videos,
-      import_state.status import_status,
-      import_state.completed_at::text
-    FROM youtube_channels yc
-    LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
-    LEFT JOIN youtube_channel_upload_import_state import_state ON import_state.artist_key=yc.artist_key
-    WHERE yc.channel_id ~ '^UC[A-Za-z0-9_-]{22}$'
-      AND EXISTS (
-        SELECT 1
-        FROM kworb_coverage roster
-        WHERE roster.status='active'
-          AND regexp_replace(
-            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          ) = regexp_replace(
-            translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          )
-      )
-      AND (
-        import_state.artist_key IS NULL
-        OR (
-          import_state.status='retryable'
-          AND (import_state.next_retry_at IS NULL OR import_state.next_retry_at <= now())
-        )
-        OR (
-          import_state.status='complete'
-          AND (
-            import_state.completed_at IS NULL
-            OR import_state.next_retry_at IS NULL
-            OR import_state.next_retry_at <= now()
-          )
-        )
-      )
-    ORDER BY
-      CASE WHEN import_state.next_page_token IS NOT NULL THEN 0
-           WHEN import_state.artist_key IS NULL THEN 1
-           ELSE 2 END,
-      import_state.last_attempt_at ASC NULLS FIRST,
-      yc.artist_key
-    LIMIT $1
-  `, [artistLimit]);
-  if (!channels.rows.length) return { artists: 0, videos: 0, apiCalls: 0 };
-
-  let apiCalls = 0;
-  const uploadsByChannel = new Map(
-    channels.rows.flatMap(row => row.playlist_id
-      ? [[row.channel_id, row.playlist_id] as const]
-      : []),
-  );
-  const channelsMissingPlaylist = channels.rows.filter(row => !row.playlist_id);
-  if (channelsMissingPlaylist.length) {
-    const channelData = await fetchYoutubeJson<{
-      items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
-    }>("channels", {
-      part: "contentDetails",
-      id: channelsMissingPlaylist.map(row => row.channel_id).join(","),
-      maxResults: String(channelsMissingPlaylist.length),
-    });
-    apiCalls += 1;
-    await recordUsage(client, 0, 0);
-    for (const item of channelData.items ?? []) {
-      const uploads = item.contentDetails?.relatedPlaylists?.uploads;
-      if (uploads) uploadsByChannel.set(item.id, uploads);
-    }
-  }
-
-  const videos: StoredChannelVideo[] = [];
-  const states: Array<{
-    artist_key: string;
-    channel_id: string;
-    playlist_id: string | null;
-    status: "complete" | "retryable";
-    error: string | null;
-    next_page_token: string | null;
-    videos_imported: number;
-    expected_total_videos: number | null;
-    next_retry_at: string | null;
-    completed_at: string | null;
-  }> = [];
-  for (const group of batch(channels.rows, 10)) {
-    const results = await Promise.all(group.map(async artist => {
-      const playlistId = uploadsByChannel.get(artist.channel_id);
-      if (!playlistId) return {
-        artist,
-        playlistId: null,
-        attempted: false,
-        items: [] as StoredChannelVideo[],
-        nextPageToken: artist.next_page_token,
-        expectedTotalVideos: artist.expected_total_videos,
-        error: "Uploads playlist unavailable.",
-      };
-      try {
-        const data = await fetchYoutubeJson<{
-          nextPageToken?: string;
-          pageInfo?: { totalResults?: number };
-          items?: Array<{ snippet?: {
-            title?: string;
-            publishedAt?: string;
-            thumbnails?: Record<string, { url?: string }>;
-            resourceId?: { videoId?: string };
-          } }>;
-        }>("playlistItems", {
-          part: "snippet",
-          playlistId,
-          maxResults: "50",
-          ...(artist.next_page_token ? { pageToken: artist.next_page_token } : {}),
-        });
-        const items = (data.items ?? []).flatMap(item => {
-          const videoId = item.snippet?.resourceId?.videoId;
-          if (!videoId) return [];
-          const thumbs = item.snippet?.thumbnails ?? {};
-          return [{
-            artistKey: artist.artist_key,
-            artistName: artist.artist_name,
-            channelId: artist.channel_id,
-            videoId,
-            title: item.snippet?.title ?? "",
-            thumbnailUrl: thumbs.maxres?.url ?? thumbs.standard?.url ?? thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url ?? null,
-            publishedAt: item.snippet?.publishedAt ?? null,
-          }];
-        });
-        return {
-          artist,
-          playlistId,
-          attempted: true,
-          items,
-          nextPageToken: data.nextPageToken ?? null,
-          expectedTotalVideos: data.pageInfo?.totalResults ?? artist.expected_total_videos,
-          error: null,
-        };
-      } catch (error) {
-        return {
-          artist,
-          playlistId,
-          attempted: true,
-          items: [] as StoredChannelVideo[],
-          nextPageToken: artist.next_page_token,
-          expectedTotalVideos: artist.expected_total_videos,
-          error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
-        };
-      }
-    }));
-    for (const result of results) {
-      if (result.attempted) {
-        apiCalls += 1;
-        await recordUsage(client, 50, result.items.length);
-      }
-      videos.push(...result.items);
-      const progress = youtubeChannelUploadImportProgress({
-        videosImported: result.artist.videos_imported,
-        pageVideoCount: result.items.length,
-        nextPageToken: result.nextPageToken,
-        expectedTotalVideos: result.expectedTotalVideos,
-        refreshingCompleteChannel: Boolean(
-          result.artist.completed_at && !result.artist.next_page_token,
-        ),
-      });
-      states.push({
-        artist_key: result.artist.artist_key,
-        channel_id: result.artist.channel_id,
-        playlist_id: result.playlistId,
-        status: result.error ? "retryable" : progress.status,
-        error: result.error,
-        next_page_token: progress.nextPageToken,
-        videos_imported: progress.videosImported,
-        expected_total_videos: progress.expectedTotalVideos,
-        next_retry_at: result.error
-          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-          : progress.complete
-            ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-            : new Date(Date.now() + CHECK_MS).toISOString(),
-        completed_at: result.error
-          ? result.artist.completed_at
-          : progress.complete
-            ? new Date().toISOString()
-            : null,
-      });
-    }
-  }
-
+async function saveStoredChannelImportChunk(
+  client: PgClient,
+  videos: StoredChannelVideo[],
+  states: StoredChannelImportState[],
+) {
   await client.query("BEGIN");
   try {
     if (videos.length) {
@@ -986,6 +812,193 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
     await client.query("ROLLBACK").catch(() => {});
     throw error;
   }
+}
+
+async function importStoredProfileChannelUploads(client: PgClient, callsAvailable: number) {
+  const artistLimit = Math.max(0, Math.min(200, callsAvailable - 1));
+  if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
+  const channels = await client.query<StoredChannelRow>(`
+    SELECT
+      yc.artist_key,
+      COALESCE(c.artist_name, yc.title, yc.artist_key) artist_name,
+      yc.channel_id,
+      import_state.playlist_id,
+      import_state.next_page_token,
+      import_state.videos_imported,
+      import_state.expected_total_videos,
+      import_state.status import_status,
+      import_state.completed_at::text
+    FROM youtube_channels yc
+    LEFT JOIN kworb_coverage c ON c.artist_key=yc.artist_key
+    LEFT JOIN youtube_channel_upload_import_state import_state ON import_state.artist_key=yc.artist_key
+    WHERE yc.channel_id ~ '^UC[A-Za-z0-9_-]{22}$'
+      AND EXISTS (
+        SELECT 1
+        FROM kworb_coverage roster
+        WHERE roster.status='active'
+          AND regexp_replace(
+            translate(lower(roster.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = regexp_replace(
+            translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          )
+      )
+      AND (
+        import_state.artist_key IS NULL
+        OR (
+          import_state.status='retryable'
+          AND (import_state.next_retry_at IS NULL OR import_state.next_retry_at <= now())
+        )
+        OR (
+          import_state.status='complete'
+          AND (
+            import_state.completed_at IS NULL
+            OR import_state.next_retry_at IS NULL
+            OR import_state.next_retry_at <= now()
+          )
+        )
+      )
+    ORDER BY
+      CASE WHEN import_state.next_page_token IS NOT NULL THEN 0
+           WHEN import_state.artist_key IS NULL THEN 1
+           ELSE 2 END,
+      import_state.last_attempt_at ASC NULLS FIRST,
+      yc.artist_key
+    LIMIT $1
+  `, [artistLimit]);
+  if (!channels.rows.length) return { artists: 0, videos: 0, apiCalls: 0 };
+
+  let apiCalls = 0;
+  const uploadsByChannel = new Map(
+    channels.rows.flatMap(row => row.playlist_id
+      ? [[row.channel_id, row.playlist_id] as const]
+      : []),
+  );
+  const channelsMissingPlaylist = channels.rows.filter(row => !row.playlist_id);
+  if (channelsMissingPlaylist.length) {
+    const channelData = await fetchYoutubeJson<{
+      items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
+    }>("channels", {
+      part: "contentDetails",
+      id: channelsMissingPlaylist.map(row => row.channel_id).join(","),
+      maxResults: String(channelsMissingPlaylist.length),
+    });
+    apiCalls += 1;
+    await recordUsage(client, 0, 0);
+    for (const item of channelData.items ?? []) {
+      const uploads = item.contentDetails?.relatedPlaylists?.uploads;
+      if (uploads) uploadsByChannel.set(item.id, uploads);
+    }
+  }
+
+  let importedVideos = 0;
+  const importedArtists = new Set<string>();
+  for (const group of batch(channels.rows, 10)) {
+    const groupVideos: StoredChannelVideo[] = [];
+    const groupStates: StoredChannelImportState[] = [];
+    const results = await Promise.all(group.map(async artist => {
+      const playlistId = uploadsByChannel.get(artist.channel_id);
+      if (!playlistId) return {
+        artist,
+        playlistId: null,
+        attempted: false,
+        items: [] as StoredChannelVideo[],
+        nextPageToken: artist.next_page_token,
+        expectedTotalVideos: artist.expected_total_videos,
+        error: "Uploads playlist unavailable.",
+      };
+      try {
+        const data = await fetchYoutubeJson<{
+          nextPageToken?: string;
+          pageInfo?: { totalResults?: number };
+          items?: Array<{ snippet?: {
+            title?: string;
+            publishedAt?: string;
+            thumbnails?: Record<string, { url?: string }>;
+            resourceId?: { videoId?: string };
+          } }>;
+        }>("playlistItems", {
+          part: "snippet",
+          playlistId,
+          maxResults: "50",
+          ...(artist.next_page_token ? { pageToken: artist.next_page_token } : {}),
+        });
+        const items = (data.items ?? []).flatMap(item => {
+          const videoId = item.snippet?.resourceId?.videoId;
+          if (!videoId) return [];
+          const thumbs = item.snippet?.thumbnails ?? {};
+          return [{
+            artistKey: artist.artist_key,
+            artistName: artist.artist_name,
+            channelId: artist.channel_id,
+            videoId,
+            title: item.snippet?.title ?? "",
+            thumbnailUrl: thumbs.maxres?.url ?? thumbs.standard?.url ?? thumbs.high?.url ?? thumbs.medium?.url ?? thumbs.default?.url ?? null,
+            publishedAt: item.snippet?.publishedAt ?? null,
+          }];
+        });
+        return {
+          artist,
+          playlistId,
+          attempted: true,
+          items,
+          nextPageToken: data.nextPageToken ?? null,
+          expectedTotalVideos: data.pageInfo?.totalResults ?? artist.expected_total_videos,
+          error: null,
+        };
+      } catch (error) {
+        return {
+          artist,
+          playlistId,
+          attempted: true,
+          items: [] as StoredChannelVideo[],
+          nextPageToken: artist.next_page_token,
+          expectedTotalVideos: artist.expected_total_videos,
+          error: error instanceof Error ? error.message.slice(0, 300) : String(error).slice(0, 300),
+        };
+      }
+    }));
+    for (const result of results) {
+      if (result.attempted) {
+        apiCalls += 1;
+        await recordUsage(client, 50, result.items.length);
+      }
+      groupVideos.push(...result.items);
+      if (result.items.length) importedArtists.add(result.artist.artist_key);
+      const progress = youtubeChannelUploadImportProgress({
+        videosImported: result.artist.videos_imported,
+        pageVideoCount: result.items.length,
+        nextPageToken: result.nextPageToken,
+        expectedTotalVideos: result.expectedTotalVideos,
+        refreshingCompleteChannel: Boolean(
+          result.artist.completed_at && !result.artist.next_page_token,
+        ),
+      });
+      groupStates.push({
+        artist_key: result.artist.artist_key,
+        channel_id: result.artist.channel_id,
+        playlist_id: result.playlistId,
+        status: result.error ? "retryable" : progress.status,
+        error: result.error,
+        next_page_token: progress.nextPageToken,
+        videos_imported: progress.videosImported,
+        expected_total_videos: progress.expectedTotalVideos,
+        next_retry_at: result.error
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          : progress.complete
+            ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+            : new Date(Date.now() + CHECK_MS).toISOString(),
+        completed_at: result.error
+          ? result.artist.completed_at
+          : progress.complete
+            ? new Date().toISOString()
+            : null,
+      });
+    }
+    await saveStoredChannelImportChunk(client, groupVideos, groupStates);
+    importedVideos += groupVideos.length;
+  }
   const importErrors = await client.query<{ artist_key: string; error: string }>(`
     SELECT artist_key, error
     FROM youtube_channel_upload_import_state
@@ -996,8 +1009,8 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
     LIMIT 50
   `);
   return {
-    artists: new Set(videos.map(video => video.artistKey)).size,
-    videos: videos.length,
+    artists: importedArtists.size,
+    videos: importedVideos,
     apiCalls,
     errors: importErrors.rows.map(row => `${row.artist_key}: ${row.error}`),
   };
