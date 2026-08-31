@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { buildStructuredDataGraph } from "@/lib/structured-data.mjs";
+import { getSeoRoute } from "@/lib/seo-routes.mjs";
 
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
 const OG_IMAGE = `${SITE_URL}/opengraph.jpg`;
@@ -57,11 +58,16 @@ function upsertJsonLd(value: string) {
  * removed node and leave visitors on a black page.
  */
 export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd, breadcrumbs = [] }: PageSEOProps) {
-  const canonical = `${SITE_URL}${path}`;
-  const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
+  const routeDefinition = getSeoRoute(path);
+  const resolvedPath = routeDefinition?.canonicalPath ?? path;
+  const resolvedTitle = routeDefinition?.title ?? title;
+  const resolvedDescription = routeDefinition?.description ?? description;
+  const resolvedNoindex = routeDefinition ? routeDefinition.robots.startsWith("noindex") : noindex;
+  const canonical = `${SITE_URL}${resolvedPath}`;
+  const fullTitle = resolvedTitle.includes("Mexico Charts") ? resolvedTitle : `${resolvedTitle} — Mexico Charts`;
   const structuredData = JSON.stringify(buildStructuredDataGraph({
     title: fullTitle,
-    description,
+    description: resolvedDescription,
     canonicalUrl: canonical,
     additional: jsonLd ?? [],
     breadcrumbs: breadcrumbs.map(item => ({
@@ -74,13 +80,13 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
     document.title = fullTitle;
     Array.from(document.head.querySelectorAll("title")).slice(1).forEach(node => node.remove());
 
-    upsertMeta("name", "description", description);
-    upsertMeta("name", "robots", noindex ? "noindex,nofollow,noarchive" : "index,follow");
+    upsertMeta("name", "description", resolvedDescription);
+    upsertMeta("name", "robots", resolvedNoindex ? "noindex,nofollow,noarchive" : "index,follow");
     upsertCanonical(canonical);
 
     upsertMeta("property", "og:type", type);
     upsertMeta("property", "og:title", fullTitle);
-    upsertMeta("property", "og:description", description);
+    upsertMeta("property", "og:description", resolvedDescription);
     upsertMeta("property", "og:url", canonical);
     upsertMeta("property", "og:image", ogImage);
     upsertMeta("property", "og:image:width", "1200");
@@ -90,11 +96,11 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
 
     upsertMeta("name", "twitter:card", "summary_large_image");
     upsertMeta("name", "twitter:title", fullTitle);
-    upsertMeta("name", "twitter:description", description);
+    upsertMeta("name", "twitter:description", resolvedDescription);
     upsertMeta("name", "twitter:image", ogImage);
 
     upsertJsonLd(structuredData);
-  }, [canonical, description, fullTitle, noindex, ogImage, structuredData, type]);
+  }, [canonical, fullTitle, ogImage, resolvedDescription, resolvedNoindex, structuredData, type]);
 
   return null;
 }

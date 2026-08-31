@@ -2,12 +2,13 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { SiSpotify, SiYoutube, SiApplemusic } from "react-icons/si";
 import { MdMusicNote } from "react-icons/md";
 import SiteNav from "@/components/SiteNav";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { getPlatformChartRoute, getPlatformChartRouteByPlatform, getSeoRoute } from "@/lib/seo-routes.mjs";
 
 /* ── Brand ───────────────────────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -469,9 +470,16 @@ function SkeletonRow({ i }: { i: number }) {
 export default function ChartsHub() {
   const { pick } = useLanguage();
   const search = useSearch();
+  const [location, navigate] = useLocation();
+  const platformRoute = getPlatformChartRoute(location);
+  const seoRoute = getSeoRoute(location) ?? getSeoRoute("/charts")!;
 
   // Parse initial platform/sheet from URL query params (e.g. ?platform=YouTube&sheet=YT_Artists_Weekly)
   const initialState = useMemo(() => {
+    if (platformRoute) {
+      const selected = PLATFORMS.find(p => p.id === platformRoute.platform)!;
+      return { platform: selected.id, sheet: selected.charts[0].id };
+    }
     const params = new URLSearchParams(search);
     const pid = params.get("platform") as PlatformId | null;
     const sid = params.get("sheet");
@@ -484,13 +492,23 @@ export default function ChartsHub() {
       };
     }
     return { platform: "YouTube" as PlatformId, sheet: "YT_Songs_Weekly" };
-  }, []);
+  }, [platformRoute, search]);
 
   const [activePlatform, setActivePlatform] = useState<PlatformId>(initialState.platform);
   const [activeSheet, setActiveSheet] = useState(initialState.sheet);
   const [filterMex, setFilterMex] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [detailRow, setDetailRow] = useState<Row | null>(null);
+
+  useEffect(() => {
+    if (!platformRoute) return;
+    const selected = PLATFORMS.find(p => p.id === platformRoute.platform)!;
+    setActivePlatform(selected.id);
+    setActiveSheet(selected.charts[0].id);
+    setFilterMex(false);
+    setShowAll(false);
+    setDetailRow(null);
+  }, [platformRoute]);
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: "instant" }); }, []);
 
@@ -673,10 +691,12 @@ export default function ChartsHub() {
     setFilterMex(false);
     setShowAll(false);
     setDetailRow(null);
+    const destination = getPlatformChartRouteByPlatform(pid)?.path;
+    if (destination && destination !== location) navigate(destination);
     window.requestAnimationFrame(() => {
       document.getElementById("platforms")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, []);
+  }, [location, navigate]);
 
   const updatedShortFmt = useMemo(() => {
     if (activePlatform === "Apple Music" && sheetData?.fetchedAt) {
@@ -772,13 +792,10 @@ export default function ChartsHub() {
   return (
     <div style={{ background: "#080808", minHeight: "100vh", color: "#fff", overflowX: "hidden" }}>
       <PageSEO
-        title="Charts de música en México — Spotify, YouTube, Apple Music y Deezer"
-        description="Charts diarios y semanales de música en México con fuentes, fechas de actualización y rankings de Spotify, YouTube, Apple Music y Deezer."
-        path="/charts"
-        breadcrumbs={[
-          { name: "Mexico Charts", path: "/" },
-          { name: "Charts de música en México", path: "/charts" },
-        ]}
+        title={seoRoute.title}
+        description={seoRoute.description}
+        path={seoRoute.canonicalPath}
+        breadcrumbs={(platformRoute?.breadcrumbs ?? [["/", "Mexico Charts"], ["/charts", "Charts de música en México"]]).map(([path, name]) => ({ path, name }))}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
@@ -799,13 +816,13 @@ export default function ChartsHub() {
             </motion.p>
             <motion.h1 initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.04 }}
               className="max-w-6xl font-black uppercase leading-[0.86]"
-              style={{ fontSize: "clamp(3.15rem,9.3vw,9.4rem)" }}>
-              Charts de música en <span style={{ color: G }}>México</span>
+              style={{ fontSize: platformRoute ? "clamp(2.55rem,9.3vw,9.4rem)" : "clamp(3.15rem,9.3vw,9.4rem)" }}>
+              {platformRoute ? platformRoute.heading : <>Charts de música en <span style={{ color: G }}>México</span></>}
             </motion.h1>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
               className="mt-4 max-w-3xl text-sm leading-relaxed sm:mt-5 md:text-lg"
               style={{ color: "rgba(255,255,255,0.58)" }}>
-              Un hub consolidado para consultar rankings de Spotify, YouTube, Apple Music y Deezer en el mercado mexicano, con fuentes y fechas de actualización visibles.
+              {platformRoute?.body ?? "Un hub consolidado para consultar rankings de Spotify, YouTube, Apple Music y Deezer en el mercado mexicano, con fuentes y fechas de actualización visibles."}
             </motion.p>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12 }}
               className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -818,6 +835,11 @@ export default function ChartsHub() {
                   Metodología
                 </span>
               </Link>
+              {platformRoute && (
+                <Link href="/charts" className="text-[9px] font-black uppercase tracking-[0.18em] text-white/65 transition-opacity hover:opacity-70">
+                  Todos los charts →
+                </Link>
+              )}
               <Link href="/esta-semana">
                 <span className="inline-flex items-center px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] transition hover:brightness-110"
                   style={{ color: "#050505", background: G, borderRadius: 6 }}>
@@ -1213,7 +1235,7 @@ export default function ChartsHub() {
               {PLATFORMS.map(p => {
                 const active = activePlatform === p.id;
                 return (
-                  <button key={p.id} type="button" onClick={() => switchPlatform(p.id as PlatformId)}
+                  <Link key={p.id} href={getPlatformChartRouteByPlatform(p.id)?.path ?? "/charts"} onClick={() => switchPlatform(p.id as PlatformId)}
                     aria-pressed={active}
                     aria-label={`Ver listas de ${p.label}`}
                     className="flex min-w-0 items-center justify-between gap-2 px-3 py-3 text-left text-[10px] font-black uppercase tracking-[0.1em] transition-all md:min-w-[160px] md:gap-3 md:px-4 md:text-[11px] md:tracking-[0.15em] xl:w-full"
@@ -1228,7 +1250,7 @@ export default function ChartsHub() {
                       <span className="truncate">{p.label}</span>
                     </span>
                     <span className="hidden sm:inline" style={{ color: active ? p.color : "rgba(255,255,255,0.25)" }}>→</span>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
