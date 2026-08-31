@@ -25,6 +25,18 @@ export const publicReadPool = new Pool({
   connectionTimeoutMillis: 3_000,
   idleTimeoutMillis: 30_000,
 });
+
+// The five-minute YouTube observation collector must keep one client while it
+// coordinates quota accounting, API reads, and atomic snapshot writes. Give
+// that job one bounded connection so unrelated startup collectors cannot leave
+// its scheduler tick waiting indefinitely on the shared application pool.
+export const youtubeCollectorPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  application_name: "mexico-charts-youtube-collector",
+  max: 1,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";

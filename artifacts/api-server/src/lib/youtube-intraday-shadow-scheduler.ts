@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { pool, youtubeCollectorPool } from "@workspace/db";
 import { logger } from "./logger";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-scheduler";
 import {
@@ -1361,7 +1361,7 @@ export async function runYoutubeIntradayShadow(
   };
   if (!force && !youtubeIntradayShadowAutomationEnabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
-  const client = await pool.connect();
+  const client = await youtubeCollectorPool.connect();
   try {
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) return { ...summary, status: "locked" };
