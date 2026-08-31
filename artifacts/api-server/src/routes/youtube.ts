@@ -1321,9 +1321,13 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
             AND candidate.sampling_status='shadow'
         ) candidate_key
         JOIN roster_keys roster USING (artist_key)
+      ), eligible_video_ids AS MATERIALIZED (
+        SELECT DISTINCT video_id
+        FROM eligible_candidates
       ), snapshot_state AS MATERIALIZED (
         SELECT sample.video_id, max(sample.observed_at) latest_observed_at
         FROM youtube_video_intraday_shadow_snapshots sample
+        JOIN eligible_video_ids eligible USING (video_id)
         GROUP BY sample.video_id
       ), candidate_totals AS (
         SELECT
