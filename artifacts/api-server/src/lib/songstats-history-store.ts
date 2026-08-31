@@ -12,39 +12,62 @@ import {
   SONGSTATS_HISTORY_DEFINITION_VERSION,
   SONGSTATS_HISTORY_METRICS,
 } from "./songstats-history-model";
+import { SONGSTATS_HISTORY_SCHEMA_VERSION } from "./songstats-history-schema-contract";
 
-export const SONGSTATS_HISTORY_SCHEMA_VERSION = 2;
+export { SONGSTATS_HISTORY_SCHEMA_VERSION } from "./songstats-history-schema-contract";
 
 export async function assertSongstatsHistoryCompactSchema(): Promise<void> {
-  const tables = await pool.query<{ table_name: string }>(`
+  const tables = await pool.query<{ table_name: string }>(
+    `
     SELECT table_name FROM information_schema.tables
     WHERE table_schema=current_schema()
       AND table_name = ANY($1::text[])
-  `, [[
-    "songstats_history_metric_definitions",
-    "songstats_history_provider_identities",
-    "songstats_history_import_runs",
-    "songstats_history_import_chunks",
-    "songstats_historical_observations",
-  ]]);
+  `,
+    [
+      [
+        "songstats_history_metric_definitions",
+        "songstats_history_provider_identities",
+        "songstats_history_import_runs",
+        "songstats_history_import_chunks",
+        "songstats_historical_observations",
+      ],
+    ],
+  );
   if (tables.rowCount !== 5) {
-    throw new Error("Compact Songstats history schema is not deployed; run only the separately reviewed schema migration first");
+    throw new Error(
+      "Compact Songstats history schema is not deployed; run only the separately reviewed schema migration first",
+    );
   }
   const requiredColumns = await pool.query<{ column_name: string }>(`
     SELECT column_name FROM information_schema.columns
     WHERE table_schema=current_schema() AND table_name='songstats_historical_observations'
   `);
-  const present = new Set(requiredColumns.rows.map(row => row.column_name));
-  for (const column of ["provider_identity_id", "metric_definition_id", "import_chunk_id"]) {
-    if (!present.has(column)) throw new Error("Legacy Songstats history schema detected; compact-schema migration is required");
+  const present = new Set(requiredColumns.rows.map((row) => row.column_name));
+  for (const column of [
+    "provider_identity_id",
+    "metric_definition_id",
+    "import_chunk_id",
+  ]) {
+    if (!present.has(column))
+      throw new Error(
+        "Legacy Songstats history schema detected; compact-schema migration is required",
+      );
   }
   const chunkColumns = await pool.query<{ column_name: string }>(`
     SELECT column_name FROM information_schema.columns
     WHERE table_schema=current_schema() AND table_name='songstats_history_import_chunks'
   `);
-  const chunkPresent = new Set(chunkColumns.rows.map(row => row.column_name));
-  for (const column of ["provider_identity_id", "parser_version", "schema_version", "acquisition_metadata"]) {
-    if (!chunkPresent.has(column)) throw new Error("Legacy Songstats history chunk schema detected; compact-schema migration is required");
+  const chunkPresent = new Set(chunkColumns.rows.map((row) => row.column_name));
+  for (const column of [
+    "provider_identity_id",
+    "parser_version",
+    "schema_version",
+    "acquisition_metadata",
+  ]) {
+    if (!chunkPresent.has(column))
+      throw new Error(
+        "Legacy Songstats history chunk schema detected; compact-schema migration is required",
+      );
   }
 }
 
@@ -60,9 +83,19 @@ export async function ensureSongstatsHistoryTables(): Promise<void> {
     WHERE table_schema=current_schema() AND table_name='songstats_historical_observations'
   `);
   if (existingObservationColumns.rowCount) {
-    const existing = new Set(existingObservationColumns.rows.map(row => row.column_name));
-    if (!["provider_identity_id", "metric_definition_id", "import_chunk_id"].every(column => existing.has(column))) {
-      throw new Error("Refusing implicit conversion of legacy Songstats history tables; use the reviewed shadow-table migration plan");
+    const existing = new Set(
+      existingObservationColumns.rows.map((row) => row.column_name),
+    );
+    if (
+      ![
+        "provider_identity_id",
+        "metric_definition_id",
+        "import_chunk_id",
+      ].every((column) => existing.has(column))
+    ) {
+      throw new Error(
+        "Refusing implicit conversion of legacy Songstats history tables; use the reviewed shadow-table migration plan",
+      );
     }
   }
   const existingChunkColumns = await pool.query<{ column_name: string }>(`
@@ -70,9 +103,20 @@ export async function ensureSongstatsHistoryTables(): Promise<void> {
     WHERE table_schema=current_schema() AND table_name='songstats_history_import_chunks'
   `);
   if (existingChunkColumns.rowCount) {
-    const existing = new Set(existingChunkColumns.rows.map(row => row.column_name));
-    if (!["provider_identity_id", "parser_version", "schema_version", "acquisition_metadata"].every(column => existing.has(column))) {
-      throw new Error("Refusing implicit conversion of legacy Songstats history chunk tables; use the reviewed shadow-table migration plan");
+    const existing = new Set(
+      existingChunkColumns.rows.map((row) => row.column_name),
+    );
+    if (
+      ![
+        "provider_identity_id",
+        "parser_version",
+        "schema_version",
+        "acquisition_metadata",
+      ].every((column) => existing.has(column))
+    ) {
+      throw new Error(
+        "Refusing implicit conversion of legacy Songstats history chunk tables; use the reviewed shadow-table migration plan",
+      );
     }
   }
   await pool.query(`
@@ -189,7 +233,8 @@ export async function ensureSongstatsHistoryTables(): Promise<void> {
   await assertSongstatsHistoryCompactSchema();
 
   for (const definition of SONGSTATS_HISTORY_METRICS) {
-    await pool.query(`
+    await pool.query(
+      `
       INSERT INTO songstats_history_metric_definitions (
         source, provider_field, metric_key, label, unit, behavior,
         commercial_endpoint, definition_version, ingestion_status
@@ -198,12 +243,19 @@ export async function ensureSongstatsHistoryTables(): Promise<void> {
         metric_key=excluded.metric_key, label=excluded.label, unit=excluded.unit,
         behavior=excluded.behavior, commercial_endpoint=excluded.commercial_endpoint,
         ingestion_status=excluded.ingestion_status, updated_at=now()
-    `, [
-      definition.source, definition.providerField, definition.metricKey,
-      definition.label, definition.unit, definition.behavior,
-      definition.commercialEndpoint, SONGSTATS_HISTORY_DEFINITION_VERSION,
-      definition.ingestionStatus,
-    ]);
+    `,
+      [
+        definition.source,
+        definition.providerField,
+        definition.metricKey,
+        definition.label,
+        definition.unit,
+        definition.behavior,
+        definition.commercialEndpoint,
+        SONGSTATS_HISTORY_DEFINITION_VERSION,
+        definition.ingestionStatus,
+      ],
+    );
   }
 }
 
@@ -224,12 +276,13 @@ export async function listSongstatsHistoryRoster(options: {
       FROM songstats_artists
       WHERE artist_key = ANY($1::text[])
     `,
-    [artists.map(artist => artist.artistKey)],
+    [artists.map((artist) => artist.artistKey)],
   );
-  const byArtistKey = new Map(linked.rows.map(row => [row.artist_key, row]));
-  return artists.map(artist => {
+  const byArtistKey = new Map(linked.rows.map((row) => [row.artist_key, row]));
+  return artists.map((artist) => {
     const identity = byArtistKey.get(artist.artistKey);
-    const spotifyMatches = identity?.spotify_artist_id === artist.spotifyArtistId;
+    const spotifyMatches =
+      identity?.spotify_artist_id === artist.spotifyArtistId;
     const songstatsArtistId = identity?.songstats_artist_id?.trim() || null;
     const identityValidationStatus: SongstatsIdentityValidationStatus =
       songstatsArtistId && spotifyMatches ? "verified" : "review";
@@ -286,7 +339,8 @@ export async function claimSongstatsHistoryChunk(input: {
   | { status: "identity_blocked" }
   | { status: "claimed"; chunkId: number; providerIdentityId: number }
 > {
-  const identity = await pool.query<{ id: number }>(`
+  const identity = await pool.query<{ id: number }>(
+    `
     INSERT INTO songstats_history_provider_identities (
       artist_key, spotify_artist_id, songstats_artist_id, validation_status,
       identity_evidence, validation_rule_version, verified_at
@@ -300,18 +354,21 @@ export async function claimSongstatsHistoryChunk(input: {
       verified_at=CASE WHEN excluded.validation_status='verified' THEN now() ELSE NULL END,
       updated_at=now()
     RETURNING id
-  `, [
-    input.artist.artistKey,
-    input.artist.spotifyArtistId,
-    input.artist.songstatsArtistId,
-    input.artist.identityValidationStatus,
-    JSON.stringify(input.artist.identityEvidence),
-  ]);
+  `,
+    [
+      input.artist.artistKey,
+      input.artist.spotifyArtistId,
+      input.artist.songstatsArtistId,
+      input.artist.identityValidationStatus,
+      JSON.stringify(input.artist.identityEvidence),
+    ],
+  );
   const providerIdentityId = identity.rows[0]!.id;
   const requestIdentityType = input.artist.songstatsArtistId
     ? "songstats_artist_id"
     : "spotify_artist_id";
-  const requestIdentityValue = input.artist.songstatsArtistId ?? input.artist.spotifyArtistId;
+  const requestIdentityValue =
+    input.artist.songstatsArtistId ?? input.artist.spotifyArtistId;
   const acquisitionMetadata = JSON.stringify({
     provider: "songstats",
     endpoint: "/artists/historic_stats",
@@ -319,7 +376,10 @@ export async function claimSongstatsHistoryChunk(input: {
     source: "all",
     withAggregates: true,
   });
-  if (input.artist.identityValidationStatus !== "verified" || !input.artist.songstatsArtistId) {
+  if (
+    input.artist.identityValidationStatus !== "verified" ||
+    !input.artist.songstatsArtistId
+  ) {
     await pool.query(
       `
         INSERT INTO songstats_history_import_chunks (
@@ -423,7 +483,9 @@ async function insertObservationBatch(
     values.push(
       observation.artistKey,
       refs.providerIdentityId,
-      refs.metricDefinitionIds.get(`${observation.metricDefinition.source}:${observation.metricDefinition.providerField}`),
+      refs.metricDefinitionIds.get(
+        `${observation.metricDefinition.source}:${observation.metricDefinition.providerField}`,
+      ),
       observation.providerObservationDate,
       observation.value,
       observation.granularity,
@@ -467,18 +529,24 @@ export async function completeSongstatsHistoryChunk(input: {
       id: number;
       source: string;
       provider_field: string;
-    }>(`
+    }>(
+      `
       SELECT id, source, provider_field
       FROM songstats_history_metric_definitions
       WHERE definition_version = $1
-    `, [SONGSTATS_HISTORY_DEFINITION_VERSION]);
-    const metricDefinitionIds = new Map(metricRows.rows.map(row => [
-      `${row.source}:${row.provider_field}`,
-      row.id,
-    ]));
+    `,
+      [SONGSTATS_HISTORY_DEFINITION_VERSION],
+    );
+    const metricDefinitionIds = new Map(
+      metricRows.rows.map((row) => [
+        `${row.source}:${row.provider_field}`,
+        row.id,
+      ]),
+    );
     for (const observation of input.observations) {
       const key = `${observation.metricDefinition.source}:${observation.metricDefinition.providerField}`;
-      if (!metricDefinitionIds.has(key)) throw new Error(`Missing metric definition reference for ${key}`);
+      if (!metricDefinitionIds.has(key))
+        throw new Error(`Missing metric definition reference for ${key}`);
     }
     let inserted = 0;
     for (let index = 0; index < input.observations.length; index += 250) {
@@ -492,7 +560,8 @@ export async function completeSongstatsHistoryChunk(input: {
         },
       );
     }
-    const duplicates = input.parserDuplicateCount + input.observations.length - inserted;
+    const duplicates =
+      input.parserDuplicateCount + input.observations.length - inserted;
     await client.query(
       `
         UPDATE songstats_history_import_chunks
@@ -533,18 +602,21 @@ export async function failSongstatsHistoryChunk(input: {
   identityEvidence?: Record<string, unknown>;
 }): Promise<void> {
   if (input.identityValidationStatus || input.identityEvidence) {
-    await pool.query(`
+    await pool.query(
+      `
       UPDATE songstats_history_provider_identities
       SET validation_status = COALESCE($2, validation_status),
           identity_evidence = COALESCE($3::jsonb, identity_evidence),
           verified_at = CASE WHEN COALESCE($2, validation_status)='verified' THEN verified_at ELSE NULL END,
           updated_at = now()
       WHERE artist_key = $1
-    `, [
-      input.artistKey,
-      input.identityValidationStatus ?? null,
-      input.identityEvidence ? JSON.stringify(input.identityEvidence) : null,
-    ]);
+    `,
+      [
+        input.artistKey,
+        input.identityValidationStatus ?? null,
+        input.identityEvidence ? JSON.stringify(input.identityEvidence) : null,
+      ],
+    );
   }
   await pool.query(
     `
@@ -569,7 +641,9 @@ export async function failSongstatsHistoryChunk(input: {
   );
 }
 
-export async function checkpointSongstatsHistoryImportRun(runId: string): Promise<void> {
+export async function checkpointSongstatsHistoryImportRun(
+  runId: string,
+): Promise<void> {
   await pool.query(
     `
       UPDATE songstats_history_import_runs run
@@ -601,7 +675,9 @@ export async function checkpointSongstatsHistoryImportRun(runId: string): Promis
   );
 }
 
-export async function finalizeSongstatsHistoryImportRun(runId: string): Promise<Record<string, unknown>> {
+export async function finalizeSongstatsHistoryImportRun(
+  runId: string,
+): Promise<Record<string, unknown>> {
   const result = await pool.query<{
     completed: string;
     failed: string;
@@ -629,7 +705,8 @@ export async function finalizeSongstatsHistoryImportRun(runId: string): Promise<
     observations: Number(row.observations),
     duplicates: Number(row.duplicates),
   };
-  const status = summary.failed > 0 || summary.identityBlocked > 0 ? "partial" : "completed";
+  const status =
+    summary.failed > 0 || summary.identityBlocked > 0 ? "partial" : "completed";
   await pool.query(
     `
       UPDATE songstats_history_import_runs
@@ -659,7 +736,8 @@ export async function pauseSongstatsHistoryImportRun(input: {
   reason: string;
   capacity: Record<string, unknown>;
 }): Promise<void> {
-  await pool.query(`
+  await pool.query(
+    `
     UPDATE songstats_history_import_runs
     SET status='paused',
         summary=COALESCE(summary, '{}'::jsonb) || jsonb_build_object(
@@ -669,7 +747,9 @@ export async function pauseSongstatsHistoryImportRun(input: {
         ),
         updated_at=now()
     WHERE run_id=$1
-  `, [input.runId, input.reason, JSON.stringify(input.capacity)]);
+  `,
+    [input.runId, input.reason, JSON.stringify(input.capacity)],
+  );
 }
 
 export async function songstatsHistoryCapacitySnapshot() {
@@ -684,10 +764,15 @@ export async function songstatsHistoryCapacitySnapshot() {
   return { databaseBytes: Number(row.database_bytes), walLsn: row.wal_lsn };
 }
 
-export async function songstatsHistoryWalBytesSince(walLsn: string): Promise<number> {
-  const result = await pool.query<{ wal_bytes: string }>(`
+export async function songstatsHistoryWalBytesSince(
+  walLsn: string,
+): Promise<number> {
+  const result = await pool.query<{ wal_bytes: string }>(
+    `
     SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), $1::pg_lsn)::text AS wal_bytes
-  `, [walLsn]);
+  `,
+    [walLsn],
+  );
   return Number(result.rows[0]?.wal_bytes ?? 0);
 }
 
