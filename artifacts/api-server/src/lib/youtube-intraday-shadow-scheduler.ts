@@ -147,11 +147,13 @@ export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shoul
   return { dateKey, shouldAnchor: hour === 0 && minute < 30 };
 }
 
-function enabled() {
+export function youtubeIntradayShadowAutomationEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+) {
   // Intraday collection is a production feature. Ignore the legacy opt-in/
   // opt-out flag left over from the four-artist pilot; retain one deliberately
   // named emergency kill switch for incident response.
-  return process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED"] !== "true";
+  return env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED"] !== "true";
 }
 
 export const YOUTUBE_SHADOW_PILOT_ARTISTS = [
@@ -1357,7 +1359,7 @@ export async function runYoutubeIntradayShadow(
     importedChannelVideos: 0, importedChannelArtists: 0,
     importedChannelErrors: [],
   };
-  if (!force && !enabled()) return { ...summary, status: "disabled" };
+  if (!force && !youtubeIntradayShadowAutomationEnabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
   const client = await pool.connect();
   try {
@@ -1524,7 +1526,7 @@ export async function runYoutubeIntradayShadow(
 export function startYoutubeIntradayShadowScheduler() {
   if (schedulerStarted) return;
   schedulerStarted = true;
-  if (!enabled()) {
+  if (!youtubeIntradayShadowAutomationEnabled()) {
     logger.info("[youtube-shadow:intraday] disabled by emergency kill switch");
     return;
   }
