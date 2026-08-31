@@ -15,6 +15,7 @@ import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-sc
 import { getDashboardAdminKey } from "../lib/admin-key";
 import { reserveYoutubeApiUsage, youtubeApiDailyUsage } from "../lib/youtube-api-budget";
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
+import { YoutubeLiveCoverageCache } from "../lib/youtube-live-coverage-cache";
 import {
   YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
   youtubeLiveCoverageArtistSql,
@@ -39,6 +40,21 @@ const SEARCH_TTL_MS  = 30 * 24 * 60 * 60 * 1000; // 30 days
 // In-memory search cache (admin only, large TTL)
 interface SearchCacheEntry { results: unknown[]; cachedAt: number }
 const searchCache = new Map<string, SearchCacheEntry>();
+
+interface LiveCoverageQueryResult {
+  row: Record<string, unknown>;
+  timings: {
+    acquireMs: number;
+    beginMs: number;
+    mappingMs: number;
+    artistsMs: number;
+    videosMs: number;
+    commitMs: number;
+    totalMs: number;
+  };
+}
+
+const liveCoverageCache = new YoutubeLiveCoverageCache<LiveCoverageQueryResult>(30_000);
 
 interface ArtistMetadataRow {
   artist_key: string;
@@ -1274,46 +1290,63 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
 // exposes aggregate readiness only, never discovery evidence or credentials.
 router.get("/providers/youtube/live-coverage", async (_req, res) => {
   const requestStartedAt = performance.now();
-  const client = await publicReadPool.connect();
-  const connectionAcquiredAt = performance.now();
-  try {
-    await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const transactionStartedAt = performance.now();
-    const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
-    const mappingCompletedAt = performance.now();
-    const readMode = youtubeLiveCoverageReadMode();
-    const artists = await client.query(
-      youtubeLiveCoverageArtistSql(readMode),
-    );
-    const artistsCompletedAt = performance.now();
-    const videos = await client.query(
-      youtubeLiveCoverageVideoSql(readMode),
-    );
-    const videosCompletedAt = performance.now();
-    await client.query("COMMIT");
-    const queryCompletedAt = performance.now();
-    const row = {
-      ...(mapping.rows[0] ?? {}),
-      ...(artists.rows[0] ?? {}),
-      ...(videos.rows[0] ?? {}),
-    };
-    const rosterArtists = Number(row.roster_artists ?? 0);
-    const mappedArtists = Number(row.mapped_artists ?? 0);
-    const catalogArtists = Number(row.catalog_artists ?? 0);
-    const observedArtists = Number(row.observed_artists ?? 0);
-    const freshArtists = Number(row.fresh_artists ?? 0);
-    res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-    res.setHeader(
-      "Server-Timing",
-      `db-acquire;dur=${(connectionAcquiredAt - requestStartedAt).toFixed(1)}, `
-        + `db-begin;dur=${(transactionStartedAt - connectionAcquiredAt).toFixed(1)}, `
-        + `db-mapping;dur=${(mappingCompletedAt - transactionStartedAt).toFixed(1)}, `
-        + `db-artists;dur=${(artistsCompletedAt - mappingCompletedAt).toFixed(1)}, `
-        + `db-videos;dur=${(videosCompletedAt - artistsCompletedAt).toFixed(1)}, `
-        + `db-commit;dur=${(queryCompletedAt - videosCompletedAt).toFixed(1)}, `
-        + `app;dur=${(performance.now() - queryCompletedAt).toFixed(1)}`,
-    );
-    res.json({
+  const readMode = youtubeLiveCoverageReadMode();
+  const result = await liveCoverageCache.getOrLoad(readMode, async () => {
+    const loadStartedAt = performance.now();
+    const client = await publicReadPool.connect();
+    const connectionAcquiredAt = performance.now();
+    try {
+      await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      const transactionStartedAt = performance.now();
+      const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
+      const mappingCompletedAt = performance.now();
+      const artists = await client.query(youtubeLiveCoverageArtistSql(readMode));
+      const artistsCompletedAt = performance.now();
+      const videos = await client.query(youtubeLiveCoverageVideoSql(readMode));
+      const videosCompletedAt = performance.now();
+      await client.query("COMMIT");
+      const queryCompletedAt = performance.now();
+      const row = {
+        ...(mapping.rows[0] ?? {}),
+        ...(artists.rows[0] ?? {}),
+        ...(videos.rows[0] ?? {}),
+      };
+      const timings = {
+        acquireMs: connectionAcquiredAt - loadStartedAt,
+        beginMs: transactionStartedAt - connectionAcquiredAt,
+        mappingMs: mappingCompletedAt - transactionStartedAt,
+        artistsMs: artistsCompletedAt - mappingCompletedAt,
+        videosMs: videosCompletedAt - artistsCompletedAt,
+        commitMs: queryCompletedAt - videosCompletedAt,
+        totalMs: queryCompletedAt - loadStartedAt,
+      };
+      logger.info(
+        { route: "/api/providers/youtube/live-coverage", readMode, timings },
+        "[youtube:live-coverage] exact aggregate refreshed",
+      );
+      return { row, timings };
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+  const { row, timings } = result.value;
+  const rosterArtists = Number(row.roster_artists ?? 0);
+  const mappedArtists = Number(row.mapped_artists ?? 0);
+  const catalogArtists = Number(row.catalog_artists ?? 0);
+  const observedArtists = Number(row.observed_artists ?? 0);
+  const freshArtists = Number(row.fresh_artists ?? 0);
+  res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+  const requestDurationMs = performance.now() - requestStartedAt;
+  res.setHeader("Server-Timing", result.source === "miss"
+    ? `coverage-cache;desc=miss, db-acquire;dur=${timings.acquireMs.toFixed(1)}, `
+      + `db-begin;dur=${timings.beginMs.toFixed(1)}, db-mapping;dur=${timings.mappingMs.toFixed(1)}, `
+      + `db-artists;dur=${timings.artistsMs.toFixed(1)}, db-videos;dur=${timings.videosMs.toFixed(1)}, `
+      + `db-commit;dur=${timings.commitMs.toFixed(1)}, app;dur=${Math.max(0, requestDurationMs - timings.totalMs).toFixed(1)}`
+    : `coverage-cache;desc=${result.source}, app;dur=${requestDurationMs.toFixed(1)}`);
+  res.json({
       rosterArtists,
       mappedArtists,
       approvedLinkArtists: Number(row.approved_link_artists ?? 0),
@@ -1330,13 +1363,7 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
       latestObservedAt: row.latest_observed_at ?? null,
       collectionCadenceMinutes: 5,
       maxVideosPerPass: 250,
-    });
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 router.get("/admin/youtube/music-shadow/videos", async (req, res) => {
