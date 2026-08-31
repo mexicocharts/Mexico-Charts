@@ -86,6 +86,7 @@ test("production constraint names remain stable in the Drizzle schema", async ()
     "youtube_artist_video_links_video_id_fkey",
     "youtube_music_catalog_candidates_video_id_fkey",
     "youtube_video_daily_snapshots_video_id_fkey",
+    "youtube_video_intraday_latest_observations_video_id_fkey",
     "youtube_video_intraday_shadow_snapshots_video_id_fkey",
   ];
 

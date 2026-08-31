@@ -2,6 +2,10 @@ import { pool, youtubeCollectorPool } from "@workspace/db";
 import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
+import {
+  ensureYoutubeLatestObservationTable,
+  YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL,
+} from "./youtube-latest-observation";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-scheduler";
 import {
   discoverYoutubeMusicArtist,
@@ -1124,6 +1128,7 @@ export async function ensureYoutubeIntradayShadowTables(client: PgClient) {
   await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS completed_at timestamptz;`);
   await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS youtube_video_intraday_shadow_video_bucket_unique ON youtube_video_intraday_shadow_snapshots(video_id, bucket_start);`);
   await client.query(`CREATE INDEX IF NOT EXISTS youtube_video_intraday_shadow_observed_idx ON youtube_video_intraday_shadow_snapshots(observed_at DESC);`);
+  await ensureYoutubeLatestObservationTable(client);
   await bootstrapYoutubeApiUsage(client, "collector");
 }
 
@@ -1312,6 +1317,7 @@ async function saveObservationsBulk(
         comment_count=excluded.comment_count, view_delta=excluded.view_delta,
         seconds_since_previous=excluded.seconds_since_previous, updated_at=now()
     `, [payload]);
+    await client.query(YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL, [payload]);
     await client.query(`
       UPDATE youtube_music_catalog_candidates candidate SET
         refresh_tier=input.next_refresh_tier, last_observed_at=now(), updated_at=now()
