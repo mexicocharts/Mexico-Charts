@@ -3,7 +3,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
-import { buildStructuredDataGraph } from "../src/lib/structured-data.mjs";
+import { ORGANIZATION_ID, WEBSITE_ID, buildStructuredDataGraph, pageId } from "../src/lib/structured-data.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -47,6 +47,10 @@ const routes = [
       ["/charts", "Charts"],
       ["/metodologia", "Metodologia"],
     ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/charts", "Charts de música en México"],
+    ],
   },
   {
     path: "/esta-semana",
@@ -61,6 +65,11 @@ const routes = [
       ["/esta-semana", "Esta semana"],
       ["/charts", "Todas las listas"],
       ["/metodologia", "Metodologia"],
+    ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/charts", "Charts de música en México"],
+      ["/esta-semana", "Esta semana"],
     ],
   },
   {
@@ -170,6 +179,10 @@ const routes = [
       ["/industry/certifications", "Certificaciones"],
       ["/metodologia", "Metodologia"],
     ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/industria", "Industria"],
+    ],
   },
   {
     path: "/generos",
@@ -184,6 +197,10 @@ const routes = [
       ["/generos", "Generos"],
       ["/artists", "Artistas"],
       ["/charts", "Charts"],
+    ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/generos", "Géneros"],
     ],
   },
   {
@@ -200,10 +217,15 @@ const routes = [
       ["/industria", "Industria"],
       ["/metodologia", "Metodologia"],
     ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/industria", "Industria"],
+      ["/industry/certifications", "Certificaciones"],
+    ],
   },
   {
     path: "/insights/mexico-top-10-ifpi-2026",
-    title: "Mexico Top 10 IFPI 2026 — Mexico Charts",
+    title: "México entra al Top 10 global de música grabada — Mexico Charts",
     description:
       "Insight editorial sobre el Top 10 de México en IFPI 2026, mercado de música grabada, streaming y contexto de la música mexicana.",
     eyebrow: "Insight",
@@ -211,9 +233,27 @@ const routes = [
     body:
       "Lectura editorial del reporte IFPI con foco en México, artistas destacados, mercado digital y el crecimiento de la música mexicana.",
     links: [
+      ["/", "Mexico Charts"],
       ["/insights/mexico-top-10-ifpi-2026", "Insight IFPI"],
       ["/industria", "Industria"],
       ["/charts", "Charts"],
+    ],
+    type: "article",
+    jsonLd: {
+      "@type": "Article",
+      headline: "México entra al Top 10 global de música grabada",
+      description: "Análisis sobre la entrada de México al Top 10 global de música grabada, con datos del IFPI Global Music Report 2026.",
+      url: `${siteUrl}/insights/mexico-top-10-ifpi-2026`,
+      image: `${siteUrl}/opengraph.jpg`,
+      inLanguage: "es-MX",
+      isPartOf: { "@id": WEBSITE_ID },
+      publisher: { "@id": ORGANIZATION_ID },
+      mainEntityOfPage: { "@id": pageId(`${siteUrl}/insights/mexico-top-10-ifpi-2026`) },
+    },
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/industria", "Industria"],
+      ["/insights/mexico-top-10-ifpi-2026", "México Top 10 IFPI 2026"],
     ],
   },
   {
@@ -293,8 +333,23 @@ const routes = [
     body:
       "Mexico Charts organiza charts, artistas, industria, certificaciones y touring de la música mexicana con una mirada editorial independiente.",
     links: [
+      ["/", "Mexico Charts"],
       ["/metodologia", "Metodologia"],
-      ["/charts", "Charts"],
+      ["/charts", "Charts de música en México"],
+    ],
+    jsonLd: {
+      "@type": "AboutPage",
+      name: "Acerca de Mexico Charts",
+      description: "Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras.",
+      inLanguage: "es-MX",
+      isPartOf: { "@id": WEBSITE_ID },
+      publisher: { "@id": ORGANIZATION_ID },
+      about: { "@id": ORGANIZATION_ID },
+      mainEntity: { "@id": ORGANIZATION_ID },
+    },
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/acerca-de", "Acerca de"],
     ],
   },
   {
@@ -367,6 +422,11 @@ routes.push(
       ["/mx100", "MX100"],
       ["/metodologia", "Metodologia"],
     ],
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/artists", "Artistas"],
+      [artist.path, artist.name],
+    ],
   })),
 );
 
@@ -395,6 +455,7 @@ function updateHead(html, route) {
     )
     .replace(/<link rel="canonical" href=".*?" \/>/s, `<link rel="canonical" href="${url}" />`)
     .replace(/<meta property="og:title" content=".*?" \/>/s, `<meta property="og:title" content="${title}" />`)
+    .replace(/<meta property="og:type" content=".*?" \/>/s, `<meta property="og:type" content="${route.type ?? "website"}" />`)
     .replace(
       /<meta property="og:description" content=".*?" \/>/s,
       `<meta property="og:description" content="${description}" />`,
@@ -416,6 +477,11 @@ function updateHead(html, route) {
         title: route.title,
         description: route.description,
         canonicalUrl: url,
+        additional: route.jsonLd ?? [],
+        breadcrumbs: (route.breadcrumbs ?? []).map(([path, name]) => ({
+          name,
+          url: canonical(path),
+        })),
       }),
       null,
       6,

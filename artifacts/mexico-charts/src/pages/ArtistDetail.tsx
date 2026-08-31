@@ -986,6 +986,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         title={`${artist.name} — Perfil de artista | Mexico Charts`}
         description={`${artist.name}: perfil de artista con género, estadísticas de streaming, audiencia, redes sociales, certificaciones y datos de listas en México Charts.`}
         path={canonicalArtistHref(slug) ?? `/artist/${slug}`}
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Artistas", path: "/artists" },
+          { name: artist.name, path: canonicalArtistHref(slug) ?? `/artist/${slug}` },
+        ]}
       />
       {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
       {showErrorState && (
@@ -2307,6 +2312,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
                         {chartPositions.length} de {chartPositionTotal} canciones actuales
                       </div>
+                      <Link href="/charts" className="mt-2 inline-block text-[9px] font-black uppercase tracking-[0.13em] text-zinc-500 hover:text-zinc-300">
+                        Ver charts de música en México →
+                      </Link>
                     </div>
                   </div>
                   <div

@@ -47,6 +47,10 @@ export default function IndustryLanding() {
         title="Industria Musical Mexicana — México Top 10 Global IFPI 2026"
         description="México alcanzó el Top 10 mundial en música grabada según el IFPI. Estadísticas de la industria, crecimiento del 13.3%, datos de AMPROFON y hitos del mercado."
         path="/industria"
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Industria", path: "/industria" },
+        ]}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
@@ -55,7 +59,7 @@ export default function IndustryLanding() {
 
       {/* ── BREADCRUMB ── */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
+        <Link href="/" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" />Mexico Charts</Link>
         <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.40)" }} />
         <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>Industria</span>
       </div>

@@ -330,6 +330,10 @@ export default function GeneroHub() {
         title="Géneros de Música Mexicana — Corridos, Regional, Norteño, Banda"
         description="Explora los géneros de la música mexicana: corridos tumbados, regional mexicano, norteño y banda. Estadísticas de streaming, artistas top y tendencias."
         path="/generos"
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Géneros", path: "/generos" },
+        ]}
       />
       <SiteNav />
 

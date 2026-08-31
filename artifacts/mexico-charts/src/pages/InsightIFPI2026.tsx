@@ -2,9 +2,9 @@ import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
+import { ORGANIZATION_ID, SITE_URL, WEBSITE_ID, pageId } from "@/lib/structured-data.mjs";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
-const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const STATS = [
@@ -53,20 +53,16 @@ export default function InsightIFPI2026() {
           description: "Análisis sobre la entrada de México al Top 10 global de música grabada, con datos del IFPI Global Music Report 2026.",
           url: `${SITE_URL}/insights/mexico-top-10-ifpi-2026`,
           inLanguage: "es-MX",
-          publisher: {
-            "@type": "Organization",
-            name: "Mexico Charts",
-            url: SITE_URL,
-            logo: {
-              "@type": "ImageObject",
-              url: `${SITE_URL}/mexico-charts-logo.png`,
-            },
-          },
-          mainEntityOfPage: {
-            "@type": "WebPage",
-            "@id": `${SITE_URL}/insights/mexico-top-10-ifpi-2026`,
-          },
+          image: `${SITE_URL}/opengraph.jpg`,
+          isPartOf: { "@id": WEBSITE_ID },
+          publisher: { "@id": ORGANIZATION_ID },
+          mainEntityOfPage: { "@id": pageId(`${SITE_URL}/insights/mexico-top-10-ifpi-2026`) },
         }}
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Industria", path: "/industria" },
+          { name: "México Top 10 IFPI 2026", path: "/insights/mexico-top-10-ifpi-2026" },
+        ]}
       />
 
       <div className="fixed inset-0 pointer-events-none opacity-[0.018]" style={{ backgroundImage: NOISE_SVG, backgroundSize: "128px", zIndex: 0 }} />
@@ -93,6 +89,12 @@ export default function InsightIFPI2026() {
       </header>
 
       <main className="relative z-10 max-w-[780px] mx-auto px-6 lg:px-0 pt-14 pb-28">
+
+        <nav aria-label="Migas de pan" className="mb-8 flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">
+          <Link href="/">Mexico Charts</Link><span aria-hidden="true">/</span>
+          <Link href="/industria">Industria</Link><span aria-hidden="true">/</span>
+          <span aria-current="page" className="text-zinc-500">Insight IFPI</span>
+        </nav>
 
         {/* ── Eyebrow ── */}
         <FadeUp>

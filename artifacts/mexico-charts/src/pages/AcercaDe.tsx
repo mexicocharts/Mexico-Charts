@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { BarChart3, ChevronRight, Disc3, Globe2, Home, Landmark, Radio, ShieldCheck, Sparkles, Users } from "lucide-react";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
-import { SITE_URL } from "@/config/brand";
+import { ORGANIZATION_ID, SITE_URL, WEBSITE_ID } from "@/lib/structured-data.mjs";
 import { EditorialFooter, EditorialHero } from "@/components/EditorialLayout";
 import { useLanguage } from "@/i18n/LanguageContext";
 
@@ -29,17 +29,10 @@ export default function AcercaDe() {
     url: `${SITE_URL}/acerca-de`,
     description: pick("Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras.", "Mexico Charts is an independent data platform covering Mexican music, charts, artists, streaming, industry, certifications and touring."),
     inLanguage: language === "en" ? "en" : "es-MX",
-    publisher: {
-      "@type": "Organization",
-      name: "Mexico Charts",
-      url: SITE_URL,
-    },
-    mainEntity: {
-      "@type": "Organization",
-      name: "Mexico Charts",
-      url: SITE_URL,
-      description: pick("Plataforma independiente de datos, cultura e impacto de la música mexicana.", "Independent platform for Mexican music data, culture and impact."),
-    },
+    isPartOf: { "@id": WEBSITE_ID },
+    publisher: { "@id": ORGANIZATION_ID },
+    about: { "@id": ORGANIZATION_ID },
+    mainEntity: { "@id": ORGANIZATION_ID },
   };
 
   return (
@@ -49,6 +42,10 @@ export default function AcercaDe() {
         description={pick("Mexico Charts es una plataforma independiente de datos sobre música mexicana, listas, artistas, streaming, industria, certificaciones y giras.", "Mexico Charts is an independent data platform covering Mexican music, charts, artists, streaming, industry, certifications and touring.")}
         path="/acerca-de"
         jsonLd={aboutJsonLd}
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: pick("Acerca de", "About"), path: "/acerca-de" },
+        ]}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />
@@ -60,7 +57,7 @@ export default function AcercaDe() {
       <SiteNav showSearch={false} />
 
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" /></span></Link>
+        <Link href="/" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.35)" }}><Home className="w-3 h-3" />Mexico Charts</Link>
         <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.20)" }} />
         <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.5)" }}>{pick("Acerca de", "About")}</span>
       </div>
@@ -148,7 +145,7 @@ export default function AcercaDe() {
             href="/charts"
             className="inline-flex items-center justify-center rounded-full border border-white/10 px-5 py-3 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-300 transition-colors hover:text-white"
           >
-            {pick("Ver listas", "View charts")}
+            {pick("Charts de música en México", "Mexico music charts")}
           </Link>
         </div>
       </div>
