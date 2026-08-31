@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { useYouTubeConsent } from "@/components/YouTubeConsent";
 
 const G = "#39FF14";
 
@@ -44,6 +45,7 @@ export function EditorialHero({ title, description, aside, compact = false }: Ed
 
 export function EditorialFooter() {
   const { pick } = useLanguage();
+  const { reviewChoice } = useYouTubeConsent();
   return (
     <footer className="border-t px-6 py-8 text-center lg:px-10" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
       <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-600">
@@ -52,6 +54,9 @@ export function EditorialFooter() {
           "Mexico Charts © 2026 — Independent platform for Mexican music data, culture and impact",
         )}
       </p>
+      <button type="button" onClick={reviewChoice} className="mt-3 text-[10px] font-bold text-zinc-500 underline decoration-white/20 underline-offset-4 hover:text-white">
+        {pick("Preferencias de YouTube", "YouTube preferences")}
+      </button>
     </footer>
   );
 }
