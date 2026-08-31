@@ -8,11 +8,17 @@ import {
 } from "./youtube-latest-observation";
 import {
   YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL,
+  YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL,
   YOUTUBE_LIVE_COVERAGE_LATEST_SQL,
+  YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL,
+  YOUTUBE_LIVE_COVERAGE_LEGACY_ARTIST_SQL,
   YOUTUBE_LIVE_COVERAGE_LEGACY_SQL,
+  YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL,
   YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
+  youtubeLiveCoverageArtistSql,
   youtubeLiveCoverageReadMode,
   youtubeLiveCoverageRowsEqual,
+  youtubeLiveCoverageVideoSql,
 } from "@workspace/db/youtube-live-coverage-query";
 
 const at = (value: string) => new Date(value);
@@ -123,6 +129,18 @@ test("latest read avoids historical aggregation while preserving legacy rollback
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL, /eligible_candidates/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL, /SELECT candidate\.\* FROM candidate_totals candidate/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL, /FROM mapping_totals mapping/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /candidate_artist_state AS MATERIALIZED/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /candidate_video_state/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /candidate_video_state AS MATERIALIZED/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /candidate_artist_state/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_ARTIST_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.equal(youtubeLiveCoverageArtistSql("latest"), YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL);
+  assert.equal(youtubeLiveCoverageArtistSql("legacy"), YOUTUBE_LIVE_COVERAGE_LEGACY_ARTIST_SQL);
+  assert.equal(youtubeLiveCoverageVideoSql("latest"), YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL);
+  assert.equal(youtubeLiveCoverageVideoSql("legacy"), YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL);
   assert.equal(youtubeLiveCoverageReadMode({}), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "latest" }), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "legacy" }), "legacy");
