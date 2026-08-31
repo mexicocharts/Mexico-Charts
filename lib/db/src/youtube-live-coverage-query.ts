@@ -68,25 +68,37 @@ const commonPrefix = `
   )`;
 
 const candidateTotals = `
-  , candidate_totals AS (
+  , candidate_state AS MATERIALIZED (
     SELECT
-      count(DISTINCT candidate.artist_key)::int catalog_artists,
-      count(DISTINCT candidate.artist_key) FILTER (
-        WHERE sample.video_id IS NOT NULL
-      )::int observed_artists,
-      count(DISTINCT candidate.artist_key) FILTER (
-        WHERE sample.latest_observed_at >= now() - interval '6 hours'
-      )::int fresh_artists,
-      count(DISTINCT candidate.video_id)::int catalog_videos,
-      count(DISTINCT candidate.video_id) FILTER (
-        WHERE sample.video_id IS NOT NULL
-      )::int observed_videos,
-      count(DISTINCT candidate.video_id) FILTER (
-        WHERE sample.latest_observed_at >= now() - interval '6 hours'
-      )::int fresh_videos,
-      max(sample.latest_observed_at)::text latest_observed_at
+      candidate.artist_key,
+      candidate.video_id,
+      sample.latest_observed_at
     FROM eligible_candidates candidate
     LEFT JOIN snapshot_state sample USING (video_id)
+  ), candidate_artist_state AS MATERIALIZED (
+    SELECT
+      artist_key,
+      bool_or(latest_observed_at IS NOT NULL) observed,
+      bool_or(latest_observed_at >= now() - interval '6 hours') fresh
+    FROM candidate_state
+    GROUP BY artist_key
+  ), candidate_video_state AS MATERIALIZED (
+    SELECT
+      video_id,
+      bool_or(latest_observed_at IS NOT NULL) observed,
+      bool_or(latest_observed_at >= now() - interval '6 hours') fresh,
+      max(latest_observed_at) latest_observed_at
+    FROM candidate_state
+    GROUP BY video_id
+  ), candidate_totals AS (
+    SELECT
+      (SELECT count(*)::int FROM candidate_artist_state) catalog_artists,
+      (SELECT count(*) FILTER (WHERE observed)::int FROM candidate_artist_state) observed_artists,
+      (SELECT count(*) FILTER (WHERE fresh)::int FROM candidate_artist_state) fresh_artists,
+      (SELECT count(*)::int FROM candidate_video_state) catalog_videos,
+      (SELECT count(*) FILTER (WHERE observed)::int FROM candidate_video_state) observed_videos,
+      (SELECT count(*) FILTER (WHERE fresh)::int FROM candidate_video_state) fresh_videos,
+      (SELECT max(latest_observed_at)::text FROM candidate_video_state) latest_observed_at
   )
   SELECT
     (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
