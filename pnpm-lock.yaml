@@ -178,6 +178,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      compression:
+        specifier: 1.8.1
+        version: 1.8.1(supports-color@8.1.1)
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7

@@ -4,8 +4,8 @@ import { ChevronDown, Languages, Menu, X } from "lucide-react";
 import SiteSearch from "@/components/SiteSearch";
 import { useLanguage, type SiteLanguage } from "@/i18n/LanguageContext";
 import AccountControl from "@/components/AccountControl";
+import BrandLogo from "@/components/BrandLogo";
 
-const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
 
 const ARTISTAS_ITEMS = [
@@ -91,7 +91,7 @@ export default function SiteNav({ homeActive = false, showSearch = true }: Props
     <header className="sticky top-0 z-50"
       style={{ background: "rgba(8,8,8,0.97)", backdropFilter: "blur(18px)", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
       <div className="flex items-center justify-between px-6 lg:px-8 xl:px-10 h-14">
-        <Link href="/"><img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="eager" decoding="async" className="h-10 object-contain cursor-pointer" style={{ filter: "drop-shadow(0 0 6px rgba(57,255,20,0.25))" }} /></Link>
+        <Link href="/"><BrandLogo size={40} loading="eager" fetchPriority="high" className="h-10 w-10 object-contain cursor-pointer" style={{ filter: "drop-shadow(0 0 6px rgba(57,255,20,0.25))" }} /></Link>
 
         <nav className="hidden lg:flex items-center gap-5 xl:gap-7">
           {NAV.map(item => {

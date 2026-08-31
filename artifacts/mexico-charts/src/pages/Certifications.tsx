@@ -10,16 +10,11 @@ import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { formatCertificationLevels } from "@/lib/certificationLabels";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
+import BrandLogo from "@/components/BrandLogo";
+import CertificationBadgeImage from "@/components/CertificationBadgeImage";
 
-const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const G = "#39FF14";
-const BASE = import.meta.env.BASE_URL;
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
-const CERT_IMG: Record<string, string> = {
-  DIAMANTE: `${BASE}cert-diamond.png`,
-  PLATINO:  `${BASE}cert-platinum.png`,
-  ORO:      `${BASE}cert-gold.png`,
-};
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 const STAT_BORDER = "1px solid rgba(255,255,255,0.07)";
 
@@ -81,13 +76,11 @@ function CertBadge({ cert }: { cert: string }) {
   return (
     <div className="flex flex-wrap gap-1">
       {parts.map(p => (
-        <img
+        <CertificationBadgeImage
           key={p}
-          src={CERT_IMG[p]}
-          alt={p}
+          tier={p as "DIAMANTE" | "PLATINO" | "ORO"}
+          size={36}
           title={p === "DIAMANTE" ? "Diamante" : p === "PLATINO" ? "Platino" : "Oro"}
-          width={36}
-          height={36}
           style={{ objectFit: "contain", display: "block" }}
         />
       ))}
@@ -291,8 +284,11 @@ export default function Certifications() {
       </section>
 
       {/* STAT STRIP */}
-      {stats && (
-        <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+      <div
+        aria-busy={!stats}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", minHeight: 106 }}
+      >
+        {stats ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             {[
               { icon: Trophy,       v: stats.total.toLocaleString("es-MX"),    l: "Registros de\ncertificación",  hi: false },
@@ -314,8 +310,17 @@ export default function Certifications() {
               </FadeUp>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="px-5 py-7" style={{ minHeight: 106, borderRight: i < 5 ? STAT_BORDER : "none" }}>
+                <div className="h-7 w-16 animate-pulse rounded bg-white/[0.045]" />
+                <div className="mt-2 h-2.5 w-24 animate-pulse rounded bg-white/[0.035]" />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* SEARCH + FILTERS */}
       <div className="sticky top-14 z-40 px-6 lg:px-10 py-4 flex flex-wrap items-center gap-3"
@@ -359,7 +364,7 @@ export default function Certifications() {
                   border: active ? `1px solid ${G}45` : "1px solid rgba(255,255,255,0.1)",
                   color: active ? G : "rgba(255,255,255,0.5)",
                 }}>
-                <img src={CERT_IMG[c]} alt={label} width={18} height={18} style={{ objectFit: "contain", display: "block" }} />
+                <CertificationBadgeImage tier={c} size={18} alt={label} loading="eager" style={{ objectFit: "contain", display: "block" }} />
                 {label}
               </button>
             );
@@ -538,7 +543,7 @@ export default function Certifications() {
       </div>
 
       <footer className="px-6 lg:px-10 py-6 flex items-center justify-between" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <Link href="/"><img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-35 cursor-pointer hover:opacity-55 transition-opacity" /></Link>
+        <Link href="/"><BrandLogo size={28} className="h-7 w-7 object-contain opacity-35 cursor-pointer hover:opacity-55 transition-opacity" /></Link>
         <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.48)" }}>© 2026 Mexico Charts</p>
       </footer>
     </div>

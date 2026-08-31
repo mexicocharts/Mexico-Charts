@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import PageSEO from "@/components/PageSEO";
 import { ORGANIZATION_ID, SITE_URL, WEBSITE_ID, pageId } from "@/lib/structured-data.mjs";
+import BrandLogo from "@/components/BrandLogo";
 
-const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const STATS = [
@@ -73,7 +73,7 @@ export default function InsightIFPI2026() {
         style={{ background: "rgba(8,8,8,0.92)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <Link href="/">
-          <img src={logoUrl} alt="Mexico Charts" className="h-8 object-contain opacity-90 cursor-pointer" />
+          <BrandLogo size={32} loading="eager" className="h-8 w-8 object-contain opacity-90 cursor-pointer" />
         </Link>
         <motion.button
           type="button"
@@ -365,7 +365,7 @@ export default function InsightIFPI2026() {
       {/* ── Footer ── */}
       <footer className="relative z-10 border-t px-6 lg:px-12 py-8 flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         <Link href="/">
-          <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-50 cursor-pointer hover:opacity-80 transition-opacity" />
+          <BrandLogo size={28} className="h-7 w-7 object-contain opacity-50 cursor-pointer hover:opacity-80 transition-opacity" />
         </Link>
         <Link href="/industria">
           <motion.span

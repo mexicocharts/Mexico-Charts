@@ -23,6 +23,26 @@ publicDir = "artifacts/mexico-charts/dist/public"
 serve = "static"
 
 [[services.production.rewrites]]
+from = "/charts/"
+to = "/charts"
+
+[[services.production.rewrites]]
+from = "/charts/spotify"
+to = "/charts-spotify.html"
+
+[[services.production.rewrites]]
+from = "/charts/youtube"
+to = "/charts-youtube.html"
+
+[[services.production.rewrites]]
+from = "/charts/apple-music"
+to = "/charts-apple-music.html"
+
+[[services.production.rewrites]]
+from = "/charts/deezer"
+to = "/charts-deezer.html"
+
+[[services.production.rewrites]]
 from = "/*"
 to = "/index.html"
 

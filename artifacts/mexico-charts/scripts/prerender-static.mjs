@@ -6,6 +6,7 @@ import { artistProfileRoutes } from "./artist-profile-routes.mjs";
 import { ORGANIZATION_ID, WEBSITE_ID, buildStructuredDataGraph, pageId } from "../src/lib/structured-data.mjs";
 import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 import { PLATFORM_CHART_ROUTES, applySeoRouteDefinition } from "../src/lib/seo-routes.mjs";
+import { FLAT_STATIC_ROUTE_TARGETS } from "./static-route-paths.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -659,8 +660,14 @@ async function writeRoute(baseHtml, route) {
     return;
   }
 
+  const flatTarget = FLAT_STATIC_ROUTE_TARGETS.get(route.path);
+  if (flatTarget) {
+    await writeFile(path.join(outDir, flatTarget), html);
+    return;
+  }
+
   const cleanRoutePath = path.join(outDir, route.path.slice(1));
-  const hasChildRoutes = routes.some(
+  const hasChildRoutes = route.path !== "/charts" && routes.some(
     (candidate) => candidate.path !== route.path && candidate.path.startsWith(`${route.path}/`),
   );
 

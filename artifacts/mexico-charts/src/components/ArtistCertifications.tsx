@@ -4,16 +4,11 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import { useCertifications, artistMatches, type CertRow } from "@/hooks/useCertifications";
 import { formatCertificationLevels } from "@/lib/certificationLabels";
+import CertificationBadgeImage from "@/components/CertificationBadgeImage";
 
 const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
 
 const G = "#39FF14";
-
-const CERT_IMAGES: Record<string, string> = {
-  DIAMANTE: "cert-diamond.png",
-  PLATINO:  "cert-platinum.png",
-  ORO:      "cert-gold.png",
-};
 
 function certKey(cert: string): "DIAMANTE" | "PLATINO" | "ORO" {
   const u = cert.toUpperCase();
@@ -24,15 +19,10 @@ function certKey(cert: string): "DIAMANTE" | "PLATINO" | "ORO" {
 
 function CertImage({ cert, size = 28 }: { cert: string; size?: number }) {
   const key = certKey(cert);
-  const base = import.meta.env.BASE_URL;
   return (
-    <img
-      src={`${base}${CERT_IMAGES[key]}`}
-      alt={key}
-      width={size}
-      height={size}
-      loading="lazy"
-      decoding="async"
+    <CertificationBadgeImage
+      tier={key}
+      size={size}
       style={{ objectFit: "contain", display: "block", flexShrink: 0 }}
     />
   );
@@ -40,18 +30,14 @@ function CertImage({ cert, size = 28 }: { cert: string; size?: number }) {
 
 function CertBadge({ cert }: { cert: string }) {
   const key = certKey(cert);
-  const base = import.meta.env.BASE_URL;
   const label = key === "DIAMANTE" ? "Diamante" : key === "PLATINO" ? "Platino" : "Oro";
 
   return (
-    <img
-      src={`${base}${CERT_IMAGES[key]}`}
+    <CertificationBadgeImage
+      tier={key}
+      size={44}
       alt={label}
       title={label}
-      width={44}
-      height={44}
-      loading="lazy"
-      decoding="async"
       style={{ objectFit: "contain", display: "block" }}
     />
   );
@@ -65,7 +51,6 @@ function fmtDate(iso: string) {
 }
 
 function StatCard({ label, value, certKey: ck }: { label: string; value: string | number; certKey?: "DIAMANTE" | "PLATINO" | "ORO" }) {
-  const base = import.meta.env.BASE_URL;
   return (
     <div
       className="flex min-w-0 flex-col gap-0.5 rounded-xl px-3 py-2.5"
@@ -73,13 +58,9 @@ function StatCard({ label, value, certKey: ck }: { label: string; value: string 
     >
       <div className="mb-0.5 flex min-w-0 items-center gap-1">
         {ck && (
-          <img
-            src={`${base}${CERT_IMAGES[ck]}`}
-            alt={ck}
-            width={12}
-            height={12}
-            loading="lazy"
-            decoding="async"
+          <CertificationBadgeImage
+            tier={ck}
+            size={12}
             style={{ objectFit: "contain", display: "block" }}
           />
         )}

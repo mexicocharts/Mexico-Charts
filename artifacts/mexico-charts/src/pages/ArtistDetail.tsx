@@ -25,10 +25,10 @@ import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/compon
 import { YouTubeConsentGate, YouTubeMixedLegend, YouTubeSourceLabel } from "@/components/YouTubeConsent";
 import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";
 import { SITE_URL, pageId } from "@/lib/structured-data.mjs";
+import BrandLogo from "@/components/BrandLogo";
+import ResponsiveThumbnail from "@/components/ResponsiveThumbnail";
 
 export { slugify };
-
-const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
 type ArtistTopTrack = {
   title: string;
@@ -565,7 +565,7 @@ export default function ArtistDetail() {
           noindex
         />
         <section className="w-full max-w-xl rounded-2xl border border-white/10 bg-white/[0.025] p-8 text-center">
-          <img src={logoUrl} alt="Mexico Charts" className="mx-auto mb-8 h-9 object-contain opacity-80" />
+          <BrandLogo size={36} loading="eager" className="mx-auto mb-8 h-9 w-9 object-contain opacity-80" />
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#39FF14]">Perfil no encontrado</p>
           <h1 className="text-3xl font-black uppercase">Ese artista no está en el catálogo activo</h1>
           <p className="mt-4 text-sm leading-6 text-zinc-500">No creamos perfiles a partir de una URL desconocida. Busca el artista correcto en el directorio.</p>
@@ -1066,7 +1066,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       >
         <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
           <Link href="/" className="flex-shrink-0" data-testid="link-logo">
-            <img src={logoUrl} alt="Mexico Charts" className="h-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
+            <BrandLogo size={28} loading="eager" className="h-7 w-7 object-contain opacity-90 hover:opacity-100 transition-opacity" />
           </Link>
           <div className="w-px h-5 bg-white/10 mx-1" />
           <button
@@ -1086,7 +1086,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       {/* ══════════════════════════════════════════════════════════
           HERO
       ══════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden" style={{ minHeight: "min(680px, calc(100svh - 56px))" }} data-testid="artist-hero">
+      <section
+        className={`relative overflow-hidden ${ARTISTS[slug] ? "min-h-[1164px] sm:min-h-[803px]" : "min-h-[796px] sm:min-h-[680px]"}`}
+        data-testid="artist-hero"
+      >
         <div className="absolute inset-0" style={{ background: "#050505" }} />
 
         {!reduced && (
@@ -1103,6 +1106,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
           <img
             src={proxyArtistImageUrl(displayPhoto)}
             alt=""
+            width={1000}
+            height={1000}
             aria-hidden="true"
             onError={() => setFailedPhotoUrl(displayPhoto)}
             className="pointer-events-none absolute bottom-0 right-[-18%] top-0 h-full w-[92%] object-cover opacity-34 sm:right-0 sm:w-1/2 sm:opacity-100 md:w-2/5"
@@ -1153,6 +1158,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             >
               {artist.name}
             </h1>
+            <div className="min-h-[45px]">
             {isVerifiedArtist && (
               <div className="relative mb-4 inline-block">
                 <button
@@ -1213,6 +1219,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 )}
               </div>
             )}
+            </div>
             {canonicalArtistKey && (
               <div className="mb-5 flex flex-wrap items-center gap-2">
                 <SaveArtistButton artistKey={canonicalArtistKey} artistName={artist.name} />
@@ -1235,7 +1242,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </Link>
               </div>
             )}
-            <div className="mb-5 flex max-w-3xl flex-wrap gap-2">
+            <div className="mb-5 flex min-h-[68px] max-w-3xl flex-wrap content-start gap-2 sm:min-h-[30px]">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
                 <Globe className="h-3.5 w-3.5" style={{ color: artist.accent }} />
                 {artist.origin}
@@ -1255,25 +1262,28 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 </span>
               )}
             </div>
-            <p className="max-w-xl text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
-              {wikiBio?.bio ?? artist.bio}
-            </p>
-            {wikiBio?.pageUrl && (
-              <a
-                href={wikiBio.pageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-700 hover:text-zinc-500 transition-colors duration-150"
-              >
-                Fuente: Wikipedia
-              </a>
-            )}
+            <div className="min-h-[94px] sm:min-h-[72px]">
+              <p className="max-w-xl text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
+                {wikiBio?.bio ?? artist.bio}
+              </p>
+              {wikiBio?.pageUrl && (
+                <a
+                  href={wikiBio.pageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-700 hover:text-zinc-500 transition-colors duration-150"
+                >
+                  Fuente: Wikipedia
+                </a>
+              )}
+            </div>
 
-            {momentumSources.length > 0 && (
-              <div
-                className="mt-6 grid max-w-3xl gap-2 sm:grid-cols-2"
-                data-testid="artist-hero-momentum"
-              >
+            <div
+              className={`mt-6 grid max-w-3xl content-start gap-2 sm:min-h-[91px] sm:grid-cols-2 ${ARTISTS[slug] ? "min-h-[190px]" : "min-h-[91px]"}`}
+              data-testid="artist-hero-momentum"
+            >
+              {momentumSources.length > 0 && (
+                <>
                 {momentumSources.slice(0, 2).map(source => {
                   const hasDailyValue = source.todayValue != null;
                   const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
@@ -1315,8 +1325,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     </div>
                   );
                 })}
-              </div>
-            )}
+                </>
+              )}
+            </div>
 
             {nextTourEvent && (
               <a
@@ -1353,8 +1364,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               </a>
             )}
 
+            <div className={`mt-5 grid max-w-xl grid-cols-1 content-start gap-2 sm:flex sm:min-h-[96px] sm:flex-wrap ${ARTISTS[slug] ? "min-h-[252px]" : "min-h-[200px]"}`}>
             {(enrichment?.spotify?.url || itunesData?.appleUrl || deezerData?.deezerUrl || enrichment?.socialAccounts?.length) && (
-                <div className="mt-5 grid max-w-xl grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+                <>
                 {enrichment?.spotify?.url && (
                   <a
                     href={enrichment.spotify.url}
@@ -1435,8 +1447,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     </a>
                   );
                 })}
-              </div>
+              </>
             )}
+            </div>
           </motion.div>
         </div>
       </section>
@@ -2143,7 +2156,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       style={{ background: `${artist.accent}16`, border: `1px solid ${artist.accent}35` }}
                     >
                       {topTracks[0].coverUrl ? (
-                        <img src={topTracks[0].coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        <ResponsiveThumbnail src={topTracks[0].coverUrl} alt="" width={80} height={80} className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-sm font-black" style={{ color: artist.accent }}>
                           #1
@@ -2185,7 +2198,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     >
                       <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
                         {s.coverUrl ? (
-                          <img src={s.coverUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          <ResponsiveThumbnail src={s.coverUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
                         ) : (
                           <span className="flex h-full w-full items-center justify-center">{i + 2}</span>
                         )}
@@ -2433,7 +2446,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             }}
                           >
                             {thumbnailUrl ? (
-                              <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                              <ResponsiveThumbnail src={thumbnailUrl} alt="" width={64} height={64} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-zinc-700">
                                 <Music className="h-5 w-5" />
@@ -2575,11 +2588,12 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       style={{ background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.18)" }}
                     >
                       {kworbStats.youtube.topVideos[0].thumbnailUrl ? (
-                        <img
+                        <ResponsiveThumbnail
                           src={kworbStats.youtube.topVideos[0].thumbnailUrl}
                           alt=""
+                          width={448}
+                          height={256}
                           className="h-full w-full object-cover"
-                          loading="lazy"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-red-400">
@@ -2629,7 +2643,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.12)" }}
                       >
                         {v.thumbnailUrl ? (
-                          <img src={v.thumbnailUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          <ResponsiveThumbnail src={v.thumbnailUrl} alt="" width={80} height={48} className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-red-400">
                             <SiYoutube className="h-4 w-4" />
@@ -2776,11 +2790,12 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       >
                         <div className="relative h-32 overflow-hidden">
                           {candidatePhoto ? (
-                            <img
+                            <ResponsiveThumbnail
                               src={candidatePhoto}
                               alt=""
+                              width={384}
+                              height={128}
                               className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                              loading="lazy"
                             />
                           ) : (
                             <div
@@ -2901,7 +2916,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}28` }}
                   >
                     {selectedSong.coverUrl ? (
-                      <img src={selectedSong.coverUrl} alt="" className="h-full w-full object-cover" />
+                      <ResponsiveThumbnail src={selectedSong.coverUrl} alt="" width={160} height={160} loading="eager" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         <Music className="h-8 w-8" style={{ color: artist.accent }} />
@@ -2998,7 +3013,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       {/* ── FOOTER ── */}
       <footer className="border-t py-6 px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="max-w-[1200px] mx-auto flex items-center justify-between flex-wrap gap-4">
-          <img src={logoUrl} alt="Mexico Charts" className="h-6 object-contain opacity-60" />
+          <BrandLogo size={24} className="h-6 w-6 object-contain opacity-60" />
           <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
         </div>
       </footer>

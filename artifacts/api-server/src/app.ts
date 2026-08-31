@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
@@ -7,6 +8,9 @@ import { optionalClerkAuth } from "./lib/auth";
 import { stripeWebhookHandler } from "./routes/stripe-webhook";
 
 const app: Express = express();
+
+// Compress JSON/text responses without changing endpoint cache or freshness semantics.
+app.use(compression({ threshold: 1024 }));
 
 app.use(
   pinoHttp({

@@ -4,9 +4,16 @@ import { fileURLToPath } from "node:url";
 import { LOGO_ID, ORGANIZATION_ID, WEBSITE_ID, breadcrumbId, pageId } from "../src/lib/structured-data.mjs";
 import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 import { PLATFORM_CHART_ROUTES, SEO_ROUTE_DEFINITIONS, getSeoRoute } from "../src/lib/seo-routes.mjs";
+import { staticOutputRelativePath } from "./static-route-paths.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist", "public");
+
+async function readRouteHtml(routePath) {
+  const outputPath = path.join(dist, staticOutputRelativePath(routePath));
+  const outputStats = await stat(outputPath);
+  return readFile(outputStats.isDirectory() ? path.join(outputPath, "index.html") : outputPath, "utf8");
+}
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -60,7 +67,7 @@ function verifyBreadcrumb(graph, canonicalUrl, expectedNames) {
 
 const [homeHtml, chartsHtml, aboutHtml, articleHtml, artistHtml, groupArtistHtml, lowerDataArtistHtml, certificationsHtml, sitemap] = await Promise.all([
   readFile(path.join(dist, "index.html"), "utf8"),
-  readFile(path.join(dist, "charts", "index.html"), "utf8"),
+  readRouteHtml("/charts"),
   readFile(path.join(dist, "acerca-de"), "utf8"),
   readFile(path.join(dist, "insights", "mexico-top-10-ifpi-2026"), "utf8"),
   readFile(path.join(dist, "artist", "peso-pluma"), "utf8"),
@@ -81,13 +88,7 @@ assert(pageSeoSource.includes("getSeoRoute(path)"), "Runtime PageSEO is not cons
 assert(prerenderSource.includes("applySeoRouteDefinition(route)"), "Prerendering is not consuming shared route metadata");
 
 for (const definition of Object.values(SEO_ROUTE_DEFINITIONS)) {
-  const outputPath = definition.path === "/"
-    ? path.join(dist, "index.html")
-    : definition.path === "/charts"
-      ? path.join(dist, "charts", "index.html")
-      : path.join(dist, ...definition.path.slice(1).split("/"));
-  const outputStats = await stat(outputPath);
-  const html = await readFile(outputStats.isDirectory() ? path.join(outputPath, "index.html") : outputPath, "utf8");
+  const html = await readRouteHtml(definition.path);
   assert(html.includes(`<title>${definition.title}</title>`), `${definition.path} title drifted from shared metadata`);
   assert(html.includes(`<meta name="description" content="${definition.description}" />`), `${definition.path} description drifted from shared metadata`);
   assert(html.includes(`<link rel="canonical" href="https://mexicochart.com${definition.path === "/" ? "/" : definition.canonicalPath}" />`), `${definition.path} canonical drifted from shared metadata`);
@@ -126,7 +127,7 @@ for (const [slug, html] of [
 }
 
 for (const platform of PLATFORM_CHART_ROUTES) {
-  const html = await readFile(path.join(dist, ...platform.path.slice(1).split("/")), "utf8");
+  const html = await readRouteHtml(platform.path);
   const canonicalUrl = `https://mexicochart.com${platform.path}`;
   assert(html.includes(`<title>${platform.title}</title>`), `${platform.path} title drifted`);
   assert(html.includes(`<meta name="description" content="${platform.description}" />`), `${platform.path} description drifted`);

@@ -9,6 +9,7 @@ import SiteNav from "@/components/SiteNav";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { getPlatformChartRoute, getPlatformChartRouteByPlatform, getSeoRoute } from "@/lib/seo-routes.mjs";
+import ResponsiveThumbnail from "@/components/ResponsiveThumbnail";
 
 /* ── Brand ───────────────────────────────────────────────────────────────── */
 const G = "#39FF14";
@@ -403,8 +404,11 @@ function Thumbnail({ src, name, round, size = 36 }: { src?: string | null; name:
       position: "relative",
     }}>
       {src && status !== "error" && (
-        <img
+        <ResponsiveThumbnail
           src={src} alt={name}
+          width={size}
+          height={size}
+          loading="lazy"
           onLoad={() => setStatus("loaded")}
           onError={() => setStatus("error")}
           style={{
@@ -435,9 +439,11 @@ function PreviewArt({ src, name }: { src?: string | null; name: string }) {
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
       {src && status !== "error" && (
-        <img
+        <ResponsiveThumbnail
           src={src}
           alt={name}
+          width={480}
+          height={480}
           onLoad={() => setStatus("loaded")}
           onError={() => setStatus("error")}
           className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
@@ -852,10 +858,11 @@ export default function ChartsHub() {
       </section>
 
       <div className="space-y-5 px-4 py-5 sm:px-6 sm:py-6 md:space-y-7 lg:px-12">
-        {activePulse && (
+        {activePulse ? (
           <section
+            key="chart-pulse-loaded"
             id="chart-pulse"
-            className="relative overflow-hidden"
+            className="relative min-h-[1316px] overflow-hidden lg:min-h-[629px]"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: 8,
@@ -943,7 +950,7 @@ export default function ChartsHub() {
                           }}
                         >
                           {img ? (
-                            <img src={img} alt="" className="h-full w-full object-cover" loading="lazy" />
+                            <ResponsiveThumbnail src={img} alt="" width={480} height={480} className="h-full w-full object-cover" />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-5xl font-black uppercase" style={{ color: activePulse.color }}>
                               #1
@@ -1087,6 +1094,34 @@ export default function ChartsHub() {
                 </div>
               );
             })()}
+          </section>
+        ) : (
+          <section
+            key="chart-pulse-loading"
+            id="chart-pulse-loading"
+            aria-label="Cargando señales principales"
+            aria-busy="true"
+            className="relative min-h-[1316px] overflow-hidden border border-white/[0.08] bg-[#090909] p-4 lg:min-h-[629px] lg:p-7"
+            style={{ borderRadius: 8 }}
+          >
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21.5rem]">
+              <div className="grid gap-5 md:grid-cols-[minmax(15rem,22rem)_minmax(0,1fr)]">
+                <div className="md:col-span-2">
+                  <div className="h-8 w-36 animate-pulse rounded-lg bg-white/[0.055]" />
+                  <div className="mt-6 h-12 w-4/5 animate-pulse rounded-lg bg-white/[0.045]" />
+                </div>
+                <div className="aspect-[4/5] animate-pulse rounded-lg bg-white/[0.045] md:aspect-square" />
+                <div className="space-y-4">
+                  <div className="h-4 w-3/4 animate-pulse rounded bg-white/[0.04]" />
+                  <div className="grid grid-cols-3 gap-2 border-y border-white/[0.06] py-4">
+                    {Array.from({ length: 3 }, (_, index) => <div key={index} className="h-12 animate-pulse rounded bg-white/[0.035]" />)}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-[74px] animate-pulse rounded-lg bg-white/[0.04]" />)}
+              </div>
+            </div>
           </section>
         )}
 
@@ -1634,7 +1669,7 @@ export default function ChartsHub() {
                 <div className="overflow-hidden" style={{ borderRadius: 8, border: `1px solid ${G}28`, background: "radial-gradient(circle at 8% 0%, rgba(57,255,20,0.12), transparent 36%), rgba(255,255,255,0.02)" }}>
                   <div className="relative aspect-[16/10] overflow-hidden bg-white/[0.04]">
                     {detailImg ? (
-                      <img src={detailImg} alt="" className="h-full w-full object-cover opacity-80" />
+                      <ResponsiveThumbnail src={detailImg} alt="" width={800} height={500} loading="eager" className="h-full w-full object-cover opacity-80" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-7xl font-black uppercase opacity-20">
                         {detailTitle.charAt(0)}

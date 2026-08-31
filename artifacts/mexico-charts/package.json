@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "node scripts/audit-public-routes.mjs && vite build --config vite.config.ts && node scripts/prerender-static.mjs && node scripts/audit-seo.mjs",
+    "build": "node scripts/audit-public-routes.mjs && vite build --config vite.config.ts && node scripts/prerender-static.mjs && node scripts/audit-seo.mjs && node scripts/audit-performance.mjs",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "audit:routes": "node scripts/audit-public-routes.mjs",
     "audit:seo": "node scripts/audit-seo.mjs",
+    "audit:performance": "node scripts/audit-performance.mjs",
     "test": "node --test src/lib/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

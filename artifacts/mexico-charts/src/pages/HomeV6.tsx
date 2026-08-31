@@ -20,11 +20,10 @@ import { SHEET_SOURCES } from "@/config/sheetSources";
 import { SOCIAL_URLS } from "@/config/brand";
 import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
+import BrandLogo from "@/components/BrandLogo";
 import { subscribeToNewsletter } from "@/services/newsletter";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { useYouTubeConsent, YouTubeConsentGate } from "@/components/YouTubeConsent";
-
-const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
 /* ─── NOISE SVG ──────────────────────────────────────────────── */
 const NOISE_SVG = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
@@ -1469,7 +1468,7 @@ export default function HomeV6() {
         <div className="relative z-10 max-w-[1400px] mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             <div>
-              <img src={logoUrl} alt="Mexico Charts" width={1255} height={1255} loading="lazy" decoding="async" className="h-9 object-contain mb-4 opacity-90" />
+              <BrandLogo size={36} className="mb-4 h-9 w-9 object-contain opacity-90" />
               <p className="text-zinc-500 text-xs leading-relaxed max-w-[260px]">{pick("Mexico Charts es una plataforma independiente de charts, artistas e industria de la música mexicana.", "Mexico Charts is an independent platform for Mexican music charts, artists and industry coverage.")}</p>
               <div className="flex gap-4 mt-4">
                 {SOCIAL_LINKS.map(({ label, href, icon: Icon }) =>
