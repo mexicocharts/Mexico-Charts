@@ -1267,98 +1267,96 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
 // Public operational coverage for the live-video feature. This intentionally
 // exposes aggregate readiness only, never discovery evidence or credentials.
 router.get("/providers/youtube/live-coverage", async (_req, res) => {
+  const requestStartedAt = performance.now();
   const client = await publicReadPool.connect();
+  const connectionAcquiredAt = performance.now();
   try {
     const coverage = await client.query(`
-      WITH roster_keys AS (
+      WITH roster_keys AS MATERIALIZED (
         SELECT DISTINCT regexp_replace(
           translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
           '[^a-z0-9]', '', 'g'
         ) artist_key
         FROM kworb_coverage
         WHERE status='active'
-      ), source_keys AS (
-        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+      ), approved_link_keys AS MATERIALIZED (
+        SELECT DISTINCT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
         FROM youtube_artist_video_links
         WHERE active=true AND confidence_score >= 80
-        UNION
-        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+      ), profile_channel_keys AS MATERIALIZED (
+        SELECT DISTINCT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
         FROM youtube_channels
         WHERE channel_id IS NOT NULL
-        UNION
-        SELECT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
+      ), kworb_video_keys AS MATERIALIZED (
+        SELECT DISTINCT regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') artist_key
         FROM kworb_snapshots
         WHERE metric_type='youtube'
           AND jsonb_typeof(value->'topVideos')='array'
           AND jsonb_array_length(value->'topVideos') > 0
+      ), mapping_totals AS (
+        SELECT
+          count(*) FILTER (
+            WHERE link.artist_key IS NOT NULL
+               OR channel.artist_key IS NOT NULL
+               OR kworb.artist_key IS NOT NULL
+          )::int mapped_artists,
+          count(*) FILTER (WHERE link.artist_key IS NOT NULL)::int approved_link_artists,
+          count(*) FILTER (WHERE channel.artist_key IS NOT NULL)::int profile_channel_artists,
+          count(*) FILTER (WHERE kworb.artist_key IS NOT NULL)::int kworb_video_artists
+        FROM roster_keys roster
+        LEFT JOIN approved_link_keys link USING (artist_key)
+        LEFT JOIN profile_channel_keys channel USING (artist_key)
+        LEFT JOIN kworb_video_keys kworb USING (artist_key)
+      ), eligible_candidates AS MATERIALIZED (
+        SELECT DISTINCT candidate_key.artist_key, candidate_key.video_id
+        FROM (
+          SELECT
+            regexp_replace(
+              translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
+              '[^a-z0-9]', '', 'g'
+            ) artist_key,
+            candidate.video_id
+          FROM youtube_music_catalog_candidates candidate
+          WHERE candidate.status IN ('review','verified')
+            AND candidate.sampling_status='shadow'
+        ) candidate_key
+        JOIN roster_keys roster USING (artist_key)
+      ), eligible_video_ids AS MATERIALIZED (
+        SELECT DISTINCT video_id
+        FROM eligible_candidates
+      ), snapshot_state AS MATERIALIZED (
+        SELECT sample.video_id, max(sample.observed_at) latest_observed_at
+        FROM youtube_video_intraday_shadow_snapshots sample
+        JOIN eligible_video_ids eligible USING (video_id)
+        GROUP BY sample.video_id
+      ), candidate_totals AS (
+        SELECT
+          count(DISTINCT candidate.artist_key)::int catalog_artists,
+          count(DISTINCT candidate.artist_key) FILTER (
+            WHERE sample.video_id IS NOT NULL
+          )::int observed_artists,
+          count(DISTINCT candidate.artist_key) FILTER (
+            WHERE sample.latest_observed_at >= now() - interval '6 hours'
+          )::int fresh_artists,
+          count(DISTINCT candidate.video_id)::int catalog_videos,
+          count(DISTINCT candidate.video_id) FILTER (
+            WHERE sample.video_id IS NOT NULL
+          )::int observed_videos,
+          count(DISTINCT candidate.video_id) FILTER (
+            WHERE sample.latest_observed_at >= now() - interval '6 hours'
+          )::int fresh_videos,
+          max(sample.latest_observed_at)::text latest_observed_at
+        FROM eligible_candidates candidate
+        LEFT JOIN snapshot_state sample USING (video_id)
       )
       SELECT
         (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1 FROM source_keys s WHERE s.artist_key=r.artist_key
-        )) mapped_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1 FROM youtube_artist_video_links link
-          WHERE link.active=true AND link.confidence_score >= 80
-            AND regexp_replace(translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) approved_link_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1 FROM youtube_channels channel
-          WHERE channel.channel_id IS NOT NULL
-            AND regexp_replace(translate(lower(channel.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) profile_channel_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1 FROM kworb_snapshots snapshot
-          WHERE snapshot.metric_type='youtube'
-            AND jsonb_typeof(snapshot.value->'topVideos')='array'
-            AND jsonb_array_length(snapshot.value->'topVideos') > 0
-            AND regexp_replace(translate(lower(snapshot.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) kworb_video_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1 FROM youtube_music_catalog_candidates candidate
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
-            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) catalog_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1
-          FROM youtube_music_catalog_candidates candidate
-          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
-            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) observed_artists,
-        (SELECT count(*)::int FROM roster_keys r WHERE EXISTS (
-          SELECT 1
-          FROM youtube_music_catalog_candidates candidate
-          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
-            AND sample.observed_at >= now() - interval '6 hours'
-            AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-        )) fresh_artists,
-        (SELECT count(DISTINCT candidate.video_id)::int
-          FROM youtube_music_catalog_candidates candidate
-          JOIN roster_keys r
-            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') catalog_videos,
-        (SELECT count(DISTINCT candidate.video_id)::int
-          FROM youtube_music_catalog_candidates candidate
-          JOIN roster_keys r
-            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') observed_videos,
-        (SELECT count(DISTINCT candidate.video_id)::int
-          FROM youtube_music_catalog_candidates candidate
-          JOIN roster_keys r
-            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
-            AND sample.observed_at >= now() - interval '6 hours') fresh_videos,
-        (SELECT max(sample.observed_at)::text
-          FROM youtube_music_catalog_candidates candidate
-          JOIN roster_keys r
-            ON regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=r.artist_key
-          JOIN youtube_video_intraday_shadow_snapshots sample ON sample.video_id=candidate.video_id
-          WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow') latest_observed_at
+        mapping.*,
+        candidate.*
+      FROM mapping_totals mapping
+      CROSS JOIN candidate_totals candidate
     `);
+    const queryCompletedAt = performance.now();
     const row = coverage.rows[0] ?? {};
     const rosterArtists = Number(row.roster_artists ?? 0);
     const mappedArtists = Number(row.mapped_artists ?? 0);
@@ -1366,6 +1364,12 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     const observedArtists = Number(row.observed_artists ?? 0);
     const freshArtists = Number(row.fresh_artists ?? 0);
     res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+    res.setHeader(
+      "Server-Timing",
+      `db-acquire;dur=${(connectionAcquiredAt - requestStartedAt).toFixed(1)}, `
+        + `db-query;dur=${(queryCompletedAt - connectionAcquiredAt).toFixed(1)}, `
+        + `app;dur=${(performance.now() - queryCompletedAt).toFixed(1)}`,
+    );
     res.json({
       rosterArtists,
       mappedArtists,
