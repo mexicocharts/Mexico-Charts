@@ -22,6 +22,7 @@ import { SiInstagram, SiX, SiTiktok, SiYoutube, SiSpotify } from "react-icons/si
 import SiteNav from "@/components/SiteNav";
 import { subscribeToNewsletter } from "@/services/newsletter";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { useYouTubeConsent, YouTubeConsentGate } from "@/components/YouTubeConsent";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -282,6 +283,7 @@ function Shelf({ label, icon, description, children }: { label: string; icon: Re
 
 export default function HomeV6() {
   const { language, pick } = useLanguage();
+  const { youtubeEnabled, reviewChoice } = useYouTubeConsent();
   const [heroIndex, setHeroIndex] = useState(0);
   const [tickerPaused, setTickerPaused] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
@@ -558,9 +560,10 @@ export default function HomeV6() {
   }, [kworbByArtist]);
 
   const TICKER_ITEMS = useMemo(() => {
+    if (!youtubeEnabled) return ["MEXICO CHARTS", pick("MÚSICA MEXICANA", "MEXICAN MUSIC"), "SPOTIFY", "APPLE MUSIC", "DEEZER"];
     if (TOP_STRIP.length === 0) return ["MEXICO CHARTS", pick("TOP ARTISTAS", "TOP ARTISTS"), "YOUTUBE", "SPOTIFY", "APPLE MUSIC", "DEEZER"];
     return TOP_STRIP.flatMap(a => [a.name.toUpperCase(), `${a.streams} ${pick("VISTAS · YOUTUBE · SEMANA", "VIEWS · YOUTUBE · WEEK")}`]);
-  }, [TOP_STRIP, language, pick]);
+  }, [TOP_STRIP, language, pick, youtubeEnabled]);
 
   /* Scroll parallax for hero */
   const { scrollYProgress: heroScroll } = useScroll({
@@ -1190,7 +1193,8 @@ export default function HomeV6() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 
           {/* TOP ARTISTAS */}
-          <FadeUp delay={0.05}>
+          <YouTubeConsentGate>
+              <FadeUp delay={0.05}>
             <div className="relative overflow-hidden rounded-xl p-6" style={{ background:"linear-gradient(160deg, #0d0d0d 0%, #090909 100%)", border:"1px solid rgba(255,255,255,0.07)", boxShadow:"0 8px 48px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05)" }} data-testid="bento-top-artistas">
               <div className="absolute inset-0 opacity-[0.025] rounded-xl pointer-events-none" style={{ backgroundImage:NOISE_SVG, backgroundSize:"96px" }} />
               <div className="absolute -bottom-6 -right-4 font-black italic text-[110px] leading-none select-none pointer-events-none" style={{ color:"rgba(57,255,20,0.018)" }}>TOP</div>
@@ -1257,6 +1261,7 @@ export default function HomeV6() {
               </div>
             </div>
           </FadeUp>
+              </YouTubeConsentGate>
 
           {/* EN ASCENSO — only shown when real growth data is available */}
           {(hubLoading || ASCENSO.length > 0) && (
@@ -1327,7 +1332,7 @@ export default function HomeV6() {
                     ? `${pick("vistas acumuladas", "cumulative views")} · ${platformTotals.youtubeCoverage} ${pick("artistas", "artists")}`
                     : pick("vistas acumuladas", "cumulative views"),
                 },
-              ] as const).map(p => (
+              ] as const).filter(p => youtubeEnabled || p.name !== "YouTube").map(p => (
                 <motion.div
                   key={p.name}
                   whileHover={reduced ? {} : { backgroundColor:"rgba(255,255,255,0.02)", transition:{ duration:0.2 } }}
@@ -1510,6 +1515,7 @@ export default function HomeV6() {
           </div>
           <div className="flex items-center justify-center pt-6" style={{ borderTop:"1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. {pick("Todos los derechos reservados.", "All rights reserved.")}</p>
+            <button type="button" onClick={reviewChoice} className="ml-4 text-[10px] font-bold text-zinc-500 underline decoration-white/20 underline-offset-4 hover:text-white">{pick("Preferencias de YouTube", "YouTube preferences")}</button>
           </div>
         </div>
       </footer>
