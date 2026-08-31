@@ -130,14 +130,61 @@ export const YOUTUBE_LIVE_COVERAGE_LATEST_SQL = `${commonPrefix}
   ${candidateTotals}
 `;
 
-const eligibleCandidatesMarker = ", eligible_candidates AS MATERIALIZED";
-const mappingPrefixEnd = commonPrefix.indexOf(eligibleCandidatesMarker);
-
-if (mappingPrefixEnd < 0) {
-  throw new Error("YouTube live coverage mapping SQL marker is missing");
-}
-
-export const YOUTUBE_LIVE_COVERAGE_MAPPING_SQL = `${commonPrefix.slice(0, mappingPrefixEnd)}
+// Restrict every mapping source to the small active roster before DISTINCT.
+// The earlier shape normalized and deduplicated each complete source table,
+// which made this stable mapping summary dominate the public endpoint latency.
+export const YOUTUBE_LIVE_COVERAGE_MAPPING_SQL = `
+  WITH roster_keys AS MATERIALIZED (
+    SELECT DISTINCT regexp_replace(
+      translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
+      '[^a-z0-9]', '', 'g'
+    ) artist_key
+    FROM kworb_coverage
+    WHERE status='active'
+  ), approved_link_keys AS MATERIALIZED (
+    SELECT DISTINCT roster.artist_key
+    FROM roster_keys roster
+    JOIN youtube_artist_video_links link
+      ON regexp_replace(
+        translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
+        '[^a-z0-9]', '', 'g'
+      )=roster.artist_key
+    WHERE link.active=true AND link.confidence_score >= 80
+  ), profile_channel_keys AS MATERIALIZED (
+    SELECT DISTINCT roster.artist_key
+    FROM roster_keys roster
+    JOIN youtube_channels channel
+      ON regexp_replace(
+        translate(lower(channel.artist_key), 'áéíóúüñ', 'aeiouun'),
+        '[^a-z0-9]', '', 'g'
+      )=roster.artist_key
+    WHERE channel.channel_id IS NOT NULL
+  ), kworb_video_keys AS MATERIALIZED (
+    SELECT DISTINCT roster.artist_key
+    FROM roster_keys roster
+    JOIN kworb_snapshots snapshot
+      ON regexp_replace(
+        translate(lower(snapshot.artist_key), 'áéíóúüñ', 'aeiouun'),
+        '[^a-z0-9]', '', 'g'
+      )=roster.artist_key
+    WHERE snapshot.metric_type='youtube'
+      AND jsonb_typeof(snapshot.value->'topVideos')='array'
+      AND jsonb_array_length(snapshot.value->'topVideos') > 0
+  ), mapping_totals AS (
+    SELECT
+      count(*) FILTER (
+        WHERE link.artist_key IS NOT NULL
+           OR channel.artist_key IS NOT NULL
+           OR kworb.artist_key IS NOT NULL
+      )::int mapped_artists,
+      count(*) FILTER (WHERE link.artist_key IS NOT NULL)::int approved_link_artists,
+      count(*) FILTER (WHERE channel.artist_key IS NOT NULL)::int profile_channel_artists,
+      count(*) FILTER (WHERE kworb.artist_key IS NOT NULL)::int kworb_video_artists
+    FROM roster_keys roster
+    LEFT JOIN approved_link_keys link USING (artist_key)
+    LEFT JOIN profile_channel_keys channel USING (artist_key)
+    LEFT JOIN kworb_video_keys kworb USING (artist_key)
+  )
   SELECT
     (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
     mapping.*
