@@ -1,8 +1,10 @@
 import {
   bigint,
+  date,
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   serial,
   text,
@@ -88,7 +90,125 @@ export const songstatsSnapshotSchedulerRuns = pgTable("songstats_snapshot_schedu
   updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+// These compact Songstats history tables already exist in the shared database
+// schema. Keep their declarations in this isolated YouTube deployment branch so
+// Replit does not generate destructive DROP TABLE migrations for another
+// workstream while publishing a YouTube-only application change.
+export const songstatsHistoryImportRuns = pgTable("songstats_history_import_runs", {
+  runId:                    text("run_id").primaryKey(),
+  mode:                     text("mode").notNull(),
+  status:                   text("status").notNull(),
+  requestedStartDate:       date("requested_start_date").notNull(),
+  requestedEndDate:         date("requested_end_date").notNull(),
+  rosterSize:               integer("roster_size").notNull(),
+  plannedRequestCount:      integer("planned_request_count").notNull(),
+  completedRequestCount:    integer("completed_request_count").notNull().default(0),
+  failedRequestCount:       integer("failed_request_count").notNull().default(0),
+  observationCount:         integer("observation_count").notNull().default(0),
+  options:                  jsonb("options").$type<Record<string, unknown>>().notNull().default({}),
+  summary:                  jsonb("summary").$type<Record<string, unknown>>().notNull().default({}),
+  startedAt:                timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt:              timestamp("completed_at", { withTimezone: true }),
+  updatedAt:                timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("songstats_history_import_runs_status_started_idx")
+    .on(table.status, table.startedAt),
+]);
+
+export const songstatsHistoryMetricDefinitions = pgTable("songstats_history_metric_definitions", {
+  id:                 serial("id").primaryKey(),
+  source:             text("source").notNull(),
+  providerField:      text("provider_field").notNull(),
+  metricKey:          text("metric_key").notNull(),
+  label:              text("label").notNull(),
+  unit:               text("unit").notNull(),
+  behavior:           text("behavior").notNull(),
+  commercialEndpoint: text("commercial_endpoint").notNull(),
+  definitionVersion:  integer("definition_version").notNull(),
+  ingestionStatus:    text("ingestion_status").notNull(),
+  createdAt:          timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:          timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("songstats_history_metric_source_field_version_unique")
+    .on(table.source, table.providerField, table.definitionVersion),
+  uniqueIndex("songstats_history_metric_key_version_unique")
+    .on(table.metricKey, table.definitionVersion),
+]);
+
+export const songstatsHistoryProviderIdentities = pgTable("songstats_history_provider_identities", {
+  id:                       serial("id").primaryKey(),
+  artistKey:                text("artist_key").notNull(),
+  spotifyArtistId:          text("spotify_artist_id").notNull(),
+  songstatsArtistId:        text("songstats_artist_id"),
+  validationStatus:         text("validation_status").notNull(),
+  identityEvidence:         jsonb("identity_evidence").$type<Record<string, unknown>>().notNull().default({}),
+  validationRuleVersion:    integer("validation_rule_version").notNull().default(1),
+  verifiedAt:               timestamp("verified_at", { withTimezone: true }),
+  createdAt:                timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:                timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("songstats_history_identity_artist_unique").on(table.artistKey),
+  index("songstats_history_identity_songstats_idx").on(table.songstatsArtistId),
+]);
+
+export const songstatsHistoryImportChunks = pgTable("songstats_history_import_chunks", {
+  id:                       serial("id").primaryKey(),
+  runId:                    text("run_id").notNull().references(() => songstatsHistoryImportRuns.runId),
+  artistKey:                text("artist_key").notNull(),
+  providerIdentityId:       integer("provider_identity_id").notNull().references(() => songstatsHistoryProviderIdentities.id),
+  requestIdentityType:      text("request_identity_type").notNull(),
+  requestIdentityValue:     text("request_identity_value").notNull(),
+  windowStartDate:          date("window_start_date").notNull(),
+  windowEndDate:            date("window_end_date").notNull(),
+  status:                   text("status").notNull(),
+  attemptCount:             integer("attempt_count").notNull().default(0),
+  responseHash:             text("response_hash"),
+  parserVersion:            integer("parser_version").notNull(),
+  schemaVersion:            integer("schema_version").notNull(),
+  acquisitionMetadata:      jsonb("acquisition_metadata").$type<Record<string, unknown>>().notNull().default({}),
+  fetchedAt:                timestamp("fetched_at", { withTimezone: true }),
+  observationCount:         integer("observation_count").notNull().default(0),
+  duplicateCount:           integer("duplicate_count").notNull().default(0),
+  errorCode:                text("error_code"),
+  errorMessage:             text("error_message"),
+  startedAt:                timestamp("started_at", { withTimezone: true }),
+  completedAt:              timestamp("completed_at", { withTimezone: true }),
+  updatedAt:                timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("songstats_history_chunks_artist_window_unique")
+    .on(table.artistKey, table.windowStartDate, table.windowEndDate),
+  index("songstats_history_chunks_run_status_idx")
+    .on(table.runId, table.status),
+]);
+
+export const songstatsHistoricalObservations = pgTable("songstats_historical_observations", {
+  id:                       serial("id").primaryKey(),
+  artistKey:                text("artist_key").notNull(),
+  providerIdentityId:       integer("provider_identity_id").notNull().references(() => songstatsHistoryProviderIdentities.id),
+  metricDefinitionId:       integer("metric_definition_id").notNull().references(() => songstatsHistoryMetricDefinitions.id),
+  providerObservationDate:  date("provider_observation_date").notNull(),
+  value:                    numeric("value", { precision: 30, scale: 6 }).notNull(),
+  granularity:              text("granularity").notNull().default("daily"),
+  acquisitionMode:          text("acquisition_mode").notNull().default("songstats_historical"),
+  fetchedAt:                timestamp("fetched_at", { withTimezone: true }).notNull(),
+  importedAt:               timestamp("imported_at", { withTimezone: true }).notNull().defaultNow(),
+  importChunkId:            integer("import_chunk_id").notNull().references(() => songstatsHistoryImportChunks.id),
+}, (table) => [
+  uniqueIndex("songstats_history_observation_provenance_unique").on(
+    table.artistKey,
+    table.metricDefinitionId,
+    table.providerObservationDate,
+    table.acquisitionMode,
+  ),
+  index("songstats_history_observation_chunk_idx").on(table.importChunkId),
+]);
+
 export type SongstatsArtist = typeof songstatsArtists.$inferSelect;
 export type SongstatsArtistDailySnapshot = typeof songstatsArtistDailySnapshots.$inferSelect;
 export type SongstatsArtistExtendedData = typeof songstatsArtistExtendedData.$inferSelect;
 export type SongstatsSnapshotSchedulerRun = typeof songstatsSnapshotSchedulerRuns.$inferSelect;
+export type SongstatsHistoryImportRun = typeof songstatsHistoryImportRuns.$inferSelect;
+export type SongstatsHistoryMetricDefinition = typeof songstatsHistoryMetricDefinitions.$inferSelect;
+export type SongstatsHistoryProviderIdentity = typeof songstatsHistoryProviderIdentities.$inferSelect;
+export type SongstatsHistoryImportChunk = typeof songstatsHistoryImportChunks.$inferSelect;
+export type SongstatsHistoricalObservation = typeof songstatsHistoricalObservations.$inferSelect;
