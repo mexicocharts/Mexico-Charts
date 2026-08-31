@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pool } from "@workspace/db";
+import { db, pool, publicReadPool } from "@workspace/db";
 import { youtubeChannelDailySnapshots, youtubeChannels, youtubeVideos } from "@workspace/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -1138,11 +1138,8 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
     return;
   }
 
-  const client = await pool.connect();
+  const client = await publicReadPool.connect();
   try {
-    await ensureYoutubeVideoTrackerTables(client);
-    await ensureYoutubeShadowTables(client);
-    await ensureYoutubeIntradayShadowTables(client);
     const videos = await client.query(`
       WITH eastern_bounds AS (
         SELECT
@@ -1237,11 +1234,8 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
 // Public operational coverage for the live-video feature. This intentionally
 // exposes aggregate readiness only, never discovery evidence or credentials.
 router.get("/providers/youtube/live-coverage", async (_req, res) => {
-  const client = await pool.connect();
+  const client = await publicReadPool.connect();
   try {
-    await ensureYoutubeVideoTrackerTables(client);
-    await ensureYoutubeShadowTables(client);
-    await ensureYoutubeIntradayShadowTables(client);
     const coverage = await client.query(`
       WITH roster_keys AS (
         SELECT DISTINCT regexp_replace(
