@@ -775,6 +775,10 @@ export default function ChartsHub() {
         title="Charts de música en México — Spotify, YouTube, Apple Music y Deezer"
         description="Charts diarios y semanales de música en México con fuentes, fechas de actualización y rankings de Spotify, YouTube, Apple Music y Deezer."
         path="/charts"
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Charts de música en México", path: "/charts" },
+        ]}
       />
       <div className="fixed inset-0 pointer-events-none opacity-[0.016]"
         style={{ backgroundImage: NOISE, backgroundSize: "128px", zIndex: 0 }} />

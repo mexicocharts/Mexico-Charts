@@ -12,6 +12,7 @@ interface PageSEOProps {
   type?: "website" | "article";
   noindex?: boolean;
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  breadcrumbs?: { name: string; path: string }[];
 }
 
 function upsertMeta(attribute: "name" | "property", key: string, content: string) {
@@ -55,7 +56,7 @@ function upsertJsonLd(value: string) {
  * lifecycle with react-helmet caused profile navigation to unmount an already
  * removed node and leave visitors on a black page.
  */
-export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd }: PageSEOProps) {
+export default function PageSEO({ title, description, path = "/", ogImage = OG_IMAGE, type = "website", noindex = false, jsonLd, breadcrumbs = [] }: PageSEOProps) {
   const canonical = `${SITE_URL}${path}`;
   const fullTitle = title.includes("Mexico Charts") ? title : `${title} — Mexico Charts`;
   const structuredData = JSON.stringify(buildStructuredDataGraph({
@@ -63,6 +64,10 @@ export default function PageSEO({ title, description, path = "/", ogImage = OG_I
     description,
     canonicalUrl: canonical,
     additional: jsonLd ?? [],
+    breadcrumbs: breadcrumbs.map(item => ({
+      name: item.name,
+      url: item.path === "/" ? `${SITE_URL}/` : `${SITE_URL}${item.path}`,
+    })),
   }));
 
   useEffect(() => {

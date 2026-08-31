@@ -225,6 +225,11 @@ export default function Certifications() {
         title="Certificaciones en México"
         description="Archivo filtrado de certificaciones musicales en México: Oro, Platino y Diamante por artista, título, formato y año."
         path="/industry/certifications"
+        breadcrumbs={[
+          { name: "Mexico Charts", path: "/" },
+          { name: "Industria", path: "/industria" },
+          { name: "Certificaciones", path: "/industry/certifications" },
+        ]}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "CollectionPage",
@@ -253,7 +258,7 @@ export default function Certifications() {
 
       {/* BREADCRUMB */}
       <div className="px-6 lg:px-10 py-3 flex items-center gap-1.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        <Link href="/"><span className="cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }}><Home className="w-3 h-3" /></span></Link>
+        <Link href="/" className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,0.55)" }}><Home className="w-3 h-3" />Mexico Charts</Link>
         <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.4)" }} />
         <Link href="/industria"><span className="text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer" style={{ color: "rgba(255,255,255,0.55)" }}>Industria</span></Link>
         <ChevronRight className="w-3 h-3" style={{ color: "rgba(255,255,255,0.4)" }} />

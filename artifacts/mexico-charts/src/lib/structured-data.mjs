@@ -40,7 +40,11 @@ export function pageId(canonicalUrl) {
   return `${canonicalUrl}#webpage`;
 }
 
-export function buildStructuredDataGraph({ title, description, canonicalUrl, inLanguage = "es-MX", additional = [] }) {
+export function breadcrumbId(canonicalUrl) {
+  return `${canonicalUrl}#breadcrumb`;
+}
+
+export function buildStructuredDataGraph({ title, description, canonicalUrl, inLanguage = "es-MX", additional = [], breadcrumbs = [] }) {
   const extras = (Array.isArray(additional) ? additional : [additional])
     .filter(Boolean)
     .flatMap((value) => value?.["@graph"] ?? [value])
@@ -49,6 +53,19 @@ export function buildStructuredDataGraph({ title, description, canonicalUrl, inL
   const customPageIndex = extras.findIndex((node) => typesOf(node).some((type) => WEB_PAGE_TYPES.has(type)));
   const customPage = customPageIndex >= 0 ? extras.splice(customPageIndex, 1)[0] : {};
   const canonicalPageId = pageId(canonicalUrl);
+  const breadcrumbItems = breadcrumbs.filter((item) => item?.name && item?.url);
+  const breadcrumb = breadcrumbItems.length > 1
+    ? {
+        "@type": "BreadcrumbList",
+        "@id": breadcrumbId(canonicalUrl),
+        itemListElement: breadcrumbItems.map((item, index) => ({
+          "@type": "ListItem",
+          position: index + 1,
+          name: item.name,
+          item: item.url,
+        })),
+      }
+    : null;
   const page = {
     ...customPage,
     "@type": customPage["@type"] ?? "WebPage",
@@ -59,6 +76,7 @@ export function buildStructuredDataGraph({ title, description, canonicalUrl, inL
     inLanguage: customPage.inLanguage ?? inLanguage,
     isPartOf: { "@id": WEBSITE_ID },
     publisher: { "@id": ORGANIZATION_ID },
+    ...(breadcrumb ? { breadcrumb: { "@id": breadcrumb["@id"] } } : {}),
   };
 
   const connectedExtras = extras.map((node) => {
@@ -104,6 +122,7 @@ export function buildStructuredDataGraph({ title, description, canonicalUrl, inL
         },
       },
       page,
+      ...(breadcrumb ? [breadcrumb] : []),
       ...connectedExtras,
     ],
   };

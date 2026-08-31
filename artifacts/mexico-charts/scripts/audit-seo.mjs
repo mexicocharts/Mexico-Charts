@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { LOGO_ID, ORGANIZATION_ID, WEBSITE_ID, pageId } from "../src/lib/structured-data.mjs";
+import { LOGO_ID, ORGANIZATION_ID, WEBSITE_ID, breadcrumbId, pageId } from "../src/lib/structured-data.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist", "public");
@@ -36,14 +36,53 @@ function verifyGraph(graph, canonicalUrl) {
   assert(page.publisher?.["@id"] === ORGANIZATION_ID, "WebPage publisher is disconnected");
 }
 
-const [homeHtml, chartsHtml, sitemap] = await Promise.all([
+function verifyBreadcrumb(graph, canonicalUrl, expectedNames) {
+  const nodes = graph["@graph"];
+  const breadcrumbs = nodes.filter((node) => node["@type"] === "BreadcrumbList");
+  assert(breadcrumbs.length === 1, `Expected one breadcrumb for ${canonicalUrl}`);
+  const breadcrumb = breadcrumbs[0];
+  assert(breadcrumb["@id"] === breadcrumbId(canonicalUrl), `Unstable breadcrumb ID for ${canonicalUrl}`);
+  assert(
+    JSON.stringify(breadcrumb.itemListElement.map((item) => item.name)) === JSON.stringify(expectedNames),
+    `Incorrect breadcrumb hierarchy for ${canonicalUrl}`,
+  );
+  const page = nodes.find((node) => node["@id"] === pageId(canonicalUrl));
+  assert(page.breadcrumb?.["@id"] === breadcrumb["@id"], `Page breadcrumb is disconnected for ${canonicalUrl}`);
+}
+
+const [homeHtml, chartsHtml, aboutHtml, articleHtml, artistHtml, sitemap] = await Promise.all([
   readFile(path.join(dist, "index.html"), "utf8"),
   readFile(path.join(dist, "charts"), "utf8"),
+  readFile(path.join(dist, "acerca-de"), "utf8"),
+  readFile(path.join(dist, "insights", "mexico-top-10-ifpi-2026"), "utf8"),
+  readFile(path.join(dist, "artist", "peso-pluma"), "utf8"),
   readFile(path.join(root, "public", "sitemap.xml"), "utf8"),
 ]);
 
 verifyGraph(structuredData(homeHtml), "https://mexicochart.com/");
 verifyGraph(structuredData(chartsHtml), "https://mexicochart.com/charts");
+const chartsGraph = structuredData(chartsHtml);
+const aboutGraph = structuredData(aboutHtml);
+const articleGraph = structuredData(articleHtml);
+const artistGraph = structuredData(artistHtml);
+verifyGraph(aboutGraph, "https://mexicochart.com/acerca-de");
+verifyGraph(articleGraph, "https://mexicochart.com/insights/mexico-top-10-ifpi-2026");
+verifyGraph(artistGraph, "https://mexicochart.com/artist/peso-pluma");
+verifyBreadcrumb(chartsGraph, "https://mexicochart.com/charts", ["Mexico Charts", "Charts de música en México"]);
+verifyBreadcrumb(aboutGraph, "https://mexicochart.com/acerca-de", ["Mexico Charts", "Acerca de"]);
+verifyBreadcrumb(articleGraph, "https://mexicochart.com/insights/mexico-top-10-ifpi-2026", ["Mexico Charts", "Industria", "México Top 10 IFPI 2026"]);
+verifyBreadcrumb(artistGraph, "https://mexicochart.com/artist/peso-pluma", ["Mexico Charts", "Artistas", "Peso Pluma"]);
+const about = aboutGraph["@graph"].find((node) => node["@id"] === pageId("https://mexicochart.com/acerca-de"));
+assert(about["@type"] === "AboutPage", "About page is not an AboutPage");
+assert(about.about?.["@id"] === ORGANIZATION_ID && about.mainEntity?.["@id"] === ORGANIZATION_ID, "About page is disconnected from Organization");
+const articles = articleGraph["@graph"].filter((node) => node["@type"] === "Article" || node["@type"] === "NewsArticle");
+assert(articles.length === 1, "Expected exactly one article entity");
+assert(articles[0].publisher?.["@id"] === ORGANIZATION_ID, "Article publisher is disconnected");
+assert(articles[0].mainEntityOfPage?.["@id"] === pageId("https://mexicochart.com/insights/mexico-top-10-ifpi-2026"), "Article mainEntityOfPage is disconnected");
+for (const field of ["author", "datePublished", "dateModified"]) {
+  assert(!(field in articles[0]), `Unreliable article ${field} must not be emitted`);
+}
+assert(!/<meta name="author"/i.test(articleHtml), "Article HTML must not claim an unsupported author");
 assert(homeHtml.includes("Mexico Charts es una plataforma independiente"), "Homepage brand copy missing from initial HTML");
 assert(chartsHtml.includes("Charts de música en México"), "Charts H1 missing from initial HTML");
 assert(chartsHtml.includes("Spotify, YouTube, Apple Music y Deezer"), "Charts platform context missing from initial HTML");
@@ -53,4 +92,4 @@ for (const value of [...sitemap.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m
   assert(/^20\d{2}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), `Invalid sitemap lastmod: ${value}`);
 }
 
-console.log("SEO audit passed: connected entity graphs, crawlable P0 copy, and valid sitemap freshness fields.");
+console.log("SEO audit passed: connected P0/P1 entity graphs, truthful article metadata, breadcrumbs, crawlable copy, and valid sitemap freshness fields.");
