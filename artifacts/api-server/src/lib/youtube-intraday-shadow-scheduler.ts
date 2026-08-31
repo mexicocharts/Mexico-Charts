@@ -823,8 +823,24 @@ async function saveStoredChannelImportChunk(
   }
 }
 
+const YOUTUBE_CHANNELS_LIST_MAX_RESULTS = 50;
+
+export function youtubeChannelImportArtistLimit(callsAvailable: number, maxArtists = 200): number {
+  let artistCount = Math.max(0, Math.min(maxArtists, Math.floor(callsAvailable)));
+  while (
+    artistCount > 0
+    && artistCount + Math.ceil(artistCount / YOUTUBE_CHANNELS_LIST_MAX_RESULTS) > callsAvailable
+  ) {
+    artistCount -= 1;
+  }
+  return artistCount;
+}
+
 async function importStoredProfileChannelUploads(client: PgClient, callsAvailable: number) {
-  const artistLimit = Math.max(0, Math.min(200, callsAvailable - 1));
+  // Each selected artist can require one playlistItems.list request. In the
+  // worst case every selected channel also needs a channels.list lookup, whose
+  // documented maxResults limit is 50. Reserve both costs up front.
+  const artistLimit = youtubeChannelImportArtistLimit(callsAvailable);
   if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
   const channels = await client.query<StoredChannelRow>(`
     SELECT
@@ -885,13 +901,13 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
       : []),
   );
   const channelsMissingPlaylist = channels.rows.filter(row => !row.playlist_id);
-  if (channelsMissingPlaylist.length) {
+  for (const channelGroup of batch(channelsMissingPlaylist, YOUTUBE_CHANNELS_LIST_MAX_RESULTS)) {
     const channelData = await fetchYoutubeJson<{
       items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
     }>("channels", {
       part: "contentDetails",
-      id: channelsMissingPlaylist.map(row => row.channel_id).join(","),
-      maxResults: String(channelsMissingPlaylist.length),
+      id: channelGroup.map(row => row.channel_id).join(","),
+      maxResults: String(channelGroup.length),
     });
     apiCalls += 1;
     await recordUsage(client, 0, 0);
