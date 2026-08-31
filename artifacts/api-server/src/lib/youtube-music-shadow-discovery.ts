@@ -1,10 +1,12 @@
 import { Innertube, UniversalCache } from "youtubei.js";
+import { pool } from "@workspace/db";
 import {
   decideYoutubeMusicCandidate,
   normalizeYoutubeArtistName,
   type YoutubeMusicCredit,
   type YoutubeShadowStatus,
 } from "./youtube-shadow-policy";
+import { reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { getYoutubeShadowManualReview } from "./youtube-shadow-manual-review";
 import {
   youtubeShadowCanUseVerifiedChannelFallback,
@@ -465,6 +467,16 @@ export async function resolveTrustedYoutubeIdentity(
 }
 
 async function fetchYoutubeJson<T extends { error?: { message?: string } }>(url: URL): Promise<T> {
+  const resource = url.pathname.split("/").at(-1) ?? "unknown";
+  const quotaClient = await pool.connect();
+  try {
+    await reserveYoutubeApiUsage(quotaClient, {
+      consumer: "official_shadow_discovery",
+      method: `${resource}.list`,
+    });
+  } finally {
+    quotaClient.release();
+  }
   const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   const payload = await response.json().catch(() => ({})) as T;
   if (!response.ok) {

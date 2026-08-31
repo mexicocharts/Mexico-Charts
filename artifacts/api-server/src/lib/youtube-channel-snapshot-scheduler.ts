@@ -1,6 +1,8 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { finishDailySnapshotRunLog, startDailySnapshotRunLog } from "./daily-snapshot-run-log";
+import { reserveYoutubeApiUsage } from "./youtube-api-budget";
+import { safeErrorDetails } from "./safe-error";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -107,7 +109,7 @@ async function ensureSnapshotTable(client: PgClient) {
   `);
 }
 
-async function fetchYoutubeChannels(channelIds: string[]): Promise<SnapshotStats[]> {
+async function fetchYoutubeChannels(client: PgClient, channelIds: string[]): Promise<SnapshotStats[]> {
   const apiKey = process.env["YOUTUBE_API_KEY"];
   if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY.");
 
@@ -118,6 +120,7 @@ async function fetchYoutubeChannels(channelIds: string[]): Promise<SnapshotStats
     maxResults: String(channelIds.length),
   });
 
+  await reserveYoutubeApiUsage(client, { consumer: "daily_channel_snapshots", method: "channels.list" });
   const res = await fetch(`${YOUTUBE_API_BASE}/channels?${params.toString()}`);
   if (!res.ok) {
     const body = await res.text();
@@ -318,7 +321,7 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
       let dailyViewsTotal = 0;
 
       for (const group of batch(channelRows.rows, 50)) {
-        const statsRows = await fetchYoutubeChannels(group.map(channel => channel.channel_id));
+        const statsRows = await fetchYoutubeChannels(client, group.map(channel => channel.channel_id));
         fetched += statsRows.length;
         const statsById = new Map(statsRows.map(stats => [stats.channelId, stats]));
 
@@ -365,7 +368,7 @@ export async function runDailyYoutubeChannelSnapshots(reason: string): Promise<Y
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
-    logger.error({ err, snapshotDate, reason }, "[youtube:snapshots] daily channel snapshot job failed");
+    logger.error(safeErrorDetails(err,{snapshotDate,reason,job:"daily-channel-snapshots"}), "[youtube:snapshots] daily channel snapshot job failed");
     const summary = {
       status: "failed",
       snapshotDate,

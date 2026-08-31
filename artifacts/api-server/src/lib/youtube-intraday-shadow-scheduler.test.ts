@@ -24,6 +24,7 @@ test("reserves quota for documented channels.list batches", () => {
   assert.equal(youtubeChannelImportArtistLimit(51), 50);
   assert.equal(youtubeChannelImportArtistLimit(200), 196);
   assert.equal(youtubeChannelImportArtistLimit(10_000), 200);
+  assert.equal(youtubeChannelImportArtistLimit(10_000, 10), 10);
 });
 
 test("reports the effective intraday automation kill-switch state", () => {

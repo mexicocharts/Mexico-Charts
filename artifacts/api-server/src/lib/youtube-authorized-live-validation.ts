@@ -1,5 +1,8 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
+import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
+import { safeErrorDetails } from "./safe-error";
+import { INNERTUBE_PRIMARY_SOURCE } from "./youtube-discovery-provenance";
 
 const RUN_LOCK = 8_604_260;
 const CHECK_MS = 6 * 60 * 60 * 1_000;
@@ -101,6 +104,7 @@ async function ensureTables(client: PgClient) {
     CREATE INDEX IF NOT EXISTS youtube_discovery_validation_events_video_idx
       ON youtube_discovery_validation_events(session_id, video_id, first_seen_at);
   `);
+  await bootstrapYoutubeApiUsage(client, "validation");
 }
 
 async function activeSession(client: PgClient) {
@@ -169,6 +173,10 @@ async function youtubeJson<T>(client: PgClient, sessionId: string, resource: str
   const url = new URL(`https://www.googleapis.com/youtube/v3/${resource}`);
   url.searchParams.set("key", apiKey);
   Object.entries(params).forEach(([key,value]) => url.searchParams.set(key,value));
+  await reserveYoutubeApiUsage(client, {
+    consumer: "protected_validation",
+    method: resource === "channels" ? "channels.list" : resource === "playlistItems" ? "playlistItems.list" : `${resource}.list`,
+  });
   await addUsage(client, sessionId, usageColumn);
   const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   const text = await response.text();
@@ -227,7 +235,7 @@ async function scanAuthorizedChannels(client: PgClient, sessionId: string) {
         ]);
       }
     } catch (error) {
-      logger.warn({error,channelId:channel.channel_id},"[youtube-authorized-validation] playlist scan failed");
+      logger.warn(safeErrorDetails(error,{channelId:channel.channel_id,job:"authorized-playlist-scan"}),"[youtube-authorized-validation] playlist scan failed");
     }
   }
 }
@@ -266,6 +274,7 @@ async function documentedSearch(client: PgClient, sessionId: string, query: stri
     const url=new URL("https://www.googleapis.com/youtube/v3/search");
     Object.entries({key:apiKey,part:"snippet",type:"video",q:query,order:"date",publishedAfter,maxResults:"50",regionCode:"MX"})
       .forEach(([key,value])=>url.searchParams.set(key,value));
+    await reserveYoutubeApiUsage(client, { consumer: "protected_validation_search", method: "search.list" });
     const response=await fetch(url,{signal:AbortSignal.timeout(15_000)});
     const text=await response.text();
     if (response.ok) return JSON.parse(text) as YoutubeSearchResponse;
@@ -321,23 +330,40 @@ async function runPrioritizedSearches(client: PgClient, session:{id:string;start
         ]);
       }
     } catch(error) {
-      logger.warn({error,artistKey:artist.artist_key},"[youtube-authorized-validation] documented search failed");
+      logger.warn(safeErrorDetails(error,{artistKey:artist.artist_key,job:"documented-search"}),"[youtube-authorized-validation] documented search failed");
       if (/target|hard cap/i.test(String(error))) break;
     }
   }
 }
 
 async function captureComparator(client: PgClient, session:{id:string;started_at:string}) {
+  // Existing comparator rows are decision-window accounting, not historical
+  // observations. Rebuild them from immutable catalog provenance so a prior
+  // classifier bug cannot survive alongside corrected rows.
+  await client.query(`DELETE FROM youtube_discovery_validation_events
+    WHERE session_id=$1 AND source='innertube_comparator'`,[session.id]);
   await client.query(`INSERT INTO youtube_discovery_validation_events
     (session_id,source,artist_key,video_id,title,uploader_channel_id,uploader_channel_title,uploader_type,association_status,first_seen_at,published_at,evidence)
     SELECT $1::bigint,'innertube_comparator',c.artist_key,c.video_id,c.title,c.evidence->>'uploaderChannelId',NULL,
       CASE WHEN c.evidence_sources::text ILIKE '%topic%' THEN 'topic' ELSE 'artist_other' END,
-      'comparator',COALESCE(c.discovered_at,c.created_at),NULL,
-      jsonb_build_object('evidenceSources',c.evidence_sources,'candidateStatus',c.status)
+      'comparator',COALESCE(c.discovered_at,c.created_at),v.published_at,
+      jsonb_build_object(
+        'primarySource',c.evidence_source,
+        'evidenceSources',c.evidence_sources,
+        'candidateStatus',c.status,
+        'provenanceClassifier','explicit-primary-v1'
+      )
     FROM youtube_music_catalog_candidates c
+    JOIN youtube_tracked_videos v ON v.video_id=c.video_id
     WHERE COALESCE(c.discovered_at,c.created_at) >= $2::timestamptz
-      AND NOT (c.evidence_sources ? 'verified_official_channel_upload')
-    ON CONFLICT DO NOTHING`,[session.id,session.started_at]);
+      AND v.published_at >= $2::timestamptz - interval '1 day'
+      AND c.evidence_source=$3
+    ON CONFLICT DO NOTHING`,[session.id,session.started_at,INNERTUBE_PRIMARY_SOURCE]);
+  await client.query(`UPDATE youtube_discovery_validation_sessions
+    SET configuration=configuration || jsonb_build_object(
+      'provenanceClassifier','explicit-primary-v1',
+      'provenanceReclassifiedAt',now()
+    ) WHERE id=$1`,[session.id]);
 }
 
 async function snapshotDay(client: PgClient, sessionId: string) {
@@ -383,6 +409,11 @@ export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
         await client.query("UPDATE youtube_discovery_validation_sessions SET status='complete',completed_at=now() WHERE id=$1",[session.id]);
         return {status:"complete",sessionId:session.id};
       }
+      // Rebuild decision-window comparator accounting from explicit immutable
+      // provenance before slower API scans. A long channel backlog must not
+      // leave known-invalid legacy comparator counts visible for the run.
+      await captureComparator(client,session);
+      await snapshotDay(client,session.id);
       await hydrateUploadsPlaylists(client,session.id);
       await scanAuthorizedChannels(client,session.id);
       await runPrioritizedSearches(client,session);
@@ -400,7 +431,7 @@ export function startYoutubeAuthorizedLiveValidation() {
   started=true;
   const run=(reason:string)=>void runYoutubeAuthorizedLiveValidation(reason)
     .then(result=>logger.info(result,"[youtube-authorized-validation] run complete"))
-    .catch(error=>logger.error({error},"[youtube-authorized-validation] run failed"));
+    .catch(error=>logger.error(safeErrorDetails(error,{job:"protected-live-validation"}),"[youtube-authorized-validation] run failed"));
   setTimeout(()=>run("startup"),15_000).unref();
   setInterval(()=>run("six-hour-check"),CHECK_MS).unref();
   logger.info({days:VALIDATION_DAYS,searchTarget:SEARCH_LOGICAL_TARGET,searchHardCap:SEARCH_REQUEST_HARD_CAP},"[youtube-authorized-validation] protected validation enabled");

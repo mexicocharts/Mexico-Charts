@@ -13,6 +13,8 @@ import {
 } from "../lib/youtube-intraday-shadow-scheduler";
 import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-scheduler";
 import { getDashboardAdminKey } from "../lib/admin-key";
+import { reserveYoutubeApiUsage, youtubeApiDailyUsage } from "../lib/youtube-api-budget";
+import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 
 const router = Router();
 
@@ -81,6 +83,16 @@ async function fetchArtistMetadataRows(): Promise<ArtistMetadataRow[]> {
 async function ytFetch(path: string, params: Record<string, string>): Promise<unknown> {
   const qs = new URLSearchParams({ ...params, key: API_KEY() });
   const url = `${YT_BASE}${path}?${qs.toString()}`;
+  const quotaClient = await pool.connect();
+  try {
+    const resource = path.replace(/^\//, "");
+    await reserveYoutubeApiUsage(quotaClient, {
+      consumer: "admin_youtube",
+      method: `${resource}.list`,
+    });
+  } finally {
+    quotaClient.release();
+  }
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) {
     const body = await res.text();
@@ -1004,6 +1016,7 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
     await ensureYoutubeVideoTrackerTables(client);
     await ensureYoutubeShadowTables(client);
     await ensureYoutubeIntradayShadowTables(client);
+    const unifiedQuota = await youtubeApiDailyUsage(client);
     const [counts, usage, artists, runs, rejectedCandidates, pilotArtists] = await Promise.all([
       client.query<{
         mappings: number; candidates: number; unique_videos: number; review: number; verified: number; rejected: number;
@@ -1119,6 +1132,7 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
       pilotArtists: pilotArtists.rows,
       counts: counts.rows[0],
       usage: usage.rows,
+      unifiedQuota,
       artists: artists.rows,
       recentRuns: runs.rows,
       rejectedCandidates: rejectedCandidates.rows,
@@ -1146,13 +1160,42 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
         SELECT
           (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
           ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
+      ), matched_candidates AS (
+        SELECT c.*,
+          regexp_replace(translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') logical_artist_key,
+          row_number() OVER (
+            PARTITION BY
+              regexp_replace(translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g'),
+              c.video_id
+            ORDER BY
+              (c.artist_key=$1) DESC,
+              (c.status='verified') DESC,
+              c.confidence_score DESC,
+              (c.canonical_url LIKE 'https://www.youtube.com/watch?v=%') DESC,
+              c.id
+          ) candidate_rank
+        FROM youtube_music_catalog_candidates c
+        WHERE (
+            c.artist_key=$1
+            OR regexp_replace(
+              translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+              '[^a-z0-9]', '', 'g'
+            ) = regexp_replace(
+              translate(lower($1), 'áéíóúüñ', 'aeiouun'),
+              '[^a-z0-9]', '', 'g'
+            )
+          )
+          AND c.status IN ('review','verified')
+          AND c.sampling_status='shadow'
+      ), canonical_candidates AS (
+        SELECT * FROM matched_candidates WHERE candidate_rank=1
       )
       SELECT
         c.artist_name,
         c.video_id,
         COALESCE(NULLIF(v.title, ''), c.title) title,
         v.thumbnail_url,
-        c.canonical_url,
+        'https://www.youtube.com/watch?v=' || c.video_id canonical_url,
         latest.view_count,
         latest.view_delta,
         latest.seconds_since_previous,
@@ -1165,7 +1208,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
           ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
         today_start.observed_at::text views_today_et_started_at,
         CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
-      FROM youtube_music_catalog_candidates c
+      FROM canonical_candidates c
       CROSS JOIN eastern_bounds bounds
       JOIN youtube_tracked_videos v ON v.video_id=c.video_id
       JOIN LATERAL (
@@ -1193,23 +1236,12 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
         ORDER BY s.observed_at
         LIMIT 1
       ) today_start ON true
-      WHERE (
-          c.artist_key=$1
-          OR regexp_replace(
-            translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          ) = regexp_replace(
-            translate(lower($1), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          )
-        )
-        AND c.status IN ('review','verified')
-        AND c.sampling_status='shadow'
       ORDER BY latest.view_count DESC, c.title
       LIMIT 10
     `, [artistKey]);
 
-    const latestObservedAt = videos.rows.reduce<string | null>((latest, video) => {
+    const uniqueVideos = dedupeYoutubeMonitorRows(videos.rows as Array<{video_id:string;canonical_url?:string|null;observed_at?:string|null}>);
+    const latestObservedAt = uniqueVideos.reduce<string | null>((latest, video) => {
       const observedAt = typeof video.observed_at === "string" ? video.observed_at : null;
       if (!observedAt) return latest;
       return !latest || new Date(observedAt).getTime() > new Date(latest).getTime() ? observedAt : latest;
@@ -1224,7 +1256,7 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
       exact: true,
       fresh,
       latestObservedAt,
-      videos: videos.rows,
+      videos: uniqueVideos,
       freeLimit: 10,
     });
   } finally {
