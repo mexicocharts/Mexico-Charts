@@ -1278,10 +1278,6 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const transactionStartedAt = performance.now();
-    // Both exact aggregates group narrow identity rows from large relations.
-    // Keep their hash state in memory instead of spilling to temporary files.
-    // This is transaction-local and bounded by publicReadPool.max (3).
-    await client.query("SET LOCAL work_mem = '64MB'");
     const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
     const mappingCompletedAt = performance.now();
     const candidate = await client.query(
