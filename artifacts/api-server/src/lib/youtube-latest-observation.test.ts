@@ -114,6 +114,9 @@ test("latest read avoids historical aggregation while preserving legacy rollback
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /youtube_video_intraday_latest_observations/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /youtube_video_intraday_shadow_snapshots/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /candidate_artist_state AS MATERIALIZED/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /candidate_video_state AS MATERIALIZED/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /count\(DISTINCT candidate\./);
   assert.equal(youtubeLiveCoverageReadMode({}), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "latest" }), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "legacy" }), "legacy");

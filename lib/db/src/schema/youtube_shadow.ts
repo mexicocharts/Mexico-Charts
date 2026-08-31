@@ -51,6 +51,12 @@ export const youtubeMusicCatalogCandidates = pgTable("youtube_music_catalog_cand
   uniqueIndex("youtube_music_catalog_candidates_artist_video_unique").on(table.artistKey, table.videoId),
   index("youtube_music_catalog_candidates_status_idx").on(table.status, table.samplingStatus, table.refreshTier),
   index("youtube_music_catalog_candidates_video_idx").on(table.videoId),
+  index("youtube_music_catalog_candidates_coverage_identity_idx")
+    .on(
+      sql`regexp_replace(translate(lower(${table.artistKey}), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')`,
+      table.videoId,
+    )
+    .where(sql`${table.samplingStatus} = 'shadow' AND ${table.status} IN ('review','verified')`),
   check("youtube_music_catalog_candidates_status_check", sql`${table.status} IN ('verified','review','rejected')`),
   check("youtube_music_catalog_candidates_sampling_status_check", sql`${table.samplingStatus} IN ('shadow','paused','disabled')`),
   check("youtube_music_catalog_candidates_refresh_tier_check", sql`${table.refreshTier} IN ('hot','warm','baseline')`),

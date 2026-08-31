@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { bigint, boolean, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const youtubeTrackedVideos = pgTable("youtube_tracked_videos", {
@@ -37,6 +38,9 @@ export const youtubeArtistVideoLinks = pgTable("youtube_artist_video_links", {
   index("youtube_artist_video_links_artist_idx").on(table.artistKey),
   index("youtube_artist_video_links_video_idx").on(table.videoId),
   index("youtube_artist_video_links_active_priority_idx").on(table.active, table.priority),
+  index("youtube_artist_video_links_coverage_identity_idx")
+    .on(sql`regexp_replace(translate(lower(${table.artistKey}), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')`)
+    .where(sql`${table.active} = true AND ${table.confidenceScore} >= 80`),
   foreignKey({
     name: "youtube_artist_video_links_video_id_fkey",
     columns: [table.videoId],
