@@ -285,3 +285,23 @@ test("the compact store has no mutation target outside the five-table compact co
     [],
   );
 });
+
+test("the CLI preflight branch cannot load API or write-capable backfill modules", () => {
+  const runner = readFileSync(
+    new URL("../scripts/songstats-history-backfill.ts", import.meta.url),
+    "utf8",
+  );
+  const preflight = readFileSync(
+    new URL("./songstats-history-preflight.ts", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(runner, /^import[\s\S]*songstats-history-backfill/m);
+  assert.ok(
+    runner.indexOf('mode === "production-preflight"') <
+      runner.indexOf('import("../lib/songstats-history-backfill")'),
+  );
+  assert.doesNotMatch(
+    preflight,
+    /songstats-client|songstats-history-backfill|songstats-history-store/,
+  );
+});
