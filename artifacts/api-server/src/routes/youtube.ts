@@ -8,6 +8,7 @@ import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "../lib/yo
 import {
   ensureYoutubeIntradayShadowTables,
   runYoutubeIntradayShadow,
+  youtubeIntradayShadowAutomationEnabled,
   YOUTUBE_SHADOW_PILOT_ARTISTS,
 } from "../lib/youtube-intraday-shadow-scheduler";
 import { ensureYoutubeVideoTrackerTables } from "../lib/youtube-video-tracker-scheduler";
@@ -1111,7 +1112,7 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
     res.json({
       publicDataChanged: false,
       shadowMode: true,
-      automationEnabled: process.env["YOUTUBE_INTRADAY_SHADOW_AUTOMATION"] !== "false",
+      automationEnabled: youtubeIntradayShadowAutomationEnabled(),
       catalogReady: readyPilotArtists === YOUTUBE_SHADOW_PILOT_ARTISTS.length,
       readyPilotArtists,
       totalPilotArtists: YOUTUBE_SHADOW_PILOT_ARTISTS.length,
