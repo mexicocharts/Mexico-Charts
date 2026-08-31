@@ -108,12 +108,13 @@ test("a missing latest row during migration blocks equivalence", () => {
   };
   const incomplete = { ...legacy, observed_videos: 1 };
   assert.equal(youtubeLiveCoverageRowsEqual(legacy, incomplete), false);
-  assert.equal(youtubeLiveCoverageReadMode({}), "legacy");
 });
 
 test("latest read avoids historical aggregation while preserving legacy rollback SQL", () => {
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /youtube_video_intraday_latest_observations/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /youtube_video_intraday_shadow_snapshots/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_SQL, /youtube_video_intraday_shadow_snapshots/);
+  assert.equal(youtubeLiveCoverageReadMode({}), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "latest" }), "latest");
+  assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "legacy" }), "legacy");
 });

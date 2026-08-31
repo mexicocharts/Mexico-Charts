@@ -121,7 +121,7 @@ export const YOUTUBE_LIVE_COVERAGE_LATEST_SQL = `${commonPrefix}
 export function youtubeLiveCoverageReadMode(
   env: NodeJS.ProcessEnv = process.env,
 ): YoutubeLiveCoverageReadMode {
-  return env["YOUTUBE_LIVE_COVERAGE_READ_MODE"] === "latest" ? "latest" : "legacy";
+  return env["YOUTUBE_LIVE_COVERAGE_READ_MODE"] === "legacy" ? "legacy" : "latest";
 }
 
 export function youtubeLiveCoverageSql(mode: YoutubeLiveCoverageReadMode): string {
