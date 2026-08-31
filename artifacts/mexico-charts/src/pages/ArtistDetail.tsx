@@ -23,6 +23,7 @@ import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";
+import { SITE_URL, pageId } from "@/lib/structured-data.mjs";
 
 export { slugify };
 
@@ -748,6 +749,40 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const { data: artistTouring } = useArtistTouring(slug);
   const photo = getArtistImageUrl(artistImages, artist.name, canonicalName);
   const displayPhoto = photo && photo !== failedPhotoUrl ? photo : null;
+  const canonicalPath = canonicalArtistHref(slug) ?? `/artist/${slug}`;
+  const artistCanonicalUrl = `${SITE_URL}${canonicalPath}`;
+  const artistEntityId = `${artistCanonicalUrl}#artist`;
+  const artistJsonLd = useMemo(() => {
+    const verifiedProfiles = [
+      enrichment?.spotify?.verified ? enrichment.spotify.url : null,
+      enrichment?.youtube?.channelUrl ?? null,
+      ...(enrichment?.socialAccounts ?? [])
+        .filter(account => Boolean(account.verifiedAt) && account.confidence >= 90)
+        .map(account => account.url),
+    ].filter((value): value is string => Boolean(value));
+    const genres = Array.from(new Set([
+      ...(enrichment?.spotify?.verified ? enrichment.spotify.genres : []),
+      artist.genre,
+      artist.subgenre,
+    ].map(value => value?.trim()).filter((value): value is string => Boolean(value))));
+
+    return [
+      {
+        "@type": "WebPage",
+        mainEntity: { "@id": artistEntityId },
+      },
+      {
+        "@type": "MusicGroup",
+        "@id": artistEntityId,
+        name: artist.name,
+        url: artistCanonicalUrl,
+        mainEntityOfPage: { "@id": pageId(artistCanonicalUrl) },
+        ...(displayPhoto ? { image: displayPhoto } : {}),
+        ...(genres.length ? { genre: genres } : {}),
+        ...(verifiedProfiles.length ? { sameAs: Array.from(new Set(verifiedProfiles)) } : {}),
+      },
+    ];
+  }, [artist.genre, artist.name, artist.subgenre, artistCanonicalUrl, artistEntityId, displayPhoto, enrichment]);
   useEffect(() => {
     setFailedPhotoUrl(null);
   }, [slug, photo]);
@@ -985,11 +1020,12 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       <PageSEO
         title={`${artist.name} — Perfil de artista | Mexico Charts`}
         description={`${artist.name}: perfil de artista con género, estadísticas de streaming, audiencia, redes sociales, certificaciones y datos de listas en México Charts.`}
-        path={canonicalArtistHref(slug) ?? `/artist/${slug}`}
+        path={canonicalPath}
+        jsonLd={artistJsonLd}
         breadcrumbs={[
           { name: "Mexico Charts", path: "/" },
           { name: "Artistas", path: "/artists" },
-          { name: artist.name, path: canonicalArtistHref(slug) ?? `/artist/${slug}` },
+          { name: artist.name, path: canonicalPath },
         ]}
       />
       {/* ── ERROR BANNER — only when a sheet URL is configured but fetch failed ── */}
@@ -1098,7 +1134,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
               {artist.rank > 0 ? spotifyMexicoRankLabel(artist.rank) : "Artista"}
               <span className="opacity-40">·</span>
-              {genreLabel(artist.genre)}
+              <Link href="/generos" className="transition-opacity hover:opacity-75">
+                {genreLabel(artist.genre)}
+              </Link>
             </div>
             <h1
               className="mb-3 max-w-full font-black uppercase leading-[0.88] tracking-tight text-white sm:max-w-[12ch]"

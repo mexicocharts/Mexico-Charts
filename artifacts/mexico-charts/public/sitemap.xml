@@ -11,6 +11,26 @@
     <priority>0.95</priority>
   </url>
   <url>
+    <loc>https://mexicochart.com/charts/spotify</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/charts/youtube</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/charts/apple-music</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://mexicochart.com/charts/deezer</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
     <loc>https://mexicochart.com/esta-semana</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>

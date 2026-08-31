@@ -6,6 +6,8 @@ import TouringCommandCenter from "@/components/TouringCommandCenter";
 import { useArtistTouring, useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
+import { Link } from "wouter";
+import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 const HERO_BG = "/touring-hero.png";
 
@@ -157,7 +159,13 @@ function ShelfCard({
         )}
 
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 12px 14px", background: "linear-gradient(to top, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.65) 55%, transparent 100%)" }}>
-          <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
+          {canonicalArtistHref(artist.id) ? (
+            <Link href={canonicalArtistHref(artist.id)!} className="transition-opacity hover:opacity-75">
+              <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
+            </Link>
+          ) : (
+            <div className="th-anton" style={{ color: "#fff", fontSize: 16, textTransform: "uppercase", lineHeight: 1.1, marginBottom: 4 }}>{artist.name}</div>
+          )}
           {nextEv ? (
             <>
               <div style={{ color: accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em" }}>{artist.events.length} fechas</div>
@@ -1160,7 +1168,13 @@ export default function TouringHub() {
                         <div style={{ color: "#39FF14", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".16em", marginBottom: 8 }}>
                           {featured ? "Destacada" : isToday ? "En vivo hoy" : "Próxima"}
                         </div>
-                        <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: 0, lineHeight: 1.05 }}>{artist.name}</h3>
+                        {canonicalArtistHref(artist.id) ? (
+                          <Link href={canonicalArtistHref(artist.id)!} className="transition-opacity hover:opacity-75">
+                            <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: 0, lineHeight: 1.05 }}>{artist.name}</h3>
+                          </Link>
+                        ) : (
+                          <h3 className="th-anton" style={{ color: "#fff", fontSize: 22, textTransform: "uppercase", margin: 0, lineHeight: 1.05 }}>{artist.name}</h3>
+                        )}
                       </div>
                       <span style={{ color: "rgba(57,255,20,.7)", fontSize: 22, fontWeight: 900, lineHeight: 1 }}>{String(index + 1).padStart(2, "0")}</span>
                     </div>

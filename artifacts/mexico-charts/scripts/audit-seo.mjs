@@ -1,8 +1,9 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LOGO_ID, ORGANIZATION_ID, WEBSITE_ID, breadcrumbId, pageId } from "../src/lib/structured-data.mjs";
 import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
+import { PLATFORM_CHART_ROUTES, SEO_ROUTE_DEFINITIONS, getSeoRoute } from "../src/lib/seo-routes.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist", "public");
@@ -57,17 +58,40 @@ function verifyBreadcrumb(graph, canonicalUrl, expectedNames) {
   assert(page.breadcrumb?.["@id"] === breadcrumb["@id"], `Page breadcrumb is disconnected for ${canonicalUrl}`);
 }
 
-const [homeHtml, chartsHtml, aboutHtml, articleHtml, artistHtml, sitemap] = await Promise.all([
+const [homeHtml, chartsHtml, aboutHtml, articleHtml, artistHtml, groupArtistHtml, lowerDataArtistHtml, certificationsHtml, sitemap] = await Promise.all([
   readFile(path.join(dist, "index.html"), "utf8"),
-  readFile(path.join(dist, "charts"), "utf8"),
+  readFile(path.join(dist, "charts", "index.html"), "utf8"),
   readFile(path.join(dist, "acerca-de"), "utf8"),
   readFile(path.join(dist, "insights", "mexico-top-10-ifpi-2026"), "utf8"),
   readFile(path.join(dist, "artist", "peso-pluma"), "utf8"),
+  readFile(path.join(dist, "artist", "fuerza-regida"), "utf8"),
+  readFile(path.join(dist, "artist", "hupe"), "utf8"),
+  readFile(path.join(dist, "industry", "certifications"), "utf8"),
   readFile(path.join(root, "public", "sitemap.xml"), "utf8"),
 ]);
 const historicalHtml = await Promise.all(WEEKLY_EDITIONS.map((edition) =>
   readFile(path.join(dist, "esta-semana", edition.date), "utf8"),
 ));
+
+const [pageSeoSource, prerenderSource] = await Promise.all([
+  readFile(path.join(root, "src", "components", "PageSEO.tsx"), "utf8"),
+  readFile(path.join(root, "scripts", "prerender-static.mjs"), "utf8"),
+]);
+assert(pageSeoSource.includes("getSeoRoute(path)"), "Runtime PageSEO is not consuming shared route metadata");
+assert(prerenderSource.includes("applySeoRouteDefinition(route)"), "Prerendering is not consuming shared route metadata");
+
+for (const definition of Object.values(SEO_ROUTE_DEFINITIONS)) {
+  const outputPath = definition.path === "/"
+    ? path.join(dist, "index.html")
+    : definition.path === "/charts"
+      ? path.join(dist, "charts", "index.html")
+      : path.join(dist, ...definition.path.slice(1).split("/"));
+  const outputStats = await stat(outputPath);
+  const html = await readFile(outputStats.isDirectory() ? path.join(outputPath, "index.html") : outputPath, "utf8");
+  assert(html.includes(`<title>${definition.title}</title>`), `${definition.path} title drifted from shared metadata`);
+  assert(html.includes(`<meta name="description" content="${definition.description}" />`), `${definition.path} description drifted from shared metadata`);
+  assert(html.includes(`<link rel="canonical" href="https://mexicochart.com${definition.path === "/" ? "/" : definition.canonicalPath}" />`), `${definition.path} canonical drifted from shared metadata`);
+}
 
 verifyGraph(structuredData(homeHtml), "https://mexicochart.com/");
 verifyGraph(structuredData(chartsHtml), "https://mexicochart.com/charts");
@@ -82,6 +106,42 @@ verifyBreadcrumb(chartsGraph, "https://mexicochart.com/charts", ["Mexico Charts"
 verifyBreadcrumb(aboutGraph, "https://mexicochart.com/acerca-de", ["Mexico Charts", "Acerca de"]);
 verifyBreadcrumb(articleGraph, "https://mexicochart.com/insights/mexico-top-10-ifpi-2026", ["Mexico Charts", "Industria", "México Top 10 IFPI 2026"]);
 verifyBreadcrumb(artistGraph, "https://mexicochart.com/artist/peso-pluma", ["Mexico Charts", "Artistas", "Peso Pluma"]);
+
+for (const [slug, html] of [
+  ["peso-pluma", artistHtml],
+  ["fuerza-regida", groupArtistHtml],
+  ["hupe", lowerDataArtistHtml],
+]) {
+  const canonicalUrl = `https://mexicochart.com/artist/${slug}`;
+  const graph = structuredData(html);
+  verifyGraph(graph, canonicalUrl);
+  const artists = graph["@graph"].filter((node) => node["@type"] === "MusicGroup");
+  assert(artists.length === 1, `${slug} must emit exactly one artist entity`);
+  assert(artists[0]["@id"] === `${canonicalUrl}#artist`, `${slug} has an unstable artist ID`);
+  assert(artists[0].url === canonicalUrl, `${slug} artist URL is not canonical`);
+  assert(artists[0].mainEntityOfPage?.["@id"] === pageId(canonicalUrl), `${slug} artist is disconnected from its page`);
+  const page = graph["@graph"].find((node) => node["@id"] === pageId(canonicalUrl));
+  assert(page.mainEntity?.["@id"] === artists[0]["@id"], `${slug} WebPage.mainEntity is disconnected`);
+  assert(!("sameAs" in artists[0]), `${slug} prerender must not fabricate artist sameAs links`);
+}
+
+for (const platform of PLATFORM_CHART_ROUTES) {
+  const html = await readFile(path.join(dist, ...platform.path.slice(1).split("/")), "utf8");
+  const canonicalUrl = `https://mexicochart.com${platform.path}`;
+  assert(html.includes(`<title>${platform.title}</title>`), `${platform.path} title drifted`);
+  assert(html.includes(`<meta name="description" content="${platform.description}" />`), `${platform.path} description drifted`);
+  assert(html.includes(`<link rel="canonical" href="${canonicalUrl}" />`), `${platform.path} canonical is not self-referencing`);
+  assert((html.match(/<h1\b/g) ?? []).length === 1, `${platform.path} must contain exactly one initial H1`);
+  assert(html.includes(platform.heading) && html.includes(platform.body), `${platform.path} lacks platform context`);
+  const graph = structuredData(html);
+  verifyGraph(graph, canonicalUrl);
+  verifyBreadcrumb(graph, canonicalUrl, ["Mexico Charts", "Charts de música en México", platform.heading]);
+  assert(sitemap.includes(`<loc>${canonicalUrl}</loc>`), `${platform.path} missing from sitemap`);
+}
+
+const certificationsDefinition = getSeoRoute("/industry/certifications");
+assert(certificationsHtml.includes(`<title>${certificationsDefinition.title}</title>`), "Certifications prerender title drifted from shared metadata");
+assert(certificationsHtml.includes(`<meta name="description" content="${certificationsDefinition.description}" />`), "Certifications prerender description drifted from shared metadata");
 const about = aboutGraph["@graph"].find((node) => node["@id"] === pageId("https://mexicochart.com/acerca-de"));
 assert(about["@type"] === "AboutPage", "About page is not an AboutPage");
 assert(about.about?.["@id"] === ORGANIZATION_ID && about.mainEntity?.["@id"] === ORGANIZATION_ID, "About page is disconnected from Organization");

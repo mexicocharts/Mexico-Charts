@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
 import { ORGANIZATION_ID, WEBSITE_ID, buildStructuredDataGraph, pageId } from "../src/lib/structured-data.mjs";
 import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
+import { PLATFORM_CHART_ROUTES, applySeoRouteDefinition } from "../src/lib/seo-routes.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -410,6 +411,25 @@ const routes = [
   },
 ];
 
+for (const route of routes) Object.assign(route, applySeoRouteDefinition(route));
+
+for (const platform of PLATFORM_CHART_ROUTES) {
+  routes.push({
+    ...platform,
+    eyebrow: `${platform.platform} · México`,
+    links: [
+      ["/charts", "Todos los charts de música en México"],
+      ...PLATFORM_CHART_ROUTES.map((candidate) => [candidate.path, candidate.platform]),
+      ["/metodologia", "Metodología"],
+    ],
+    sections: [[
+      "Fuente y actualización",
+      platform.body,
+    ]],
+    breadcrumbs: platform.breadcrumbs,
+  });
+}
+
 for (const edition of WEEKLY_EDITIONS) {
   const formattedDate = new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
@@ -469,6 +489,19 @@ routes.push(
       ["/", "Mexico Charts"],
       ["/artists", "Artistas"],
       [artist.path, artist.name],
+    ],
+    jsonLd: [
+      {
+        "@type": "WebPage",
+        mainEntity: { "@id": `${siteUrl}${artist.path}#artist` },
+      },
+      {
+        "@type": "MusicGroup",
+        "@id": `${siteUrl}${artist.path}#artist`,
+        name: artist.name,
+        url: `${siteUrl}${artist.path}`,
+        mainEntityOfPage: { "@id": pageId(`${siteUrl}${artist.path}`) },
+      },
     ],
   })),
 );

@@ -120,6 +120,10 @@ function Router() {
           <Route path="/mx100" component={Mx100} />
           <Route path="/radar-nuevos" component={RadarNuevos} />
           <Route path="/legacy-acts" component={LegacyActs} />
+          <Route path="/charts/spotify" component={ChartsHub} />
+          <Route path="/charts/youtube" component={ChartsHub} />
+          <Route path="/charts/apple-music" component={ChartsHub} />
+          <Route path="/charts/deezer" component={ChartsHub} />
           <Route path="/charts" component={ChartsHub} />
           <Route path="/esta-semana/:date" component={WeeklyCharts} />
           <Route path="/esta-semana" component={WeeklyCharts} />
