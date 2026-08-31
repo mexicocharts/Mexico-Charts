@@ -10,10 +10,21 @@ import {
 } from "./youtube-shadow-bootstrap-policy";
 import {
   youtubeChannelUploadImportProgress,
+  youtubeChannelImportArtistLimit,
   youtubeBatchStatsItems,
   youtubeEasternMidnightAnchor,
   youtubeIntradayShadowAutomationEnabled,
 } from "./youtube-intraday-shadow-scheduler";
+
+test("reserves quota for documented channels.list batches", () => {
+  assert.equal(youtubeChannelImportArtistLimit(0), 0);
+  assert.equal(youtubeChannelImportArtistLimit(1), 0);
+  assert.equal(youtubeChannelImportArtistLimit(2), 1);
+  assert.equal(youtubeChannelImportArtistLimit(50), 49);
+  assert.equal(youtubeChannelImportArtistLimit(51), 50);
+  assert.equal(youtubeChannelImportArtistLimit(200), 196);
+  assert.equal(youtubeChannelImportArtistLimit(10_000), 200);
+});
 
 test("reports the effective intraday automation kill-switch state", () => {
   assert.equal(youtubeIntradayShadowAutomationEnabled({}), true);
