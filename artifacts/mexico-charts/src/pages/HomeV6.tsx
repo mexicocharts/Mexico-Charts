@@ -73,7 +73,6 @@ const SOCIAL_LINKS: { label: string; href: string | null; icon: React.ElementTyp
   { label: "Instagram", href: SOCIAL_URLS.instagram, icon: SiInstagram },
   { label: "X",         href: null,                  icon: SiX },
   { label: "TikTok",   href: SOCIAL_URLS.tiktok,    icon: SiTiktok },
-  { label: "YouTube",  href: SOCIAL_URLS.youtube,   icon: SiYoutube },
 ];
 
 const PUBLIC_FEATURES = [
