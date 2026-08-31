@@ -407,6 +407,11 @@ export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
         await client.query("UPDATE youtube_discovery_validation_sessions SET status='complete',completed_at=now() WHERE id=$1",[session.id]);
         return {status:"complete",sessionId:session.id};
       }
+      // Rebuild decision-window comparator accounting from explicit immutable
+      // provenance before slower API scans. A long channel backlog must not
+      // leave known-invalid legacy comparator counts visible for the run.
+      await captureComparator(client,session);
+      await snapshotDay(client,session.id);
       await hydrateUploadsPlaylists(client,session.id);
       await scanAuthorizedChannels(client,session.id);
       await runPrioritizedSearches(client,session);

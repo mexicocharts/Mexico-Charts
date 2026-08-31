@@ -291,7 +291,7 @@ async function bootstrapActiveCatalog() {
     SELECT c.artist_key, c.artist_name
     FROM kworb_coverage c
     LEFT JOIN LATERAL (
-      SELECT r.finished_at::text AS last_attempt_at, r.status,
+      SELECT r.finished_at AS last_attempt_at, r.status,
              COALESCE(r.summary->>'mappingStatus', '') AS mapping_status
       FROM youtube_music_shadow_runs r
       WHERE r.artist_key=c.artist_key AND r.run_type='discovery'
