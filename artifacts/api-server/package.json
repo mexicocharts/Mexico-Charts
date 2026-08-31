@@ -8,7 +8,9 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "audit:artist-images": "../../scripts/node_modules/.bin/tsx ./src/scripts/audit-artist-images.ts"
+    "audit:artist-images": "../../scripts/node_modules/.bin/tsx ./src/scripts/audit-artist-images.ts",
+    "songstats-history-backfill": "../../scripts/node_modules/.bin/tsx ./src/scripts/songstats-history-backfill.ts",
+    "test:songstats-history": "../../scripts/node_modules/.bin/tsx --test ./src/lib/songstats-history-model.test.ts ./src/lib/monitoring-history.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.52",

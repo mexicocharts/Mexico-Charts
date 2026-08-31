@@ -63,6 +63,54 @@ type DashboardPayload = {
   };
   current: Snapshot | null;
   history: Snapshot[];
+  historySeries: Partial<
+    Record<
+      MetricKey,
+      {
+        metricKey: string;
+        earliestAvailableDate: string | null;
+        latestAvailableDate: string | null;
+        points: Array<{
+          date: string;
+          value: number;
+          provenance: {
+            provider: string;
+            source: string;
+            granularity: "daily" | "intraday";
+            acquisitionMode:
+              | "songstats_historical"
+              | "scheduled_current_snapshot"
+              | "mexico_charts_direct";
+            providerObservationDate: string;
+            providerObservationAt: string | null;
+            fetchedAt: string;
+            identityValidationStatus: "verified" | "review" | "rejected";
+          };
+          alternatives: Array<unknown>;
+        }>;
+      }
+    >
+  >;
+  historyCoverage: Partial<
+    Record<
+      MetricKey,
+      {
+        earliestAvailableDate: string | null;
+        latestAvailableDate: string | null;
+        observationCount: number;
+        missingDateCount: number;
+        missingIntervals: Array<{
+          startDate: string;
+          endDate: string;
+          days: number;
+        }>;
+        multiYear: null | {
+          spanDays: number;
+          calendarYearsRepresented: number[];
+        };
+      }
+    >
+  >;
   dailyPulse: {
     status: "ready" | "collecting";
     currentDate: string | null;
@@ -88,6 +136,9 @@ type DashboardPayload = {
         days7: { absolute: number; percentage: number | null } | null;
         days30: { absolute: number; percentage: number | null } | null;
         days90: { absolute: number; percentage: number | null } | null;
+        months6: { absolute: number; percentage: number | null } | null;
+        year1: { absolute: number; percentage: number | null } | null;
+        yearOverYear: { absolute: number; percentage: number | null } | null;
       }
     >
   >;
@@ -609,23 +660,28 @@ export default function MonitoringDashboard() {
   );
   const selectedMonth =
     reportMonth || availableMonths[0] || new Date().toISOString().slice(0, 7);
-  const rangedHistory = useMemo(() => {
-    const history = data?.history ?? [];
-    if (historyRange === "all" || !history.length) return history;
-    const cutoff = new Date(`${history.at(-1)!.date}T12:00:00Z`);
-    cutoff.setUTCDate(cutoff.getUTCDate() - (historyRange === "30d" ? 29 : 89));
-    const cutoffDate = cutoff.toISOString().slice(0, 10);
-    return history.filter((point) => point.date >= cutoffDate);
-  }, [data?.history, historyRange]);
-  const chartData = useMemo(
+  const selectedHistorySeries = useMemo(
     () =>
-      rangedHistory.flatMap((point) =>
+      data?.historySeries?.[metric]?.points ??
+      (data?.history ?? []).flatMap((point) =>
         point[metric] == null
           ? []
-          : [{ date: point.date, value: point[metric] }],
+          : [{ date: point.date, value: point[metric]!, provenance: null, alternatives: [] }],
       ),
-    [rangedHistory, metric],
+    [data?.history, data?.historySeries, metric],
   );
+  const rangedHistory = useMemo(() => {
+    if (historyRange === "all" || !selectedHistorySeries.length) return selectedHistorySeries;
+    const cutoff = new Date(`${selectedHistorySeries.at(-1)!.date}T12:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - (historyRange === "30d" ? 29 : 89));
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    return selectedHistorySeries.filter((point) => point.date >= cutoffDate);
+  }, [historyRange, selectedHistorySeries]);
+  const chartData = useMemo(
+    () => rangedHistory.map((point) => ({ date: point.date, value: point.value })),
+    [rangedHistory],
+  );
+  const selectedHistoryCoverage = data?.historyCoverage?.[metric];
   const current = data?.current;
   const growth30 = data?.growth?.spotifyMonthlyListeners?.days30;
   const activeVideoId = selectedVideoId || data?.liveVideos[0]?.video_id || "";
@@ -836,7 +892,7 @@ export default function MonitoringDashboard() {
                   [
                     ["30d", "30 días"],
                     ["90d", "90 días"],
-                    ["all", "Todo el historial"],
+                    ["all", pick("Historial disponible", "Available history")],
                   ] as const
                 ).map(([range, label]) => (
                   <button
@@ -911,8 +967,8 @@ export default function MonitoringDashboard() {
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#39FF14]">
                           {pick(
-                            "Historial completo disponible",
-                            "Complete available history",
+                            "Historial diario disponible",
+                            "Available daily history",
                           )}
                         </p>
                         <h2 className="mt-2 text-xl font-black">
@@ -926,6 +982,11 @@ export default function MonitoringDashboard() {
                         {signed(growth30?.absolute)} · 30d
                       </span>
                     </div>
+                    <p className="mt-3 text-[9px] font-bold uppercase tracking-[0.12em] text-white/30">
+                      {selectedHistoryCoverage?.earliestAvailableDate
+                        ? `${pick("Disponible desde", "Available since")} ${dateLabel(selectedHistoryCoverage.earliestAvailableDate)}`
+                        : pick("Fecha inicial aún no disponible", "Earliest date not yet available")}
+                    </p>
                     <div className="mt-6 h-64">
                       <HistoryChart data={chartData} />
                     </div>
@@ -979,6 +1040,11 @@ export default function MonitoringDashboard() {
                         "Saved daily evolution",
                       )}
                     </h2>
+                    <p className="mt-2 text-[9px] font-bold uppercase tracking-[0.12em] text-white/30">
+                      {selectedHistoryCoverage?.earliestAvailableDate
+                        ? `${pick("Historia diaria disponible desde", "Daily history available since")} ${dateLabel(selectedHistoryCoverage.earliestAvailableDate)}`
+                        : pick("Recopilando fecha inicial", "Collecting earliest date")}
+                    </p>
                   </div>
                   <select
                     value={metric}

@@ -11,6 +11,14 @@ import {
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import { loadSongstatsHistoricalObservations } from "../lib/songstats-history-store";
+import {
+  assembleMonitoringHistory,
+  MONITORING_SNAPSHOT_METRIC_COLUMNS,
+  releaseImpactFromAvailableHistory,
+  type MonitoringHistoricalObservation,
+  type MonitoringHistorySeries,
+} from "../lib/monitoring-history";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -18,6 +26,8 @@ const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
 
 type MonitoringSnapshotRow = {
   snapshot_date: string;
+  songstats_artist_id: string | null;
+  fetched_at: Date;
   spotify_followers: string | number | null;
   spotify_monthly_listeners: string | number | null;
   spotify_popularity: string | number | null;
@@ -52,6 +62,105 @@ function normalizedSnapshot(row: MonitoringSnapshotRow) {
     soundcloudFollowers: nullableNumber(row.soundcloud_followers),
     deezerFollowers: nullableNumber(row.deezer_followers),
   };
+}
+
+const SNAPSHOT_METRIC_SOURCE: Record<keyof typeof MONITORING_SNAPSHOT_METRIC_COLUMNS, string> = {
+  spotifyFollowers: "spotify",
+  spotifyMonthlyListeners: "spotify",
+  spotifyPopularity: "spotify",
+  youtubeSubscribers: "youtube",
+  youtubeChannelViews: "youtube",
+  instagramFollowers: "instagram",
+  tiktokFollowers: "tiktok",
+  facebookFollowers: "facebook",
+  twitterFollowers: "twitter",
+  soundcloudFollowers: "soundcloud",
+  deezerFollowers: "deezer",
+};
+
+function snapshotHistoryObservations(rows: MonitoringSnapshotRow[]): MonitoringHistoricalObservation[] {
+  return rows.flatMap(row => {
+    const normalized = normalizedSnapshot(row);
+    return Object.keys(MONITORING_SNAPSHOT_METRIC_COLUMNS).flatMap(rawMetricKey => {
+      const metricKey = rawMetricKey as keyof typeof MONITORING_SNAPSHOT_METRIC_COLUMNS;
+      const value = normalized[metricKey];
+      if (value == null) return [];
+      return [{
+        metricKey,
+        date: row.snapshot_date,
+        value,
+        provenance: {
+          provider: "songstats",
+          source: SNAPSHOT_METRIC_SOURCE[metricKey],
+          granularity: "daily" as const,
+          acquisitionMode: "scheduled_current_snapshot" as const,
+          providerObservationDate: row.snapshot_date,
+          providerObservationAt: null,
+          fetchedAt: row.fetched_at.toISOString(),
+          identityValidationStatus: row.songstats_artist_id ? "verified" as const : "review" as const,
+          details: {
+            capturedBy: "mexico_charts_scheduler",
+            sourceTable: "songstats_artist_daily_snapshots",
+            songstatsArtistId: row.songstats_artist_id,
+          },
+        },
+      }];
+    });
+  });
+}
+
+function providerHistoryObservations(
+  rows: Awaited<ReturnType<typeof loadSongstatsHistoricalObservations>>,
+): MonitoringHistoricalObservation[] {
+  return rows.flatMap(row => {
+    const value = Number(row.value);
+    if (!Number.isFinite(value)) return [];
+    return [{
+      metricKey: row.metric_key,
+      date: row.provider_observation_date,
+      value,
+      provenance: {
+        provider: "songstats",
+        source: row.source,
+        granularity: row.granularity,
+        acquisitionMode: row.acquisition_mode,
+        providerObservationDate: row.provider_observation_date,
+        providerObservationAt: row.provider_observation_at,
+        fetchedAt: row.fetched_at,
+        identityValidationStatus: row.identity_validation_status,
+        requestWindowStartDate: row.request_window_start_date,
+        requestWindowEndDate: row.request_window_end_date,
+        details: row.provenance,
+      },
+    }];
+  });
+}
+
+function wideHistoryFromSeries(historySeries: Record<string, MonitoringHistorySeries>) {
+  const dates = new Set<string>();
+  for (const series of Object.values(historySeries)) {
+    for (const point of series.points) dates.add(point.date);
+  }
+  const valuesByMetric = new Map(
+    Object.entries(historySeries).map(([metricKey, series]) => [
+      metricKey,
+      new Map(series.points.map(point => [point.date, point.value])),
+    ]),
+  );
+  return [...dates].sort().map(date => ({
+    date,
+    spotifyFollowers: valuesByMetric.get("spotifyFollowers")?.get(date) ?? null,
+    spotifyMonthlyListeners: valuesByMetric.get("spotifyMonthlyListeners")?.get(date) ?? null,
+    spotifyPopularity: valuesByMetric.get("spotifyPopularity")?.get(date) ?? null,
+    youtubeSubscribers: valuesByMetric.get("youtubeSubscribers")?.get(date) ?? null,
+    youtubeChannelViews: valuesByMetric.get("youtubeChannelViews")?.get(date) ?? null,
+    instagramFollowers: valuesByMetric.get("instagramFollowers")?.get(date) ?? null,
+    tiktokFollowers: valuesByMetric.get("tiktokFollowers")?.get(date) ?? null,
+    facebookFollowers: valuesByMetric.get("facebookFollowers")?.get(date) ?? null,
+    twitterFollowers: valuesByMetric.get("twitterFollowers")?.get(date) ?? null,
+    soundcloudFollowers: valuesByMetric.get("soundcloudFollowers")?.get(date) ?? null,
+    deezerFollowers: valuesByMetric.get("deezerFollowers")?.get(date) ?? null,
+  }));
 }
 
 type NormalizedMonitoringSnapshot = ReturnType<typeof normalizedSnapshot>;
@@ -233,11 +342,14 @@ async function loadAuthorizedMonitoring(
     streamSummary,
     streamItems,
     youtubeCoverage,
+    providerHistory,
   ] = await Promise.all([
     pool.query<MonitoringSnapshotRow>(
       `
       SELECT
         snapshot_date,
+        songstats_artist_id,
+        fetched_at,
         spotify_followers,
         spotify_monthly_listeners,
         spotify_popularity,
@@ -477,6 +589,7 @@ async function loadAuthorizedMonitoring(
     `,
       [activeKeys],
     ),
+    loadSongstatsHistoricalObservations(activeKeys),
   ]);
   const extendedRow = extended.rows[0];
   const insight = extendedRow
@@ -490,7 +603,11 @@ async function loadAuthorizedMonitoring(
         { access: "monitoring" },
       )
     : null;
-  const history = snapshots.rows.map(normalizedSnapshot);
+  const historySeries = assembleMonitoringHistory([
+    ...providerHistoryObservations(providerHistory),
+    ...snapshotHistoryObservations(snapshots.rows),
+  ]);
+  const history = wideHistoryFromSeries(historySeries);
   const catalog = insight?.catalog ?? {
     releaseCount: 0,
     trackCount: 0,
@@ -529,6 +646,29 @@ async function loadAuthorizedMonitoring(
       ?? youtubeCoverageRow?.expected_total_videos
       ?? null,
   );
+  const latestDatedRelease = catalog.releases.find(release => release.releaseDate != null);
+  const availableHistoryReleaseImpact = latestDatedRelease?.releaseDate
+    ? releaseImpactFromAvailableHistory({
+        releaseDate: latestDatedRelease.releaseDate,
+        series: historySeries,
+        metricKeys: [
+          "spotifyMonthlyListeners",
+          "instagramFollowers",
+          "tiktokFollowers",
+          "youtubeSubscribers",
+        ],
+      })
+    : null;
+  const growth = Object.fromEntries(
+    Object.entries(historySeries).map(([metricKey, series]) => [metricKey, {
+      days7: series.growth.days7,
+      days30: series.growth.days30,
+      days90: series.growth.days90,
+      months6: series.growth.months6,
+      year1: series.growth.year1,
+      yearOverYear: series.growth.yearOverYear,
+    }]),
+  );
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -536,13 +676,27 @@ async function loadAuthorizedMonitoring(
       status: active.status,
       activatedAt: active.created_at.toISOString(),
     },
-    current: history.at(-1) ?? null,
+    current: snapshots.rows.at(-1)
+      ? normalizedSnapshot(snapshots.rows.at(-1)!)
+      : history.at(-1) ?? null,
     history,
+    historySeries,
+    historyCoverage: Object.fromEntries(
+      Object.entries(historySeries).map(([metricKey, series]) => [metricKey, {
+        earliestAvailableDate: series.earliestAvailableDate,
+        latestAvailableDate: series.latestAvailableDate,
+        observationCount: series.points.length,
+        missingDateCount: series.missingDateCount,
+        missingIntervals: series.missingIntervals,
+        multiYear: series.multiYear,
+      }]),
+    ),
     dailyPulse: buildDailyPulse(history, catalog),
-    growth: insight?.growth ?? {},
+    growth,
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     latestReleaseImpact: insight?.latestReleaseImpact ?? null,
+    availableHistoryReleaseImpact,
     liveVideos: uniqueLiveVideos,
     youtubeCoverage: {
       channelVideoCount: youtubeChannelVideoCount,
