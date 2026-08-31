@@ -96,6 +96,20 @@ export const youtubeVideoIntradayShadowSnapshots = pgTable("youtube_video_intrad
   }).onDelete("cascade"),
 ]);
 
+// Compact, authoritative pointer to the newest genuine intraday observation.
+// The historical snapshot relation remains the source of the observation data;
+// this table only removes a historical max() scan from latency-sensitive reads.
+export const youtubeVideoIntradayLatestObservations = pgTable("youtube_video_intraday_latest_observations", {
+  videoId: text("video_id").primaryKey(),
+  latestObservedAt: timestamp("latest_observed_at", { withTimezone: true }).notNull(),
+}, (table) => [
+  foreignKey({
+    name: "youtube_video_intraday_latest_observations_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
+]);
+
 export const youtubeArtistIntradayShadowCurrent = pgTable("youtube_artist_intraday_shadow_current", {
   artistKey: text("artist_key").primaryKey(),
   trackedVideoCount: integer("tracked_video_count").notNull().default(0),

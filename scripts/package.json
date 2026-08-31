@@ -16,6 +16,7 @@
     "youtube-channel-candidates": "tsx ./src/youtube-channel-candidates.ts",
     "youtube-channel-search-backfill": "tsx ./src/youtube-channel-search-backfill.ts",
     "youtube-official-revalidation": "tsx ./src/youtube-official-revalidation.ts",
+    "youtube-latest-observation-migration": "tsx ./src/youtube-latest-observation-migration.ts",
     "spotify-create-tables": "tsx ./src/spotify-create-tables.ts",
     "spotify-artist-backfill": "tsx ./src/spotify-artist-backfill.ts",
     "spotify-apply-verified-mappings": "tsx ./src/apply-verified-spotify-mappings.ts",
@@ -38,6 +39,7 @@
     "tsx": "catalog:"
   },
   "dependencies": {
+    "@workspace/db": "workspace:*",
     "@aws-sdk/client-s3": "^3.1106.0",
     "parquetjs-lite": "^0.8.7"
   }

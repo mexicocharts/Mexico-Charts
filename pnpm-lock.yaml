@@ -812,6 +812,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.1106.0
         version: 3.1106.0
+      '@workspace/db':
+        specifier: workspace:*
+        version: link:../lib/db
       parquetjs-lite:
         specifier: ^0.8.7
         version: 0.8.7
