@@ -11,6 +11,7 @@ import {
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -221,13 +222,38 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         SELECT
           (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
           ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
+      ), matched_candidates AS (
+        SELECT c.*,
+          row_number() OVER (
+            PARTITION BY
+              regexp_replace(translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g'),
+              c.video_id
+            ORDER BY
+              (lower(c.artist_key)=ANY($1::text[])) DESC,
+              (c.status='verified') DESC,
+              c.confidence_score DESC,
+              (c.canonical_url LIKE 'https://www.youtube.com/watch?v=%') DESC,
+              c.id
+          ) candidate_rank
+        FROM youtube_music_catalog_candidates c
+        WHERE (
+            lower(c.artist_key) = ANY($1::text[])
+            OR regexp_replace(
+              translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+              '[^a-z0-9]', '', 'g'
+            ) = ANY($1::text[])
+          )
+          AND c.status IN ('review','verified')
+          AND c.sampling_status='shadow'
+      ), canonical_candidates AS (
+        SELECT * FROM matched_candidates WHERE candidate_rank=1
       )
       SELECT
         c.artist_name,
         c.video_id,
         COALESCE(NULLIF(v.title, ''), c.title) title,
         v.thumbnail_url,
-        c.canonical_url,
+        'https://www.youtube.com/watch?v=' || c.video_id canonical_url,
         latest.view_count,
         latest.view_delta,
         latest.seconds_since_previous,
@@ -240,7 +266,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
           ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
         today_start.observed_at::text views_today_et_started_at,
         CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
-      FROM youtube_music_catalog_candidates c
+      FROM canonical_candidates c
       CROSS JOIN eastern_bounds bounds
       JOIN youtube_tracked_videos v ON v.video_id=c.video_id
       JOIN LATERAL (
@@ -268,15 +294,6 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         ORDER BY s.observed_at
         LIMIT 1
       ) today_start ON true
-      WHERE (
-          lower(c.artist_key) = ANY($1::text[])
-          OR regexp_replace(
-            translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          ) = ANY($1::text[])
-        )
-        AND c.status IN ('review','verified')
-        AND c.sampling_status='shadow'
       ORDER BY latest.view_count DESC, c.title
       LIMIT 100
     `, [activeKeys]),
@@ -456,11 +473,6 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         release.artworkUrl,
       ]),
   );
-  const uniqueLiveVideos = liveVideos.rows.filter(
-    (video, index, rows) =>
-      rows.findIndex((candidate) => candidate.video_id === video.video_id) ===
-      index,
-  );
   const youtubeCoverageRow = youtubeCoverage.rows[0] ?? null;
   const youtubeChannelVideoCount = nullableNumber(
     youtubeCoverageRow?.channel_video_count
@@ -481,7 +493,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     latestReleaseImpact: insight?.latestReleaseImpact ?? null,
-    liveVideos: uniqueLiveVideos,
+    liveVideos: dedupeYoutubeMonitorRows(liveVideos.rows as Array<{video_id:string;canonical_url?:string|null}>),
     youtubeCoverage: {
       channelVideoCount: youtubeChannelVideoCount,
       importedVideoCount: nullableNumber(

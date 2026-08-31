@@ -1,5 +1,7 @@
 import { pool, youtubeCollectorPool } from "@workspace/db";
 import { logger } from "./logger";
+import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
+import { safeErrorDetails } from "./safe-error";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-scheduler";
 import {
   discoverYoutubeMusicArtist,
@@ -840,7 +842,9 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
   // Each selected artist can require one playlistItems.list request. In the
   // worst case every selected channel also needs a channels.list lookup, whose
   // documented maxResults limit is 50. Reserve both costs up front.
-  const artistLimit = youtubeChannelImportArtistLimit(callsAvailable);
+  // Keep background enrichment bounded so a large backlog cannot hold the
+  // single collector connection across the next five-minute observation tick.
+  const artistLimit = youtubeChannelImportArtistLimit(callsAvailable, 10);
   if (artistLimit <= 0) return { artists: 0, videos: 0, apiCalls: 0 };
   const channels = await client.query<StoredChannelRow>(`
     SELECT
@@ -902,6 +906,7 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
   );
   const channelsMissingPlaylist = channels.rows.filter(row => !row.playlist_id);
   for (const channelGroup of batch(channelsMissingPlaylist, YOUTUBE_CHANNELS_LIST_MAX_RESULTS)) {
+    await reserveYoutubeApiUsage(client, { consumer: "channel_importer", method: "channels.list" });
     const channelData = await fetchYoutubeJson<{
       items?: Array<{ id: string; contentDetails?: { relatedPlaylists?: { uploads?: string } } }>;
     }>("channels", {
@@ -920,6 +925,11 @@ async function importStoredProfileChannelUploads(client: PgClient, callsAvailabl
   let importedVideos = 0;
   const importedArtists = new Set<string>();
   for (const group of batch(channels.rows, 10)) {
+    await reserveYoutubeApiUsage(client, {
+      consumer: "upload_playlist_importer",
+      method: "playlistItems.list",
+      requests: group.length,
+    });
     const groupVideos: StoredChannelVideo[] = [];
     const groupStates: StoredChannelImportState[] = [];
     const results = await Promise.all(group.map(async artist => {
@@ -1114,6 +1124,7 @@ export async function ensureYoutubeIntradayShadowTables(client: PgClient) {
   await client.query(`ALTER TABLE youtube_channel_upload_import_state ADD COLUMN IF NOT EXISTS completed_at timestamptz;`);
   await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS youtube_video_intraday_shadow_video_bucket_unique ON youtube_video_intraday_shadow_snapshots(video_id, bucket_start);`);
   await client.query(`CREATE INDEX IF NOT EXISTS youtube_video_intraday_shadow_observed_idx ON youtube_video_intraday_shadow_snapshots(observed_at DESC);`);
+  await bootstrapYoutubeApiUsage(client, "collector");
 }
 
 async function fetchYoutubeVideos(videoIds: string[]): Promise<VideoStats[]> {
@@ -1389,21 +1400,6 @@ export async function runYoutubeIntradayShadow(
       if (rosterScope.linksDisabled || rosterScope.candidatesDisabled) {
         logger.info(rosterScope, "[youtube-shadow:intraday] disabled out-of-roster mappings");
       }
-      const usedBeforeImport = await callsUsedToday(client);
-      try {
-        const importedChannels = await importStoredProfileChannelUploads(
-          client,
-          Math.max(0, dailyBudget() - usedBeforeImport),
-        );
-        summary.importedChannelVideos = importedChannels.videos;
-        summary.importedChannelArtists = importedChannels.artists;
-        summary.importedChannelErrors = importedChannels.errors ?? [];
-        summary.apiCalls += importedChannels.apiCalls;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        summary.importedChannelErrors.push(message);
-        logger.error({ error }, "[youtube-shadow:intraday] catalog import failed; continuing live measurements");
-      }
       const reusedStored = await reuseStoredYoutubeSources(client);
       summary.reusedStoredVideos = reusedStored.videos;
       summary.reusedStoredArtists = reusedStored.artists;
@@ -1503,10 +1499,18 @@ export async function runYoutubeIntradayShadow(
         let stats: VideoStats[];
         let usedBatchStats = true;
         try {
+          await reserveYoutubeApiUsage(client, {
+            consumer: "intraday_statistics",
+            method: "videos.batchGetStats",
+          });
           stats = await fetchYoutubeBatchStats(group.map(row => row.video_id));
         } catch (batchError) {
           if (oldApiCallsRemaining <= 0) throw batchError;
-          logger.warn({ error: batchError }, "[youtube-shadow:intraday] batch stats failed; using videos.list fallback");
+          logger.warn(safeErrorDetails(batchError,{reason,job:"intraday-statistics",fallback:"videos.list"}), "[youtube-shadow:intraday] batch stats failed; using videos.list fallback");
+          await reserveYoutubeApiUsage(client, {
+            consumer: "intraday_statistics",
+            method: "videos.list",
+          });
           stats = await fetchYoutubeVideos(group.map(row => row.video_id));
           usedBatchStats = false;
           oldApiCallsRemaining -= 1;
@@ -1525,6 +1529,23 @@ export async function runYoutubeIntradayShadow(
         summary.saved += await saveObservationsBulk(client, stats, tiers);
       }
       summary.artistsUpdated = await rebuildCurrentArtistTotals(client);
+      // Core observations are committed before lower-priority channel import
+      // enrichment. At most ten channels are attempted per pass.
+      const usedBeforeImport = await callsUsedToday(client);
+      try {
+        const importedChannels = await importStoredProfileChannelUploads(
+          client,
+          Math.max(0, dailyBudget() - usedBeforeImport),
+        );
+        summary.importedChannelVideos = importedChannels.videos;
+        summary.importedChannelArtists = importedChannels.artists;
+        summary.importedChannelErrors = importedChannels.errors ?? [];
+        summary.apiCalls += importedChannels.apiCalls;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        summary.importedChannelErrors.push(message);
+        logger.error(safeErrorDetails(error,{reason,job:"channel-catalog-import"}), "[youtube-shadow:intraday] catalog import failed after live measurements");
+      }
       return summary;
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
@@ -1532,7 +1553,7 @@ export async function runYoutubeIntradayShadow(
   } catch (error) {
     summary.status = "failed";
     summary.error = error instanceof Error ? error.message : String(error);
-    logger.error({ error, reason }, "[youtube-shadow:intraday] run failed");
+    logger.error(safeErrorDetails(error,{reason,job:"intraday-shadow-run"}), "[youtube-shadow:intraday] run failed");
     return summary;
   } finally {
     client.release();
@@ -1563,11 +1584,11 @@ export function startYoutubeIntradayShadowScheduler() {
         discoveryRunning = true;
         void bootstrapActiveCatalog()
           .then(result => logger.info(result, "[youtube-shadow:catalog] discovery pass complete"))
-          .catch(error => logger.error({ error }, "[youtube-shadow:catalog] discovery pass failed"))
+          .catch(error => logger.error(safeErrorDetails(error,{reason,job:"shadow-catalog-discovery"}), "[youtube-shadow:catalog] discovery pass failed"))
           .finally(() => { discoveryRunning = false; });
       }
     }).catch(error => {
-      logger.error({ error, reason }, "[youtube-shadow:intraday] scheduler invocation failed");
+      logger.error(safeErrorDetails(error,{reason,job:"intraday-scheduler-invocation"}), "[youtube-shadow:intraday] scheduler invocation failed");
     });
   };
   setTimeout(() => runScheduledCheck("startup"), 1_000).unref();

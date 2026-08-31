@@ -1,6 +1,8 @@
 import { pool } from "@workspace/db";
 import { finishDailySnapshotRunLog, startDailySnapshotRunLog } from "./daily-snapshot-run-log";
 import { logger } from "./logger";
+import { reserveYoutubeApiUsage } from "./youtube-api-budget";
+import { safeErrorDetails } from "./safe-error";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -175,7 +177,7 @@ export async function ensureYoutubeVideoTrackerTables(client: PgClient) {
   await client.query(`CREATE INDEX IF NOT EXISTS youtube_artist_video_daily_rollups_artist_date_idx ON youtube_artist_video_daily_rollups(artist_key, snapshot_date);`);
 }
 
-async function fetchYoutubeVideos(videoIds: string[]): Promise<VideoStats[]> {
+async function fetchYoutubeVideos(client: PgClient, videoIds: string[]): Promise<VideoStats[]> {
   const apiKey = process.env["YOUTUBE_API_KEY"];
   if (!apiKey) throw new Error("Missing YOUTUBE_API_KEY.");
 
@@ -185,6 +187,7 @@ async function fetchYoutubeVideos(videoIds: string[]): Promise<VideoStats[]> {
   url.searchParams.set("id", videoIds.join(","));
   url.searchParams.set("maxResults", String(videoIds.length));
 
+  await reserveYoutubeApiUsage(client, { consumer: "daily_video_snapshots", method: "videos.list" });
   const res = await fetch(url);
   if (!res.ok) {
     const body = await res.text();
@@ -461,7 +464,7 @@ export async function runDailyYoutubeVideoSnapshots(reason: string): Promise<You
       let dailyViewsTotal = 0;
 
       for (const group of batch(videoRows.rows, 50)) {
-        const statsRows = await fetchYoutubeVideos(group.map(row => row.video_id));
+        const statsRows = await fetchYoutubeVideos(client, group.map(row => row.video_id));
         fetched += statsRows.length;
         const statsById = new Map(statsRows.map(stats => [stats.videoId, stats]));
 
@@ -506,7 +509,7 @@ export async function runDailyYoutubeVideoSnapshots(reason: string): Promise<You
       await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
     }
   } catch (err) {
-    logger.error({ err, snapshotDate, reason }, "[youtube-video:snapshots] daily video snapshot job failed");
+    logger.error(safeErrorDetails(err,{snapshotDate,reason,job:"daily-video-snapshots"}), "[youtube-video:snapshots] daily video snapshot job failed");
     const summary = {
       status: "failed",
       snapshotDate,
