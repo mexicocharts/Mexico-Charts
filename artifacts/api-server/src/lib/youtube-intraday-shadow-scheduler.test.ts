@@ -12,7 +12,21 @@ import {
   youtubeChannelUploadImportProgress,
   youtubeBatchStatsItems,
   youtubeEasternMidnightAnchor,
+  youtubeIntradayShadowAutomationEnabled,
 } from "./youtube-intraday-shadow-scheduler";
+
+test("reports the effective intraday automation kill-switch state", () => {
+  assert.equal(youtubeIntradayShadowAutomationEnabled({}), true);
+  assert.equal(youtubeIntradayShadowAutomationEnabled({
+    YOUTUBE_INTRADAY_SHADOW_AUTOMATION: "false",
+  }), true);
+  assert.equal(youtubeIntradayShadowAutomationEnabled({
+    YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED: "true",
+  }), false);
+  assert.equal(youtubeIntradayShadowAutomationEnabled({
+    YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED: "false",
+  }), true);
+});
 
 test("maps batch stats without erasing catalog metadata", () => {
   assert.deepEqual(youtubeBatchStatsItems([{
