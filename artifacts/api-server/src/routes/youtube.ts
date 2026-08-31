@@ -17,8 +17,9 @@ import { reserveYoutubeApiUsage, youtubeApiDailyUsage } from "../lib/youtube-api
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 import {
   YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
-  youtubeLiveCoverageCandidateSql,
+  youtubeLiveCoverageArtistSql,
   youtubeLiveCoverageReadMode,
+  youtubeLiveCoverageVideoSql,
 } from "@workspace/db/youtube-live-coverage-query";
 
 const router = Router();
@@ -1280,15 +1281,21 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     const transactionStartedAt = performance.now();
     const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
     const mappingCompletedAt = performance.now();
-    const candidate = await client.query(
-      youtubeLiveCoverageCandidateSql(youtubeLiveCoverageReadMode()),
+    const readMode = youtubeLiveCoverageReadMode();
+    const artists = await client.query(
+      youtubeLiveCoverageArtistSql(readMode),
     );
-    const candidateCompletedAt = performance.now();
+    const artistsCompletedAt = performance.now();
+    const videos = await client.query(
+      youtubeLiveCoverageVideoSql(readMode),
+    );
+    const videosCompletedAt = performance.now();
     await client.query("COMMIT");
     const queryCompletedAt = performance.now();
     const row = {
       ...(mapping.rows[0] ?? {}),
-      ...(candidate.rows[0] ?? {}),
+      ...(artists.rows[0] ?? {}),
+      ...(videos.rows[0] ?? {}),
     };
     const rosterArtists = Number(row.roster_artists ?? 0);
     const mappedArtists = Number(row.mapped_artists ?? 0);
@@ -1301,8 +1308,9 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
       `db-acquire;dur=${(connectionAcquiredAt - requestStartedAt).toFixed(1)}, `
         + `db-begin;dur=${(transactionStartedAt - connectionAcquiredAt).toFixed(1)}, `
         + `db-mapping;dur=${(mappingCompletedAt - transactionStartedAt).toFixed(1)}, `
-        + `db-coverage;dur=${(candidateCompletedAt - mappingCompletedAt).toFixed(1)}, `
-        + `db-commit;dur=${(queryCompletedAt - candidateCompletedAt).toFixed(1)}, `
+        + `db-artists;dur=${(artistsCompletedAt - mappingCompletedAt).toFixed(1)}, `
+        + `db-videos;dur=${(videosCompletedAt - artistsCompletedAt).toFixed(1)}, `
+        + `db-commit;dur=${(queryCompletedAt - videosCompletedAt).toFixed(1)}, `
         + `app;dur=${(performance.now() - queryCompletedAt).toFixed(1)}`,
     );
     res.json({
