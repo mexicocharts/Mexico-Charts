@@ -1,0 +1,69 @@
+[1mdiff --cc artifacts/mexico-charts/src/pages/ArtistDetail.tsx[m
+[1mindex fed28a5,784c82d..0000000[m
+[1m--- a/artifacts/mexico-charts/src/pages/ArtistDetail.tsx[m
+[1m+++ b/artifacts/mexico-charts/src/pages/ArtistDetail.tsx[m
+[36m@@@ -19,10 -19,9 +19,14 @@@[m [mimport { useSongstatsArtist } from "@/h[m
+  import { slugify } from "@/lib/utils";[m
+  import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";[m
+  import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";[m
+[32m +import { spotifyMexicoRankLabel } from "@/lib/rankLabels";[m
+  import SaveArtistButton from "@/components/SaveArtistButton";[m
+  import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";[m
+[32m++<<<<<<< HEAD[m
+[32m +import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";[m
+[32m++=======[m
+[32m+ import { YouTubeConsentGate, YouTubeMixedLegend, YouTubeSourceLabel } from "@/components/YouTubeConsent";[m
+[32m++>>>>>>> ff132ef (Add approved YouTube compliance disclosures)[m
+  [m
+  export { slugify };[m
+  [m
+[36m@@@ -2495,9 -2313,9 +2501,14 @@@[m [mfunction CanonicalArtistDetail({ slug, [m
+          {/* ══════════════════════════════════════════════════════════[m
+              KWORB — TOP YOUTUBE VIDEOS[m
+          ══════════════════════════════════════════════════════════ */}[m
+[32m++<<<<<<< HEAD[m
+[32m +        {youtubeLiveVideos.length === 0 && kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && ([m
+[32m++=======[m
+[32m+         {kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && ([m
+[32m+           <YouTubeConsentGate>[m
+[32m++>>>>>>> ff132ef (Add approved YouTube compliance disclosures)[m
+            <motion.section[m
+[32m +            className="order-6"[m
+              initial={{ opacity: 0, y: 20 }}[m
+              whileInView={{ opacity: 1, y: 0 }}[m
+              viewport={{ once: true, margin: "-60px" }}[m
+[1mdiff --cc artifacts/mexico-charts/src/pages/Privacidad.tsx[m
+[1mindex c07ec0e,d20401f..0000000[m
+[1m--- a/artifacts/mexico-charts/src/pages/Privacidad.tsx[m
+[1m+++ b/artifacts/mexico-charts/src/pages/Privacidad.tsx[m
+[36m@@@ -1,5 -1,5 +1,9 @@@[m
+  import { Link } from "wouter";[m
+[32m++<<<<<<< HEAD[m
+[32m +import { BarChart3, ChevronRight, Cookie, CreditCard, ExternalLink, Home, Mail, MousePointer2, ShieldCheck, UserRound } from "lucide-react";[m
+[32m++=======[m
+[32m+ import { BarChart3, ChevronRight, Cookie, ExternalLink, Home, Mail, MousePointer2, ShieldCheck, UserRound, Youtube } from "lucide-react";[m
+[32m++>>>>>>> ff132ef (Add approved YouTube compliance disclosures)[m
+  import SiteNav from "@/components/SiteNav";[m
+  import PageSEO from "@/components/PageSEO";[m
+  import { CONTACT_EMAIL, SITE_DOMAIN, SITE_URL } from "@/config/brand";[m
+[36m@@@ -14,10 -14,9 +18,10 @@@[m [mexport default function Privacidad() [m
+    const privacyItems = [[m
+      { title: pick("Información recopilada", "Information collected"), body: pick("Mexico Charts recopila información básica de uso del sitio, como páginas visitadas, dispositivo, navegador, ubicación aproximada, fuente de tráfico y métricas de interacción. Se usa para entender el rendimiento del sitio y mejorar la experiencia.", "Mexico Charts collects basic site-usage information such as pages visited, device, browser, approximate location, traffic source and interaction metrics. It is used to understand site performance and improve the experience."), icon: BarChart3 },[m
+      { title: pick("Cookies y analítica", "Cookies and analytics"), body: pick("El sitio utiliza Google Analytics para medir tráfico y navegación de forma agregada. Google puede emplear cookies o tecnologías similares de acuerdo con sus propias políticas.", "The site uses Google Analytics to measure traffic and navigation in aggregate. Google may use cookies or similar technologies under its own policies."), icon: Cookie },[m
+[31m-     { title: pick("Servicios de terceros", "Third-party services"), body: pick("Mexico Charts puede enlazar o integrar contenido de plataformas externas como Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster u otras. Cada plataforma externa tiene sus propias políticas de privacidad.", "Mexico Charts may link to or integrate content from external platforms such as Spotify, YouTube, Apple Music, Deezer, Instagram, TikTok, X, Ticketmaster and others. Each external platform has its own privacy policies."), icon: ExternalLink },[m
+[32m+     { title: pick("Servicios de terceros", "Third-party services"), body: pick("Mexico Charts integra o enlaza servicios externos, entre ellos YouTube, Spotify, Apple Music, Deezer, Instagram, TikTok, X y Ticketmaster. Cada servicio aplica sus propios términos y políticas. El tratamiento específico de los servicios de la API de YouTube se explica en la sección correspondiente de esta política.", "Mexico Charts integrates or links to external services including YouTube, Spotify, Apple Music, Deezer, Instagram, TikTok, X and Ticketmaster. Each service applies its own terms and policies. Our specific handling of YouTube API Services is explained in the corresponding section of this policy."), icon: ExternalLink },[m
+      { title: pick("Datos personales", "Personal data"), body: pick("Mexico Charts no vende información personal de usuarios. Si una persona nos contacta por email o redes sociales, la información compartida se usará únicamente para responder o gestionar su mensaje.", "Mexico Charts does not sell users' personal information. If someone contacts us by email or social media, the information shared is used only to respond to or manage the inquiry."), icon: UserRound },[m
+      { title: pick("Cuentas y preferencias", "Accounts and preferences"), body: pick("Si creas una cuenta, el proveedor de autenticación gestiona el acceso seguro y Mexico Charts conserva los datos necesarios para tu perfil, plan, artistas guardados y preferencias de alertas. No exigimos una cuenta para ver las páginas públicas.", "If you create an account, the authentication provider manages secure access and Mexico Charts stores the information needed for your profile, plan, saved artists and alert preferences. An account is not required to view public pages."), icon: ShieldCheck },[m
+[32m +    { title: pick("Pagos y suscripciones", "Payments and subscriptions"), body: pick("Stripe procesa los datos de facturación de las suscripciones y comparte con Mexico Charts los identificadores y el estado necesarios para vincular el plan con tu cuenta y el artista seleccionado. Mexico Charts no almacena números completos de tarjeta.", "Stripe processes subscription billing details and shares the identifiers and status Mexico Charts needs to link the plan to your account and selected artist. Mexico Charts does not store complete card numbers."), icon: CreditCard },[m
+      { title: pick("Cambios", "Changes"), body: pick("Esta política puede actualizarse conforme el sitio evolucione.", "This policy may be updated as the site evolves."), icon: MousePointer2 },[m
+    ];[m
+    const privacyJsonLd = {[m
+[36m@@@ -121,7 -133,7 +138,11 @@@[m
+          </section>[m
+  [m
+          <p className="mt-8 max-w-3xl text-xs font-medium leading-6 text-zinc-700">[m
+[32m++<<<<<<< HEAD[m
+[32m +          {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 29 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 29, 2026.")}[m
+[32m++=======[m
+[32m+           {pick("Esta política puede actualizarse conforme el sitio evolucione. Última actualización: 30 de agosto de 2026.", "This policy may be updated as the site evolves. Last updated: August 30, 2026.")}[m
+[32m++>>>>>>> ff132ef (Add approved YouTube co
