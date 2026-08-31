@@ -22,6 +22,7 @@ import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentat
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
+import { YouTubeConsentGate, YouTubeMixedLegend, YouTubeSourceLabel } from "@/components/YouTubeConsent";
 import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";
 import { SITE_URL, pageId } from "@/lib/structured-data.mjs";
 
@@ -1473,7 +1474,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
         {youtubeLiveVideos.length > 0 && (
           <div id="actualidad" className="order-1 scroll-mt-36">
-            <YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} publicPreview />
+            <YouTubeConsentGate><YouTubeLivePublicPreview artistName={artist.name} videos={youtubeLiveVideos} publicPreview /></YouTubeConsentGate>
           </div>
         )}
 
@@ -1535,17 +1536,19 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     </div>
                   )}
                   {audienceStats.youtubeSubscribers > 0 && (
-                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
+                    <div data-youtube-powered className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
                       <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeSubscribers)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                      <YouTubeSourceLabel observedAt={youtubeUpdatedLabel} />
                     </div>
                   )}
                   {audienceStats.youtubeViews > 0 && (
-                    <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
+                    <div data-youtube-powered className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
                       <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeViews)}</div>
                       <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
+                      <YouTubeSourceLabel observedAt={youtubeUpdatedLabel} />
                     </div>
                   )}
                   {ytChannel?.videoCount != null && (
@@ -2534,6 +2537,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             KWORB — TOP YOUTUBE VIDEOS
         ══════════════════════════════════════════════════════════ */}
         {youtubeLiveVideos.length === 0 && kworbStats?.youtube && kworbStats.youtube.topVideos.length > 0 && (
+          <YouTubeConsentGate>
           <motion.section
             className="order-6"
             initial={{ opacity: 0, y: 20 }}
@@ -2652,6 +2656,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               </div>
             </div>
           </motion.section>
+          </YouTubeConsentGate>
         )}
 
         {/* ══════════════════════════════════════════════════════════

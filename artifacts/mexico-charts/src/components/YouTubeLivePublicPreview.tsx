@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Activity, Clock3, Eye, Play } from "lucide-react";
 import { Link } from "wouter";
+import { MexicoChartsCalculationLabel, YouTubeSourceLabel } from "@/components/YouTubeConsent";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -152,6 +153,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
             </div>
             <div aria-live="polite" className="mt-1 overflow-hidden text-[clamp(2.3rem,7vw,4.75rem)] font-black leading-none tracking-[-0.055em] text-white">
               <RollingCount value={featured.view_count} />
+              <YouTubeSourceLabel observedAt={featured.observed_at} />
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">
               <span>Conteo oficial guardado</span>
@@ -176,6 +178,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
             <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
               <div className="text-[8px] font-black uppercase tracking-[0.13em] text-zinc-600">Último día completo</div>
               <div className="mt-1 text-lg font-black"><GainValue value={featured.views_24h} /></div>
+              <MexicoChartsCalculationLabel windowLabel="últimas 24 h" />
               <div className="mt-1 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-700">12 a.m. → 12 a.m. ET</div>
             </div>
           </div>
@@ -199,6 +202,7 @@ export default function YouTubeLivePublicPreview({ artistName, videos, motionDem
                   <div className="text-right">
                     <div className="text-[8px] font-black uppercase tracking-[0.12em] text-zinc-700">Hoy desde 12 a.m. ET</div>
                     <div className="mt-0.5 text-sm font-black"><GainValue value={video.views_today_et} /></div>
+                    <MexicoChartsCalculationLabel windowLabel="hoy" />
                   </div>
                 </div>
               </div>
