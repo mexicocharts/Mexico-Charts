@@ -125,9 +125,9 @@ export async function bootstrapYoutubeApiUsage(client: PgClient, source: "collec
           FROM youtube_shadow_api_usage WHERE usage_date=CURRENT_DATE::text AND batch_stats_api_calls>0
         `)
       : await client.query<{ method: string; bucket: YoutubeQuotaBucket; requests: number; units: number }>(`
-          SELECT 'legacy.validation','general',
-            channel_calls+playlist_calls+video_calls,
-            channel_calls+playlist_calls+video_calls
+          SELECT 'legacy.validation' method,'general' bucket,
+            channel_calls+playlist_calls+video_calls requests,
+            channel_calls+playlist_calls+video_calls units
           FROM youtube_discovery_validation_api_usage
           WHERE usage_date=CURRENT_DATE AND channel_calls+playlist_calls+video_calls>0
           UNION ALL
