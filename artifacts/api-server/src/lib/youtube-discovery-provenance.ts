@@ -21,6 +21,7 @@ export const INNERTUBE_YOUTUBE_EVIDENCE_MARKERS = [
 ] as const;
 
 export const INNERTUBE_PRIMARY_SOURCE = "youtube_music_innertube";
+export const LIVE_COMPARATOR_PUBLICATION_LOOKBACK_MS = 24 * 60 * 60 * 1_000;
 
 export type YoutubeDiscoveryProvenance = "authorized" | "innertube" | "mixed" | "unknown";
 
@@ -50,4 +51,21 @@ export function classifyYoutubeDiscoveryProvenance(input: {
   if (authorized) return "authorized";
   if (innertube) return "innertube";
   return "unknown";
+}
+
+export function isYoutubeLiveComparatorCandidate(input: {
+  primarySource?: string | null;
+  discoveredAt?: string | Date | null;
+  publishedAt?: string | Date | null;
+  sessionStartedAt: string | Date;
+}): boolean {
+  if (input.primarySource !== INNERTUBE_PRIMARY_SOURCE) return false;
+  const sessionStartedAt = new Date(input.sessionStartedAt).getTime();
+  const discoveredAt = input.discoveredAt == null ? Number.NaN : new Date(input.discoveredAt).getTime();
+  const publishedAt = input.publishedAt == null ? Number.NaN : new Date(input.publishedAt).getTime();
+  return Number.isFinite(sessionStartedAt)
+    && Number.isFinite(discoveredAt)
+    && Number.isFinite(publishedAt)
+    && discoveredAt >= sessionStartedAt
+    && publishedAt >= sessionStartedAt - LIVE_COMPARATOR_PUBLICATION_LOOKBACK_MS;
 }

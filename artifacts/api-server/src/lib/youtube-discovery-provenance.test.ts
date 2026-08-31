@@ -4,6 +4,7 @@ import {
   AUTHORIZED_YOUTUBE_EVIDENCE_MARKERS,
   classifyYoutubeDiscoveryProvenance,
   INNERTUBE_YOUTUBE_EVIDENCE_MARKERS,
+  isYoutubeLiveComparatorCandidate,
 } from "./youtube-discovery-provenance";
 
 test("enumerates the stable authorized and Innertube evidence markers", () => {
@@ -31,4 +32,26 @@ test("classifies explicit Innertube evidence and preserves mixed provenance", ()
     primarySource: "youtube_music_innertube",
     evidenceSources: ["release_track", "verified_official_channel_upload"],
   }), "mixed");
+});
+
+test("excludes historical catalog backfills from the protected live comparator", () => {
+  const sessionStartedAt = "2026-08-30T23:16:11.736Z";
+  assert.equal(isYoutubeLiveComparatorCandidate({
+    primarySource: "youtube_music_innertube",
+    discoveredAt: "2026-08-31T07:20:52.824Z",
+    publishedAt: "2024-02-01T00:00:00.000Z",
+    sessionStartedAt,
+  }), false);
+  assert.equal(isYoutubeLiveComparatorCandidate({
+    primarySource: "youtube_music_innertube",
+    discoveredAt: "2026-08-31T07:20:52.824Z",
+    publishedAt: "2026-08-30T12:00:00.000Z",
+    sessionStartedAt,
+  }), true);
+  assert.equal(isYoutubeLiveComparatorCandidate({
+    primarySource: "approved_artist_video_link",
+    discoveredAt: "2026-08-31T07:20:52.824Z",
+    publishedAt: "2026-08-31T01:00:00.000Z",
+    sessionStartedAt,
+  }), false);
 });

@@ -346,7 +346,7 @@ async function captureComparator(client: PgClient, session:{id:string;started_at
     (session_id,source,artist_key,video_id,title,uploader_channel_id,uploader_channel_title,uploader_type,association_status,first_seen_at,published_at,evidence)
     SELECT $1::bigint,'innertube_comparator',c.artist_key,c.video_id,c.title,c.evidence->>'uploaderChannelId',NULL,
       CASE WHEN c.evidence_sources::text ILIKE '%topic%' THEN 'topic' ELSE 'artist_other' END,
-      'comparator',COALESCE(c.discovered_at,c.created_at),NULL,
+      'comparator',COALESCE(c.discovered_at,c.created_at),v.published_at,
       jsonb_build_object(
         'primarySource',c.evidence_source,
         'evidenceSources',c.evidence_sources,
@@ -354,7 +354,9 @@ async function captureComparator(client: PgClient, session:{id:string;started_at
         'provenanceClassifier','explicit-primary-v1'
       )
     FROM youtube_music_catalog_candidates c
+    JOIN youtube_tracked_videos v ON v.video_id=c.video_id
     WHERE COALESCE(c.discovered_at,c.created_at) >= $2::timestamptz
+      AND v.published_at >= $2::timestamptz - interval '1 day'
       AND c.evidence_source=$3
     ON CONFLICT DO NOTHING`,[session.id,session.started_at,INNERTUBE_PRIMARY_SOURCE]);
   await client.query(`UPDATE youtube_discovery_validation_sessions
