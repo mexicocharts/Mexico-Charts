@@ -16,8 +16,9 @@ import { getDashboardAdminKey } from "../lib/admin-key";
 import { reserveYoutubeApiUsage, youtubeApiDailyUsage } from "../lib/youtube-api-budget";
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 import {
+  YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
+  youtubeLiveCoverageCandidateSql,
   youtubeLiveCoverageReadMode,
-  youtubeLiveCoverageSql,
 } from "@workspace/db/youtube-live-coverage-query";
 
 const router = Router();
@@ -1275,11 +1276,20 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
   const client = await publicReadPool.connect();
   const connectionAcquiredAt = performance.now();
   try {
-    const coverage = await client.query(
-      youtubeLiveCoverageSql(youtubeLiveCoverageReadMode()),
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const transactionStartedAt = performance.now();
+    const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
+    const mappingCompletedAt = performance.now();
+    const candidate = await client.query(
+      youtubeLiveCoverageCandidateSql(youtubeLiveCoverageReadMode()),
     );
+    const candidateCompletedAt = performance.now();
+    await client.query("COMMIT");
     const queryCompletedAt = performance.now();
-    const row = coverage.rows[0] ?? {};
+    const row = {
+      ...(mapping.rows[0] ?? {}),
+      ...(candidate.rows[0] ?? {}),
+    };
     const rosterArtists = Number(row.roster_artists ?? 0);
     const mappedArtists = Number(row.mapped_artists ?? 0);
     const catalogArtists = Number(row.catalog_artists ?? 0);
@@ -1289,7 +1299,10 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
     res.setHeader(
       "Server-Timing",
       `db-acquire;dur=${(connectionAcquiredAt - requestStartedAt).toFixed(1)}, `
-        + `db-query;dur=${(queryCompletedAt - connectionAcquiredAt).toFixed(1)}, `
+        + `db-begin;dur=${(transactionStartedAt - connectionAcquiredAt).toFixed(1)}, `
+        + `db-mapping;dur=${(mappingCompletedAt - transactionStartedAt).toFixed(1)}, `
+        + `db-coverage;dur=${(candidateCompletedAt - mappingCompletedAt).toFixed(1)}, `
+        + `db-commit;dur=${(queryCompletedAt - candidateCompletedAt).toFixed(1)}, `
         + `app;dur=${(performance.now() - queryCompletedAt).toFixed(1)}`,
     );
     res.json({
@@ -1310,6 +1323,9 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
       collectionCadenceMinutes: 5,
       maxVideosPerPass: 250,
     });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
   } finally {
     client.release();
   }
