@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LOGO_ID, ORGANIZATION_ID, WEBSITE_ID, breadcrumbId, pageId } from "../src/lib/structured-data.mjs";
+import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dist = path.join(root, "dist", "public");
@@ -30,7 +31,13 @@ function verifyGraph(graph, canonicalUrl) {
   const website = byId(WEBSITE_ID)[0];
   const page = byId(pageId(canonicalUrl))[0];
   assert(organization.name === "Mexico Charts", "Organization name changed");
-  assert(Array.isArray(organization.sameAs) && organization.sameAs.length === 3, "Official sameAs list is incomplete");
+  assert(
+    JSON.stringify(organization.sameAs) === JSON.stringify([
+      "https://www.instagram.com/mexicocharts/",
+      "https://www.tiktok.com/@mexicocharts",
+    ]),
+    "Organization sameAs must contain only verified official profiles",
+  );
   assert(website.publisher?.["@id"] === ORGANIZATION_ID, "WebSite publisher is disconnected");
   assert(page.isPartOf?.["@id"] === WEBSITE_ID, "WebPage is disconnected from WebSite");
   assert(page.publisher?.["@id"] === ORGANIZATION_ID, "WebPage publisher is disconnected");
@@ -58,6 +65,9 @@ const [homeHtml, chartsHtml, aboutHtml, articleHtml, artistHtml, sitemap] = awai
   readFile(path.join(dist, "artist", "peso-pluma"), "utf8"),
   readFile(path.join(root, "public", "sitemap.xml"), "utf8"),
 ]);
+const historicalHtml = await Promise.all(WEEKLY_EDITIONS.map((edition) =>
+  readFile(path.join(dist, "esta-semana", edition.date), "utf8"),
+));
 
 verifyGraph(structuredData(homeHtml), "https://mexicochart.com/");
 verifyGraph(structuredData(chartsHtml), "https://mexicochart.com/charts");
@@ -84,6 +94,7 @@ for (const field of ["author", "datePublished", "dateModified"]) {
 }
 assert(!/<meta name="author"/i.test(articleHtml), "Article HTML must not claim an unsupported author");
 assert(homeHtml.includes("Mexico Charts es una plataforma independiente"), "Homepage brand copy missing from initial HTML");
+assert(!homeHtml.includes("https://www.youtube.com/@mexicocharts"), "Unverified YouTube profile must not appear in structured data");
 assert(chartsHtml.includes("Charts de música en México"), "Charts H1 missing from initial HTML");
 assert(chartsHtml.includes("Spotify, YouTube, Apple Music y Deezer"), "Charts platform context missing from initial HTML");
 assert(chartsHtml.includes("diaria, semanal o intradía"), "Charts update cadence missing from initial HTML");
@@ -92,4 +103,22 @@ for (const value of [...sitemap.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)].map((m
   assert(/^20\d{2}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)), `Invalid sitemap lastmod: ${value}`);
 }
 
-console.log("SEO audit passed: connected P0/P1 entity graphs, truthful article metadata, breadcrumbs, crawlable copy, and valid sitemap freshness fields.");
+for (const [index, edition] of WEEKLY_EDITIONS.entries()) {
+  const html = historicalHtml[index];
+  const canonicalUrl = `https://mexicochart.com/esta-semana/${edition.date}`;
+  assert(html.includes(`<link rel="canonical" href="${canonicalUrl}" />`), `Incorrect historical canonical for ${edition.date}`);
+  assert(html.includes(`<meta property="og:url" content="${canonicalUrl}" />`), `Incorrect historical Open Graph URL for ${edition.date}`);
+  assert((html.match(/<h1\b/g) ?? []).length === 1, `Historical route ${edition.date} must contain exactly one initial H1`);
+  assert(html.includes(edition.date) || html.includes(new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${edition.date}T12:00:00Z`))), `Historical route ${edition.date} lacks date-specific context`);
+  assert(!html.includes("La industria de la música mexicana, en movimiento"), `Historical route ${edition.date} still contains the homepage shell`);
+  const graph = structuredData(html);
+  verifyGraph(graph, canonicalUrl);
+  verifyBreadcrumb(graph, canonicalUrl, ["Mexico Charts", "Charts de música en México", "Esta semana", `Edición ${edition.date}`]);
+  const page = graph["@graph"].find((node) => node["@id"] === pageId(canonicalUrl));
+  assert(page.dateModified === edition.updatedAt, `Historical route ${edition.date} has unverified freshness`);
+  assert(page.temporalCoverage === edition.date, `Historical route ${edition.date} lacks edition coverage`);
+  assert(sitemap.includes(`<loc>${canonicalUrl}</loc>`), `Historical route ${edition.date} missing from sitemap`);
+  assert(sitemap.includes(`<lastmod>${edition.updatedAt.slice(0, 10)}</lastmod>`), `Historical route ${edition.date} has incorrect sitemap lastmod`);
+}
+
+console.log("SEO audit passed: connected P0/P1 entity graphs, truthful article metadata, historical initial HTML, breadcrumbs, crawlable copy, and verified sitemap freshness fields.");

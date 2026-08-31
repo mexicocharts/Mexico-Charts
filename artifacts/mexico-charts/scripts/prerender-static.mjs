@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
 import { ORGANIZATION_ID, WEBSITE_ID, buildStructuredDataGraph, pageId } from "../src/lib/structured-data.mjs";
+import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -45,6 +46,7 @@ const routes = [
     ],
     links: [
       ["/charts", "Charts"],
+      ["/esta-semana", "Esta semana y archivo"],
       ["/metodologia", "Metodologia"],
     ],
     breadcrumbs: [
@@ -407,6 +409,47 @@ const routes = [
     ],
   },
 ];
+
+for (const edition of WEEKLY_EDITIONS) {
+  const formattedDate = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${edition.date}T12:00:00Z`));
+  routes.push({
+    path: `/esta-semana/${edition.date}`,
+    title: `Esta semana — edición ${formattedDate} | Mexico Charts`,
+    description: `Edición del ${formattedDate} con participación mexicana en los charts semanales de Spotify y YouTube para México.`,
+    eyebrow: "Mexico Charts · Archivo semanal",
+    heading: `Esta semana · ${formattedDate}`,
+    body: "Edición histórica de la lectura semanal de Mexico Charts, basada en posiciones guardadas de las listas oficiales para México. Los movimientos comparan ediciones reales; no se estiman posiciones.",
+    sections: [
+      ["Cobertura de la edición", "Rankings semanales de artistas y canciones en Spotify y YouTube, con contexto adicional de Apple Music y Deezer cuando existe una edición guardada para la fecha."],
+      ["Fecha de la edición", `Datos correspondientes a la edición del ${formattedDate}.`],
+    ],
+    links: [
+      ["/esta-semana", "Edición actual y archivo"],
+      ["/charts", "Todos los charts de música en México"],
+      ["/metodologia", "Metodología"],
+      ...WEEKLY_EDITIONS.filter((candidate) => candidate.date !== edition.date).map((candidate) => [
+        `/esta-semana/${candidate.date}`,
+        `Edición ${candidate.date}`,
+      ]),
+    ],
+    jsonLd: {
+      "@type": "WebPage",
+      dateModified: edition.updatedAt,
+      temporalCoverage: edition.date,
+    },
+    breadcrumbs: [
+      ["/", "Mexico Charts"],
+      ["/charts", "Charts de música en México"],
+      ["/esta-semana", "Esta semana"],
+      [`/esta-semana/${edition.date}`, `Edición ${edition.date}`],
+    ],
+  });
+}
 
 routes.push(
   ...artistProfileRoutes.map((artist) => ({

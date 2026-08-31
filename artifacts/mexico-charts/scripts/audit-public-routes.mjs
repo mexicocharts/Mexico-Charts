@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
+import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -131,6 +132,7 @@ const prerenderRoutes = new Set(
   [
     ...[...prerenderSource.matchAll(/path:\s*"([^"]+)"/g)].map((match) => match[1]),
     ...artistProfileRoutes.map((route) => route.path),
+    ...WEEKLY_EDITIONS.map((edition) => `/esta-semana/${edition.date}`),
   ]
     .map((route) => normalizeRoute(route))
     .filter(Boolean),
@@ -152,6 +154,21 @@ const prerenderMissingFromSitemap = difference(publicPrerenderRoutes, sitemapRou
 const unroutableSitemapRoutes = sorted([...sitemapRoutes].filter((route) => !isRoutable(route)));
 const unroutableInternalLinks = sorted([...linkedRoutes].filter((route) => !isRoutable(route)));
 const privateSitemapRoutes = sorted([...sitemapRoutes].filter(isDisallowed));
+const sitemapLastmodByRoute = new Map(
+  [...sitemapSource.matchAll(/<url>([\s\S]*?)<\/url>/g)].map((match) => {
+    const loc = match[1].match(/<loc>([^<]+)<\/loc>/)?.[1];
+    const lastmod = match[1].match(/<lastmod>([^<]+)<\/lastmod>/)?.[1]?.trim() ?? null;
+    return [normalizeRoute(loc), lastmod];
+  }),
+);
+const historicalSitemapErrors = WEEKLY_EDITIONS.flatMap((edition) => {
+  const route = `/esta-semana/${edition.date}`;
+  const expectedLastmod = edition.updatedAt.slice(0, 10);
+  if (!sitemapRoutes.has(route)) return [`${route} is missing`];
+  return sitemapLastmodByRoute.get(route) === expectedLastmod
+    ? []
+    : [`${route} must use verified lastmod ${expectedLastmod}`];
+});
 
 const failures = [
   missingFromSitemap,
@@ -163,6 +180,7 @@ const failures = [
   duplicateSitemapRoutes,
   invalidSitemapUrls,
   invalidLastmods,
+  historicalSitemapErrors,
 ].some((list) => list.length > 0);
 
 if (failures) {
@@ -175,6 +193,7 @@ if (failures) {
   reportList("Duplicate URLs present in sitemap", duplicateSitemapRoutes);
   reportList("Sitemap URLs outside the canonical origin", invalidSitemapUrls);
   reportList("Invalid sitemap lastmod values", invalidLastmods);
+  reportList("Historical sitemap coverage errors", historicalSitemapErrors);
   process.exit(1);
 }
 

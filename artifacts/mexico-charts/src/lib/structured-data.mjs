@@ -6,7 +6,6 @@ export const LOGO_ID = `${SITE_URL}/#logo`;
 export const OFFICIAL_SOCIAL_URLS = [
   "https://www.instagram.com/mexicocharts/",
   "https://www.tiktok.com/@mexicocharts",
-  "https://www.youtube.com/@mexicocharts",
 ];
 
 const WEB_PAGE_TYPES = new Set(["WebPage", "AboutPage", "ContactPage", "CollectionPage"]);
