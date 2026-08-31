@@ -130,6 +130,48 @@ export const YOUTUBE_LIVE_COVERAGE_LATEST_SQL = `${commonPrefix}
   ${candidateTotals}
 `;
 
+const eligibleCandidatesMarker = ", eligible_candidates AS MATERIALIZED";
+const mappingPrefixEnd = commonPrefix.indexOf(eligibleCandidatesMarker);
+
+if (mappingPrefixEnd < 0) {
+  throw new Error("YouTube live coverage mapping SQL marker is missing");
+}
+
+export const YOUTUBE_LIVE_COVERAGE_MAPPING_SQL = `${commonPrefix.slice(0, mappingPrefixEnd)}
+  SELECT
+    (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
+    mapping.*
+  FROM mapping_totals mapping
+`;
+
+export const YOUTUBE_LIVE_COVERAGE_LEGACY_CANDIDATE_SQL = `${commonPrefix}
+  , eligible_video_ids AS MATERIALIZED (
+    SELECT DISTINCT video_id
+    FROM eligible_candidates
+  ), snapshot_state AS MATERIALIZED (
+    SELECT sample.video_id, max(sample.observed_at) latest_observed_at
+    FROM youtube_video_intraday_shadow_snapshots sample
+    JOIN eligible_video_ids eligible USING (video_id)
+    GROUP BY sample.video_id
+  )
+  ${candidateTotals.replace(
+    /SELECT\s+\(SELECT count\(\*\)::int FROM kworb_coverage[\s\S]*$/,
+    "SELECT candidate.* FROM candidate_totals candidate\n",
+  )}
+`;
+
+export const YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL = `${commonPrefix}
+  , snapshot_state AS MATERIALIZED (
+    SELECT latest.video_id, latest.latest_observed_at
+    FROM youtube_video_intraday_latest_observations latest
+    JOIN (SELECT DISTINCT video_id FROM eligible_candidates) eligible USING (video_id)
+  )
+  ${candidateTotals.replace(
+    /SELECT\s+\(SELECT count\(\*\)::int FROM kworb_coverage[\s\S]*$/,
+    "SELECT candidate.* FROM candidate_totals candidate\n",
+  )}
+`;
+
 export function youtubeLiveCoverageReadMode(
   env: NodeJS.ProcessEnv = process.env,
 ): YoutubeLiveCoverageReadMode {
@@ -138,6 +180,12 @@ export function youtubeLiveCoverageReadMode(
 
 export function youtubeLiveCoverageSql(mode: YoutubeLiveCoverageReadMode): string {
   return mode === "latest" ? YOUTUBE_LIVE_COVERAGE_LATEST_SQL : YOUTUBE_LIVE_COVERAGE_LEGACY_SQL;
+}
+
+export function youtubeLiveCoverageCandidateSql(mode: YoutubeLiveCoverageReadMode): string {
+  return mode === "latest"
+    ? YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL
+    : YOUTUBE_LIVE_COVERAGE_LEGACY_CANDIDATE_SQL;
 }
 
 export function youtubeLiveCoverageRowsEqual(
