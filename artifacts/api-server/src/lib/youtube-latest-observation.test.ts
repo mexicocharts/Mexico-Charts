@@ -7,8 +7,10 @@ import {
   youtubeCoverageFromLatestObservations,
 } from "./youtube-latest-observation";
 import {
+  YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL,
   YOUTUBE_LIVE_COVERAGE_LATEST_SQL,
   YOUTUBE_LIVE_COVERAGE_LEGACY_SQL,
+  YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
   youtubeLiveCoverageReadMode,
   youtubeLiveCoverageRowsEqual,
 } from "@workspace/db/youtube-live-coverage-query";
@@ -117,6 +119,10 @@ test("latest read avoids historical aggregation while preserving legacy rollback
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /candidate_artist_state AS MATERIALIZED/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /candidate_video_state AS MATERIALIZED/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_SQL, /count\(DISTINCT candidate\./);
+  assert.match(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL, /FROM mapping_totals mapping/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL, /eligible_candidates/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL, /SELECT candidate\.\* FROM candidate_totals candidate/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_CANDIDATE_SQL, /FROM mapping_totals mapping/);
   assert.equal(youtubeLiveCoverageReadMode({}), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "latest" }), "latest");
   assert.equal(youtubeLiveCoverageReadMode({ YOUTUBE_LIVE_COVERAGE_READ_MODE: "legacy" }), "legacy");
