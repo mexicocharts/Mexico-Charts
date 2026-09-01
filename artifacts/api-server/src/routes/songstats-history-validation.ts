@@ -6,6 +6,7 @@ import type {
   songstatsHistoryValidationState,
 } from "../lib/songstats-history-validation-report";
 import type { finalizeSongstatsHistoryImportRun } from "../lib/songstats-history-store";
+import type { buildCompactServingPerformanceReport } from "../lib/songstats-history-serving-validation";
 
 const REQUESTED_ARTISTS = [
   "peso-pluma",
@@ -94,6 +95,13 @@ function exactReportBody(body: unknown): boolean {
     record["action"] === "report" && record["confirm"] === CONFIRM;
 }
 
+function exactServingReportBody(body: unknown): boolean {
+  if (body == null || typeof body !== "object" || Array.isArray(body)) return false;
+  const record = body as Record<string, unknown>;
+  return exactKeys(record, ["action", "confirm"]) &&
+    record["action"] === "compact-serving-report" && record["confirm"] === CONFIRM;
+}
+
 export function createSongstatsHistoryValidationRouter(options: {
   env?: NodeJS.ProcessEnv;
   actualFingerprint?: string;
@@ -101,6 +109,7 @@ export function createSongstatsHistoryValidationRouter(options: {
   runBackfill?: typeof runSongstatsHistoryBackfill;
   finalizeRun?: typeof finalizeSongstatsHistoryImportRun;
   buildReport?: typeof buildSongstatsHistoryValidationReport;
+  buildServingReport?: typeof buildCompactServingPerformanceReport;
 } = {}) {
   const env = options.env ?? process.env;
   const actualFingerprint = options.actualFingerprint ?? BAKED_FINGERPRINT;
@@ -116,6 +125,9 @@ export function createSongstatsHistoryValidationRouter(options: {
   const buildReport = options.buildReport ?? (async input =>
     (await import("../lib/songstats-history-validation-report"))
       .buildSongstatsHistoryValidationReport(input));
+  const buildServingReport = options.buildServingReport ?? (async input =>
+    (await import("../lib/songstats-history-serving-validation"))
+      .buildCompactServingPerformanceReport(input));
   const router = Router();
   router.post("/admin/songstats/history-validation", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -164,6 +176,16 @@ export function createSongstatsHistoryValidationRouter(options: {
       const next = APPROVED_TASKS.find(task =>
         !completed.has(`${task.canonicalArtist}:${task.year}`),
       );
+
+      if (exactServingReportBody(req.body)) {
+        if (next) {
+          res.status(409).json({ error: "Validation history is incomplete", next });
+          return;
+        }
+        const report = await buildServingReport({ artistKeys: CANONICAL_ARTISTS });
+        res.status(200).json({ fingerprint: actualFingerprint, report });
+        return;
+      }
 
       if (exactReportBody(req.body)) {
         if (next) {

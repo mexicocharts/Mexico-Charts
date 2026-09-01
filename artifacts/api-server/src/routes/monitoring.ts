@@ -12,6 +12,12 @@ import {
 import { logger } from "../lib/logger";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
+import {
+  loadCompactMonitoringHistoryOverview,
+  loadCompactMonitoringMetricHistory,
+  loadCompactReleaseImpact,
+  type CompactHistoryRange,
+} from "../lib/songstats-history-serving";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -157,7 +163,7 @@ function buildDailyPulse(history: NormalizedMonitoringSnapshot[], catalog: { new
   };
 }
 
-async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
+async function authorizedMonitoringSubscription(userId: string, requestedArtistKey: string) {
   const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
   const subscription = await pool.query<{
     artist_key: string;
@@ -174,6 +180,11 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     LIMIT 1
   `, [userId, lookupKeys, ACTIVE_SUBSCRIPTION_STATUSES]);
   const active = subscription.rows[0];
+  return active ?? null;
+}
+
+async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
+  const active = await authorizedMonitoringSubscription(userId, requestedArtistKey);
   if (!active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
@@ -479,6 +490,15 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ?? youtubeCoverageRow?.expected_total_videos
     ?? null,
   );
+  const [availableHistory, releaseImpact] = await Promise.all([
+    loadCompactMonitoringHistoryOverview(active.artist_key),
+    catalog.newestReleaseDate
+      ? loadCompactReleaseImpact({
+          artistKey: active.artist_key,
+          releaseDate: catalog.newestReleaseDate,
+        })
+      : Promise.resolve(null),
+  ]);
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -492,7 +512,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     growth: insight?.growth ?? {},
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
-    latestReleaseImpact: insight?.latestReleaseImpact ?? null,
+    latestReleaseImpact: releaseImpact,
+    availableHistory,
     liveVideos: dedupeYoutubeMonitorRows(liveVideos.rows as Array<{video_id:string;canonical_url?:string|null}>),
     youtubeCoverage: {
       channelVideoCount: youtubeChannelVideoCount,
@@ -610,6 +631,47 @@ router.get("/monitoring/dashboard/:artistKey", requireClerkUser, async (req, res
   } catch (error) {
     logger.error({ error, artistKey }, "Monitoring dashboard failed");
     res.status(500).json({ error: "Unable to load monitoring dashboard" });
+  }
+});
+
+router.get("/monitoring/history/:artistKey/:metricKey", requireClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  const metricKey = String(req.params.metricKey ?? "").trim();
+  const range = String(req.query.range ?? "all") as CompactHistoryRange;
+  const resolution = String(req.query.resolution ?? "auto") as "auto" | "daily" | "minmax";
+  if (!artistKey || artistKey.length > 160 || !/^[A-Za-z][A-Za-z0-9]{1,79}$/.test(metricKey)) {
+    res.status(400).json({ error: "A valid artist and historical metric are required" });
+    return;
+  }
+  if (!["7d", "30d", "90d", "6m", "1y", "all", "custom"].includes(range) ||
+      !["auto", "daily", "minmax"].includes(resolution)) {
+    res.status(400).json({ error: "Unsupported history range or resolution" });
+    return;
+  }
+  try {
+    const subscription = await authorizedMonitoringSubscription(clerkUserId(res), artistKey);
+    if (!subscription) {
+      res.status(403).json({ error: "An active subscription is required for this artist" });
+      return;
+    }
+    const history = await loadCompactMonitoringMetricHistory({
+      artistKey: subscription.artist_key,
+      metricKey,
+      range,
+      startDate: String(req.query.startDate ?? "") || undefined,
+      endDate: String(req.query.endDate ?? "") || undefined,
+      resolution,
+    });
+    res.setHeader("Cache-Control", "private, max-age=60");
+    res.json(history);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to load metric history";
+    if (/Unknown|Custom history range/.test(message)) {
+      res.status(400).json({ error: message });
+      return;
+    }
+    logger.error({ error, artistKey, metricKey }, "Compact monitoring history failed");
+    res.status(500).json({ error: "Unable to load metric history" });
   }
 });
 

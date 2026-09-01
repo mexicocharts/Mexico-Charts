@@ -576,6 +576,37 @@ export async function recordSongstatsHistoryRequestAttempt(input: {
   );
 }
 
+export async function recordSongstatsHistoryChunkTelemetry(input: {
+  chunkId: number;
+  walBytes: number;
+  estimatedLogicalBytes: number;
+  rowsInserted: number;
+  elapsedMs: number;
+  retryCount: number;
+  failureCount: number;
+}): Promise<void> {
+  const walAmplificationRatio = input.estimatedLogicalBytes > 0
+    ? input.walBytes / input.estimatedLogicalBytes
+    : null;
+  const telemetry = {
+    walBytes: Math.max(0, Math.round(input.walBytes)),
+    estimatedLogicalBytes: Math.max(0, Math.round(input.estimatedLogicalBytes)),
+    walAmplificationRatio,
+    rowsInserted: Math.max(0, Math.round(input.rowsInserted)),
+    elapsedMs: Math.max(0, Math.round(input.elapsedMs * 100) / 100),
+    retryCount: Math.max(0, Math.round(input.retryCount)),
+    failureCount: Math.max(0, Math.round(input.failureCount)),
+    recordedAt: new Date().toISOString(),
+    version: 1,
+  };
+  await pool.query(`
+    UPDATE songstats_history_import_chunks
+    SET acquisition_metadata=jsonb_set(acquisition_metadata, '{telemetry}', $2::jsonb, true),
+        updated_at=now()
+    WHERE id=$1
+  `, [input.chunkId, JSON.stringify(telemetry)]);
+}
+
 export async function failSongstatsHistoryChunk(input: {
   artistKey: string;
   window: SongstatsHistoryWindow;
@@ -634,7 +665,17 @@ export async function checkpointSongstatsHistoryImportRun(runId: string): Promis
           'failed', progress.failed,
           'identityBlocked', progress.blocked,
           'observations', progress.observations,
-          'duplicates', progress.duplicates
+          'duplicates', progress.duplicates,
+          'telemetry', jsonb_build_object(
+            'measuredChunks', progress.measured_chunks,
+            'walBytes', progress.wal_bytes,
+            'estimatedLogicalBytes', progress.logical_bytes,
+            'walAmplificationRatio', CASE WHEN progress.logical_bytes > 0
+              THEN progress.wal_bytes::numeric/progress.logical_bytes ELSE NULL END,
+            'elapsedMs', progress.elapsed_ms,
+            'retries', progress.retries,
+            'failures', progress.telemetry_failures
+          )
         ),
         updated_at = now()
       FROM (
@@ -643,7 +684,13 @@ export async function checkpointSongstatsHistoryImportRun(runId: string): Promis
           count(*) FILTER (WHERE status = 'failed')::integer failed,
           count(*) FILTER (WHERE status = 'identity_blocked')::integer blocked,
           COALESCE(sum(observation_count), 0)::integer observations,
-          COALESCE(sum(duplicate_count), 0)::integer duplicates
+          COALESCE(sum(duplicate_count), 0)::integer duplicates,
+          count(*) FILTER (WHERE acquisition_metadata ? 'telemetry')::integer measured_chunks,
+          COALESCE(sum((acquisition_metadata#>>'{telemetry,walBytes}')::numeric), 0) wal_bytes,
+          COALESCE(sum((acquisition_metadata#>>'{telemetry,estimatedLogicalBytes}')::numeric), 0) logical_bytes,
+          COALESCE(sum((acquisition_metadata#>>'{telemetry,elapsedMs}')::numeric), 0) elapsed_ms,
+          COALESCE(sum((acquisition_metadata#>>'{telemetry,retryCount}')::integer), 0)::integer retries,
+          COALESCE(sum((acquisition_metadata#>>'{telemetry,failureCount}')::integer), 0)::integer telemetry_failures
         FROM songstats_history_import_chunks
         WHERE run_id = $1
       ) progress
@@ -660,6 +707,12 @@ export async function finalizeSongstatsHistoryImportRun(runId: string): Promise<
     blocked: string;
     observations: string;
     duplicates: string;
+    measured_chunks: string;
+    wal_bytes: string;
+    logical_bytes: string;
+    elapsed_ms: string;
+    retries: string;
+    telemetry_failures: string;
   }>(
     `
       SELECT
@@ -667,7 +720,13 @@ export async function finalizeSongstatsHistoryImportRun(runId: string): Promise<
         count(*) FILTER (WHERE status = 'failed')::text failed,
         count(*) FILTER (WHERE status = 'identity_blocked')::text blocked,
         COALESCE(sum(observation_count), 0)::text observations,
-        COALESCE(sum(duplicate_count), 0)::text duplicates
+        COALESCE(sum(duplicate_count), 0)::text duplicates,
+        count(*) FILTER (WHERE acquisition_metadata ? 'telemetry')::text measured_chunks,
+        COALESCE(sum((acquisition_metadata#>>'{telemetry,walBytes}')::numeric), 0)::text wal_bytes,
+        COALESCE(sum((acquisition_metadata#>>'{telemetry,estimatedLogicalBytes}')::numeric), 0)::text logical_bytes,
+        COALESCE(sum((acquisition_metadata#>>'{telemetry,elapsedMs}')::numeric), 0)::text elapsed_ms,
+        COALESCE(sum((acquisition_metadata#>>'{telemetry,retryCount}')::integer), 0)::text retries,
+        COALESCE(sum((acquisition_metadata#>>'{telemetry,failureCount}')::integer), 0)::text telemetry_failures
       FROM songstats_history_import_chunks
       WHERE run_id = $1
     `,
@@ -680,6 +739,17 @@ export async function finalizeSongstatsHistoryImportRun(runId: string): Promise<
     identityBlocked: Number(row.blocked),
     observations: Number(row.observations),
     duplicates: Number(row.duplicates),
+    telemetry: {
+      measuredChunks: Number(row.measured_chunks),
+      walBytes: Number(row.wal_bytes),
+      estimatedLogicalBytes: Number(row.logical_bytes),
+      walAmplificationRatio: Number(row.logical_bytes) > 0
+        ? Number(row.wal_bytes) / Number(row.logical_bytes)
+        : null,
+      elapsedMs: Number(row.elapsed_ms),
+      retries: Number(row.retries),
+      failures: Number(row.telemetry_failures),
+    },
   };
   const status = summary.failed > 0 || summary.identityBlocked > 0 ? "partial" : "completed";
   await pool.query(

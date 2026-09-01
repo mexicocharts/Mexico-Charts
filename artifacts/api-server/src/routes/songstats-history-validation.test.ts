@@ -148,3 +148,39 @@ test("report is available only after all 21 approved chunks complete", async () 
   });
   assert.equal(finalized, 1);
 });
+
+test("compact serving report reads completed history without reaching import or Songstats paths", async () => {
+  const artists = ["pesopluma", "bandamsdesergiolizarraga", "netonvega"];
+  const rows = artists.flatMap(artist => [2020, 2021, 2022, 2023, 2024, 2025, 2026].map(year => ({
+    artist_key: artist,
+    window_start_date: `${year}-01-01`,
+    window_end_date: year === 2026 ? "2026-09-01" : `${year}-12-31`,
+    status: "completed",
+    run_id: "songstats-controlled-three-artist-history-2026-09-01",
+    attempt_count: 1,
+    error_code: null,
+    error_message: null,
+  })));
+  let importCalls = 0;
+  let reportCalls = 0;
+  await withServer({
+    env: env(), actualFingerprint: FINGERPRINT,
+    loadState: async () => rows,
+    runBackfill: (async () => { importCalls += 1; return {}; }) as never,
+    buildServingReport: (async (input: { artistKeys: readonly string[] }) => {
+      reportCalls += 1;
+      assert.deepEqual(input.artistKeys, artists);
+      return { readOnly: true, songstatsApiCalls: 0, databaseWrites: 0 } as never;
+    }) as never,
+  }, async baseUrl => {
+    const response = await invoke(baseUrl, {
+      action: "compact-serving-report",
+      confirm: CONFIRM,
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json() as { report: { readOnly: boolean } };
+    assert.equal(payload.report.readOnly, true);
+  });
+  assert.equal(reportCalls, 1);
+  assert.equal(importCalls, 0);
+});

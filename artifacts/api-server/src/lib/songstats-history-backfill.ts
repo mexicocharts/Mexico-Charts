@@ -23,6 +23,7 @@ import {
   listSongstatsHistoryRoster,
   pauseSongstatsHistoryImportRun,
   recordSongstatsHistoryRequestAttempt,
+  recordSongstatsHistoryChunkTelemetry,
   songstatsHistoryCapacitySnapshot,
   songstatsHistoryStorageImpact,
   songstatsHistoryWalBytesSince,
@@ -339,6 +340,9 @@ export async function runSongstatsHistoryBackfill(
         await checkpointSongstatsHistoryImportRun(runId);
         continue;
       }
+      const chunkStartedAt = process.hrtime.bigint();
+      let chunkRetryCount = 0;
+      let chunkFailureCount = 0;
       try {
         const remainingAttempts = maxAttempts - claim.priorAttemptCount;
         if (remainingAttempts < 1) {
@@ -351,6 +355,10 @@ export async function runSongstatsHistoryBackfill(
           async (attempt, outcome, error) => {
             const absoluteAttempt = claim.priorAttemptCount + attempt;
             const message = error ? errorMessage(error) : undefined;
+            if (outcome === "started" && absoluteAttempt > 1) {
+              chunkRetryCount = Math.max(chunkRetryCount, absoluteAttempt - 1);
+            }
+            if (outcome === "failed") chunkFailureCount += 1;
             await recordSongstatsHistoryRequestAttempt({
               chunkId: claim.chunkId,
               attempt: absoluteAttempt,
@@ -416,6 +424,15 @@ export async function runSongstatsHistoryBackfill(
             saved.inserted * capacityPolicy.compactBytesPerObservation,
           );
           const walAmplificationRatio = walBytes / estimatedLogicalBytes;
+          await recordSongstatsHistoryChunkTelemetry({
+            chunkId: claim.chunkId,
+            walBytes,
+            estimatedLogicalBytes,
+            rowsInserted: saved.inserted,
+            elapsedMs: Number(process.hrtime.bigint() - chunkStartedAt) / 1_000_000,
+            retryCount: chunkRetryCount,
+            failureCount: chunkFailureCount,
+          });
           const approvedRatio = capacityPolicy.approvedWalAmplificationRatio;
           if (approvedRatio != null && walAmplificationRatio > approvedRatio * 2) {
             pauseReason = "pitr_write_amplification_anomaly";
@@ -443,6 +460,16 @@ export async function runSongstatsHistoryBackfill(
           window: task.window,
           errorCode: errorCode(error),
           errorMessage: errorMessage(error),
+        });
+        const failedWalBytes = await songstatsHistoryWalBytesSince(capacityBefore.walLsn);
+        await recordSongstatsHistoryChunkTelemetry({
+          chunkId: claim.chunkId,
+          walBytes: failedWalBytes,
+          estimatedLogicalBytes: 0,
+          rowsInserted: 0,
+          elapsedMs: Number(process.hrtime.bigint() - chunkStartedAt) / 1_000_000,
+          retryCount: chunkRetryCount,
+          failureCount: Math.max(1, chunkFailureCount),
         });
         options.onProgress?.({
           ...progressBase,
