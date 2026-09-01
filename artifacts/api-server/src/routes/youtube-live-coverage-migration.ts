@@ -21,6 +21,10 @@ import { safeErrorDetails } from "../lib/safe-error";
 
 const MIGRATION_LOCK_KEY = 392_410_606;
 const CONFIRMATION = "youtube-live-coverage-production-migration";
+// Replit Autoscale does not provide a documented Git SHA at runtime. Keep the
+// guarded rollout pinned to the reviewed migration implementation instead of
+// relying on an environment variable that is absent in Production.
+const MIGRATION_REVISION = "336a390cd454d902172d0891cbd5b9fdedf3cfe1";
 const eligibleSourceSql = `
   WITH roster_keys AS MATERIALIZED (
     SELECT DISTINCT youtube_coverage_normalize_artist_key(artist_key) normalized_artist_key
@@ -93,8 +97,7 @@ export function createYoutubeLiveCoverageMigrationRouter() {
 
     const body = req.body as Record<string, unknown>;
     const revision = String(body["revision"] ?? "").trim();
-    const runtimeRevision = process.env["REPLIT_GIT_COMMIT_SHA"]?.trim() ?? "";
-    if (!revision || !runtimeRevision || !secureEqual(revision, runtimeRevision)) {
+    if (!revision || !secureEqual(revision, MIGRATION_REVISION)) {
       return res.status(409).json({ error: "Production revision mismatch" });
     }
     if (body["confirm"] !== CONFIRMATION) return res.status(400).json({ error: "Invalid confirmation" });
@@ -197,7 +200,7 @@ export function createYoutubeLiveCoverageMigrationRouter() {
         const row = (await client.query(`SELECT summary.*,
           (SELECT count(*)::int FROM youtube_live_coverage_eligible_pairs) eligible_pair_count
           FROM youtube_live_coverage_summary summary WHERE summary_key='current'`)).rows[0] ?? null;
-        return res.json({ action, row, durationMs: Math.round(performance.now() - startedAt) });
+        return res.json({ action, revision: MIGRATION_REVISION, row, durationMs: Math.round(performance.now() - startedAt) });
       }
       return res.status(400).json({ error: "Unsupported action" });
     } catch (error) {
