@@ -90,7 +90,15 @@ async function runMonitoringReadinessAudit(options: {
   const candidates = [...new Set((options.artistKeys ?? []).flatMap(songstatsArtistKeyCandidates))];
   const params: unknown[] = [];
   const requestedFilter = candidates.length
-    ? `AND lower(c.artist_key) = ANY($${params.push(candidates)}::text[])`
+    ? `AND (
+        lower(c.artist_key) = ANY($${params.push(candidates)}::text[])
+        OR regexp_replace(
+          translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+          '[^a-z0-9]',
+          '',
+          'g'
+        ) = ANY($${params.length}::text[])
+      )`
     : "";
   const result = await pool.query<ReadinessRow>(
     `SELECT
