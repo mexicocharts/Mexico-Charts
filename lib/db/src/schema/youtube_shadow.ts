@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigint, check, foreignKey, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, serial, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { youtubeTrackedVideos } from "./youtube_video_tracker";
 
@@ -114,6 +114,51 @@ export const youtubeVideoIntradayLatestObservations = pgTable("youtube_video_int
     columns: [table.videoId],
     foreignColumns: [youtubeTrackedVideos.videoId],
   }).onDelete("cascade"),
+]);
+
+// Current logical coverage eligibility only. This deliberately contains no
+// observation values or history. Database triggers keep it synchronized with
+// candidate eligibility and active-roster changes across every writer.
+export const youtubeLiveCoverageEligiblePairs = pgTable("youtube_live_coverage_eligible_pairs", {
+  normalizedArtistKey: text("normalized_artist_key").notNull(),
+  videoId: text("video_id").notNull(),
+  sourceUpdatedAt: timestamp("source_updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.normalizedArtistKey, table.videoId] }),
+  index("youtube_live_coverage_eligible_pairs_video_idx").on(table.videoId),
+  foreignKey({
+    name: "youtube_live_coverage_eligible_pairs_video_id_fkey",
+    columns: [table.videoId],
+    foreignColumns: [youtubeTrackedVideos.videoId],
+  }).onDelete("cascade"),
+]);
+
+// One atomically published exact coverage result. `authoritative` is an
+// explicit cutover switch: migration/verification can populate and compare the
+// row while public traffic continues using the existing latest-state query.
+export const youtubeLiveCoverageSummary = pgTable("youtube_live_coverage_summary", {
+  summaryKey: text("summary_key").primaryKey(),
+  authoritative: boolean("authoritative").notNull().default(false),
+  rosterArtists: integer("roster_artists").notNull(),
+  mappedArtists: integer("mapped_artists").notNull(),
+  approvedLinkArtists: integer("approved_link_artists").notNull(),
+  profileChannelArtists: integer("profile_channel_artists").notNull(),
+  kworbVideoArtists: integer("kworb_video_artists").notNull(),
+  catalogArtists: integer("catalog_artists").notNull(),
+  observedArtists: integer("observed_artists").notNull(),
+  freshArtists: integer("fresh_artists").notNull(),
+  catalogVideos: integer("catalog_videos").notNull(),
+  observedVideos: integer("observed_videos").notNull(),
+  freshVideos: integer("fresh_videos").notNull(),
+  latestObservedAt: timestamp("latest_observed_at", { withTimezone: true }),
+  calculatedAt: timestamp("calculated_at", { withTimezone: true }).notNull(),
+  sourceWatermark: jsonb("source_watermark").notNull(),
+  refreshDurationMs: integer("refresh_duration_ms").notNull(),
+  lastRefreshAttemptAt: timestamp("last_refresh_attempt_at", { withTimezone: true }).notNull(),
+  lastRefreshError: text("last_refresh_error"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("youtube_live_coverage_summary_key_check", sql`${table.summaryKey} = 'current'`),
 ]);
 
 export const youtubeArtistIntradayShadowCurrent = pgTable("youtube_artist_intraday_shadow_current", {

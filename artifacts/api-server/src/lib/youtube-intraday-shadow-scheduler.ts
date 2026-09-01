@@ -2,6 +2,8 @@ import { pool, youtubeCollectorPool } from "@workspace/db";
 import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
+import { refreshYoutubeLiveCoverageSummary } from "./youtube-live-coverage-summary";
+import { shouldRefreshYoutubeCoverageSummary } from "./youtube-live-coverage-summary-policy";
 import {
   ensureYoutubeLatestObservationTable,
   YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL,
@@ -127,6 +129,8 @@ export interface YoutubeIntradayShadowSummary {
   importedChannelVideos: number;
   importedChannelArtists: number;
   importedChannelErrors: string[];
+  compactLatestUpserts: number;
+  compactLatestMaxObservedAt: string | null;
   error?: string;
 }
 
@@ -1242,7 +1246,11 @@ async function saveObservationsBulk(
   stats: VideoStats[],
   previousTiers: Map<string, YoutubeRefreshTier>,
 ) {
-  if (!stats.length) return 0;
+  if (!stats.length) return {
+    saved: 0,
+    compactLatestUpserts: 0,
+    compactLatestMaxObservedAt: null,
+  };
   const ids = stats.map(item => item.videoId);
   const previous = await client.query<{ video_id: string; view_count: string | number | null; observed_at: string }>(
     `SELECT DISTINCT ON (video_id) video_id, view_count, observed_at::text
@@ -1317,7 +1325,10 @@ async function saveObservationsBulk(
         comment_count=excluded.comment_count, view_delta=excluded.view_delta,
         seconds_since_previous=excluded.seconds_since_previous, updated_at=now()
     `, [payload]);
-    await client.query(YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL, [payload]);
+    const compactLatest = await client.query<{ video_id: string; latest_observed_at: string }>(
+      YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL,
+      [payload],
+    );
     await client.query(`
       UPDATE youtube_music_catalog_candidates candidate SET
         refresh_tier=input.next_refresh_tier, last_observed_at=now(), updated_at=now()
@@ -1325,7 +1336,14 @@ async function saveObservationsBulk(
       WHERE candidate.video_id=input.video_id AND candidate.sampling_status='shadow'
     `, [payload]);
     await client.query("COMMIT");
-    return rows.length;
+    return {
+      saved: rows.length,
+      compactLatestUpserts: compactLatest.rows.length,
+      compactLatestMaxObservedAt: compactLatest.rows.reduce<string | null>(
+        (latest, row) => !latest || row.latest_observed_at > latest ? row.latest_observed_at : latest,
+        null,
+      ),
+    };
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     throw error;
@@ -1391,6 +1409,8 @@ export async function runYoutubeIntradayShadow(
     reusedStoredVideos: 0, reusedStoredArtists: 0,
     importedChannelVideos: 0, importedChannelArtists: 0,
     importedChannelErrors: [],
+    compactLatestUpserts: 0,
+    compactLatestMaxObservedAt: null,
   };
   if (!force && !youtubeIntradayShadowAutomationEnabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -1532,7 +1552,14 @@ export async function runYoutubeIntradayShadow(
         if (usedBatchStats) await recordBatchStatsUsage(client, group.length, stats.length);
         else await recordUsage(client, group.length, stats.length);
         const tiers = new Map(group.map(row => [row.video_id, row.refresh_tier]));
-        summary.saved += await saveObservationsBulk(client, stats, tiers);
+        const persisted = await saveObservationsBulk(client, stats, tiers);
+        summary.saved += persisted.saved;
+        summary.compactLatestUpserts += persisted.compactLatestUpserts;
+        if (
+          persisted.compactLatestMaxObservedAt
+          && (!summary.compactLatestMaxObservedAt
+            || persisted.compactLatestMaxObservedAt > summary.compactLatestMaxObservedAt)
+        ) summary.compactLatestMaxObservedAt = persisted.compactLatestMaxObservedAt;
       }
       summary.artistsUpdated = await rebuildCurrentArtistTotals(client);
       // Core observations are committed before lower-priority channel import
@@ -1586,6 +1613,22 @@ export function startYoutubeIntradayShadowScheduler() {
       false,
     ).then(summary => {
       logger.info(summary, "[youtube-shadow:intraday] run complete");
+      // This uses a separate pool and advisory lock after the collector client
+      // has been released, so coverage maintenance cannot postpone observation
+      // persistence or the next collector lock acquisition.
+      if (shouldRefreshYoutubeCoverageSummary(summary.status)) {
+        void refreshYoutubeLiveCoverageSummary(reason).catch(error => {
+          logger.error(
+            safeErrorDetails(error, { reason, job: "live-coverage-summary-dispatch" }),
+            "[youtube:live-coverage-summary] dispatch failed",
+          );
+        });
+      } else {
+        logger.warn(
+          { reason, collectorStatus: summary.status },
+          "[youtube:live-coverage-summary] refresh skipped after unsuccessful collector cycle",
+        );
+      }
       if (!discoveryRunning) {
         discoveryRunning = true;
         void bootstrapActiveCatalog()

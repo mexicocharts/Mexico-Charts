@@ -25,6 +25,7 @@ export const YOUTUBE_LATEST_OBSERVATION_UPSERT_SQL = `
       youtube_video_intraday_latest_observations.latest_observed_at,
       excluded.latest_observed_at
     )
+  RETURNING video_id, latest_observed_at::text
 `;
 
 export type YoutubeObservationPoint = {
