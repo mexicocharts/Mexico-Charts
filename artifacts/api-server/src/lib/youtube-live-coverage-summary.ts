@@ -72,19 +72,19 @@ export async function ensureYoutubeLiveCoverageSummarySchema(client?: PoolClient
   `);
 
   await client.query(`
-    CREATE OR REPLACE FUNCTION youtube_coverage_pair_is_current(key text, id text)
+    CREATE OR REPLACE FUNCTION youtube_coverage_pair_is_current(p_key text, p_video_id text)
     RETURNS boolean LANGUAGE sql STABLE AS $$
       SELECT EXISTS (
         SELECT 1
         FROM youtube_music_catalog_candidates candidate
-        WHERE youtube_coverage_normalize_artist_key(candidate.artist_key)=key
-          AND candidate.video_id=id
+        WHERE youtube_coverage_normalize_artist_key(candidate.artist_key)=p_key
+          AND candidate.video_id=p_video_id
           AND candidate.status IN ('review','verified')
           AND candidate.sampling_status='shadow'
       ) AND EXISTS (
         SELECT 1 FROM kworb_coverage roster
         WHERE roster.status='active'
-          AND youtube_coverage_normalize_artist_key(roster.artist_key)=key
+          AND youtube_coverage_normalize_artist_key(roster.artist_key)=p_key
       )
     $$
   `);
@@ -116,24 +116,24 @@ export async function ensureYoutubeLiveCoverageSummarySchema(client?: PoolClient
     $$
   `);
   await client.query(`
-    CREATE OR REPLACE FUNCTION youtube_coverage_sync_roster_key(key text)
+    CREATE OR REPLACE FUNCTION youtube_coverage_sync_roster_key(p_key text)
     RETURNS void LANGUAGE plpgsql AS $$
     BEGIN
       DELETE FROM youtube_live_coverage_eligible_pairs pair
-      WHERE pair.normalized_artist_key=key
+      WHERE pair.normalized_artist_key=p_key
         AND NOT youtube_coverage_pair_is_current(pair.normalized_artist_key, pair.video_id);
 
       IF EXISTS (
         SELECT 1 FROM kworb_coverage roster
         WHERE roster.status='active'
-          AND youtube_coverage_normalize_artist_key(roster.artist_key)=key
+          AND youtube_coverage_normalize_artist_key(roster.artist_key)=p_key
       ) THEN
         INSERT INTO youtube_live_coverage_eligible_pairs (
           normalized_artist_key, video_id, source_updated_at
         )
-        SELECT DISTINCT key, candidate.video_id, now()
+        SELECT DISTINCT p_key, candidate.video_id, now()
         FROM youtube_music_catalog_candidates candidate
-        WHERE youtube_coverage_normalize_artist_key(candidate.artist_key)=key
+        WHERE youtube_coverage_normalize_artist_key(candidate.artist_key)=p_key
           AND candidate.status IN ('review','verified')
           AND candidate.sampling_status='shadow'
         ON CONFLICT (normalized_artist_key, video_id) DO UPDATE SET
