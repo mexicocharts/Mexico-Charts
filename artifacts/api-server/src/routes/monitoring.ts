@@ -18,6 +18,7 @@ import {
   loadCompactReleaseImpact,
   type CompactHistoryRange,
 } from "../lib/songstats-history-serving";
+import {
   ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
   resolveArtistProEntitlement,
 } from "../lib/artist-pro-entitlement";
@@ -165,7 +166,7 @@ function buildDailyPulse(history: NormalizedMonitoringSnapshot[], catalog: { new
   };
 }
 
-async function authorizedMonitoringSubscription(userId: string, requestedArtistKey: string) {
+async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
   const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
   type MonitoringGrant = {
     artist_key: string;
@@ -666,13 +667,13 @@ router.get("/monitoring/history/:artistKey/:metricKey", requireClerkUser, async 
     return;
   }
   try {
-    const subscription = await authorizedMonitoringSubscription(clerkUserId(res), artistKey);
+    const subscription = await loadAuthorizedMonitoring(clerkUserId(res), artistKey);
     if (!subscription) {
       res.status(403).json({ error: "An active subscription is required for this artist" });
       return;
     }
     const history = await loadCompactMonitoringMetricHistory({
-      artistKey: subscription.artist_key,
+      artistKey: subscription.subscription.artistKey,
       metricKey,
       range,
       startDate: String(req.query.startDate ?? "") || undefined,
