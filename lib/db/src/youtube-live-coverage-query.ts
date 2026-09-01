@@ -1,5 +1,8 @@
 export type YoutubeLiveCoverageReadMode = "legacy" | "latest";
 
+export const YOUTUBE_ARTIST_KEY_NORMALIZATION_SQL =
+  "regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')";
+
 export const YOUTUBE_LIVE_COVERAGE_FIELDS = [
   "roster_artists",
   "mapped_artists",
@@ -189,6 +192,62 @@ export const YOUTUBE_LIVE_COVERAGE_MAPPING_SQL = `
     (SELECT count(*)::int FROM kworb_coverage WHERE status='active') roster_artists,
     mapping.*
   FROM mapping_totals mapping
+`;
+
+// Exact aggregate over the already-normalized logical pair relation. This is
+// used by the background summary refresher, never by the public request path.
+export const YOUTUBE_LIVE_COVERAGE_ELIGIBLE_PAIR_TOTALS_SQL = `
+  WITH pair_state AS MATERIALIZED (
+    SELECT pair.normalized_artist_key artist_key, pair.video_id, latest.latest_observed_at
+    FROM youtube_live_coverage_eligible_pairs pair
+    LEFT JOIN youtube_video_intraday_latest_observations latest USING (video_id)
+  ), artist_state AS MATERIALIZED (
+    SELECT
+      artist_key,
+      bool_or(latest_observed_at IS NOT NULL) observed,
+      bool_or(latest_observed_at >= $1::timestamptz - interval '6 hours') fresh
+    FROM pair_state
+    GROUP BY artist_key
+  ), video_state AS MATERIALIZED (
+    SELECT
+      video_id,
+      bool_or(latest_observed_at IS NOT NULL) observed,
+      bool_or(latest_observed_at >= $1::timestamptz - interval '6 hours') fresh,
+      max(latest_observed_at) latest_observed_at
+    FROM pair_state
+    GROUP BY video_id
+  )
+  SELECT
+    (SELECT count(*)::int FROM artist_state) catalog_artists,
+    (SELECT count(*) FILTER (WHERE observed)::int FROM artist_state) observed_artists,
+    (SELECT count(*) FILTER (WHERE fresh)::int FROM artist_state) fresh_artists,
+    (SELECT count(*)::int FROM video_state) catalog_videos,
+    (SELECT count(*) FILTER (WHERE observed)::int FROM video_state) observed_videos,
+    (SELECT count(*) FILTER (WHERE fresh)::int FROM video_state) fresh_videos,
+    (SELECT max(latest_observed_at)::text FROM video_state) latest_observed_at
+`;
+
+export const YOUTUBE_LIVE_COVERAGE_SUMMARY_READ_SQL = `
+  SELECT
+    roster_artists,
+    mapped_artists,
+    approved_link_artists,
+    profile_channel_artists,
+    kworb_video_artists,
+    catalog_artists,
+    observed_artists,
+    fresh_artists,
+    catalog_videos,
+    observed_videos,
+    fresh_videos,
+    latest_observed_at::text,
+    calculated_at::text,
+    source_watermark,
+    refresh_duration_ms,
+    last_refresh_attempt_at::text,
+    last_refresh_error
+  FROM youtube_live_coverage_summary
+  WHERE summary_key='current' AND authoritative=true
 `;
 
 export const YOUTUBE_LIVE_COVERAGE_LEGACY_CANDIDATE_SQL = `${commonPrefix}

@@ -37,6 +37,17 @@ export const youtubeCollectorPool = new Pool({
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
 });
+
+// Coverage maintenance is deliberately isolated from both observation writes
+// and public reads. A slow summary refresh can therefore neither postpone a
+// collector commit nor occupy the public monitor's small latency pool.
+export const youtubeCoveragePool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  application_name: "mexico-charts-youtube-coverage",
+  max: 1,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./schema";
