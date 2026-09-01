@@ -194,10 +194,14 @@ export async function refreshYoutubeLiveCoverageSummary(
   reason: string,
 ): Promise<YoutubeCoverageRefreshResult> {
   const startedAt = performance.now();
-  await ensureYoutubeLiveCoverageSummarySchema();
-  const client = await youtubeCoveragePool.connect();
+  let stage = "schema";
+  let client: PoolClient | null = null;
   let locked = false;
   try {
+    await ensureYoutubeLiveCoverageSummarySchema();
+    stage = "pool_acquire";
+    client = await youtubeCoveragePool.connect();
+    stage = "advisory_lock";
     const lock = await client.query<{ locked: boolean }>(
       "SELECT pg_try_advisory_lock($1) locked",
       [YOUTUBE_LIVE_COVERAGE_SUMMARY_LOCK_KEY],
@@ -205,6 +209,13 @@ export async function refreshYoutubeLiveCoverageSummary(
     locked = Boolean(lock.rows[0]?.locked);
     if (!locked) return { status: "locked", durationMs: performance.now() - startedAt };
 
+    stage = "record_attempt";
+    await client.query(`
+      UPDATE youtube_live_coverage_summary
+      SET last_refresh_attempt_at=now(), updated_at=now()
+      WHERE summary_key='current'
+    `);
+    stage = "aggregate";
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const calculated = await client.query<{ calculated_at: string }>("SELECT now()::text calculated_at");
     const calculatedAt = calculated.rows[0]!.calculated_at;
@@ -231,6 +242,7 @@ export async function refreshYoutubeLiveCoverageSummary(
     const row = { ...(mapping.rows[0] ?? {}), ...(totals.rows[0] ?? {}) };
     const sourceWatermark = watermarkResult.rows[0]?.watermark ?? {};
     const durationMs = Math.round(performance.now() - startedAt);
+    stage = "persist";
     await client.query("BEGIN");
     try {
       await client.query(`
@@ -286,19 +298,49 @@ export async function refreshYoutubeLiveCoverageSummary(
   } catch (error) {
     const durationMs = Math.round(performance.now() - startedAt);
     const message = error instanceof Error ? error.message : String(error);
-    await client.query("ROLLBACK").catch(() => undefined);
-    await client.query(`
+    await client?.query("ROLLBACK").catch(() => undefined);
+    const recordFailure = (failureClient: Pick<PoolClient, "query">) => failureClient.query(`
       UPDATE youtube_live_coverage_summary
       SET last_refresh_attempt_at=now(), last_refresh_error=left($1,500), updated_at=now()
       WHERE summary_key='current'
-    `, [message]).catch(() => undefined);
+    `, [`${stage}: ${message}`]);
+    if (client) {
+      await recordFailure(client).catch(recordError => {
+        logger.error(
+          safeErrorDetails(recordError, { reason, stage, job: "live-coverage-summary-record-failure" }),
+          "[youtube:live-coverage-summary] could not persist refresh failure",
+        );
+      });
+    } else {
+      await youtubeCoveragePool.connect().then(async diagnosticClient => {
+        try { await recordFailure(diagnosticClient); }
+        finally { diagnosticClient.release(); }
+      }).catch(recordError => {
+        logger.error(
+          safeErrorDetails(recordError, { reason, stage, job: "live-coverage-summary-record-failure" }),
+          "[youtube:live-coverage-summary] could not persist pre-connection refresh failure",
+        );
+      });
+    }
     logger.error(
-      safeErrorDetails(error, { reason, job: "live-coverage-summary", durationMs }),
+      safeErrorDetails(error, {
+        reason,
+        stage,
+        job: "live-coverage-summary",
+        durationMs,
+        pool: {
+          total: youtubeCoveragePool.totalCount,
+          idle: youtubeCoveragePool.idleCount,
+          waiting: youtubeCoveragePool.waitingCount,
+        },
+      }),
       "[youtube:live-coverage-summary] refresh failed",
     );
     return { status: "failed", durationMs, error: message };
   } finally {
-    if (locked) await client.query("SELECT pg_advisory_unlock($1)", [YOUTUBE_LIVE_COVERAGE_SUMMARY_LOCK_KEY]).catch(() => undefined);
-    client.release();
+    if (locked && client) {
+      await client.query("SELECT pg_advisory_unlock($1)", [YOUTUBE_LIVE_COVERAGE_SUMMARY_LOCK_KEY]).catch(() => undefined);
+    }
+    client?.release();
   }
 }

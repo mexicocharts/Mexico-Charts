@@ -14,6 +14,7 @@ import {
   youtubeBatchStatsItems,
   youtubeEasternMidnightAnchor,
   youtubeIntradayShadowAutomationEnabled,
+  maintainYoutubeCoverageSummaryAfterCollector,
 } from "./youtube-intraday-shadow-scheduler";
 
 test("reserves quota for documented channels.list batches", () => {
@@ -38,6 +39,34 @@ test("reports the effective intraday automation kill-switch state", () => {
   assert.equal(youtubeIntradayShadowAutomationEnabled({
     YOUTUBE_INTRADAY_SHADOW_AUTOMATION_DISABLED: "false",
   }), true);
+});
+
+test("runs coverage maintenance after every completed collector entry point", async () => {
+  const reasons: string[] = [];
+  const result = await maintainYoutubeCoverageSummaryAfterCollector(
+    { status: "complete" },
+    "admin-run-now",
+    async reason => {
+      reasons.push(reason);
+      return { status: "refreshed", durationMs: 12, calculatedAt: "2026-09-01T08:14:05Z" };
+    },
+  );
+  assert.deepEqual(reasons, ["admin-run-now"]);
+  assert.equal(result.status, "refreshed");
+});
+
+test("records an explicit skip without dispatching after an unsuccessful collector cycle", async () => {
+  let dispatched = false;
+  const result = await maintainYoutubeCoverageSummaryAfterCollector(
+    { status: "locked" },
+    "five-minute-check",
+    async () => {
+      dispatched = true;
+      return { status: "refreshed", durationMs: 1 };
+    },
+  );
+  assert.equal(dispatched, false);
+  assert.deepEqual(result, { status: "skipped", durationMs: 0, collectorStatus: "locked" });
 });
 
 test("maps batch stats without erasing catalog metadata", () => {

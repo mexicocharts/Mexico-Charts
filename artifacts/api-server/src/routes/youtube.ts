@@ -7,6 +7,7 @@ import { runDailyYoutubeChannelSnapshots } from "../lib/youtube-channel-snapshot
 import { discoverYoutubeMusicArtist, ensureYoutubeShadowTables } from "../lib/youtube-music-shadow-discovery";
 import {
   ensureYoutubeIntradayShadowTables,
+  maintainYoutubeCoverageSummaryAfterCollector,
   runYoutubeIntradayShadow,
   youtubeIntradayShadowAutomationEnabled,
   YOUTUBE_SHADOW_PILOT_ARTISTS,
@@ -1031,8 +1032,17 @@ router.post("/admin/youtube/music-shadow/discover", async (req, res) => {
 router.post("/admin/youtube/music-shadow/intraday/run", async (req, res) => {
   if (!requireAdmin(req, res)) return;
   const summary = await runYoutubeIntradayShadow("admin-run-now", true, true);
+  const coverageSummaryMaintenance = await maintainYoutubeCoverageSummaryAfterCollector(
+    summary,
+    "admin-run-now",
+  );
   res.setHeader("Cache-Control", "no-store");
-  res.status(summary.status === "failed" ? 500 : 200).json({ publicDataChanged: false, shadowMode: true, ...summary });
+  res.status(summary.status === "failed" ? 500 : 200).json({
+    publicDataChanged: false,
+    shadowMode: true,
+    ...summary,
+    coverageSummaryMaintenance,
+  });
 });
 
 router.get("/admin/youtube/music-shadow/status", async (req, res) => {
