@@ -355,33 +355,9 @@ export const YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL = `
 
 export const YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL = `
   /* youtube-live-coverage:candidate-videos:latest */
-  WITH roster_keys AS MATERIALIZED (
-    SELECT DISTINCT regexp_replace(
-      translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
-      '[^a-z0-9]', '', 'g'
-    ) artist_key
-    FROM kworb_coverage
-    WHERE status='active'
-  ), eligible_video_ids AS MATERIALIZED (
-    SELECT DISTINCT candidate.video_id
-    FROM roster_keys roster
-    JOIN youtube_music_catalog_candidates candidate
-      ON regexp_replace(
-        translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
-        '[^a-z0-9]', '', 'g'
-      )=roster.artist_key
-    WHERE candidate.status IN ('review','verified')
-      AND candidate.sampling_status='shadow'
-  )
-  SELECT
-    count(*)::int catalog_videos,
-    count(latest.video_id)::int observed_videos,
-    count(*) FILTER (
-      WHERE latest.latest_observed_at >= now() - interval '6 hours'
-    )::int fresh_videos,
-    max(latest.latest_observed_at)::text latest_observed_at
-  FROM eligible_video_ids eligible
-  LEFT JOIN youtube_video_intraday_latest_observations latest USING (video_id)
+  ${splitCandidatePrefix}
+  ${latestSnapshotState}
+  ${candidateVideoTotals}
 `;
 
 export function youtubeLiveCoverageReadMode(
