@@ -5,6 +5,7 @@ import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
 import { computePackagedSongstatsProductionPreflightFingerprint } from "./songstats-production-preflight-fingerprint.mjs";
+import { computePackagedSongstatsHistoryValidationFingerprint } from "./songstats-history-validation-fingerprint.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -16,6 +17,8 @@ async function buildAll() {
   await rm(distDir, { recursive: true, force: true });
   const songstatsProductionPreflightFingerprint =
     await computePackagedSongstatsProductionPreflightFingerprint(artifactDir);
+  const songstatsHistoryValidationFingerprint =
+    await computePackagedSongstatsHistoryValidationFingerprint(artifactDir);
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -29,6 +32,9 @@ async function buildAll() {
     define: {
       __SONGSTATS_PRODUCTION_PREFLIGHT_FINGERPRINT__: JSON.stringify(
         songstatsProductionPreflightFingerprint,
+      ),
+      __SONGSTATS_HISTORY_VALIDATION_FINGERPRINT__: JSON.stringify(
+        songstatsHistoryValidationFingerprint,
       ),
     },
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.

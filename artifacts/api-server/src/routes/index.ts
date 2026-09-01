@@ -20,6 +20,7 @@ import monitoringRouter from "./monitoring";
 import accountRouter from "./account";
 import communityContributionsRouter from "./community-contributions";
 import songstatsProductionPreflightRouter from "./songstats-production-preflight";
+import songstatsHistoryValidationRouter from "./songstats-history-validation";
 import youtubeLiveCoverageMigrationRouter from "./youtube-live-coverage-migration";
 
 const router: IRouter = Router();
@@ -45,6 +46,7 @@ router.use(monitoringRouter);
 router.use(accountRouter);
 router.use(communityContributionsRouter);
 router.use(songstatsProductionPreflightRouter);
+router.use(songstatsHistoryValidationRouter);
 router.use(youtubeLiveCoverageMigrationRouter);
 
 export default router;
