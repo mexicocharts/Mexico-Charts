@@ -2,7 +2,10 @@ import { pool, youtubeCollectorPool } from "@workspace/db";
 import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
-import { refreshYoutubeLiveCoverageSummary } from "./youtube-live-coverage-summary";
+import {
+  refreshYoutubeLiveCoverageSummary,
+  type YoutubeCoverageRefreshResult,
+} from "./youtube-live-coverage-summary";
 import { shouldRefreshYoutubeCoverageSummary } from "./youtube-live-coverage-summary-policy";
 import {
   ensureYoutubeLatestObservationTable,
@@ -132,6 +135,49 @@ export interface YoutubeIntradayShadowSummary {
   compactLatestUpserts: number;
   compactLatestMaxObservedAt: string | null;
   error?: string;
+}
+
+export type YoutubeCoveragePostCollectorResult = YoutubeCoverageRefreshResult | {
+  status: "skipped";
+  durationMs: 0;
+  collectorStatus: YoutubeIntradayShadowSummary["status"];
+};
+
+/**
+ * Run coverage maintenance after every collector entry point, including the
+ * guarded admin runner. Observation persistence has already released the
+ * collector client before this function is called.
+ */
+export async function maintainYoutubeCoverageSummaryAfterCollector(
+  summary: Pick<YoutubeIntradayShadowSummary, "status">,
+  reason: string,
+  refresh: (reason: string) => Promise<YoutubeCoverageRefreshResult> = refreshYoutubeLiveCoverageSummary,
+): Promise<YoutubeCoveragePostCollectorResult> {
+  if (!shouldRefreshYoutubeCoverageSummary(summary.status)) {
+    logger.warn(
+      { reason, collectorStatus: summary.status },
+      "[youtube:live-coverage-summary] refresh skipped after unsuccessful collector cycle",
+    );
+    return { status: "skipped", durationMs: 0, collectorStatus: summary.status };
+  }
+
+  try {
+    const result = await refresh(reason);
+    if (result.status === "locked") {
+      logger.warn(
+        { reason, collectorStatus: summary.status, durationMs: result.durationMs },
+        "[youtube:live-coverage-summary] refresh skipped because advisory lock is busy",
+      );
+    }
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error(
+      safeErrorDetails(error, { reason, job: "live-coverage-summary-dispatch" }),
+      "[youtube:live-coverage-summary] dispatch failed",
+    );
+    return { status: "failed", durationMs: 0, error: message };
+  }
 }
 
 const YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3";
@@ -1616,19 +1662,7 @@ export function startYoutubeIntradayShadowScheduler() {
       // This uses a separate pool and advisory lock after the collector client
       // has been released, so coverage maintenance cannot postpone observation
       // persistence or the next collector lock acquisition.
-      if (shouldRefreshYoutubeCoverageSummary(summary.status)) {
-        void refreshYoutubeLiveCoverageSummary(reason).catch(error => {
-          logger.error(
-            safeErrorDetails(error, { reason, job: "live-coverage-summary-dispatch" }),
-            "[youtube:live-coverage-summary] dispatch failed",
-          );
-        });
-      } else {
-        logger.warn(
-          { reason, collectorStatus: summary.status },
-          "[youtube:live-coverage-summary] refresh skipped after unsuccessful collector cycle",
-        );
-      }
+      void maintainYoutubeCoverageSummaryAfterCollector(summary, reason);
       if (!discoveryRunning) {
         discoveryRunning = true;
         void bootstrapActiveCatalog()
