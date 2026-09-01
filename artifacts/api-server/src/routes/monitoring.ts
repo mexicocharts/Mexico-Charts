@@ -18,10 +18,12 @@ import {
   loadCompactReleaseImpact,
   type CompactHistoryRange,
 } from "../lib/songstats-history-serving";
+  ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
+  resolveArtistProEntitlement,
+} from "../lib/artist-pro-entitlement";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
-const ACTIVE_SUBSCRIPTION_STATUSES = ["active", "trialing"];
 
 type MonitoringSnapshotRow = {
   snapshot_date: string;
@@ -165,27 +167,41 @@ function buildDailyPulse(history: NormalizedMonitoringSnapshot[], catalog: { new
 
 async function authorizedMonitoringSubscription(userId: string, requestedArtistKey: string) {
   const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
-  const subscription = await pool.query<{
+  type MonitoringGrant = {
     artist_key: string;
     artist_name: string;
     status: string;
-    created_at: Date;
-  }>(`
-    SELECT artist_key, artist_name, status, created_at
-    FROM monitoring_subscriptions
-    WHERE clerk_user_id = $1
-      AND lower(artist_key) = ANY($2::text[])
-      AND status = ANY($3::text[])
-    ORDER BY updated_at DESC
-    LIMIT 1
-  `, [userId, lookupKeys, ACTIVE_SUBSCRIPTION_STATUSES]);
-  const active = subscription.rows[0];
-  return active ?? null;
-}
+    created_at: Date | null;
+  };
+  let active: MonitoringGrant | undefined;
+  const entitlement = await resolveArtistProEntitlement({
+    userId,
+    hasActiveSubscription: async () => {
+      const subscription = await pool.query<MonitoringGrant>(`
+        SELECT artist_key, artist_name, status, created_at
+        FROM monitoring_subscriptions
+        WHERE clerk_user_id = $1
+          AND lower(artist_key) = ANY($2::text[])
+          AND status = ANY($3::text[])
+        ORDER BY updated_at DESC
+        LIMIT 1
+      `, [userId, lookupKeys, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES]);
+      active = subscription.rows[0];
+      return Boolean(active);
+    },
+  });
+  if (!entitlement) return null;
 
-async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
-  const active = await authorizedMonitoringSubscription(userId, requestedArtistKey);
-  if (!active) return null;
+  if (!active) {
+    const readyArtist = await getMonitoringReadyArtist(requestedArtistKey);
+    if (!readyArtist) return null;
+    active = {
+      artist_key: readyArtist.artistKey,
+      artist_name: readyArtist.artistName,
+      status: "internal",
+      created_at: null,
+    };
+  }
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
   const [
@@ -504,7 +520,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       artistKey: active.artist_key,
       artistName: active.artist_name,
       status: active.status,
-      activatedAt: active.created_at.toISOString(),
+      activatedAt: active.created_at?.toISOString() ?? null,
+      accessSource: entitlement.source,
     },
     current: history.at(-1) ?? null,
     history,
@@ -624,7 +641,7 @@ router.get("/monitoring/dashboard/:artistKey", requireClerkUser, async (req, res
   try {
     const dashboard = await loadAuthorizedMonitoring(clerkUserId(res), artistKey);
     if (!dashboard) {
-      res.status(403).json({ error: "An active subscription is required for this artist" });
+      res.status(403).json({ error: "Artist Pro access is required for this artist" });
       return;
     }
     res.json(dashboard);
@@ -685,7 +702,7 @@ router.get("/monitoring/report/:artistKey", requireClerkUser, async (req, res) =
   try {
     const dashboard = await loadAuthorizedMonitoring(clerkUserId(res), artistKey);
     if (!dashboard) {
-      res.status(403).json({ error: "An active subscription is required for this artist" });
+      res.status(403).json({ error: "Artist Pro access is required for this artist" });
       return;
     }
     const rows = dashboard.history.filter(point => point.date.startsWith(month));

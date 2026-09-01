@@ -55,7 +55,8 @@ type DashboardPayload = {
     artistKey: string;
     artistName: string;
     status: string;
-    activatedAt: string;
+    activatedAt: string | null;
+    accessSource: "subscription" | "internal";
   };
   current: Snapshot | null;
   history: Snapshot[];
@@ -529,8 +530,8 @@ export default function MonitoringDashboard() {
               {error instanceof Error
                 ? error.message
                 : pick(
-                    "Necesitas una suscripción activa para este artista.",
-                    "You need an active subscription for this artist.",
+                    "Necesitas una suscripción activa o acceso interno autorizado para este artista.",
+                    "You need an active subscription or authorized internal access for this artist.",
                   )}
             </p>
             <Link
@@ -553,12 +554,16 @@ export default function MonitoringDashboard() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
-                    {pick("Monitoreo activo", "Active monitoring")}
+                    {data.subscription.accessSource === "internal"
+                      ? pick("Acceso interno", "Internal access")
+                      : pick("Monitoreo activo", "Active monitoring")}
                   </span>
-                  <span className="text-[9px] font-bold text-white/30">
-                    {pick("Desde", "Since")}{" "}
-                    {dateLabel(data.subscription.activatedAt)}
-                  </span>
+                  {data.subscription.activatedAt && (
+                    <span className="text-[9px] font-bold text-white/30">
+                      {pick("Desde", "Since")}{" "}
+                      {dateLabel(data.subscription.activatedAt)}
+                    </span>
+                  )}
                 </div>
                 <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
                   {data.subscription.artistName}

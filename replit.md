@@ -46,6 +46,7 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 - `SONGSTATS_SNAPSHOT_HOUR_UTC` — optional UTC hour for the daily Songstats snapshot, default `11`.
 - `STRIPE_SECRET_KEY` — server-only Stripe secret used to create recurring artist-monitoring Checkout sessions. Never expose this as a `VITE_` variable.
 - `PUBLIC_SITE_URL` — public HTTPS origin used by Stripe success and cancellation redirects; defaults to `https://mexicochart.com`.
+- `ARTIST_PRO_INTERNAL_USER_IDS` — optional server-only comma-separated Clerk user IDs for explicitly authorized founder/admin Artist Pro access. This does not create or alter Stripe subscriptions.
 
 ## Stack
 

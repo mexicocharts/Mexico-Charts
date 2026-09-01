@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useSearch } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -42,6 +42,10 @@ type MonitoringArtistAvailability = {
   artists: Array<{ artistKey: string; artistName: string; matchKeys: string[] }>;
 };
 
+type AccountAccess = {
+  internalArtistProAccess: boolean;
+};
+
 type MonitoringPlanId = "individual" | "seleccion" | "profesional" | "catalogo";
 
 function compactArtistKey(value: string): string {
@@ -51,6 +55,7 @@ function compactArtistKey(value: string): string {
 export default function Monitoreo() {
   const { language, pick } = useLanguage();
   const auth = useMexicoAuth();
+  const [, setLocation] = useLocation();
   const search = useSearch();
   const requestedArtist = new URLSearchParams(search).get("artist")?.trim().toLowerCase() ?? "";
   const { byKey, isLoading: artistsLoading } = useArtistMetadata();
@@ -75,6 +80,17 @@ export default function Monitoreo() {
       const response = await fetch("/api/monitoring/artists");
       if (!response.ok) throw new Error("Monitoring artist availability unavailable");
       return response.json() as Promise<MonitoringArtistAvailability>;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: accountAccess } = useQuery<AccountAccess>({
+    queryKey: ["account-access", auth.userId],
+    enabled: auth.configured && auth.isSignedIn,
+    queryFn: async () => {
+      const response = await authenticatedFetch(auth.getToken, "/api/account/me");
+      if (!response.ok) throw new Error("Account access unavailable");
+      return response.json() as Promise<AccountAccess>;
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -179,6 +195,10 @@ export default function Monitoreo() {
 
   async function startCheckout() {
     if (selectedPlan.id !== "catalogo" && !selectedArtist) return;
+    if (accountAccess?.internalArtistProAccess && selectedArtist) {
+      setLocation(`/monitoreo/${encodeURIComponent(selectedArtist.artistKey)}`);
+      return;
+    }
     if (selectedPlan.id === "individual" && config?.checkoutEnabled && auth.configured && !auth.isSignedIn) {
       auth.openSignUp();
       return;
@@ -477,12 +497,14 @@ export default function Monitoreo() {
               <button type="button" disabled={(selectedPlan.id !== "catalogo" && !selectedArtist) || checkoutLoading} onClick={startCheckout} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-[#111] px-5 text-[10px] font-black uppercase tracking-[0.15em] text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-25">
                 {checkoutLoading
                   ? pick("Abriendo pago seguro…", "Opening secure checkout…")
+                  : accountAccess?.internalArtistProAccess && selectedArtist
+                    ? pick("Abrir panel Artist Pro", "Open Artist Pro dashboard")
                   : selectedPlan.id === "catalogo"
                     ? pick("Solicitar acceso", "Request access")
                     : config?.checkoutEnabled && selectedPlan.id === "individual"
                       ? pick("Suscribirme", "Subscribe")
                       : pick("Solicitar plan", "Request plan")}
-                {!checkoutLoading && (config?.checkoutEnabled && selectedPlan.id === "individual" ? <ShieldCheck className="h-4 w-4 text-[#39FF14]" /> : <Mail className="h-4 w-4 text-[#39FF14]" />)}
+                {!checkoutLoading && (accountAccess?.internalArtistProAccess && selectedArtist ? <ShieldCheck className="h-4 w-4 text-[#39FF14]" /> : config?.checkoutEnabled && selectedPlan.id === "individual" ? <ShieldCheck className="h-4 w-4 text-[#39FF14]" /> : <Mail className="h-4 w-4 text-[#39FF14]" />)}
               </button>
               {checkoutError && <p className="mt-3 text-xs font-bold leading-5 text-red-600">{checkoutError}</p>}
               <p className="mt-3 text-center text-[8px] font-bold leading-4 text-black/35">{pick("Renovación mensual. Cancela cuando quieras.", "Monthly renewal. Cancel anytime.")} <Link href="/terminos" className="underline">{pick("Términos", "Terms")}</Link> · <Link href="/privacidad" className="underline">{pick("Privacidad", "Privacy")}</Link></p>
