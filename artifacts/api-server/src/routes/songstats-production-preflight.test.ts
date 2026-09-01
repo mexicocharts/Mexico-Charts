@@ -8,6 +8,7 @@ import { createSongstatsProductionPreflightRouter } from "./songstats-production
 
 const ADMIN_KEY = "test-songstats-admin-key-at-least-32-characters";
 const REVISION = "test-production-revision";
+const FINGERPRINT = "a".repeat(64);
 const BODY = {
   confirm: "production-preflight-read-only",
   artists: ["peso-pluma", "banda ms de sergio lizarraga", "neton-vega"],
@@ -82,6 +83,7 @@ function productionEnvironment() {
     NODE_ENV: "production",
     SONGSTATS_ADMIN_KEY: ADMIN_KEY,
     SONGSTATS_PRODUCTION_PREFLIGHT_HTTP_ENABLED: "true",
+    SONGSTATS_PRODUCTION_PREFLIGHT_EXPECTED_SOURCE_FINGERPRINT: FINGERPRINT,
     SONGSTATS_PRODUCTION_PREFLIGHT_DEPLOY_REVISION: REVISION,
     REPLIT_GIT_COMMIT_SHA: REVISION,
   };
@@ -98,6 +100,12 @@ async function invoke(baseUrl: string, key = ADMIN_KEY) {
   });
 }
 
+function guardedOptions(
+  options: Parameters<typeof createSongstatsProductionPreflightRouter>[0],
+) {
+  return { actualSourceFingerprint: FINGERPRINT, ...options };
+}
+
 test("disabled or unauthenticated production preflight cannot reach the runner", async () => {
   let calls = 0;
   const runPreflight = async () => {
@@ -105,37 +113,41 @@ test("disabled or unauthenticated production preflight cannot reach the runner",
     return result();
   };
   await withServer(
-    {
+    guardedOptions({
       env: {
         ...productionEnvironment(),
         SONGSTATS_PRODUCTION_PREFLIGHT_HTTP_ENABLED: "false",
       },
       runPreflight,
-    },
+    }),
     async (baseUrl) => assert.equal((await invoke(baseUrl)).status, 404),
   );
   await withServer(
-    { env: productionEnvironment(), runPreflight },
+    guardedOptions({ env: productionEnvironment(), runPreflight }),
     async (baseUrl) =>
       assert.equal((await invoke(baseUrl, "wrong-key")).status, 403),
   );
   assert.equal(calls, 0);
 });
-test("revision and exact request assertions fail closed before execution", async () => {
+test("source fingerprint and exact request assertions fail closed before execution", async () => {
   let calls = 0;
   const runPreflight = async () => {
     calls += 1;
     return result();
   };
   await withServer(
-    {
-      env: { ...productionEnvironment(), REPLIT_GIT_COMMIT_SHA: "other" },
+    guardedOptions({
+      env: {
+        ...productionEnvironment(),
+        SONGSTATS_PRODUCTION_PREFLIGHT_EXPECTED_SOURCE_FINGERPRINT:
+          "b".repeat(64),
+      },
       runPreflight,
-    },
+    }),
     async (baseUrl) => assert.equal((await invoke(baseUrl)).status, 409),
   );
   await withServer(
-    { env: productionEnvironment(), runPreflight },
+    guardedOptions({ env: productionEnvironment(), runPreflight }),
     async (baseUrl) => {
       const response = await fetch(
         `${baseUrl}/api/admin/songstats/production-preflight`,
@@ -154,18 +166,65 @@ test("revision and exact request assertions fail closed before execution", async
   assert.equal(calls, 0);
 });
 
+test("absent source fingerprints fail closed before execution", async () => {
+  let calls = 0;
+  const runPreflight = async () => {
+    calls += 1;
+    return result();
+  };
+  await withServer(
+    {
+      env: {
+        ...productionEnvironment(),
+        SONGSTATS_PRODUCTION_PREFLIGHT_EXPECTED_SOURCE_FINGERPRINT: undefined,
+      },
+      runPreflight,
+    },
+    async (baseUrl) => assert.equal((await invoke(baseUrl)).status, 409),
+  );
+  await withServer(
+    guardedOptions({
+      env: {
+        ...productionEnvironment(),
+        SONGSTATS_PRODUCTION_PREFLIGHT_EXPECTED_SOURCE_FINGERPRINT: undefined,
+      },
+      runPreflight,
+    }),
+    async (baseUrl) => assert.equal((await invoke(baseUrl)).status, 409),
+  );
+  assert.equal(calls, 0);
+});
+
+test("a Replit runtime SHA mismatch does not reject an approved package", async () => {
+  let calls = 0;
+  await withServer(
+    guardedOptions({
+      env: {
+        ...productionEnvironment(),
+        REPLIT_GIT_COMMIT_SHA: "publish-checkpoint",
+      },
+      runPreflight: async () => {
+        calls += 1;
+        return result();
+      },
+    }),
+    async (baseUrl) => assert.equal((await invoke(baseUrl)).status, 200),
+  );
+  assert.equal(calls, 1);
+});
+
 test("authorized execution is one-attempt and preserves zero-mutation safety", async () => {
   let calls = 0;
   let received: unknown;
   await withServer(
-    {
+    guardedOptions({
       env: productionEnvironment(),
       runPreflight: async (options) => {
         calls += 1;
         received = options;
         return result();
       },
-    },
+    }),
     async (baseUrl) => {
       const first = await invoke(baseUrl);
       assert.equal(first.status, 200);
@@ -195,6 +254,10 @@ test("the route cannot load Songstats API or mutation-capable history modules", 
   assert.doesNotMatch(
     source,
     /songstats-client|songstats-history-backfill|songstats-history-store|historic_stats/,
+  );
+  assert.ok(
+    source.indexOf("validSha256(actualSourceFingerprint)") <
+      source.indexOf("await runPreflight"),
   );
 });
 

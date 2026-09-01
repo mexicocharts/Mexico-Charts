@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { computePackagedSongstatsProductionPreflightFingerprint } from "./songstats-production-preflight-fingerprint.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -13,6 +14,8 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
+  const songstatsProductionPreflightFingerprint =
+    await computePackagedSongstatsProductionPreflightFingerprint(artifactDir);
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -23,6 +26,11 @@ async function buildAll() {
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
     loader: { ".csv": "text" },
+    define: {
+      __SONGSTATS_PRODUCTION_PREFLIGHT_FINGERPRINT__: JSON.stringify(
+        songstatsProductionPreflightFingerprint,
+      ),
+    },
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:
