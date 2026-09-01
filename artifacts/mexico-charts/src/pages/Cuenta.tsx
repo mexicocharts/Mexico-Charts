@@ -9,6 +9,7 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 type AccountPayload = {
+  internalArtistProAccess: boolean;
   savedArtists: Array<{ artistKey: string; artistName: string; alertsEnabled: boolean }>;
   profile: null | {
     username: string;
@@ -107,6 +108,21 @@ export default function Cuenta() {
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bookmark className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Artistas guardados", "Saved artists")}</p></article>
               <article className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-6"><Bell className="h-5 w-5 text-[#39FF14]" /><p className="mt-5 text-3xl font-semibold">{data?.savedArtists.filter(a => a.alertsEnabled).length ?? 0}</p><p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{pick("Alertas activas", "Active alerts")}</p></article>
             </section>
+
+            {data?.internalArtistProAccess && (
+              <section className="mt-8 rounded-2xl border border-[#39FF14]/20 bg-[#39FF14]/[0.045] p-5">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">Artist Pro</p>
+                    <h2 className="mt-2 text-xl font-semibold">{pick("Acceso interno autorizado", "Authorized internal access")}</h2>
+                    <p className="mt-2 text-xs leading-5 text-white/45">{pick("Tu cuenta tiene acceso interno sin modificar una suscripción de Stripe.", "Your account has internal access without changing a Stripe subscription.")}</p>
+                  </div>
+                  <Link href="/internal/monitoring/dashboard" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#39FF14] px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-black">
+                    {pick("Abrir Artist Pro", "Open Artist Pro")}<ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </section>
+            )}
 
             {formMessage && (
               <div className="mt-6 flex items-center gap-3 rounded-xl border border-[#39FF14]/20 bg-[#39FF14]/[0.06] px-4 py-3 text-xs text-white/65">

@@ -28,14 +28,14 @@ const FuentesDatos = lazy(() => import("@/pages/FuentesDatos"));
 const Privacidad = lazy(() => import("@/pages/Privacidad"));
 const Terminos = lazy(() => import("@/pages/Terminos"));
 const CommunityContribute = lazy(() => import("@/pages/CommunityContributePreview"));
-// Vite serves these source modules directly in development. The ignored
-// imports prevent the private preview code from being emitted in production.
+// Vite serves the unfinished purchase/success previews directly in development.
+// The Artist Pro dashboard is emitted in production because its route performs
+// a server-authoritative entitlement check before rendering any Pro UI.
 const monitoringPreviewPage = "./pages/Monitoreo.tsx";
 const monitoringSuccessPage = "./pages/MonitoringSuccess.tsx";
-const monitoringDashboardPage = "./pages/MonitoringDashboard.tsx";
 const Monitoreo = lazy(() => import(/* @vite-ignore */ monitoringPreviewPage));
 const MonitoringSuccess = lazy(() => import(/* @vite-ignore */ monitoringSuccessPage));
-const MonitoringDashboard = lazy(() => import(/* @vite-ignore */ monitoringDashboardPage));
+const MonitoringDashboard = lazy(() => import("@/pages/MonitoringDashboard"));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
@@ -154,9 +154,7 @@ function Router() {
           {MONITORING_PREVIEW_ENABLED && (
             <Route path="/internal/monitoring" component={Monitoreo} />
           )}
-          {MONITORING_PREVIEW_ENABLED && (
-            <Route path="/internal/monitoring/dashboard" component={MonitoringDashboard} />
-          )}
+          <Route path="/internal/monitoring/dashboard" component={MonitoringDashboard} />
           {MONITORING_PREVIEW_ENABLED && (
             <Route path="/internal/monitoring/success" component={MonitoringSuccess} />
           )}

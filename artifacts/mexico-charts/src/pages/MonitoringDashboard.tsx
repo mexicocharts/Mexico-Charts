@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   Activity,
@@ -37,6 +38,7 @@ import {
   YAxis,
 } from "recharts";
 import PageSEO from "@/components/PageSEO";
+import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import { useSongstatsArtist, type SongstatsArtistData } from "@/hooks/useSongstatsArtist";
 import { useKworbStats, type KworbStats } from "@/hooks/useKworbStats";
 import { useYoutubeChannel, type YoutubeChannelResult } from "@/hooks/useYoutubeChannel";
@@ -229,7 +231,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
   );
 }
 
-export default function MonitoringDashboard() {
+function MonitoringDashboardContent() {
   const [view, setView] = useState<View>("resumen");
   const [catalogView, setCatalogView] = useState<"canciones" | "albumes">("canciones");
   const [trackQuery, setTrackQuery] = useState("");
@@ -885,4 +887,57 @@ export default function MonitoringDashboard() {
       </div>
     </div>
   );
+}
+
+type ArtistProAccess = {
+  allowed: true;
+  source: "subscription" | "internal";
+};
+
+export default function MonitoringDashboard() {
+  const auth = useMexicoAuth();
+  const { data, error, isLoading } = useQuery<ArtistProAccess>({
+    queryKey: ["artist-pro-access", auth.userId, "luis miguel"],
+    enabled: auth.configured && auth.isSignedIn,
+    retry: false,
+    queryFn: async () => {
+      const response = await authenticatedFetch(
+        auth.getToken,
+        "/api/monitoring/access/luis%20miguel",
+      );
+      const payload = await response.json().catch(() => ({})) as ArtistProAccess & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Artist Pro access is required");
+      return payload;
+    },
+  });
+
+  if (!auth.isLoaded || isLoading) {
+    return <main className="flex min-h-screen items-center justify-center bg-[#070707] text-sm font-bold text-white/40">Verificando acceso Artist Pro…</main>;
+  }
+
+  if (!auth.configured || !auth.isSignedIn) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070707] px-6 text-white">
+        <section className="max-w-lg rounded-3xl border border-white/10 bg-white/[0.025] p-10 text-center">
+          <h1 className="text-2xl font-black">Inicia sesión para abrir Artist Pro</h1>
+          <p className="mt-3 text-sm leading-6 text-white/45">El panel requiere una cuenta autenticada con una suscripción activa o acceso interno autorizado.</p>
+          {auth.configured && <button type="button" onClick={auth.openSignIn} className="mt-6 rounded-full bg-[#39FF14] px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-black">Iniciar sesión</button>}
+        </section>
+      </main>
+    );
+  }
+
+  if (error || !data?.allowed) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#070707] px-6 text-white">
+        <section className="max-w-lg rounded-3xl border border-red-500/20 bg-red-500/[0.04] p-10 text-center">
+          <h1 className="text-2xl font-black">Se requiere Artist Pro</h1>
+          <p className="mt-3 text-sm leading-6 text-white/45">{error instanceof Error ? error.message : "No se pudo verificar el acceso."}</p>
+          <Link href="/cuenta" className="mt-6 inline-flex rounded-full border border-white/10 px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-white/65">Volver a mi cuenta</Link>
+        </section>
+      </main>
+    );
+  }
+
+  return <MonitoringDashboardContent />;
 }

@@ -12,6 +12,7 @@ import {
   userMusicConnections,
 } from "@workspace/db";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import { hasInternalArtistProEntitlement } from "../lib/artist-pro-entitlement";
 import { listSongstatsCatalogArtists } from "../lib/songstats-snapshot-service";
 import {
   decryptConnectionValue,
@@ -236,6 +237,7 @@ router.get("/account/me", requireClerkUser, async (_req, res) => {
       userId,
       plan: account?.plan ?? "free",
       subscriptionStatus: account?.subscriptionStatus ?? null,
+      internalArtistProAccess: hasInternalArtistProEntitlement(userId),
       savedArtists: artists,
       monitoringSubscriptions: subscriptions,
       profile: profile ?? null,
