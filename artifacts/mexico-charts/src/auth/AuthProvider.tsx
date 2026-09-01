@@ -86,8 +86,11 @@ export async function authenticatedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
 ) {
-  const token = await getToken();
+  const token = await Promise.race<string | null>([
+    getToken().catch(() => null),
+    new Promise<null>(resolve => window.setTimeout(() => resolve(null), 3_000)),
+  ]);
   const headers = new Headers(init.headers);
   if (token) headers.set("authorization", `Bearer ${token}`);
-  return fetch(input, { ...init, headers });
+  return fetch(input, { ...init, headers, credentials: init.credentials ?? "same-origin" });
 }
