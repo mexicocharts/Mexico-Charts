@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { getDatabaseUrl } from "@workspace/db/database-url";
 import { ensureArtistDiscoveryTables } from "./artist-discovery-create-tables";
 
 const require = createRequire(import.meta.url);
@@ -619,8 +620,10 @@ async function recalculateCandidate(pool: InstanceType<typeof Pool>, candidateId
 }
 
 export async function runArtistDiscoveryImport(options = parseArgs()) {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (options.write && !databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = getDatabaseUrl();
+  if (options.write && !databaseUrl) {
+    throw new Error("Database connection is not configured for write mode.");
+  }
 
   const [chartsHub, knownArtistNames] = await Promise.all([
     fetchJson<ChartsHubResponse>(`${options.baseUrl.replace(/\/$/, "")}/api/charts/hub`),

@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -200,8 +201,7 @@ export async function ensureArtistDiscoveryTables(pool: PoolLike) {
 }
 
 async function main() {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {

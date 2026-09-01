@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { writeFile } from "node:fs/promises";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -79,8 +80,7 @@ function toCsv(rows: ReviewRow[]) {
 }
 
 async function main() {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
   const { status, out } = parseArgs();
   const pool = new Pool({ connectionString: databaseUrl });
 

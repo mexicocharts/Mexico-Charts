@@ -1,5 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { getDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -546,8 +547,9 @@ async function loadWikidataCareer(mbid: string | null): Promise<WikidataCareer |
 async function main() {
   const args = parseArgs();
 
-  const pool = args.source === "db" && process.env["DATABASE_URL"]
-    ? new Pool({ connectionString: process.env["DATABASE_URL"] })
+  const databaseUrl = getDatabaseUrl();
+  const pool = args.source === "db" && databaseUrl
+    ? new Pool({ connectionString: databaseUrl })
     : null;
   try {
     let artists: ArtistRow[] = [];

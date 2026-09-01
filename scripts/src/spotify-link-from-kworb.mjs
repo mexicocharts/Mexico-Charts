@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg");
@@ -172,8 +173,7 @@ async function saveArtist(pool, artist, spotify) {
 
 async function main() {
   const { limit, write } = parseArgs();
-  if (!process.env.DATABASE_URL) throw new Error("Missing DATABASE_URL");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: resolveDatabaseUrl() });
   try {
     const active = await loadActiveArtists();
     const activeBySlug = new Map(active.map(artist => [toSlug(artist.artist_key), artist]));

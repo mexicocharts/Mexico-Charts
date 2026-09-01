@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 import { ensureYoutubeVideoTrackerTables } from "./youtube-video-tracker-create-tables";
 
 const require = createRequire(import.meta.url);
@@ -109,8 +110,7 @@ async function upsertVideo(pool: PoolLike, row: SnapshotRow, video: NonNullable<
 
 async function main() {
   const { artist, limit, write } = parseArgs();
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {

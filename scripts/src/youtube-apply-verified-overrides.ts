@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -219,9 +220,7 @@ async function clearCandidate(pool: InstanceType<typeof Pool>, artistKey: string
 
 async function main() {
   const { write } = parseArgs();
-  if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
-
-  const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
+  const pool = new Pool({ connectionString: resolveDatabaseUrl() });
   try {
     const linkedRows = await pool.query<{ artist_key: string }>("select artist_key from youtube_channels");
     const linked = new Set(linkedRows.rows.map(row => row.artist_key));

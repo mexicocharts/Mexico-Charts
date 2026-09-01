@@ -1,17 +1,14 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
+import { resolveDatabaseUrl } from "./database-url.mjs";
 import * as schema from "./schema";
 
 const { Pool } = pg;
 export type { PoolClient } from "pg";
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
+const databaseUrl = resolveDatabaseUrl();
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const pool = new Pool({ connectionString: databaseUrl });
 
 // Long-running collectors intentionally keep clients checked out while they
 // coordinate API and database work. Keep a small, bounded pool reserved for
@@ -19,7 +16,7 @@ export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 // requests. The application name also makes these sessions identifiable in
 // production database diagnostics.
 export const publicReadPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   application_name: "mexico-charts-public-read",
   max: 3,
   connectionTimeoutMillis: 3_000,
@@ -31,7 +28,7 @@ export const publicReadPool = new Pool({
 // that job one bounded connection so unrelated startup collectors cannot leave
 // its scheduler tick waiting indefinitely on the shared application pool.
 export const youtubeCollectorPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   application_name: "mexico-charts-youtube-collector",
   max: 1,
   connectionTimeoutMillis: 5_000,
@@ -42,7 +39,7 @@ export const youtubeCollectorPool = new Pool({
 // and public reads. A slow summary refresh can therefore neither postpone a
 // collector commit nor occupy the public monitor's small latency pool.
 export const youtubeCoveragePool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
   application_name: "mexico-charts-youtube-coverage",
   max: 1,
   connectionTimeoutMillis: 5_000,

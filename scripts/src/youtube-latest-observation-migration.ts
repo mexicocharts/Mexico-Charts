@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import { performance } from "node:perf_hooks";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 import {
   YOUTUBE_LIVE_COVERAGE_FIELDS,
   YOUTUBE_LIVE_COVERAGE_LATEST_SQL,
@@ -38,8 +39,7 @@ function parseArgs() {
 }
 
 const args = parseArgs();
-const databaseUrl = process.env["DATABASE_URL"];
-if (!databaseUrl) throw new Error("DATABASE_URL is required.");
+const databaseUrl = resolveDatabaseUrl();
 if (args.mode === "backfill" && !args.write) {
   throw new Error("Backfill is disabled unless --write=true is explicitly supplied.");
 }

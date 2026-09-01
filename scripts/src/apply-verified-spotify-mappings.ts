@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -98,8 +99,7 @@ function shouldWrite(): boolean {
 }
 
 async function main() {
-  const connectionString = process.env["DATABASE_URL"];
-  if (!connectionString) throw new Error("Missing DATABASE_URL.");
+  const connectionString = resolveDatabaseUrl();
 
   const pool = new Pool({ connectionString });
   const client = await pool.connect();

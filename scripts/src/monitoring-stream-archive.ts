@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -495,8 +496,7 @@ async function main() {
   } = parseArgs();
   assertStorageMode(storage);
   assertEligibilityMode(eligibility);
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
   if (!all && !requestedArtistKeys.length) throw new Error("Provide --artistKey/--artistKeys or --all=true.");
 
   const activeArtistKeys = all ? await loadActiveArtistKeys() : requestedArtistKeys;

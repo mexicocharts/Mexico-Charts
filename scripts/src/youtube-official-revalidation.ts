@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require=createRequire(import.meta.url);
 const { Client }=require("../../lib/db/node_modules/pg") as {
@@ -17,8 +18,8 @@ type YoutubeVideo = {
 };
 
 const apiKey=process.env["YOUTUBE_API_KEY"];
-const databaseUrl=process.env["DATABASE_URL"];
-if (!apiKey || !databaseUrl) throw new Error("YOUTUBE_API_KEY and DATABASE_URL are required.");
+if (!apiKey) throw new Error("YOUTUBE_API_KEY is required.");
+const databaseUrl=resolveDatabaseUrl();
 
 const client=new Client({connectionString:databaseUrl});
 await client.connect();

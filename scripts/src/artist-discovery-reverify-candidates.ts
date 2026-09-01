@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 import { ensureArtistDiscoveryTables } from "./artist-discovery-create-tables";
 
 const require = createRequire(import.meta.url);
@@ -304,8 +305,7 @@ async function recalculateCandidate(pool: PoolLike, candidateId: number) {
 }
 
 export async function runArtistDiscoveryReverify(options = parseArgs()) {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
   const pool = new Pool({ connectionString: databaseUrl });
   let scanned = 0;
   let signals = 0;

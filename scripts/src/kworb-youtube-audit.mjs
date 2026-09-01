@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg");
@@ -220,8 +221,7 @@ async function saveYouTube(pool, artist, data) {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error("Missing DATABASE_URL");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: resolveDatabaseUrl() });
 
   try {
     const youtubeIndex = await loadYouTubeIndex();

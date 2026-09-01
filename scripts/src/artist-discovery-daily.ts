@@ -1,3 +1,4 @@
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 import { runArtistDiscoveryImport } from "./artist-discovery-import-charts-hub";
 import { runArtistDiscoveryReverify } from "./artist-discovery-reverify-candidates";
 
@@ -19,7 +20,7 @@ function parseArgs() {
 
 async function main() {
   const options = parseArgs();
-  if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
+  resolveDatabaseUrl();
 
   console.log(`Artist discovery daily start date=${options.date} country=${options.country}`);
   try {

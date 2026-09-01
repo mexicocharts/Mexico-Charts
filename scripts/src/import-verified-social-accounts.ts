@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -39,8 +40,7 @@ async function main() {
     .filter(row => row.status === "verified" && Number(row.confidence) >= 90);
   console.log(JSON.stringify({ mode: write ? "write" : "dry-run", input, eligible: rows.length }, null, 2));
   if (!write) return;
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("Missing DATABASE_URL.");
+  const databaseUrl = resolveDatabaseUrl();
 
   const pool = new Pool({ connectionString: databaseUrl });
   const client = await pool.connect();

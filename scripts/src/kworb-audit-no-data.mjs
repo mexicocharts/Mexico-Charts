@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg");
@@ -127,8 +128,7 @@ function slugVariants(artistName) {
 }
 
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error("Missing DATABASE_URL");
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const pool = new Pool({ connectionString: resolveDatabaseUrl() });
   const { rows: artists } = await pool.query(`
     SELECT artist_key, artist_name
     FROM kworb_coverage

@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolveDatabaseUrl } from "@workspace/db/database-url";
 
 const require = createRequire(import.meta.url);
 const { Pool } = require("../../lib/db/node_modules/pg") as {
@@ -222,9 +223,7 @@ async function saveChannel(pool: InstanceType<typeof Pool>, artist: ArtistRow, c
 
 async function main() {
   const { limit, offset, minSubscribers, skipReviewed, write } = parseArgs();
-  if (!process.env["DATABASE_URL"]) throw new Error("Missing DATABASE_URL.");
-
-  const pool = new Pool({ connectionString: process.env["DATABASE_URL"] });
+  const pool = new Pool({ connectionString: resolveDatabaseUrl() });
   try {
     const csv = await fetch(ARTIST_METADATA_URL).then(res => {
       if (!res.ok) throw new Error(`artist metadata HTTP ${res.status}`);

@@ -27,7 +27,8 @@ Mexico Charts is a Replit-first pnpm monorepo for a music data platform covering
 
 ## Required Environment
 
-- `DATABASE_URL` — PostgreSQL connection string.
+- `NEON_DATABASE_URL` — preferred external PostgreSQL connection string.
+- `DATABASE_URL` — legacy fallback used only when `NEON_DATABASE_URL` is unset.
 - `YOUTUBE_API_KEY` — YouTube Data API access for provider/admin routes.
 - `YOUTUBE_ADMIN_KEY` — admin key for protected YouTube linking/backfill operations.
 - `YOUTUBE_CHANNEL_SNAPSHOT_AUTOMATION` — optional; set to `false` to disable automatic daily official-channel snapshots.

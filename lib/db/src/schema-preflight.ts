@@ -1,5 +1,6 @@
 import { getTableName } from "drizzle-orm";
 import { Pool } from "pg";
+import { resolveDatabaseUrl } from "./database-url.mjs";
 import * as schema from "./schema/index.js";
 
 function declaredTableNames(): Set<string> {
@@ -15,8 +16,7 @@ function declaredTableNames(): Set<string> {
 }
 
 async function main(): Promise<void> {
-  const databaseUrl = process.env["DATABASE_URL"];
-  if (!databaseUrl) throw new Error("DATABASE_URL must be set for the schema preflight");
+  const databaseUrl = resolveDatabaseUrl();
 
   const pool = new Pool({ connectionString: databaseUrl });
   try {
