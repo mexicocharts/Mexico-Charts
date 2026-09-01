@@ -104,8 +104,6 @@ export function createYoutubeLiveCoverageMigrationRouter() {
 
     const action = String(body["action"] ?? "status");
     const batchSize = Math.max(100, Math.min(2_000, Number(body["batchSize"] ?? 2_000) || 2_000));
-    const afterArtist = String(body["afterArtist"] ?? "");
-    const afterVideo = String(body["afterVideo"] ?? "");
     const startedAt = performance.now();
     const client = await youtubeCoveragePool.connect();
     let migrationLocked = false;
@@ -129,9 +127,12 @@ export function createYoutubeLiveCoverageMigrationRouter() {
       if (action === "backfill") {
         const rows = (await client.query<{ normalized_artist_key: string; video_id: string; inserted: boolean }>(`
           WITH expected AS MATERIALIZED (${eligibleSourceSql}), batch AS MATERIALIZED (
-            SELECT normalized_artist_key,video_id FROM expected
-            WHERE (normalized_artist_key,video_id)>($1::text,$2::text)
-            ORDER BY normalized_artist_key,video_id LIMIT $3
+            SELECT expected.normalized_artist_key,expected.video_id
+            FROM expected
+            LEFT JOIN youtube_live_coverage_eligible_pairs stored
+              USING(normalized_artist_key,video_id)
+            WHERE stored.video_id IS NULL
+            LIMIT $1
           ), inserted AS (
             INSERT INTO youtube_live_coverage_eligible_pairs(normalized_artist_key,video_id,source_updated_at)
             SELECT normalized_artist_key,video_id,now() FROM batch
@@ -140,13 +141,11 @@ export function createYoutubeLiveCoverageMigrationRouter() {
           )
           SELECT batch.normalized_artist_key,batch.video_id,inserted.video_id IS NOT NULL inserted
           FROM batch LEFT JOIN inserted USING(normalized_artist_key,video_id)
-          ORDER BY batch.normalized_artist_key,batch.video_id
-        `, [afterArtist, afterVideo, batchSize])).rows;
-        const last = rows.at(-1);
+        `, [batchSize])).rows;
         return res.json({
           action, scanned: rows.length, inserted: rows.filter(row => row.inserted).length,
           complete: rows.length < batchSize,
-          next: last ? { afterArtist: last.normalized_artist_key, afterVideo: last.video_id } : null,
+          next: null,
           durationMs: Math.round(performance.now() - startedAt),
         });
       }
