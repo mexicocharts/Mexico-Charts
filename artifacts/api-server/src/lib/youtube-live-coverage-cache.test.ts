@@ -9,11 +9,11 @@ test("reuses an exact coverage result only within its TTL", async () => {
   const cache = new YoutubeLiveCoverageCache<number>(30_000, () => now);
   const loader = async () => ++loads;
 
-  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 1, source: "miss" });
+  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 1, source: "miss", waitMs: 0 });
   now += 29_999;
-  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 1, source: "hit" });
+  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 1, source: "hit", waitMs: 0 });
   now += 1;
-  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 2, source: "miss" });
+  assert.deepEqual(await cache.getOrLoad("latest", loader), { value: 2, source: "miss", waitMs: 0 });
 });
 
 test("coalesces concurrent coverage reads without cross-mode reuse", async () => {
@@ -30,9 +30,9 @@ test("coalesces concurrent coverage reads without cross-mode reuse", async () =>
   const legacy = cache.getOrLoad("legacy", async () => 9);
   release(7);
 
-  assert.deepEqual(await first, { value: 7, source: "miss" });
-  assert.deepEqual(await second, { value: 7, source: "coalesced" });
-  assert.deepEqual(await legacy, { value: 9, source: "miss" });
+  assert.deepEqual(await first, { value: 7, source: "miss", waitMs: 0 });
+  assert.equal((await second).source, "coalesced");
+  assert.deepEqual(await legacy, { value: 9, source: "miss", waitMs: 0 });
   assert.equal(loads, 1);
 });
 
@@ -50,6 +50,6 @@ test("a failed loader is never cached as stale success", async () => {
 
   assert.deepEqual(
     await cache.getOrLoad("latest", async () => ++loads),
-    { value: 2, source: "miss" },
+    { value: 2, source: "miss", waitMs: 0 },
   );
 });

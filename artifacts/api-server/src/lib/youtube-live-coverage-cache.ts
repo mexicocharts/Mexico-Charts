@@ -3,6 +3,7 @@ export type YoutubeLiveCoverageCacheSource = "hit" | "miss" | "coalesced";
 export interface YoutubeLiveCoverageCacheResult<T> {
   value: T;
   source: YoutubeLiveCoverageCacheSource;
+  waitMs: number;
 }
 
 interface CacheEntry<T> {
@@ -26,15 +27,16 @@ export class YoutubeLiveCoverageCache<T> {
   ) {}
 
   async getOrLoad(key: string, loader: () => Promise<T>): Promise<YoutubeLiveCoverageCacheResult<T>> {
+    const startedAt = this.now();
     const cached = this.entries.get(key);
     if (cached && cached.expiresAt > this.now()) {
-      return { value: cached.value, source: "hit" };
+      return { value: cached.value, source: "hit", waitMs: this.now() - startedAt };
     }
     if (cached) this.entries.delete(key);
 
     const pending = this.inFlight.get(key);
     if (pending) {
-      return { value: await pending, source: "coalesced" };
+      return { value: await pending, source: "coalesced", waitMs: this.now() - startedAt };
     }
 
     const load = loader();
@@ -42,7 +44,7 @@ export class YoutubeLiveCoverageCache<T> {
     try {
       const value = await load;
       this.entries.set(key, { value, expiresAt: this.now() + this.ttlMs });
-      return { value, source: "miss" };
+      return { value, source: "miss", waitMs: this.now() - startedAt };
     } finally {
       this.inFlight.delete(key);
     }

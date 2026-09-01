@@ -16,8 +16,10 @@ import { getDashboardAdminKey } from "../lib/admin-key";
 import { reserveYoutubeApiUsage, youtubeApiDailyUsage } from "../lib/youtube-api-budget";
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 import { YoutubeLiveCoverageCache } from "../lib/youtube-live-coverage-cache";
+import { youtubeCoverageSummaryState } from "../lib/youtube-live-coverage-summary-policy";
 import {
   YOUTUBE_LIVE_COVERAGE_MAPPING_SQL,
+  YOUTUBE_LIVE_COVERAGE_SUMMARY_READ_SQL,
   youtubeLiveCoverageArtistSql,
   youtubeLiveCoverageReadMode,
   youtubeLiveCoverageVideoSql,
@@ -51,7 +53,9 @@ interface LiveCoverageQueryResult {
     videosMs: number;
     commitMs: number;
     totalMs: number;
+    summaryMs: number;
   };
+  path: "summary" | "latest" | "legacy";
 }
 
 const liveCoverageCache = new YoutubeLiveCoverageCache<LiveCoverageQueryResult>(30_000);
@@ -1288,14 +1292,75 @@ router.get("/providers/youtube/live-videos", async (req, res) => {
 
 // Public operational coverage for the live-video feature. This intentionally
 // exposes aggregate readiness only, never discovery evidence or credentials.
-router.get("/providers/youtube/live-coverage", async (_req, res) => {
+router.get("/providers/youtube/live-coverage", async (req, res) => {
   const requestStartedAt = performance.now();
+  let completed = false;
+  req.once("aborted", () => {
+    logger.warn(
+      { route: "/api/providers/youtube/live-coverage", durationMs: performance.now() - requestStartedAt },
+      "[youtube:live-coverage] request aborted",
+    );
+  });
+  res.once("finish", () => { completed = true; });
+  res.once("close", () => {
+    if (!completed) logger.warn(
+      { route: "/api/providers/youtube/live-coverage", durationMs: performance.now() - requestStartedAt },
+      "[youtube:live-coverage] response closed before completion",
+    );
+  });
   const readMode = youtubeLiveCoverageReadMode();
   const result = await liveCoverageCache.getOrLoad(readMode, async () => {
     const loadStartedAt = performance.now();
     const client = await publicReadPool.connect();
     const connectionAcquiredAt = performance.now();
     try {
+      let summary: { rows: Record<string, unknown>[] } = { rows: [] };
+      try {
+        summary = await client.query(YOUTUBE_LIVE_COVERAGE_SUMMARY_READ_SQL);
+      } catch (error) {
+        if (!(typeof error === "object" && error !== null && "code" in error && error.code === "42P01")) {
+          throw error;
+        }
+        logger.warn("[youtube:live-coverage] summary table unavailable; using rollback path");
+      }
+      const summaryCompletedAt = performance.now();
+      if (summary.rows[0]) {
+        const summaryState = youtubeCoverageSummaryState({
+          calculatedAt: String(summary.rows[0].calculated_at),
+          lastRefreshError: summary.rows[0].last_refresh_error == null
+            ? null
+            : String(summary.rows[0].last_refresh_error),
+        }, new Date());
+        const timings = {
+          acquireMs: connectionAcquiredAt - loadStartedAt,
+          beginMs: 0,
+          mappingMs: 0,
+          artistsMs: 0,
+          videosMs: 0,
+          commitMs: 0,
+          summaryMs: summaryCompletedAt - connectionAcquiredAt,
+          totalMs: summaryCompletedAt - loadStartedAt,
+        };
+        logger.info(
+          {
+            route: "/api/providers/youtube/live-coverage",
+            readMode: "summary",
+            timings,
+            pool: {
+              total: publicReadPool.totalCount,
+              idle: publicReadPool.idleCount,
+              waiting: publicReadPool.waitingCount,
+            },
+            calculatedAt: summary.rows[0].calculated_at,
+            sourceWatermark: summary.rows[0].source_watermark,
+            summaryState,
+            lastRefreshAttemptAt: summary.rows[0].last_refresh_attempt_at,
+            refreshFailed: Boolean(summary.rows[0].last_refresh_error),
+          },
+          "[youtube:live-coverage] summary read",
+        );
+        return { row: summary.rows[0], timings, path: "summary" as const };
+      }
       await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
       const transactionStartedAt = performance.now();
       const mapping = await client.query(YOUTUBE_LIVE_COVERAGE_MAPPING_SQL);
@@ -1319,12 +1384,13 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
         videosMs: videosCompletedAt - artistsCompletedAt,
         commitMs: queryCompletedAt - videosCompletedAt,
         totalMs: queryCompletedAt - loadStartedAt,
+        summaryMs: summaryCompletedAt - connectionAcquiredAt,
       };
       logger.info(
         { route: "/api/providers/youtube/live-coverage", readMode, timings },
         "[youtube:live-coverage] exact aggregate refreshed",
       );
-      return { row, timings };
+      return { row, timings, path: readMode };
     } catch (error) {
       await client.query("ROLLBACK").catch(() => undefined);
       throw error;
@@ -1338,14 +1404,33 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
   const catalogArtists = Number(row.catalog_artists ?? 0);
   const observedArtists = Number(row.observed_artists ?? 0);
   const freshArtists = Number(row.fresh_artists ?? 0);
+  const summaryStatus = result.value.path === "summary"
+    ? youtubeCoverageSummaryState({
+      calculatedAt: String(row.calculated_at),
+      lastRefreshError: row.last_refresh_error == null ? null : String(row.last_refresh_error),
+    }, new Date())
+    : null;
   res.setHeader("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
   const requestDurationMs = performance.now() - requestStartedAt;
+  logger.info({
+    route: "/api/providers/youtube/live-coverage",
+    cache: result.source,
+    leaderFollowerWaitMs: result.waitMs,
+    path: result.value.path,
+    requestDurationMs,
+    pool: {
+      total: publicReadPool.totalCount,
+      idle: publicReadPool.idleCount,
+      waiting: publicReadPool.waitingCount,
+    },
+  }, "[youtube:live-coverage] response ready");
   res.setHeader("Server-Timing", result.source === "miss"
-    ? `coverage-cache;desc=miss, db-acquire;dur=${timings.acquireMs.toFixed(1)}, `
+    ? `coverage-cache;desc=miss, coverage-path;desc=${result.value.path}, db-acquire;dur=${timings.acquireMs.toFixed(1)}, `
+      + `db-summary;dur=${timings.summaryMs.toFixed(1)}, `
       + `db-begin;dur=${timings.beginMs.toFixed(1)}, db-mapping;dur=${timings.mappingMs.toFixed(1)}, `
       + `db-artists;dur=${timings.artistsMs.toFixed(1)}, db-videos;dur=${timings.videosMs.toFixed(1)}, `
       + `db-commit;dur=${timings.commitMs.toFixed(1)}, app;dur=${Math.max(0, requestDurationMs - timings.totalMs).toFixed(1)}`
-    : `coverage-cache;desc=${result.source}, app;dur=${requestDurationMs.toFixed(1)}`);
+    : `coverage-cache;desc=${result.source}, coalesced-wait;dur=${result.waitMs.toFixed(1)}, app;dur=${requestDurationMs.toFixed(1)}`);
   res.json({
       rosterArtists,
       mappedArtists,
@@ -1361,6 +1446,10 @@ router.get("/providers/youtube/live-coverage", async (_req, res) => {
       observedVideos: Number(row.observed_videos ?? 0),
       freshVideos: Number(row.fresh_videos ?? 0),
       latestObservedAt: row.latest_observed_at ?? null,
+      summaryCalculatedAt: row.calculated_at ?? null,
+      summarySourceWatermark: row.source_watermark ?? null,
+      summaryStatus,
+      summaryLastRefreshAttemptAt: row.last_refresh_attempt_at ?? null,
       collectionCadenceMinutes: 5,
       maxVideosPerPass: 250,
   });
