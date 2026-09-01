@@ -310,9 +310,40 @@ export const YOUTUBE_LIVE_COVERAGE_LEGACY_ARTIST_SQL = `
 
 export const YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL = `
   /* youtube-live-coverage:candidate-artists:latest */
-  ${splitCandidatePrefix}
-  ${latestSnapshotState}
-  ${candidateArtistTotals}
+  WITH roster_keys AS MATERIALIZED (
+    SELECT DISTINCT regexp_replace(
+      translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
+      '[^a-z0-9]', '', 'g'
+    ) artist_key
+    FROM kworb_coverage
+    WHERE status='active'
+  ), candidate_artist_state AS MATERIALIZED (
+    SELECT
+      roster.artist_key,
+      state.candidate_count > 0 catalog,
+      state.observed,
+      state.fresh
+    FROM roster_keys roster
+    CROSS JOIN LATERAL (
+      SELECT
+        count(*)::int candidate_count,
+        coalesce(bool_or(latest.video_id IS NOT NULL), false) observed,
+        coalesce(bool_or(latest.latest_observed_at >= now() - interval '6 hours'), false) fresh
+      FROM youtube_music_catalog_candidates candidate
+      LEFT JOIN youtube_video_intraday_latest_observations latest USING (video_id)
+      WHERE candidate.status IN ('review','verified')
+        AND candidate.sampling_status='shadow'
+        AND regexp_replace(
+          translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'),
+          '[^a-z0-9]', '', 'g'
+        )=roster.artist_key
+    ) state
+  )
+  SELECT
+    count(*) FILTER (WHERE catalog)::int catalog_artists,
+    count(*) FILTER (WHERE observed)::int observed_artists,
+    count(*) FILTER (WHERE fresh)::int fresh_artists
+  FROM candidate_artist_state
 `;
 
 export const YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL = `
