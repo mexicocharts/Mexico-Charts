@@ -133,8 +133,10 @@ test("latest read avoids historical aggregation while preserving legacy rollback
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /candidate_video_state/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /CROSS JOIN LATERAL/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /state\.candidate_count > 0 catalog/);
-  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /candidate_video_state AS MATERIALIZED/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /eligible_video_ids AS MATERIALIZED/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /candidate_artist_state/);
+  assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /candidate_video_state/);
+  assert.match(YOUTUBE_LIVE_COVERAGE_LATEST_VIDEO_SQL, /count\(latest\.video_id\)::int observed_videos/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_ARTIST_SQL, /youtube_video_intraday_shadow_snapshots/);
   assert.match(YOUTUBE_LIVE_COVERAGE_LEGACY_VIDEO_SQL, /youtube_video_intraday_shadow_snapshots/);
   assert.doesNotMatch(YOUTUBE_LIVE_COVERAGE_LATEST_ARTIST_SQL, /youtube_video_intraday_shadow_snapshots/);
