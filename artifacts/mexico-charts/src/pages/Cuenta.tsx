@@ -11,6 +11,7 @@ import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 type AccountPayload = {
   plan: string;
   subscriptionStatus: string | null;
+  internalArtistProAccess: boolean;
   savedArtists: Array<{ artistKey: string; artistName: string; alertsEnabled: boolean }>;
   monitoringSubscriptions: Array<{ stripeSubscriptionId: string; artistKey: string; artistName: string; status: string }>;
   profile: null | {
@@ -118,6 +119,21 @@ export default function Cuenta() {
                 {data.monitoringSubscriptions.filter(item => item.status === "active" || item.status === "trialing").map(item => (
                   <Link key={item.stripeSubscriptionId} href={`/monitoreo/${encodeURIComponent(item.artistKey)}`} className="flex items-center justify-between border-b border-white/[0.06] px-5 py-4 last:border-0 hover:bg-white/[0.025]"><span><strong className="block text-sm">{item.artistName}</strong><span className="mt-1 block text-[9px] font-black uppercase tracking-[0.14em] text-white/35">{item.status}</span></span><ChevronRight className="h-4 w-4 text-[#39FF14]" /></Link>
                 ))}
+              </section>
+            )}
+
+            {data?.internalArtistProAccess && (
+              <section className="mt-8 rounded-2xl border border-[#39FF14]/20 bg-[#39FF14]/[0.045] p-5">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">Artist Pro</p>
+                    <h2 className="mt-2 text-xl font-semibold">{pick("Acceso interno autorizado", "Authorized internal access")}</h2>
+                    <p className="mt-2 text-xs leading-5 text-white/45">{pick("Tu cuenta puede abrir los paneles de todos los artistas elegibles sin modificar una suscripción de Stripe.", "Your account can open dashboards for every eligible artist without changing a Stripe subscription.")}</p>
+                  </div>
+                  <Link href="/monitoreo" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#39FF14] px-5 py-3 text-[9px] font-black uppercase tracking-[0.15em] text-black">
+                    {pick("Elegir artista", "Choose artist")}<ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
               </section>
             )}
 
