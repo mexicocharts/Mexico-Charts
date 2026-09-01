@@ -19,6 +19,7 @@ import songstatsRouter from "./songstats";
 import monitoringRouter from "./monitoring";
 import accountRouter from "./account";
 import communityContributionsRouter from "./community-contributions";
+import songstatsProductionPreflightRouter from "./songstats-production-preflight";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(songstatsRouter);
 router.use(monitoringRouter);
 router.use(accountRouter);
 router.use(communityContributionsRouter);
+router.use(songstatsProductionPreflightRouter);
 
 export default router;
