@@ -26,6 +26,7 @@ import { useArtistMetadata } from "@/services/dataProvider";
 import { CONTACT_EMAIL, SITE_URL } from "@/config/brand";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
+import { internalMonitoringEntryPath } from "@/lib/monitoringAccess.mjs";
 
 const G = "#39FF14";
 
@@ -119,14 +120,12 @@ export default function Monitoreo() {
   const readyArtistCount = artists.length;
 
   useEffect(() => {
-    if (!accountAccess?.internalArtistProAccess || artistsLoading || availabilityLoading) return;
-    const founderArtist = selectedArtist
-      ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "luis miguel")
-      ?? artists[0];
-    if (founderArtist) {
-      setLocation(`/monitoreo/${encodeURIComponent(founderArtist.artistKey)}`);
-    }
-  }, [accountAccess?.internalArtistProAccess, artistsLoading, availabilityLoading, selectedArtist, artists, setLocation]);
+    const path = internalMonitoringEntryPath({
+      internalArtistProAccess: accountAccess?.internalArtistProAccess === true,
+      requestedArtistKey: requestedArtist || null,
+    });
+    if (path) setLocation(path);
+  }, [accountAccess?.internalArtistProAccess, requestedArtist, setLocation]);
 
   const plans = [
     {

@@ -33,6 +33,11 @@ import { EditorialFooter } from "@/components/EditorialLayout";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import { useLanguage } from "@/i18n/LanguageContext";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
+import {
+  MonitoringDashboardHttpError,
+  monitoringDashboardViewState,
+  shouldRetryMonitoringDashboard,
+} from "@/lib/monitoringAccess.mjs";
 
 const G = "#39FF14";
 type MetricKey =
@@ -364,10 +369,11 @@ export default function MonitoringDashboard() {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState("");
   const [selectedVideoId, setSelectedVideoId] = useState("");
-  const { data, isLoading, error } = useQuery<DashboardPayload>({
+  const { data: loadedData, isLoading, error } = useQuery<DashboardPayload>({
     queryKey: ["monitoring-dashboard", auth.userId, artistKey],
     enabled: auth.configured && auth.isSignedIn && Boolean(artistKey),
     staleTime: 5 * 60 * 1000,
+    retry: shouldRetryMonitoringDashboard,
     queryFn: async () => {
       const response = await authenticatedFetch(
         auth.getToken,
@@ -376,10 +382,22 @@ export default function MonitoringDashboard() {
       const payload = (await response.json()) as DashboardPayload & {
         error?: string;
       };
-      if (!response.ok)
-        throw new Error(payload.error || "Unable to load monitoring dashboard");
+      if (!response.ok) {
+        throw new MonitoringDashboardHttpError(
+          response.status,
+          payload.error || "Unable to load monitoring dashboard",
+        );
+      }
       return payload;
     },
+  });
+  // The ready branch below is the only branch that dereferences this value.
+  // monitoringDashboardViewState reports "ready" only when loadedData exists.
+  const data = loadedData as DashboardPayload;
+  const dashboardViewState = monitoringDashboardViewState({
+    isLoading,
+    error,
+    hasData: Boolean(loadedData),
   });
   const availableMonths = useMemo(
     () =>
@@ -514,11 +532,7 @@ export default function MonitoringDashboard() {
               {pick("Ingresar", "Sign in")}
             </button>
           </div>
-        ) : isLoading ? (
-          <div className="py-28 text-center text-sm font-bold text-white/35">
-            {pick("Cargando tu historial…", "Loading your history…")}
-          </div>
-        ) : error || !data ? (
+        ) : dashboardViewState === "error" ? (
           <div className="rounded-3xl border border-red-500/20 bg-red-500/[0.04] p-10 text-center">
             <h1 className="text-2xl font-black">
               {pick(
@@ -540,6 +554,10 @@ export default function MonitoringDashboard() {
             >
               {pick("Volver a mi cuenta", "Back to my account")}
             </Link>
+          </div>
+        ) : dashboardViewState === "loading" ? (
+          <div className="py-28 text-center text-sm font-bold text-white/35">
+            {pick("Cargando tu historial…", "Loading your history…")}
           </div>
         ) : (
           <>

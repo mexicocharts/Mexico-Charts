@@ -1,4 +1,5 @@
-import { Router } from "express";
+import { Router, type RequestHandler } from "express";
+import { createHash } from "node:crypto";
 import { pool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
@@ -7,6 +8,7 @@ import {
 import { buildSongstatsPublicInsight } from "../lib/songstats-public-service";
 import {
   auditMonitoringReadiness,
+  getExistingMonitoringArtist,
   getMonitoringReadyArtist,
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
@@ -20,11 +22,40 @@ import {
 } from "../lib/songstats-history-serving";
 import {
   ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
-  resolveArtistProEntitlement,
 } from "../lib/artist-pro-entitlement";
+import {
+  authorizeMonitoringArtist,
+  type MonitoringArtistGrant,
+} from "../lib/monitoring-authorization";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
+
+const requireMonitoringClerkUser: RequestHandler = (req, res, next) => {
+  let identityResolved = false;
+  requireClerkUser(req, res, error => {
+    if (error) {
+      next(error);
+      return;
+    }
+    identityResolved = true;
+    next();
+  });
+  if (!identityResolved) {
+    logger.info({
+      event: "artist_pro_monitoring_authorization",
+      authenticatedIdentityResolved: false,
+      identityHash: null,
+      requestedArtistKey: String(req.params["artistKey"] ?? "").trim().toLowerCase() || null,
+      entitlementSource: "denied",
+      artistMatched: false,
+      matchedArtistKey: null,
+      publicReadinessEvaluated: false,
+      publicReadinessReady: null,
+      authorizationOutcome: "identity_denied",
+    }, "Artist Pro monitoring identity denied");
+  }
+};
 
 type MonitoringSnapshotRow = {
   snapshot_date: string;
@@ -168,41 +199,54 @@ function buildDailyPulse(history: NormalizedMonitoringSnapshot[], catalog: { new
 
 async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: string) {
   const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
-  type MonitoringGrant = {
-    artist_key: string;
-    artist_name: string;
-    status: string;
-    created_at: Date | null;
-  };
-  let active: MonitoringGrant | undefined;
-  const entitlement = await resolveArtistProEntitlement({
+  const authorization = await authorizeMonitoringArtist({
     userId,
-    hasActiveSubscription: async () => {
-      const subscription = await pool.query<MonitoringGrant>(`
+    requestedArtistKey,
+    findActiveSubscription: async () => {
+      const subscription = await pool.query<MonitoringArtistGrant>(`
         SELECT artist_key, artist_name, status, created_at
         FROM monitoring_subscriptions
         WHERE clerk_user_id = $1
-          AND lower(artist_key) = ANY($2::text[])
+          AND (
+            lower(artist_key) = ANY($2::text[])
+            OR regexp_replace(
+              translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
+              '[^a-z0-9]',
+              '',
+              'g'
+            ) = ANY($2::text[])
+          )
           AND status = ANY($3::text[])
         ORDER BY updated_at DESC
         LIMIT 1
       `, [userId, lookupKeys, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES]);
-      active = subscription.rows[0];
-      return Boolean(active);
+      return subscription.rows[0] ?? null;
+    },
+    findExistingArtist: async artistKey => {
+      const artist = await getExistingMonitoringArtist(artistKey);
+      return artist ? {
+        artist_key: artist.artistKey,
+        artist_name: artist.artistName,
+        status: "internal",
+        created_at: null,
+      } : null;
     },
   });
-  if (!entitlement) return null;
-
-  if (!active) {
-    const readyArtist = await getMonitoringReadyArtist(requestedArtistKey);
-    if (!readyArtist) return null;
-    active = {
-      artist_key: readyArtist.artistKey,
-      artist_name: readyArtist.artistName,
-      status: "internal",
-      created_at: null,
-    };
-  }
+  const active = authorization.grant;
+  logger.info({
+    event: "artist_pro_monitoring_authorization",
+    authenticatedIdentityResolved: Boolean(userId),
+    identityHash: userId ? createHash("sha256").update(userId).digest("hex").slice(0, 12) : null,
+    requestedArtistKey,
+    requestedCompactKey: lookupKeys.at(-1) ?? null,
+    entitlementSource: authorization.source ?? "denied",
+    artistMatched: Boolean(active),
+    matchedArtistKey: active?.artist_key ?? null,
+    publicReadinessEvaluated: authorization.publicReadinessEvaluated,
+    publicReadinessReady: null,
+    authorizationOutcome: authorization.outcome,
+  }, "Artist Pro monitoring authorization evaluated");
+  if (!authorization.allowed || !active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
   const [
@@ -522,7 +566,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       artistName: active.artist_name,
       status: active.status,
       activatedAt: active.created_at?.toISOString() ?? null,
-      accessSource: entitlement.source,
+      accessSource: authorization.source,
     },
     current: history.at(-1) ?? null,
     history,
@@ -633,7 +677,7 @@ router.get("/monitoring/artists", async (_req, res) => {
   }
 });
 
-router.get("/monitoring/dashboard/:artistKey", requireClerkUser, async (req, res) => {
+router.get("/monitoring/dashboard/:artistKey", requireMonitoringClerkUser, async (req, res) => {
   const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
   if (!artistKey || artistKey.length > 160) {
     res.status(400).json({ error: "A valid artist key is required" });
@@ -652,7 +696,7 @@ router.get("/monitoring/dashboard/:artistKey", requireClerkUser, async (req, res
   }
 });
 
-router.get("/monitoring/history/:artistKey/:metricKey", requireClerkUser, async (req, res) => {
+router.get("/monitoring/history/:artistKey/:metricKey", requireMonitoringClerkUser, async (req, res) => {
   const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
   const metricKey = String(req.params.metricKey ?? "").trim();
   const range = String(req.query.range ?? "all") as CompactHistoryRange;
@@ -693,7 +737,7 @@ router.get("/monitoring/history/:artistKey/:metricKey", requireClerkUser, async 
   }
 });
 
-router.get("/monitoring/report/:artistKey", requireClerkUser, async (req, res) => {
+router.get("/monitoring/report/:artistKey", requireMonitoringClerkUser, async (req, res) => {
   const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
   const month = String(req.query.month ?? "").trim();
   if (!artistKey || artistKey.length > 160 || !/^\d{4}-\d{2}$/.test(month)) {

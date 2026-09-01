@@ -10,6 +10,9 @@ import {
 } from "./songstats-client";
 import { ensureSongstatsBillingUsageTable } from "./songstats-billing-guard";
 import { logger } from "./logger";
+import { songstatsArtistKeyCandidates } from "./songstats-artist-key";
+
+export { songstatsArtistKeyCandidates } from "./songstats-artist-key";
 
 export interface SongstatsSyncResult {
   artistKey: string;
@@ -33,37 +36,6 @@ export interface SongstatsCatalogArtist {
   artistKey: string;
   spotifyArtistId: string;
   spotifyName: string | null;
-}
-
-const CANONICAL_ARTIST_KEY_BY_ALIAS: Record<string, string> = {
-  "banda el recodo de cruz lizarraga": "banda el recodo",
-  "banda sinaloense ms de sergio lizarraga": "banda ms de sergio lizarraga",
-  "banda tito y su torbellino": "tito torbellino",
-  "ramon ayala y sus bravos del norte": "ramon ayala",
-};
-
-function normalizeArtistKey(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-function compactArtistKey(value: string): string {
-  return normalizeArtistKey(value).replace(/[^a-z0-9]/g, "");
-}
-
-export function songstatsArtistKeyCandidates(value: string): string[] {
-  const normalized = normalizeArtistKey(value);
-  const canonical = CANONICAL_ARTIST_KEY_BY_ALIAS[normalized] ?? normalized;
-  return [...new Set([
-    normalized,
-    canonical,
-    compactArtistKey(normalized),
-    compactArtistKey(canonical),
-  ].filter(Boolean))];
 }
 
 export async function listSongstatsCatalogArtists(options: {

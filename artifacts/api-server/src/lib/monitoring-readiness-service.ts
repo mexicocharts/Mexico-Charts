@@ -4,7 +4,12 @@ import {
   MONITORING_READINESS_POLICY_VERSION,
   type MonitoringReadinessResult,
 } from "./monitoring-readiness-policy";
-import { songstatsArtistKeyCandidates } from "./songstats-snapshot-service";
+import {
+  monitoringArtistAliasesMatch,
+  songstatsArtistKeyCandidates,
+} from "./songstats-artist-key";
+
+export { monitoringArtistAliasesMatch } from "./songstats-artist-key";
 
 interface ReadinessRow {
   artist_key: string;
@@ -39,6 +44,12 @@ export interface MonitoringReadyArtist {
   readiness: MonitoringReadinessResult;
 }
 
+export interface ExistingMonitoringArtist {
+  artistKey: string;
+  artistName: string;
+  matchKeys: string[];
+}
+
 const READINESS_CACHE_MS = 15 * 60 * 1000;
 let completeCatalogCache: {
   expiresAt: number;
@@ -48,6 +59,42 @@ let completeCatalogCache: {
 function numeric(value: string | number | null): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function getExistingMonitoringArtist(artistKey: string): Promise<ExistingMonitoringArtist | null> {
+  const candidates = songstatsArtistKeyCandidates(artistKey);
+  if (!candidates.length) return null;
+  const result = await pool.query<{ artist_key: string; artist_name: string | null }>(
+    `SELECT c.artist_key, c.artist_name
+     FROM kworb_coverage c
+     WHERE COALESCE(c.spotify_id, '') <> ''
+       AND (
+         lower(c.artist_key) = ANY($1::text[])
+         OR regexp_replace(
+           translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
+           '[^a-z0-9]',
+           '',
+           'g'
+         ) = ANY($1::text[])
+       )
+       AND EXISTS (
+         SELECT 1
+         FROM songstats_artist_daily_snapshots snapshot
+         WHERE snapshot.artist_key = c.artist_key
+       )
+     ORDER BY
+       (lower(c.artist_key) = ANY($1::text[])) DESC,
+       c.artist_key
+     LIMIT 1`,
+    [candidates],
+  );
+  const artist = result.rows[0];
+  if (!artist || !monitoringArtistAliasesMatch(artist.artist_key, artistKey)) return null;
+  return {
+    artistKey: artist.artist_key,
+    artistName: artist.artist_name?.trim() || artist.artist_key,
+    matchKeys: songstatsArtistKeyCandidates(artist.artist_key),
+  };
 }
 
 function evaluateRow(row: ReadinessRow): MonitoringReadinessResult {
