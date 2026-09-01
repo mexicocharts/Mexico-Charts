@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -117,6 +117,16 @@ export default function Monitoreo() {
     ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "peso pluma")
     ?? null;
   const readyArtistCount = artists.length;
+
+  useEffect(() => {
+    if (!accountAccess?.internalArtistProAccess || artistsLoading || availabilityLoading) return;
+    const founderArtist = selectedArtist
+      ?? artists.find(artist => artist.displayName.toLocaleLowerCase() === "luis miguel")
+      ?? artists[0];
+    if (founderArtist) {
+      setLocation(`/monitoreo/${encodeURIComponent(founderArtist.artistKey)}`);
+    }
+  }, [accountAccess?.internalArtistProAccess, artistsLoading, availabilityLoading, selectedArtist, artists, setLocation]);
 
   const plans = [
     {
