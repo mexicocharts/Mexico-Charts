@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { pool } from "@workspace/db";
 import { listSongstatsCatalogArtists } from "../lib/songstats-snapshot-service";
 import {
   auditMonitoringReadiness,
@@ -6,6 +7,10 @@ import {
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import {
+  ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
+  resolveArtistProEntitlement,
+} from "../lib/artist-pro-entitlement";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -50,6 +55,45 @@ router.get("/monitoring/artists", async (_req, res) => {
   } catch (error) {
     logger.error({ error }, "Monitoring artist availability failed");
     res.status(503).json({ error: "Monitoring availability is temporarily unavailable" });
+  }
+});
+
+router.get("/monitoring/access/:artistKey", requireClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  if (!artistKey || artistKey.length > 160) {
+    res.status(400).json({ error: "A valid artist key is required" });
+    return;
+  }
+
+  const userId = clerkUserId(res);
+  try {
+    const entitlement = await resolveArtistProEntitlement({
+      userId,
+      hasActiveSubscription: async () => {
+        const subscription = await pool.query<{ active: boolean }>(`
+          SELECT true AS active
+          FROM monitoring_subscriptions
+          WHERE clerk_user_id = $1
+            AND lower(artist_key) = $2
+            AND status = ANY($3::text[])
+          LIMIT 1
+        `, [userId, artistKey, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES]);
+        return Boolean(subscription.rows[0]?.active);
+      },
+    });
+
+    if (!entitlement) {
+      res.status(403).json({
+        error: "Artist Pro access is required for this artist",
+        code: "artist_pro_required",
+      });
+      return;
+    }
+
+    res.json({ allowed: true, source: entitlement.source });
+  } catch (error) {
+    logger.error({ error, userId, artistKey }, "Artist Pro access check failed");
+    res.status(500).json({ error: "Unable to verify Artist Pro access" });
   }
 });
 
