@@ -24,7 +24,7 @@ const CONFIRMATION = "youtube-live-coverage-production-migration";
 // Replit Autoscale does not provide a documented Git SHA at runtime. Keep the
 // guarded rollout pinned to the reviewed migration implementation instead of
 // relying on an environment variable that is absent in Production.
-const MIGRATION_REVISION = "d5da5910d6b18ccb379e91ce242bbf1eb4cd70b1";
+const MIGRATION_REVISION = "57de4bcb39937af24650c1cf5e18382702ae0e98";
 const eligibleSourceSql = `
   WITH roster_keys AS MATERIALIZED (
     SELECT DISTINCT youtube_coverage_normalize_artist_key(artist_key) normalized_artist_key
