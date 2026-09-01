@@ -108,7 +108,11 @@ export function createYoutubeLiveCoverageMigrationRouter() {
     const client = await youtubeCoveragePool.connect();
     let migrationLocked = false;
     try {
-      await client.query("SET statement_timeout='25s'");
+      await client.query(
+        action === "compare" || action === "activate"
+          ? "SET statement_timeout='90s'"
+          : "SET statement_timeout='25s'",
+      );
       await client.query("SET lock_timeout='2s'");
       const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) locked", [MIGRATION_LOCK_KEY]);
       migrationLocked = Boolean(lock.rows[0]?.locked);
