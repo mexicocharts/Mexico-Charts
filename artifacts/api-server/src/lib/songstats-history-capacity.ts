@@ -1,4 +1,7 @@
 export const GIB = 1024 ** 3;
+export const SONGSTATS_MEASURED_COMPACT_BYTES_PER_OBSERVATION = 285.12;
+export const SONGSTATS_RECOMMENDED_WAL_BASELINE_RATIO = 2;
+export const SONGSTATS_RECOMMENDED_WAL_ANOMALY_STOP_RATIO = 4;
 
 export interface SongstatsHistoryCapacityPolicy {
   warningDatabaseGiB: number;
@@ -24,7 +27,7 @@ export const DEFAULT_SONGSTATS_HISTORY_CAPACITY_POLICY: SongstatsHistoryCapacity
   pitrStorageRatio: 0.171,
   pitrUsdPerGiBMonth: 0.20,
   monthlyComputeBaselineUsd: 33,
-  compactBytesPerObservation: 320,
+  compactBytesPerObservation: SONGSTATS_MEASURED_COMPACT_BYTES_PER_OBSERVATION,
   approvedWalAmplificationRatio: null,
 };
 
