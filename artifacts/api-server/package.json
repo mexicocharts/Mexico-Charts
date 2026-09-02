@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "audit:artist-images": "../../scripts/node_modules/.bin/tsx ./src/scripts/audit-artist-images.ts",
     "test:songstats-production-preflight": "../../scripts/node_modules/.bin/tsx --test ./src/lib/songstats-history-preflight.test.ts ./src/routes/songstats-production-preflight.test.ts ./src/routes/songstats-production-preflight-fingerprint.test.mjs",
-    "test:songstats-history-validation": "../../scripts/node_modules/.bin/tsx --test ./src/lib/songstats-history-client.test.ts ./src/lib/songstats-history-model.test.ts ./src/lib/songstats-history-capacity.test.ts ./src/lib/monitoring-history.test.ts ./src/lib/monitoring-history-compact.test.ts ./src/lib/songstats-history-serving.test.ts ./src/lib/songstats-history-telemetry.test.ts ./src/routes/songstats-history-validation.test.ts ./src/routes/songstats-history-validation-fingerprint.test.mjs"
+    "test:songstats-history-validation": "../../scripts/node_modules/.bin/tsx --test ./src/lib/songstats-history-client.test.ts ./src/lib/songstats-history-model.test.ts ./src/lib/songstats-history-capacity.test.ts ./src/lib/monitoring-history.test.ts ./src/lib/monitoring-history-compact.test.ts ./src/lib/songstats-history-serving.test.ts ./src/lib/songstats-history-telemetry.test.ts ./src/routes/songstats-history-validation.test.ts ./src/routes/songstats-history-validation-fingerprint.test.mjs",
+    "test:request-database": "../../scripts/node_modules/.bin/tsx --test ./src/lib/account-schema.test.ts ./src/lib/account-response.test.ts ./src/lib/request-database.test.ts ./src/lib/monitoring-readiness-database.test.ts"
   },
   "dependencies": {
     "@clerk/express": "^2.1.52",

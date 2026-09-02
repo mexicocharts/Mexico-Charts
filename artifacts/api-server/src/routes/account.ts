@@ -5,14 +5,21 @@ import {
   db,
   fanProfiles,
   monitoringSubscriptions,
-  pool,
+  publicReadDb,
   savedArtists,
   userAccounts,
   userListeningEvents,
   userMusicConnections,
 } from "@workspace/db";
 import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
-import { hasInternalArtistProEntitlement } from "../lib/artist-pro-entitlement";
+import { isAccountSchemaReady } from "../lib/account-schema";
+import { buildAccountMeResponse } from "../lib/account-response";
+import {
+  elapsedMilliseconds,
+  requestDatabaseHttpStatus,
+  runBoundedAccountUpsert,
+  safeDatabaseDiagnostic,
+} from "../lib/request-database";
 import { listSongstatsCatalogArtists } from "../lib/songstats-snapshot-service";
 import {
   decryptConnectionValue,
@@ -29,90 +36,9 @@ import {
 } from "../lib/user-music-connections";
 
 const router = Router();
-let ensureTablesPromise: Promise<unknown> | null = null;
 
-function ensureAccountTables() {
-  ensureTablesPromise ??= pool.query(`
-    CREATE TABLE IF NOT EXISTS user_accounts (
-      clerk_user_id text PRIMARY KEY,
-      email text,
-      display_name text,
-      plan text NOT NULL DEFAULT 'free',
-      stripe_customer_id text,
-      stripe_subscription_id text,
-      subscription_status text,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-    CREATE TABLE IF NOT EXISTS saved_artists (
-      clerk_user_id text NOT NULL,
-      artist_key text NOT NULL,
-      artist_name text NOT NULL,
-      alerts_enabled boolean NOT NULL DEFAULT true,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY (clerk_user_id, artist_key)
-    );
-    CREATE INDEX IF NOT EXISTS saved_artists_user_created_idx
-      ON saved_artists (clerk_user_id, created_at DESC);
-    CREATE TABLE IF NOT EXISTS monitoring_subscriptions (
-      stripe_subscription_id text PRIMARY KEY,
-      clerk_user_id text NOT NULL,
-      artist_key text NOT NULL,
-      artist_name text NOT NULL,
-      status text NOT NULL,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-    CREATE INDEX IF NOT EXISTS monitoring_subscriptions_user_idx
-      ON monitoring_subscriptions (clerk_user_id, updated_at DESC);
-    CREATE TABLE IF NOT EXISTS fan_profiles (
-      clerk_user_id text PRIMARY KEY,
-      username text NOT NULL UNIQUE,
-      display_name text,
-      bio text,
-      account_type text NOT NULL DEFAULT 'personal',
-      is_public boolean NOT NULL DEFAULT false,
-      show_recent_listening boolean NOT NULL DEFAULT false,
-      show_badges boolean NOT NULL DEFAULT true,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now()
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS fan_profiles_username_idx
-      ON fan_profiles (username);
-    ALTER TABLE fan_profiles
-      ADD COLUMN IF NOT EXISTS account_type text NOT NULL DEFAULT 'personal';
-    CREATE TABLE IF NOT EXISTS user_music_connections (
-      clerk_user_id text NOT NULL,
-      provider text NOT NULL,
-      external_user_id text,
-      external_username text,
-      access_token_encrypted text,
-      refresh_token_encrypted text,
-      scopes text,
-      token_expires_at timestamptz,
-      last_synced_at timestamptz,
-      connected_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY (clerk_user_id, provider)
-    );
-    CREATE INDEX IF NOT EXISTS user_music_connections_user_idx
-      ON user_music_connections (clerk_user_id, updated_at DESC);
-    CREATE TABLE IF NOT EXISTS user_listening_events (
-      clerk_user_id text NOT NULL,
-      provider text NOT NULL,
-      event_id text NOT NULL,
-      played_at timestamptz NOT NULL,
-      track_id text,
-      track_name text NOT NULL,
-      artist_name text NOT NULL,
-      album_name text,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      PRIMARY KEY (clerk_user_id, provider, event_id)
-    );
-    CREATE INDEX IF NOT EXISTS user_listening_events_recent_idx
-      ON user_listening_events (clerk_user_id, played_at DESC);
-  `);
-  return ensureTablesPromise;
+function safeIdentityHash(userId: string): string {
+  return createHash("sha256").update(userId).digest("hex").slice(0, 12);
 }
 
 function cleanArtistKey(value: unknown): string {
@@ -219,34 +145,80 @@ router.get("/account/config", (_req, res) => {
 
 router.get("/account/me", requireClerkUser, async (_req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeIdentityHash(userId);
+  const totalStartedAt = performance.now();
+  let databaseStage = "account_upsert";
+  _req.log.info({
+    event: "account_me_timing",
+    stage: "auth_resolved",
+    authenticatedIdentityResolved: true,
+    identityHash,
+  }, "Account identity resolved");
+  _req.log.info({
+    event: "account_me_timing",
+    stage: "schema_ready",
+    accountSchemaReady: isAccountSchemaReady(),
+    identityHash,
+  }, "Account schema startup state checked");
   try {
-    await ensureAccountTables();
-    await db.insert(userAccounts).values({ clerkUserId: userId }).onConflictDoNothing();
-    const [account] = await db.select().from(userAccounts).where(eq(userAccounts.clerkUserId, userId)).limit(1);
-    const artists = await db.select().from(savedArtists)
-      .where(eq(savedArtists.clerkUserId, userId))
-      .orderBy(desc(savedArtists.createdAt));
-    const subscriptions = await db.select().from(monitoringSubscriptions)
-      .where(eq(monitoringSubscriptions.clerkUserId, userId))
-      .orderBy(desc(monitoringSubscriptions.updatedAt));
-    const [profile] = await db.select().from(fanProfiles)
-      .where(eq(fanProfiles.clerkUserId, userId)).limit(1);
-    const connections = await db.select().from(userMusicConnections)
-      .where(eq(userMusicConnections.clerkUserId, userId));
-    res.json({
+    const upsertStartedAt = performance.now();
+    await runBoundedAccountUpsert(userId);
+    _req.log.info({
+      event: "account_me_timing",
+      stage: "account_upsert",
+      durationMs: elapsedMilliseconds(upsertStartedAt),
+      identityHash,
+    }, "Account upsert completed");
+
+    databaseStage = "account_reads";
+    const readsStartedAt = performance.now();
+    const [[account], artists, subscriptions, [profile], connections] = await Promise.all([
+      publicReadDb.select().from(userAccounts).where(eq(userAccounts.clerkUserId, userId)).limit(1),
+      publicReadDb.select().from(savedArtists)
+        .where(eq(savedArtists.clerkUserId, userId))
+        .orderBy(desc(savedArtists.createdAt)),
+      publicReadDb.select().from(monitoringSubscriptions)
+        .where(eq(monitoringSubscriptions.clerkUserId, userId))
+        .orderBy(desc(monitoringSubscriptions.updatedAt)),
+      publicReadDb.select().from(fanProfiles)
+        .where(eq(fanProfiles.clerkUserId, userId)).limit(1),
+      publicReadDb.select().from(userMusicConnections)
+        .where(eq(userMusicConnections.clerkUserId, userId)),
+    ]);
+    _req.log.info({
+      event: "account_me_timing",
+      stage: "account_reads",
+      durationMs: elapsedMilliseconds(readsStartedAt),
+      identityHash,
+    }, "Account reads completed");
+    res.json(buildAccountMeResponse({
       userId,
-      plan: account?.plan ?? "free",
-      subscriptionStatus: account?.subscriptionStatus ?? null,
-      internalArtistProAccess: hasInternalArtistProEntitlement(userId),
+      account,
       savedArtists: artists,
       monitoringSubscriptions: subscriptions,
-      profile: profile ?? null,
+      profile,
       connections: connections.map(publicConnection),
       connectionAvailability: musicConnectionConfig(),
-    });
+    }));
+    _req.log.info({
+      event: "account_me_timing",
+      stage: "complete",
+      durationMs: elapsedMilliseconds(totalStartedAt),
+      identityHash,
+    }, "Account request completed");
   } catch (error) {
-    _req.log.error({ error, userId }, "account load failed");
-    res.status(500).json({ error: "Unable to load account" });
+    const status = requestDatabaseHttpStatus(error);
+    const unavailable = status === 503;
+    _req.log[unavailable ? "warn" : "error"]({
+      event: "account_me_database_failure",
+      stage: databaseStage,
+      durationMs: elapsedMilliseconds(totalStartedAt),
+      identityHash,
+      database: safeDatabaseDiagnostic(error),
+    }, "Account database operation failed");
+    res.status(status).json({
+      error: unavailable ? "Account service is temporarily unavailable" : "Unable to load account",
+    });
   }
 });
 
@@ -258,7 +230,6 @@ router.patch("/account/profile", requireClerkUser, async (req, res) => {
     return;
   }
   try {
-    await ensureAccountTables();
     const requestedAccountType = String(req.body?.accountType ?? "personal").trim().toLowerCase();
     const accountType = ["personal", "artist_team", "industry", "media", "research"].includes(requestedAccountType)
       ? requestedAccountType
@@ -301,7 +272,6 @@ router.post("/account/connections/lastfm", requireClerkUser, async (req, res) =>
   }
   try {
     const user = await lastfmUser(username);
-    await ensureAccountTables();
     const [connection] = await db.insert(userMusicConnections).values({
       clerkUserId: userId,
       provider: "lastfm",
@@ -337,7 +307,6 @@ router.get("/account/connections/spotify/callback", async (req, res) => {
   try {
     const tokens = await exchangeSpotifyCode(code);
     const spotifyUser = await spotifyMe(tokens.access_token);
-    await ensureAccountTables();
     await db.insert(userMusicConnections).values({
       clerkUserId: userId,
       provider: "spotify",
@@ -375,7 +344,6 @@ router.delete("/account/connections/:provider", requireClerkUser, async (req, re
     res.status(404).json({ error: "Unknown provider" });
     return;
   }
-  await ensureAccountTables();
   await db.delete(userMusicConnections).where(and(
     eq(userMusicConnections.clerkUserId, userId),
     eq(userMusicConnections.provider, provider),
@@ -390,7 +358,6 @@ router.delete("/account/connections/:provider", requireClerkUser, async (req, re
 router.get("/account/listening", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
   try {
-    await ensureAccountTables();
     const connections = await db.select().from(userMusicConnections)
       .where(eq(userMusicConnections.clerkUserId, userId));
     const result: Record<string, unknown> = {};
@@ -460,7 +427,6 @@ router.post("/account/saved-artists", requireClerkUser, async (req, res) => {
       return;
     }
     const canonicalName = catalogArtist.spotifyName?.trim() || artistName;
-    await ensureAccountTables();
     await db.insert(userAccounts).values({ clerkUserId: userId }).onConflictDoNothing();
     const [saved] = await db.insert(savedArtists).values({
       clerkUserId: userId,
@@ -481,7 +447,6 @@ router.delete("/account/saved-artists/:artistKey", requireClerkUser, async (req,
   const userId = clerkUserId(res);
   const artistKey = cleanArtistKey(req.params.artistKey);
   try {
-    await ensureAccountTables();
     await db.delete(savedArtists).where(and(
       eq(savedArtists.clerkUserId, userId),
       eq(savedArtists.artistKey, artistKey),

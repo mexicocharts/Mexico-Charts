@@ -1,6 +1,6 @@
 import { Router, type RequestHandler } from "express";
 import { createHash } from "node:crypto";
-import { pool } from "@workspace/db";
+import { publicReadPool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
   songstatsArtistKeyCandidates,
@@ -27,6 +27,11 @@ import {
   authorizeMonitoringArtist,
   type MonitoringArtistGrant,
 } from "../lib/monitoring-authorization";
+import {
+  elapsedMilliseconds,
+  requestDatabaseHttpStatus,
+  safeDatabaseDiagnostic,
+} from "../lib/request-database";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -203,7 +208,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     userId,
     requestedArtistKey,
     findActiveSubscription: async () => {
-      const subscription = await pool.query<MonitoringArtistGrant>(`
+      const subscription = await publicReadPool.query<MonitoringArtistGrant>(`
         SELECT artist_key, artist_name, status, created_at
         FROM monitoring_subscriptions
         WHERE clerk_user_id = $1
@@ -258,7 +263,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     streamItems,
     youtubeCoverage,
   ] = await Promise.all([
-    pool.query<MonitoringSnapshotRow>(
+    publicReadPool.query<MonitoringSnapshotRow>(
       `
       SELECT
         snapshot_date,
@@ -277,7 +282,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY snapshot_date ASC
     `, [activeKeys]),
-    pool.query<{
+    publicReadPool.query<{
       historic_stats: unknown;
       audience: unknown;
       audience_details: unknown;
@@ -289,7 +294,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY updated_at DESC
       LIMIT 1
     `, [activeKeys]),
-    pool.query(`
+    publicReadPool.query(`
       WITH eastern_bounds AS (
         SELECT
           (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
@@ -369,7 +374,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY latest.view_count DESC, c.title
       LIMIT 100
     `, [activeKeys]),
-    pool.query(`
+    publicReadPool.query(`
       SELECT
         s.video_id,
         s.snapshot_date,
@@ -398,7 +403,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     `,
       [activeKeys],
     ),
-    pool.query<{
+    publicReadPool.query<{
       snapshot_date: string;
       track_count: number;
       album_count: number;
@@ -418,7 +423,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     `,
       [activeKeys],
     ),
-    pool.query<{
+    publicReadPool.query<{
       item_type: "track" | "album";
       item_key: string;
       title: string;
@@ -450,7 +455,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     `,
       [activeKeys],
     ),
-    pool.query<{
+    publicReadPool.query<{
       channel_video_count: string | number | null;
       videos_imported: string | number | null;
       expected_total_videos: string | number | null;
@@ -552,11 +557,12 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     ?? null,
   );
   const [availableHistory, releaseImpact] = await Promise.all([
-    loadCompactMonitoringHistoryOverview(active.artist_key),
+    loadCompactMonitoringHistoryOverview(active.artist_key, publicReadPool),
     catalog.newestReleaseDate
       ? loadCompactReleaseImpact({
           artistKey: active.artist_key,
           releaseDate: catalog.newestReleaseDate,
+          queryable: publicReadPool,
         })
       : Promise.resolve(null),
   ]);
@@ -660,8 +666,17 @@ router.get("/monitoring/config", (_req, res) => {
 });
 
 router.get("/monitoring/artists", async (_req, res) => {
+  const totalStartedAt = performance.now();
   try {
-    const audit = await auditMonitoringReadiness({ readyOnly: true });
+    const audit = await auditMonitoringReadiness({
+      readyOnly: true,
+      onDiagnostic: diagnostic => {
+        _req.log[diagnostic.outcome === "timeout_or_unavailable" ? "warn" : "info"]({
+          event: "monitoring_readiness_timing",
+          ...diagnostic,
+        }, "Monitoring readiness stage completed");
+      },
+    });
     res.json({
       policyVersion: audit.policyVersion,
       count: audit.ready.length,
@@ -672,7 +687,12 @@ router.get("/monitoring/artists", async (_req, res) => {
       })),
     });
   } catch (error) {
-    logger.error({ error }, "Monitoring artist availability failed");
+    _req.log.warn({
+      event: "monitoring_readiness_failure",
+      stage: "monitoring_artists",
+      durationMs: elapsedMilliseconds(totalStartedAt),
+      database: safeDatabaseDiagnostic(error),
+    }, "Monitoring artist availability failed");
     res.status(503).json({ error: "Monitoring availability is temporarily unavailable" });
   }
 });
@@ -691,8 +711,16 @@ router.get("/monitoring/dashboard/:artistKey", requireMonitoringClerkUser, async
     }
     res.json(dashboard);
   } catch (error) {
-    logger.error({ error, artistKey }, "Monitoring dashboard failed");
-    res.status(500).json({ error: "Unable to load monitoring dashboard" });
+    const status = requestDatabaseHttpStatus(error);
+    const unavailable = status === 503;
+    logger[unavailable ? "warn" : "error"]({
+      event: "monitoring_dashboard_failure",
+      artistKey,
+      database: safeDatabaseDiagnostic(error),
+    }, "Monitoring dashboard failed");
+    res.status(status).json({
+      error: unavailable ? "Monitoring is temporarily unavailable" : "Unable to load monitoring dashboard",
+    });
   }
 });
 
@@ -723,6 +751,7 @@ router.get("/monitoring/history/:artistKey/:metricKey", requireMonitoringClerkUs
       startDate: String(req.query.startDate ?? "") || undefined,
       endDate: String(req.query.endDate ?? "") || undefined,
       resolution,
+      queryable: publicReadPool,
     });
     res.setHeader("Cache-Control", "private, max-age=60");
     res.json(history);
@@ -732,8 +761,17 @@ router.get("/monitoring/history/:artistKey/:metricKey", requireMonitoringClerkUs
       res.status(400).json({ error: message });
       return;
     }
-    logger.error({ error, artistKey, metricKey }, "Compact monitoring history failed");
-    res.status(500).json({ error: "Unable to load metric history" });
+    const status = requestDatabaseHttpStatus(error);
+    const unavailable = status === 503;
+    logger[unavailable ? "warn" : "error"]({
+      event: "monitoring_history_failure",
+      artistKey,
+      metricKey,
+      database: safeDatabaseDiagnostic(error),
+    }, "Compact monitoring history failed");
+    res.status(status).json({
+      error: unavailable ? "Monitoring is temporarily unavailable" : "Unable to load metric history",
+    });
   }
 });
 
@@ -792,8 +830,17 @@ router.get("/monitoring/report/:artistKey", requireMonitoringClerkUser, async (r
     res.setHeader("content-disposition", `attachment; filename="mexico-charts-${safeArtist}-${month}.csv"`);
     res.send(csv);
   } catch (error) {
-    logger.error({ error, artistKey, month }, "Monitoring report failed");
-    res.status(500).json({ error: "Unable to generate monitoring report" });
+    const status = requestDatabaseHttpStatus(error);
+    const unavailable = status === 503;
+    logger[unavailable ? "warn" : "error"]({
+      event: "monitoring_report_failure",
+      artistKey,
+      month,
+      database: safeDatabaseDiagnostic(error),
+    }, "Monitoring report failed");
+    res.status(status).json({
+      error: unavailable ? "Monitoring is temporarily unavailable" : "Unable to generate monitoring report",
+    });
   }
 });
 

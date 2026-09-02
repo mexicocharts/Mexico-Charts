@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import {
   evaluateMonitoringReadiness,
   MONITORING_READINESS_POLICY_VERSION,
@@ -8,6 +8,7 @@ import {
   monitoringArtistAliasesMatch,
   songstatsArtistKeyCandidates,
 } from "./songstats-artist-key";
+import { isRequestDatabaseUnavailable } from "./request-database";
 
 export { monitoringArtistAliasesMatch } from "./songstats-artist-key";
 
@@ -56,6 +57,67 @@ let completeCatalogCache: {
   value: Awaited<ReturnType<typeof runMonitoringReadinessAudit>>;
 } | null = null;
 
+export type MonitoringReadinessDiagnostic = {
+  stage: "cache" | "db_acquisition" | "readiness_query" | "total";
+  durationMs: number;
+  outcome: "hit" | "miss" | "ok" | "timeout_or_unavailable" | "error";
+};
+
+type MonitoringReadinessAuditOptions = {
+  artistKeys?: string[];
+  readyOnly?: boolean;
+  onDiagnostic?: (diagnostic: MonitoringReadinessDiagnostic) => void;
+};
+
+function roundedDuration(startedAt: number): number {
+  return Math.round((performance.now() - startedAt) * 10) / 10;
+}
+
+export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
+  readPool: Pick<PgPool, "connect">,
+  text: string,
+  values: unknown[],
+  onDiagnostic?: MonitoringReadinessAuditOptions["onDiagnostic"],
+): Promise<T[]> {
+  const acquisitionStartedAt = performance.now();
+  let client;
+  try {
+    client = await readPool.connect();
+    onDiagnostic?.({
+      stage: "db_acquisition",
+      durationMs: roundedDuration(acquisitionStartedAt),
+      outcome: "ok",
+    });
+  } catch (error) {
+    onDiagnostic?.({
+      stage: "db_acquisition",
+      durationMs: roundedDuration(acquisitionStartedAt),
+      outcome: isRequestDatabaseUnavailable(error) ? "timeout_or_unavailable" : "error",
+    });
+    throw error;
+  }
+
+  const queryStartedAt = performance.now();
+  try {
+    const result = await client.query<T>({ text, values });
+    onDiagnostic?.({
+      stage: "readiness_query",
+      durationMs: roundedDuration(queryStartedAt),
+      outcome: "ok",
+    });
+    return result.rows;
+  } catch (error) {
+    onDiagnostic?.({
+      stage: "readiness_query",
+      durationMs: roundedDuration(queryStartedAt),
+      outcome: isRequestDatabaseUnavailable(error) ? "timeout_or_unavailable" : "error",
+    });
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 function numeric(value: string | number | null): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -64,7 +126,7 @@ function numeric(value: string | number | null): number {
 export async function getExistingMonitoringArtist(artistKey: string): Promise<ExistingMonitoringArtist | null> {
   const candidates = songstatsArtistKeyCandidates(artistKey);
   if (!candidates.length) return null;
-  const result = await pool.query<{ artist_key: string; artist_name: string | null }>(
+  const result = await publicReadPool.query<{ artist_key: string; artist_name: string | null }>(
     `SELECT c.artist_key, c.artist_name
      FROM kworb_coverage c
      WHERE COALESCE(c.spotify_id, '') <> ''
@@ -125,10 +187,7 @@ function evaluateRow(row: ReadinessRow): MonitoringReadinessResult {
   });
 }
 
-async function runMonitoringReadinessAudit(options: {
-  artistKeys?: string[];
-  readyOnly?: boolean;
-} = {}): Promise<{
+async function runMonitoringReadinessAudit(options: MonitoringReadinessAuditOptions = {}): Promise<{
   policyVersion: number;
   audited: number;
   ready: MonitoringReadyArtist[];
@@ -147,7 +206,8 @@ async function runMonitoringReadinessAudit(options: {
         ) = ANY($${params.length}::text[])
       )`
     : "";
-  const result = await pool.query<ReadinessRow>(
+  const rows = await executeMonitoringReadinessQuery<ReadinessRow>(
+    publicReadPool,
     `SELECT
        c.artist_key,
        c.artist_name,
@@ -192,9 +252,10 @@ async function runMonitoringReadinessAudit(options: {
        ${requestedFilter}
      ORDER BY c.artist_key`,
     params,
+    options.onDiagnostic,
   );
 
-  const evaluated = result.rows.map(row => ({
+  const evaluated = rows.map(row => ({
     artistKey: row.artist_key,
     artistName: row.artist_name?.trim() || row.artist_key,
     matchKeys: songstatsArtistKeyCandidates(row.artist_key),
@@ -209,19 +270,32 @@ async function runMonitoringReadinessAudit(options: {
   };
 }
 
-export async function auditMonitoringReadiness(options: {
-  artistKeys?: string[];
-  readyOnly?: boolean;
-} = {}): ReturnType<typeof runMonitoringReadinessAudit> {
+export async function auditMonitoringReadiness(
+  options: MonitoringReadinessAuditOptions = {},
+): ReturnType<typeof runMonitoringReadinessAudit> {
+  const totalStartedAt = performance.now();
   const cacheable = options.readyOnly === true && !(options.artistKeys?.length);
   if (cacheable && completeCatalogCache && completeCatalogCache.expiresAt > Date.now()) {
+    options.onDiagnostic?.({ stage: "cache", durationMs: 0, outcome: "hit" });
+    options.onDiagnostic?.({ stage: "total", durationMs: roundedDuration(totalStartedAt), outcome: "ok" });
     return completeCatalogCache.value;
   }
-  const value = await runMonitoringReadinessAudit(options);
-  if (cacheable) {
-    completeCatalogCache = { expiresAt: Date.now() + READINESS_CACHE_MS, value };
+  if (cacheable) options.onDiagnostic?.({ stage: "cache", durationMs: 0, outcome: "miss" });
+  try {
+    const value = await runMonitoringReadinessAudit(options);
+    if (cacheable) {
+      completeCatalogCache = { expiresAt: Date.now() + READINESS_CACHE_MS, value };
+    }
+    options.onDiagnostic?.({ stage: "total", durationMs: roundedDuration(totalStartedAt), outcome: "ok" });
+    return value;
+  } catch (error) {
+    options.onDiagnostic?.({
+      stage: "total",
+      durationMs: roundedDuration(totalStartedAt),
+      outcome: isRequestDatabaseUnavailable(error) ? "timeout_or_unavailable" : "error",
+    });
+    throw error;
   }
-  return value;
 }
 
 export async function getMonitoringReadyArtist(artistKey: string): Promise<MonitoringReadyArtist | null> {

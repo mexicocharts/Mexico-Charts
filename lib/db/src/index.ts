@@ -1,14 +1,22 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { resolveDatabaseUrl } from "./database-url.mjs";
+import {
+  defaultPoolOptions,
+  publicReadPoolOptions,
+  schemaBootstrapPoolOptions,
+} from "./pool-config";
 import * as schema from "./schema";
 
 const { Pool } = pg;
-export type { PoolClient } from "pg";
+export type { Pool as PgPool, PoolClient, QueryResultRow } from "pg";
 
 const databaseUrl = resolveDatabaseUrl();
 
-export const pool = new Pool({ connectionString: databaseUrl });
+export const pool = new Pool({
+  connectionString: databaseUrl,
+  ...defaultPoolOptions,
+});
 
 // Long-running collectors intentionally keep clients checked out while they
 // coordinate API and database work. Keep a small, bounded pool reserved for
@@ -17,11 +25,17 @@ export const pool = new Pool({ connectionString: databaseUrl });
 // production database diagnostics.
 export const publicReadPool = new Pool({
   connectionString: databaseUrl,
-  application_name: "mexico-charts-public-read",
-  max: 3,
-  connectionTimeoutMillis: 3_000,
-  idleTimeoutMillis: 30_000,
+  ...publicReadPoolOptions,
 });
+
+export const publicReadDb = drizzle(publicReadPool, { schema });
+
+export function createSchemaBootstrapPool() {
+  return new Pool({
+    connectionString: databaseUrl,
+    ...schemaBootstrapPoolOptions,
+  });
+}
 
 // The five-minute YouTube observation collector must keep one client while it
 // coordinates quota accounting, API reads, and atomic snapshot writes. Give
@@ -47,4 +61,5 @@ export const youtubeCoveragePool = new Pool({
 });
 export const db = drizzle(pool, { schema });
 
+export * from "./pool-config";
 export * from "./schema";

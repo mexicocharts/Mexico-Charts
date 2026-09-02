@@ -16,6 +16,7 @@ import { startTouringShadowScheduler } from "./lib/ticketmaster-touring-shadow";
 import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-monitor";
 import { startTouringAlertDelivery } from "./lib/touring-alert-delivery";
 import { startTouringWeeklySummaryScheduler } from "./lib/touring-weekly-summary";
+import { initializeAccountSchema } from "./lib/account-schema";
 
 const rawPort = process.env["PORT"];
 
@@ -31,38 +32,51 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, async (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+async function startServer(): Promise<void> {
+  const schemaStartedAt = performance.now();
+  await initializeAccountSchema();
+  logger.info({
+    event: "startup_schema_initialized",
+    schema: "account",
+    durationMs: Math.round((performance.now() - schemaStartedAt) * 10) / 10,
+  }, "Account schema initialized before accepting requests");
 
-  logger.info({ port }, "Server listening");
-  try {
-    await ensureArtistCatalogSchema();
-  } catch (schemaError) {
-    logger.fatal({ err: schemaError }, "[artists] catalog schema initialization failed");
-    process.exit(1);
-  }
-  // Start the public live-counter collector first. Several legacy backfills can
-  // perform long startup work; live counters must not wait behind them.
-  startYoutubeIntradayShadowScheduler();
-  // Protected seven-day comparator: writes validation-only tables and leaves
-  // the Innertube discovery process and public catalog behavior unchanged.
-  startYoutubeAuthorizedLiveValidation();
-  startYoutubeChannelSnapshotScheduler();
-  startSpotifyKworbSnapshotScheduler();
-  startYoutubeVideoTrackerScheduler();
-  startSongstatsSnapshotScheduler();
-  startArtistSocialDiscoveryScheduler();
-  startMexicanIdentityDiscoveryScheduler();
-  startArtistDataQualityScheduler();
-  startChartArchiveScheduler();
-  startTouringShadowScheduler();
-  startTouringAnnouncementMonitor();
-  startTouringAlertDelivery();
-  startTouringWeeklySummaryScheduler();
-  void seedSupplementalArtistCatalog().catch(err => {
-    logger.error({ err }, "[artists] supplemental catalog seed failed");
+  await ensureArtistCatalogSchema();
+
+  const server = app.listen(port, () => {
+    logger.info({ port }, "Server listening");
+    // Start the public live-counter collector first. Several legacy backfills can
+    // perform long startup work; live counters must not wait behind them.
+    startYoutubeIntradayShadowScheduler();
+    // Protected seven-day comparator: writes validation-only tables and leaves
+    // the Innertube discovery process and public catalog behavior unchanged.
+    startYoutubeAuthorizedLiveValidation();
+    startYoutubeChannelSnapshotScheduler();
+    startSpotifyKworbSnapshotScheduler();
+    startYoutubeVideoTrackerScheduler();
+    startSongstatsSnapshotScheduler();
+    startArtistSocialDiscoveryScheduler();
+    startMexicanIdentityDiscoveryScheduler();
+    startArtistDataQualityScheduler();
+    startChartArchiveScheduler();
+    startTouringShadowScheduler();
+    startTouringAnnouncementMonitor();
+    startTouringAlertDelivery();
+    startTouringWeeklySummaryScheduler();
+    void seedSupplementalArtistCatalog().catch(err => {
+      logger.error({ err }, "[artists] supplemental catalog seed failed");
+    });
   });
+  server.on("error", err => {
+    logger.fatal({ errorName: err.name }, "Server failed to listen");
+    process.exit(1);
+  });
+}
+
+void startServer().catch(error => {
+  logger.fatal({
+    event: "startup_schema_failed",
+    errorName: error instanceof Error ? error.name : "UnknownStartupError",
+  }, "Required database schema initialization failed; refusing to start");
+  process.exit(1);
 });
