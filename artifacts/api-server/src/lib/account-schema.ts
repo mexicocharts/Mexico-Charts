@@ -105,6 +105,10 @@ export function initializeAccountSchema(): Promise<void> {
     } finally {
       await bootstrapPool.end();
     }
-  })();
+  })().catch(error => {
+    initializationPromise = null;
+    schemaReady = false;
+    throw error;
+  });
   return initializationPromise;
 }

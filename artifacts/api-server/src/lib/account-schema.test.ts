@@ -27,10 +27,19 @@ test("account HTTP routes contain no request-time schema DDL", async () => {
   assert.doesNotMatch(routeSource, /ensureAccountTables/);
 });
 
-test("server startup initializes account schema before listening", async () => {
+test("server opens the health-check port before database schema initialization", async () => {
   const startupSource = await readFile(new URL("../index.ts", import.meta.url), "utf8");
-  const initializeIndex = startupSource.indexOf("await initializeAccountSchema()");
   const listenIndex = startupSource.indexOf("app.listen(");
+  const scheduleIndex = startupSource.indexOf("scheduleRuntimeInitialization();", listenIndex);
+  const initializeIndex = startupSource.indexOf("await initializeAccountSchema()");
   assert.ok(initializeIndex >= 0);
-  assert.ok(listenIndex > initializeIndex);
+  assert.ok(listenIndex >= 0);
+  assert.ok(scheduleIndex > listenIndex);
+  assert.match(startupSource, /startup_schema_retry_scheduled/);
+});
+
+test("account reads fail closed while schema initialization is pending", async () => {
+  const routeSource = await readFile(new URL("../routes/account.ts", import.meta.url), "utf8");
+  assert.match(routeSource, /if \(!isAccountSchemaReady\(\)\)/);
+  assert.match(routeSource, /status\(503\).*Account service is starting/s);
 });

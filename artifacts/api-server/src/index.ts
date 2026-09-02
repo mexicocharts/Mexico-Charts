@@ -32,7 +32,11 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-async function startServer(): Promise<void> {
+let runtimeInitialized = false;
+let runtimeRetryTimer: NodeJS.Timeout | null = null;
+
+async function initializeRuntime(): Promise<void> {
+  if (runtimeInitialized) return;
   const schemaStartedAt = performance.now();
   await initializeAccountSchema();
   logger.info({
@@ -43,40 +47,52 @@ async function startServer(): Promise<void> {
 
   await ensureArtistCatalogSchema();
 
-  const server = app.listen(port, () => {
-    logger.info({ port }, "Server listening");
-    // Start the public live-counter collector first. Several legacy backfills can
-    // perform long startup work; live counters must not wait behind them.
-    startYoutubeIntradayShadowScheduler();
-    // Protected seven-day comparator: writes validation-only tables and leaves
-    // the Innertube discovery process and public catalog behavior unchanged.
-    startYoutubeAuthorizedLiveValidation();
-    startYoutubeChannelSnapshotScheduler();
-    startSpotifyKworbSnapshotScheduler();
-    startYoutubeVideoTrackerScheduler();
-    startSongstatsSnapshotScheduler();
-    startArtistSocialDiscoveryScheduler();
-    startMexicanIdentityDiscoveryScheduler();
-    startArtistDataQualityScheduler();
-    startChartArchiveScheduler();
-    startTouringShadowScheduler();
-    startTouringAnnouncementMonitor();
-    startTouringAlertDelivery();
-    startTouringWeeklySummaryScheduler();
-    void seedSupplementalArtistCatalog().catch(err => {
-      logger.error({ err }, "[artists] supplemental catalog seed failed");
-    });
-  });
-  server.on("error", err => {
-    logger.fatal({ errorName: err.name }, "Server failed to listen");
-    process.exit(1);
+  runtimeInitialized = true;
+  // Start the public live-counter collector first. Several legacy backfills can
+  // perform long startup work; live counters must not wait behind them.
+  startYoutubeIntradayShadowScheduler();
+  // Protected seven-day comparator: writes validation-only tables and leaves
+  // the Innertube discovery process and public catalog behavior unchanged.
+  startYoutubeAuthorizedLiveValidation();
+  startYoutubeChannelSnapshotScheduler();
+  startSpotifyKworbSnapshotScheduler();
+  startYoutubeVideoTrackerScheduler();
+  startSongstatsSnapshotScheduler();
+  startArtistSocialDiscoveryScheduler();
+  startMexicanIdentityDiscoveryScheduler();
+  startArtistDataQualityScheduler();
+  startChartArchiveScheduler();
+  startTouringShadowScheduler();
+  startTouringAnnouncementMonitor();
+  startTouringAlertDelivery();
+  startTouringWeeklySummaryScheduler();
+  void seedSupplementalArtistCatalog().catch(err => {
+    logger.error({ err }, "[artists] supplemental catalog seed failed");
   });
 }
 
-void startServer().catch(error => {
-  logger.fatal({
-    event: "startup_schema_failed",
-    errorName: error instanceof Error ? error.name : "UnknownStartupError",
-  }, "Required database schema initialization failed; refusing to start");
+function scheduleRuntimeInitialization(): void {
+  void initializeRuntime().catch(error => {
+    logger.error({
+      event: "startup_schema_retry_scheduled",
+      errorName: error instanceof Error ? error.name : "UnknownStartupError",
+    }, "Required database schema initialization failed; API remains healthy and will retry");
+    if (!runtimeRetryTimer) {
+      runtimeRetryTimer = setTimeout(() => {
+        runtimeRetryTimer = null;
+        scheduleRuntimeInitialization();
+      }, 15_000);
+      runtimeRetryTimer.unref();
+    }
+  });
+}
+
+const server = app.listen(port, () => {
+  logger.info({ port }, "Server listening");
+  scheduleRuntimeInitialization();
+});
+
+server.on("error", err => {
+  logger.fatal({ errorName: err.name }, "Server failed to listen");
   process.exit(1);
 });

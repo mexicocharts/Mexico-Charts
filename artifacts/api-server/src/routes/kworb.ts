@@ -1578,7 +1578,6 @@ async function syncCoverage(): Promise<SyncResult> {
     SELECT artist_name
     FROM mexican_artist_identity_candidates
     WHERE status = 'verified'
-      AND nationality = 'mexican'
   `);
   for (const row of verifiedIdentityRows.rows) {
     const slug = toSlug(row.artist_name);

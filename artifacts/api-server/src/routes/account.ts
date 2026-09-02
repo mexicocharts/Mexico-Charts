@@ -143,6 +143,14 @@ router.get("/account/me", requireClerkUser, async (_req, res) => {
   const userId = clerkUserId(res);
   const identityHash = safeClerkIdentityHash(userId);
   const totalStartedAt = performance.now();
+  if (!isAccountSchemaReady()) {
+    _req.log.warn({
+      event: "account_me_schema_unavailable",
+      identityHash,
+    }, "Account schema is not ready");
+    res.status(503).json({ error: "Account service is starting" });
+    return;
+  }
   let databaseStage = "account_upsert";
   _req.log.info({
     event: "account_me_timing",
