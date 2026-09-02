@@ -21,8 +21,33 @@ test("monitoring coverage counts compact latest rows instead of scanning history
   assert.doesNotMatch(source, /FROM youtube_video_intraday_shadow_snapshots sample/);
 });
 
+test("dashboard enrichment stages cannot hold the response past the UI timeout", () => {
+  assert.match(source, /const dashboardStage = async <T>/);
+  assert.match(source, /Promise\.race\(\[loaded, timedOut\]\)/);
+  assert.match(source, /8_000 - elapsedMilliseconds\(dashboardLoadStartedAt\)/);
+  assert.match(source, /outcome: "budget_exhausted"/);
+  assert.match(source, /outcome: "timeout"/);
+  assert.match(source, /Monitoring dashboard stage timed out; using an empty section/);
+});
+
 test("dashboard query batches never exceed the three-connection public read pool", () => {
   assert.match(source, /const \[\s*snapshots,\s*extended,\s*liveVideos,\s*\] = await Promise\.all/s);
   assert.match(source, /const \[\s*liveVideoHistory,\s*streamSummary,\s*streamItems,\s*\] = await Promise\.all/s);
-  assert.match(source, /const youtubeCoverage = await publicReadPool\.query/);
+  assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);
+});
+
+test("dashboard returns safe empty sections when individual data sources are unavailable", () => {
+  for (const stage of [
+    "daily_snapshots",
+    "extended_artist_data",
+    "youtube_live_videos",
+    "youtube_live_history",
+    "stream_summary",
+    "stream_items",
+    "youtube_coverage",
+    "compact_history_overview",
+    "release_impact",
+  ]) {
+    assert.match(source, new RegExp(`dashboardStage\\(\\s*"${stage}"`));
+  }
 });

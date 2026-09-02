@@ -253,12 +253,65 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   if (!authorization.allowed || !active) return null;
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
+  const dashboardLoadStartedAt = performance.now();
+  const dashboardStage = async <T>(stage: string, load: () => Promise<T>, fallback: T): Promise<T> => {
+    const startedAt = performance.now();
+    const remainingDashboardBudgetMs = 8_000 - elapsedMilliseconds(dashboardLoadStartedAt);
+    if (remainingDashboardBudgetMs <= 0) {
+      logger.warn({
+        event: "monitoring_dashboard_stage",
+        stage,
+        outcome: "budget_exhausted",
+        durationMs: 0,
+      }, "Monitoring dashboard budget exhausted; skipping optional section");
+      return fallback;
+    }
+    let timeout: NodeJS.Timeout | undefined;
+    const loaded = load().then(value => {
+      logger.info({
+        event: "monitoring_dashboard_stage",
+        stage,
+        outcome: "loaded",
+        durationMs: elapsedMilliseconds(startedAt),
+      }, "Monitoring dashboard stage completed");
+      return value;
+    }).catch(error => {
+      logger.warn({
+        event: "monitoring_dashboard_stage",
+        stage,
+        outcome: "unavailable",
+        durationMs: elapsedMilliseconds(startedAt),
+        database: safeDatabaseDiagnostic(error),
+      }, "Monitoring dashboard stage unavailable; using an empty section");
+      return fallback;
+    });
+    const timedOut = new Promise<T>(resolve => {
+      timeout = setTimeout(() => {
+        logger.warn({
+          event: "monitoring_dashboard_stage",
+          stage,
+          outcome: "timeout",
+          durationMs: elapsedMilliseconds(startedAt),
+          pool: {
+            total: publicReadPool.totalCount,
+            idle: publicReadPool.idleCount,
+            waiting: publicReadPool.waitingCount,
+          },
+        }, "Monitoring dashboard stage timed out; using an empty section");
+        resolve(fallback);
+      }, remainingDashboardBudgetMs);
+    });
+    const result = await Promise.race([loaded, timedOut]);
+    if (timeout) clearTimeout(timeout);
+    return result;
+  };
+
   const [
     snapshots,
     extended,
     liveVideos,
   ] = await Promise.all([
-    publicReadPool.query<MonitoringSnapshotRow>(
+    dashboardStage("daily_snapshots", () => publicReadPool.query<MonitoringSnapshotRow>(
       `
       SELECT
         snapshot_date,
@@ -276,8 +329,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       FROM songstats_artist_daily_snapshots
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY snapshot_date ASC
-    `, [activeKeys]),
-    publicReadPool.query<{
+    `, [activeKeys]).then(result => result.rows), []),
+    dashboardStage("extended_artist_data", () => publicReadPool.query<{
       historic_stats: unknown;
       audience: unknown;
       audience_details: unknown;
@@ -288,8 +341,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY updated_at DESC
       LIMIT 1
-    `, [activeKeys]),
-    publicReadPool.query(`
+    `, [activeKeys]).then(result => result.rows), []),
+    dashboardStage("youtube_live_videos", () => publicReadPool.query(`
       WITH eastern_bounds AS (
         SELECT
           (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
@@ -366,14 +419,14 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ) today_start ON true
       ORDER BY latest.view_count DESC, c.title
       LIMIT 100
-    `, [activeKeys]),
+    `, [activeKeys]).then(result => result.rows), []),
   ]);
   const [
     liveVideoHistory,
     streamSummary,
     streamItems,
   ] = await Promise.all([
-    publicReadPool.query(`
+    dashboardStage("youtube_live_history", () => publicReadPool.query(`
       SELECT
         s.video_id,
         s.snapshot_date,
@@ -401,8 +454,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY s.video_id, s.snapshot_date
     `,
       [activeKeys],
-    ),
-    publicReadPool.query<{
+    ).then(result => result.rows), []),
+    dashboardStage("stream_summary", () => publicReadPool.query<{
       snapshot_date: string;
       track_count: number;
       album_count: number;
@@ -421,8 +474,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       LIMIT 1
     `,
       [activeKeys],
-    ),
-    publicReadPool.query<{
+    ).then(result => result.rows), []),
+    dashboardStage("stream_items", () => publicReadPool.query<{
       item_type: "track" | "album";
       item_key: string;
       title: string;
@@ -453,9 +506,10 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
     `,
       [activeKeys],
-    ),
+    ).then(result => result.rows), []),
   ]);
-  const youtubeCoverage = await publicReadPool.query<{
+  const [youtubeCoverage, availableHistory] = await Promise.all([
+    dashboardStage("youtube_coverage", () => publicReadPool.query<{
       channel_video_count: string | number | null;
       videos_imported: string | number | null;
       expected_total_videos: string | number | null;
@@ -512,16 +566,35 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       )
       LIMIT 1
     `,
-      [activeKeys],
-    );
-  const extendedRow = extended.rows[0];
+    [activeKeys],
+    ).then(result => result.rows), []),
+    dashboardStage(
+      "compact_history_overview",
+      () => loadCompactMonitoringHistoryOverview(active.artist_key, publicReadPool),
+      {
+        artistKey: active.artist_key,
+        historyLabel: "Songstats available daily history",
+        metricCount: 0,
+        availableMetricCount: 0,
+        unavailableMetricCount: 0,
+        metrics: [],
+        transport: {
+          initialPointsIncluded: 0,
+          exactDailyEndpoint: "/api/monitoring/history/:artistKey/:metricKey",
+          multiYearDisplayMethod: "deterministic_min_max_bucket_v1",
+        },
+        queryLatencyMs: 8_000,
+      },
+    ),
+  ]);
+  const extendedRow = extended[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
     historicStats: extendedRow.historic_stats,
     audience: extendedRow.audience,
     audienceDetails: extendedRow.audience_details,
     catalog: extendedRow.catalog,
   }, { access: "monitoring" }) : null;
-  const history = snapshots.rows.map(normalizedSnapshot);
+  const history = snapshots.map(normalizedSnapshot);
   const catalog = insight?.catalog ?? {
     releaseCount: 0,
     trackCount: 0,
@@ -531,7 +604,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     newestReleaseDate: null,
     releases: [],
   };
-  const latestStreamSummary = streamSummary.rows[0] ?? null;
+  const latestStreamSummary = streamSummary[0] ?? null;
   const normalizedReleaseTitle = (value: string) =>
     value
       .normalize("NFD")
@@ -549,22 +622,23 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         release.artworkUrl,
       ]),
   );
-  const youtubeCoverageRow = youtubeCoverage.rows[0] ?? null;
+  const youtubeCoverageRow = youtubeCoverage[0] ?? null;
   const youtubeChannelVideoCount = nullableNumber(
     youtubeCoverageRow?.channel_video_count
       ?? youtubeCoverageRow?.expected_total_videos
     ?? null,
   );
-  const [availableHistory, releaseImpact] = await Promise.all([
-    loadCompactMonitoringHistoryOverview(active.artist_key, publicReadPool),
-    catalog.newestReleaseDate
+  const releaseImpact = await dashboardStage(
+    "release_impact",
+    () => catalog.newestReleaseDate
       ? loadCompactReleaseImpact({
           artistKey: active.artist_key,
           releaseDate: catalog.newestReleaseDate,
           queryable: publicReadPool,
         })
       : Promise.resolve(null),
-  ]);
+    null,
+  );
   return {
     subscription: {
       artistKey: active.artist_key,
@@ -581,7 +655,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     catalog,
     latestReleaseImpact: releaseImpact,
     availableHistory,
-    liveVideos: dedupeYoutubeMonitorRows(liveVideos.rows as Array<{video_id:string;canonical_url?:string|null}>),
+    liveVideos: dedupeYoutubeMonitorRows(liveVideos as Array<{video_id:string;canonical_url?:string|null}>),
     youtubeCoverage: {
       channelVideoCount: youtubeChannelVideoCount,
       importedVideoCount: nullableNumber(
@@ -600,7 +674,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         && !youtubeCoverageRow?.next_page_token,
       ),
     },
-    liveVideoHistory: liveVideoHistory.rows,
+    liveVideoHistory,
     spotifyCatalog: {
       snapshotDate: latestStreamSummary?.snapshot_date ?? null,
       trackCount: latestStreamSummary?.track_count ?? 0,
@@ -617,7 +691,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       albumTotalStreams: nullableNumber(
         latestStreamSummary?.album_total_streams ?? null,
       ),
-      items: streamItems.rows.map((item) => ({
+      items: streamItems.map((item) => ({
         type: item.item_type,
         key: item.item_key,
         title: item.title,
