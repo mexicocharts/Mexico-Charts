@@ -1,5 +1,5 @@
 import { Router, type RequestHandler } from "express";
-import { publicReadPool } from "@workspace/db";
+import { monitoringReadPool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
   songstatsArtistKeyCandidates,
@@ -209,7 +209,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     userId,
     requestedArtistKey,
     findActiveSubscription: async () => {
-      const subscription = await publicReadPool.query<MonitoringArtistGrant>(`
+      const subscription = await monitoringReadPool.query<MonitoringArtistGrant>(`
         SELECT artist_key, artist_name, status, created_at
         FROM monitoring_subscriptions
         WHERE clerk_user_id = $1
@@ -295,9 +295,9 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
           outcome: "timeout",
           durationMs: elapsedMilliseconds(startedAt),
           pool: {
-            total: publicReadPool.totalCount,
-            idle: publicReadPool.idleCount,
-            waiting: publicReadPool.waitingCount,
+            total: monitoringReadPool.totalCount,
+            idle: monitoringReadPool.idleCount,
+            waiting: monitoringReadPool.waitingCount,
           },
         }, "Monitoring dashboard stage timed out; using an empty section");
         resolve(fallback);
@@ -311,7 +311,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   // Start the paid Spotify catalog before optional licensed/audience work. The
   // previous global budget could expire while waiting on Songstats or YouTube,
   // leaving an already-populated stream archive invisible to subscribers.
-  const priorityStreamSummary = dashboardStage("priority_stream_summary", () => publicReadPool.query<{
+  const priorityStreamSummary = dashboardStage("priority_stream_summary", () => monitoringReadPool.query<{
     snapshot_date: string;
     track_count: number;
     album_count: number;
@@ -328,7 +328,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     ORDER BY snapshot_date DESC
     LIMIT 1
   `, [activeKeys]).then(result => result.rows), []);
-  const priorityStreamItems = dashboardStage("priority_stream_items", () => publicReadPool.query<{
+  const priorityStreamItems = dashboardStage("priority_stream_items", () => monitoringReadPool.query<{
     item_type: "track" | "album";
     item_key: string;
     title: string;
@@ -357,7 +357,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     WHERE lower(i.artist_key) = ANY($1::text[])
     ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
   `, [activeKeys]).then(result => result.rows), []);
-  const priorityLiveVideos = dashboardStage("priority_youtube_live_videos", () => publicReadPool.query(`
+  const priorityLiveVideos = dashboardStage("priority_youtube_live_videos", () => monitoringReadPool.query(`
     WITH matched_links AS (
       SELECT DISTINCT ON (link.video_id)
         link.artist_name,
@@ -420,7 +420,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     extended,
     liveVideos,
   ] = await Promise.all([
-    dashboardStage("daily_snapshots", () => publicReadPool.query<MonitoringSnapshotRow>(
+    dashboardStage("daily_snapshots", () => monitoringReadPool.query<MonitoringSnapshotRow>(
       `
       SELECT
         snapshot_date,
@@ -439,7 +439,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY snapshot_date ASC
     `, [activeKeys]).then(result => result.rows), []),
-    dashboardStage("extended_artist_data", () => publicReadPool.query<{
+    dashboardStage("extended_artist_data", () => monitoringReadPool.query<{
       historic_stats: unknown;
       audience: unknown;
       audience_details: unknown;
@@ -451,7 +451,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY updated_at DESC
       LIMIT 1
     `, [activeKeys]).then(result => result.rows), []),
-    dashboardStage("youtube_live_videos", () => publicReadPool.query(`
+    dashboardStage("youtube_live_videos", () => monitoringReadPool.query(`
       WITH eastern_bounds AS (
         SELECT
           (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
@@ -530,7 +530,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       LIMIT 100
     `, [activeKeys]).then(result => result.rows), []),
   ]);
-  const liveVideoHistory = await dashboardStage("youtube_live_history", () => publicReadPool.query(`
+  const liveVideoHistory = await dashboardStage("youtube_live_history", () => monitoringReadPool.query(`
       SELECT
         s.video_id,
         s.snapshot_date,
@@ -560,7 +560,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       [activeKeys],
     ).then(result => result.rows), []);
   const [youtubeCoverage, availableHistory] = await Promise.all([
-    dashboardStage("youtube_coverage", () => publicReadPool.query<{
+    dashboardStage("youtube_coverage", () => monitoringReadPool.query<{
       channel_video_count: string | number | null;
       videos_imported: string | number | null;
       expected_total_videos: string | number | null;
@@ -621,7 +621,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     ).then(result => result.rows), []),
     dashboardStage(
       "compact_history_overview",
-      () => loadCompactMonitoringHistoryOverview(active.artist_key, publicReadPool),
+      () => loadCompactMonitoringHistoryOverview(active.artist_key, monitoringReadPool),
       {
         artistKey: active.artist_key,
         historyLabel: "Songstats available daily history",
@@ -688,7 +688,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ? loadCompactReleaseImpact({
           artistKey: active.artist_key,
           releaseDate: catalog.newestReleaseDate,
-          queryable: publicReadPool,
+          queryable: monitoringReadPool,
         })
       : Promise.resolve(null),
     null,
@@ -826,7 +826,7 @@ router.get("/monitoring/internal/artists", requireMonitoringClerkUser, async (re
     return;
   }
   try {
-    const result = await publicReadPool.query<{
+    const result = await monitoringReadPool.query<{
       artist_key: string;
       artist_name: string | null;
       last_snapshot_date: string | null;
@@ -931,7 +931,7 @@ router.get("/monitoring/history/:artistKey/:metricKey", requireMonitoringClerkUs
       startDate: String(req.query.startDate ?? "") || undefined,
       endDate: String(req.query.endDate ?? "") || undefined,
       resolution,
-      queryable: publicReadPool,
+      queryable: monitoringReadPool,
     });
     res.setHeader("Cache-Control", "private, max-age=60");
     res.json(history);

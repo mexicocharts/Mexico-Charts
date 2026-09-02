@@ -30,7 +30,9 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
   assert.match(source, /Monitoring dashboard stage timed out; using an empty section/);
 });
 
-test("dashboard query batches never exceed the three-connection public read pool", () => {
+test("dashboard reads use the dedicated three-connection monitoring pool", () => {
+  assert.match(source, /import \{ monitoringReadPool \} from "@workspace\/db"/);
+  assert.doesNotMatch(source, /publicReadPool/);
   assert.match(source, /const \[\s*prioritizedStreamSummary,\s*prioritizedStreamItems,\s*prioritizedLiveVideos,\s*\] = await Promise\.all/s);
   assert.match(source, /const \[\s*snapshots,\s*extended,\s*liveVideos,\s*\] = await Promise\.all/s);
   assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);

@@ -3,6 +3,7 @@ import pg from "pg";
 import { resolveDatabaseUrl } from "./database-url.mjs";
 import {
   defaultPoolOptions,
+  monitoringReadPoolOptions,
   publicReadPoolOptions,
   schemaBootstrapPoolOptions,
 } from "./pool-config";
@@ -26,6 +27,14 @@ export const pool = new Pool({
 export const publicReadPool = new Pool({
   connectionString: databaseUrl,
   ...publicReadPoolOptions,
+});
+
+// Artist Pro is a paid, latency-sensitive product. Keep its authenticated
+// reads isolated from public readiness and YouTube traffic so public scans
+// cannot consume every connection required to authorize and render a Monitor.
+export const monitoringReadPool = new Pool({
+  connectionString: databaseUrl,
+  ...monitoringReadPoolOptions,
 });
 
 export const publicReadDb = drizzle(publicReadPool, { schema });

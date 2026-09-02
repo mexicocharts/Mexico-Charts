@@ -1,4 +1,4 @@
-import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
+import { monitoringReadPool, publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import {
   evaluateMonitoringReadiness,
   MONITORING_READINESS_POLICY_VERSION,
@@ -126,7 +126,7 @@ function numeric(value: string | number | null): number {
 export async function getExistingMonitoringArtist(artistKey: string): Promise<ExistingMonitoringArtist | null> {
   const candidates = songstatsArtistKeyCandidates(artistKey);
   if (!candidates.length) return null;
-  const result = await publicReadPool.query<{ artist_key: string; artist_name: string | null }>(
+  const result = await monitoringReadPool.query<{ artist_key: string; artist_name: string | null }>(
     `SELECT c.artist_key, c.artist_name
      FROM kworb_coverage c
      WHERE COALESCE(c.spotify_id, '') <> ''
