@@ -1,12 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link, useRoute } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
+  ArrowUpRight,
   ArrowLeft,
-  CalendarDays,
   CheckCircle2,
-  ChevronRight,
   Disc3,
   Download,
   Headphones,
@@ -14,6 +13,7 @@ import {
   LayoutDashboard,
   MapPin,
   Music2,
+  Search,
   Sparkles,
   Users,
   Youtube,
@@ -140,20 +140,49 @@ type DashboardPayload = {
     view_count: string | number | null;
     daily_view_delta: string | number | null;
   }>;
+  spotifyCatalog: {
+    snapshotDate: string | null;
+    trackCount: number;
+    albumCount: number;
+    trackDailyStreams: number | null;
+    albumDailyStreams: number | null;
+    trackTotalStreams: number | null;
+    albumTotalStreams: number | null;
+    items: Array<{
+      type: "track" | "album";
+      key: string;
+      title: string;
+      spotifyUrl: string | null;
+      artworkUrl: string | null;
+      compilation: boolean;
+      totalStreams: number | null;
+      dailyStreams: number | null;
+    }>;
+  };
 };
-type View = "resumen" | "videos" | "historial" | "catalogo" | "audiencia" | "reportes";
+type InternalArtistCatalog = {
+  count: number;
+  artists: Array<{
+    artistKey: string;
+    artistName: string;
+    lastSnapshotDate: string | null;
+    spotifyItemCount: number;
+    youtubeVideoCount: number;
+  }>;
+};
+type View = "resumen" | "spotify" | "videos" | "historial" | "audiencia" | "reportes";
 type HistoryRange = "30d" | "90d" | "all";
 
 function exact(value: number | null | undefined) {
   return value == null ? "—" : new Intl.NumberFormat("es-MX").format(value);
 }
 function compact(value: number | null | undefined) {
-  return value == null
-    ? "—"
-    : new Intl.NumberFormat("es-MX", {
-        notation: "compact",
-        maximumFractionDigits: 1,
-      }).format(value);
+  if (value == null) return "—";
+  const absolute = Math.abs(value);
+  if (absolute >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
+  if (absolute >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (absolute >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return exact(value);
 }
 function signed(value: number | null | undefined) {
   return value == null ? "—" : `${value >= 0 ? "+" : ""}${compact(value)}`;
@@ -357,8 +386,112 @@ function DailyPulse({ pulse }: { pulse: DashboardPayload["dailyPulse"] }) {
   );
 }
 
+function SpotifyCatalog({
+  artistName,
+  catalog,
+}: {
+  artistName: string;
+  catalog: DashboardPayload["spotifyCatalog"];
+}) {
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"daily" | "total">("daily");
+  const normalizedQuery = query.trim().toLocaleLowerCase("es-MX");
+  const filtered = useMemo(
+    () => catalog.items
+      .filter((item) => normalizedQuery
+        ? item.title.toLocaleLowerCase("es-MX").includes(normalizedQuery)
+        : true)
+      .sort((a, b) => Number(sortBy === "daily" ? b.dailyStreams : b.totalStreams) - Number(sortBy === "daily" ? a.dailyStreams : a.totalStreams)),
+    [catalog.items, normalizedQuery, sortBy],
+  );
+  const albums = filtered.filter((item) => item.type === "album");
+  const tracks = filtered.filter((item) => item.type === "track");
+
+  const CatalogRows = ({ items }: { items: typeof filtered }) => (
+    <div className="max-h-[720px] overflow-y-auto">
+      {items.length ? items.map((item, index) => (
+        <article
+          key={`${item.type}-${item.key}`}
+          className="grid grid-cols-[2rem_3.25rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.06] px-4 py-3.5 last:border-0 sm:px-5"
+        >
+          <span className="text-[8px] font-black text-white/25">{String(index + 1).padStart(2, "0")}</span>
+          <div className="h-12 w-12 overflow-hidden rounded-xl border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(30,215,96,.25),transparent_65%),#101010]">
+            {item.artworkUrl ? <img src={item.artworkUrl} alt="" loading="lazy" className="h-full w-full object-cover" /> : <Disc3 className="m-3.5 h-5 w-5 text-[#1ed760]/70" />}
+          </div>
+          <div className="min-w-0">
+            {item.spotifyUrl ? (
+              <a href={item.spotifyUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1 truncate text-sm font-black hover:text-[#39FF14]">
+                <span className="truncate">{item.title}</span><ArrowUpRight className="h-3 w-3 shrink-0" />
+              </a>
+            ) : <p className="truncate text-sm font-black">{item.title}</p>}
+            <p className="mt-1 text-[8px] font-black uppercase tracking-[0.12em] text-white/25">{compact(item.totalStreams)} acumulados</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-black text-[#39FF14]">{signed(item.dailyStreams)}</p>
+            <p className="text-[8px] font-black uppercase tracking-[0.1em] text-white/20">diarios</p>
+          </div>
+        </article>
+      )) : (
+        <p className="p-10 text-center text-sm text-white/35">No hay coincidencias en este catálogo.</p>
+      )}
+    </div>
+  );
+
+  return (
+    <section className="mt-7 space-y-5">
+      <article className="overflow-hidden rounded-3xl border border-[#1ed760]/25 bg-[radial-gradient(circle_at_82%_18%,rgba(30,215,96,.18),transparent_38%),#090909]">
+        <div className="p-6 sm:p-9">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">Spotify completo</p>
+          <h2 className="mt-3 max-w-3xl text-4xl font-black leading-[0.98] tracking-[-0.055em] sm:text-5xl">Todas las canciones y todos los álbumes</h2>
+          <p className="mt-4 text-sm text-white/40">{artistName} · streams diarios y acumulados de cada lanzamiento guardado · corte {dateLabel(catalog.snapshotDate)}</p>
+        </div>
+        <div className="grid border-t border-white/[0.07] sm:grid-cols-2 xl:grid-cols-4">
+          {([
+            ["Canciones · diario", catalog.trackDailyStreams, `${catalog.trackCount} canciones`],
+            ["Canciones · acumulado", catalog.trackTotalStreams, "catálogo registrado"],
+            ["Álbumes · diario", catalog.albumDailyStreams, `${catalog.albumCount} álbumes`],
+            ["Álbumes · acumulado", catalog.albumTotalStreams, "álbumes registrados"],
+          ] as const).map(([label, value, detail]) => (
+            <div key={label} className="border-b border-white/[0.07] bg-black/25 p-5 sm:border-r xl:border-b-0 xl:last:border-r-0">
+              <p className="text-[8px] font-black uppercase tracking-[0.15em] text-white/30">{label}</p>
+              <p className="mt-3 text-3xl font-black">{compact(value)}</p>
+              <p className="mt-1 text-[9px] text-white/25">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <label className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-white/[0.08] bg-black/25 px-4 py-3">
+          <Search className="h-4 w-4 text-white/25" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Buscar entre ${catalog.trackCount + catalog.albumCount} lanzamientos`} className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/25" />
+        </label>
+        <div className="flex gap-2">
+          {(["daily", "total"] as const).map((value) => (
+            <button key={value} type="button" onClick={() => setSortBy(value)} className={`rounded-xl px-4 py-3 text-[8px] font-black uppercase tracking-[0.13em] ${sortBy === value ? "bg-[#39FF14] text-black" : "border border-white/[0.08] text-white/40"}`}>
+              {value === "daily" ? "Streams diarios" : "Streams acumulados"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+          <div className="flex items-center justify-between border-b border-white/[0.07] p-5"><div className="flex items-center gap-3"><Music2 className="h-5 w-5 text-[#1ed760]" /><h3 className="text-xl font-black">Canciones</h3></div><span className="text-[9px] font-black text-white/30">{tracks.length}</span></div>
+          <CatalogRows items={tracks} />
+        </article>
+        <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
+          <div className="flex items-center justify-between border-b border-white/[0.07] p-5"><div className="flex items-center gap-3"><Disc3 className="h-5 w-5 text-[#1ed760]" /><h3 className="text-xl font-black">Álbumes</h3></div><span className="text-[9px] font-black text-white/30">{albums.length}</span></div>
+          <CatalogRows items={albums} />
+        </article>
+      </div>
+    </section>
+  );
+}
+
 export default function MonitoringDashboard() {
   const [, params] = useRoute("/monitoreo/:artistKey");
+  const [, setLocation] = useLocation();
   const artistKey = decodeURIComponent(params?.artistKey ?? "");
   const auth = useMexicoAuth();
   const { pick } = useLanguage();
@@ -410,6 +543,17 @@ export default function MonitoringDashboard() {
         window.clearTimeout(timeout);
         signal.removeEventListener("abort", cancelForQuery);
       }
+    },
+  });
+  const { data: internalArtistCatalog } = useQuery<InternalArtistCatalog>({
+    queryKey: ["internal-monitoring-artists", auth.userId],
+    enabled: loadedData?.subscription.accessSource === "internal",
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    queryFn: async () => {
+      const response = await authenticatedFetch(auth.getToken, "/api/monitoring/internal/artists");
+      if (!response.ok) throw new Error("Internal monitoring artist list unavailable");
+      return response.json() as Promise<InternalArtistCatalog>;
     },
   });
   // The ready branch below is the only branch that dereferences this value.
@@ -485,7 +629,7 @@ export default function MonitoringDashboard() {
         response.headers
           .get("content-disposition")
           ?.match(/filename="([^"]+)"/)?.[1] ??
-        `mexico-charts-${artistKey}-${selectedMonth}.csv`;
+        `mexico-charts-monitor-pro-${artistKey}-${selectedMonth}.pdf`;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -508,10 +652,10 @@ export default function MonitoringDashboard() {
     }
   }
   const tabs: Array<{ id: View; label: string }> = [
-    { id: "resumen", label: pick("Resumen", "Overview") },
-    { id: "videos", label: pick("Videos en vivo", "Live videos") },
+    { id: "resumen", label: pick("Panel", "Dashboard") },
+    { id: "spotify", label: "Spotify" },
+    { id: "videos", label: pick("YouTube en vivo", "Live YouTube") },
     { id: "historial", label: pick("Historial", "History") },
-    { id: "catalogo", label: pick("Catálogo", "Catalog") },
     { id: "audiencia", label: pick("Audiencia", "Audience") },
     { id: "reportes", label: pick("Reportes", "Reports") },
   ];
@@ -528,7 +672,22 @@ export default function MonitoringDashboard() {
         noindex
       />
       <SiteNav />
-      <main className="mx-auto max-w-7xl px-5 py-10 sm:px-7 lg:px-10 lg:py-14">
+      <div className="border-b border-white/[0.07] bg-[#080808]">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-3 sm:px-8">
+          <div className="flex items-center gap-3">
+            <span className="rounded-full bg-[#39FF14] px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.14em] text-black">
+              Monitor Pro
+            </span>
+            <span className="hidden text-[9px] font-bold text-white/30 sm:inline">
+              {pick("Producto privado · datos reales", "Private product · real data")}
+            </span>
+          </div>
+          <span className="text-[8px] font-black uppercase tracking-[0.14em] text-white/25">
+            {pick("Fuentes guardadas y normalizadas", "Saved normalized sources")}
+          </span>
+        </div>
+      </div>
+      <main className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
         {!auth.configured ? (
           <div className="rounded-3xl border border-white/10 p-10 text-center text-white/50">
             {pick(
@@ -614,10 +773,30 @@ export default function MonitoringDashboard() {
                   )}
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/35">
-                <CheckCircle2 className="h-4 w-4 text-[#39FF14]" />
-                {data.history.length}{" "}
-                {pick("lecturas guardadas", "saved readings")}
+              <div className="flex flex-col items-stretch gap-3 sm:items-end">
+                {data.subscription.accessSource === "internal" && internalArtistCatalog?.artists.length ? (
+                  <label className="rounded-xl border border-white/10 bg-[#111] px-3 py-2">
+                    <span className="mr-2 text-[8px] font-black uppercase tracking-[0.14em] text-[#39FF14]">
+                      {pick("Cambiar artista", "Switch artist")}
+                    </span>
+                    <select
+                      value={data.subscription.artistKey}
+                      onChange={(event) => setLocation(`/monitoreo/${encodeURIComponent(event.target.value)}`)}
+                      className="max-w-56 bg-transparent text-xs font-black text-white outline-none"
+                    >
+                      {internalArtistCatalog.artists.map((artist) => (
+                        <option key={artist.artistKey} value={artist.artistKey}>
+                          {artist.artistName} · {artist.spotifyItemCount} Spotify · {artist.youtubeVideoCount} YouTube
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/35">
+                  <CheckCircle2 className="h-4 w-4 text-[#39FF14]" />
+                  {data.history.length}{" "}
+                  {pick("lecturas guardadas", "saved readings")}
+                </div>
               </div>
             </header>
             <nav className="mt-6 flex gap-2 overflow-x-auto pb-2">
@@ -685,6 +864,22 @@ export default function MonitoringDashboard() {
                     accent="#f05aa6"
                   />
                 </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <MetricCard
+                    label={pick("Spotify · canciones diarias", "Spotify · daily track streams")}
+                    value={compact(data.spotifyCatalog.trackDailyStreams)}
+                    detail={`${data.spotifyCatalog.trackCount} ${pick("canciones", "tracks")}`}
+                    icon={Music2}
+                    accent="#1ed760"
+                  />
+                  <MetricCard
+                    label={pick("Spotify · álbumes diarios", "Spotify · daily album streams")}
+                    value={compact(data.spotifyCatalog.albumDailyStreams)}
+                    detail={`${data.spotifyCatalog.albumCount} ${pick("álbumes", "albums")}`}
+                    icon={Disc3}
+                    accent="#1ed760"
+                  />
+                </div>
                 <div className="mt-4 grid gap-4 lg:grid-cols-[1.5fr_1fr]">
                   <article className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-7">
                     <div className="flex items-center justify-between gap-4">
@@ -730,18 +925,24 @@ export default function MonitoringDashboard() {
                         {pick("Catálogo observado", "Observed catalog")}
                       </p>
                       <p className="mt-2 text-3xl font-black">
-                        {data.catalog.releaseCount}
+                        {data.spotifyCatalog.trackCount + data.spotifyCatalog.albumCount}
                       </p>
                       <p className="text-xs text-white/35">
                         {pick(
-                          "lanzamientos normalizados",
-                          "normalized releases",
+                          "canciones y álbumes con streams guardados",
+                          "tracks and albums with saved streams",
                         )}
                       </p>
                     </div>
                   </article>
                 </div>
               </section>
+            )}
+            {view === "spotify" && (
+              <SpotifyCatalog
+                artistName={data.subscription.artistName}
+                catalog={data.spotifyCatalog}
+              />
             )}
             {view === "historial" && (
               <section className="mt-7 rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5 sm:p-7">
@@ -848,65 +1049,6 @@ export default function MonitoringDashboard() {
                 )}
               </section>
             )}
-            {view === "catalogo" && (
-              <section className="mt-7">
-                {data.latestReleaseImpact && (
-                  <article className="mb-4 overflow-hidden rounded-3xl border border-violet-400/20 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,.13),transparent_45%)] p-6 sm:p-8">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-violet-300">Release Impact · análisis privado</p>
-                    <div className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto] lg:items-end">
-                      <div><h2 className="text-2xl font-black">{data.latestReleaseImpact.release.title}</h2><p className="mt-2 text-sm text-white/40">Impacto observado después del lanzamiento · confianza {data.latestReleaseImpact.confidence} · {data.latestReleaseImpact.platformsMeasured} plataformas medidas</p></div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {([["7 días", data.latestReleaseImpact.lift7], ["30 días", data.latestReleaseImpact.lift30], ["90 días", data.latestReleaseImpact.lift90]] as const).map(([label, value]) => <div key={label} className="min-w-24 rounded-xl border border-white/[0.08] bg-black/20 p-3 text-center"><p className="text-[8px] font-black uppercase text-white/30">{label}</p><p className={`mt-1 text-lg font-black ${(value ?? 0) >= 0 ? "text-[#39FF14]" : "text-red-400"}`}>{value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`}</p></div>)}
-                      </div>
-                    </div>
-                  </article>
-                )}
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <MetricCard
-                    label={pick("Lanzamientos", "Releases")}
-                    value={exact(data.catalog.releaseCount)}
-                    icon={Disc3}
-                  />
-                  <MetricCard
-                    label={pick("Canciones", "Tracks")}
-                    value={exact(data.catalog.trackCount)}
-                    icon={Music2}
-                  />
-                  <MetricCard
-                    label={pick("Últimos 90 días", "Last 90 days")}
-                    value={exact(data.catalog.releasesLast90Days)}
-                    icon={CalendarDays}
-                  />
-                </div>
-                <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08]">
-                  {data.catalog.releases.length ? (
-                    data.catalog.releases.map((release) => (
-                      <article
-                        key={release.id}
-                        className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4 last:border-0"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-bold">
-                            {release.title}
-                          </p>
-                          <p className="mt-1 text-[9px] font-black uppercase tracking-[0.13em] text-white/30">
-                            {release.type} · {dateLabel(release.releaseDate)}
-                          </p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-white/20" />
-                      </article>
-                    ))
-                  ) : (
-                    <p className="p-8 text-center text-sm text-white/30">
-                      {pick(
-                        "El catálogo licenciado aún no tiene lanzamientos normalizados.",
-                        "The licensed catalog does not yet have normalized releases.",
-                      )}
-                    </p>
-                  )}
-                </div>
-              </section>
-            )}
             {view === "audiencia" && (
               <section className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {data.topMexicoCities.map((city, index) => (
@@ -948,8 +1090,8 @@ export default function MonitoringDashboard() {
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-white/40">
                   {pick(
-                    "El CSV incluye una fila por lectura guardada durante el mes y las métricas disponibles. No incluye respuestas sin procesar de proveedores.",
-                    "The CSV includes one row per saved reading during the month and available metrics. It does not include raw provider responses.",
+                    "El PDF incluye un resumen ejecutivo, historial, catálogo completo de Spotify, videos de YouTube y mercados disponibles. No incluye respuestas sin procesar de proveedores.",
+                    "The PDF includes an executive summary, history, the complete Spotify catalog, YouTube videos, and available markets. It does not include raw provider responses.",
                   )}
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -977,7 +1119,7 @@ export default function MonitoringDashboard() {
                     <Download className="h-4 w-4" />
                     {reportLoading
                       ? pick("Generando…", "Generating…")
-                      : pick("Descargar CSV", "Download CSV")}
+                      : pick("Descargar PDF", "Download PDF")}
                   </button>
                   <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-6 py-3 text-[10px] font-black uppercase tracking-[0.15em] text-white/65">
                     <LayoutDashboard className="h-4 w-4" /> {pick("Imprimir resumen ejecutivo", "Print executive summary")}

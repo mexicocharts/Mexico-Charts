@@ -31,9 +31,18 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
 });
 
 test("dashboard query batches never exceed the three-connection public read pool", () => {
+  assert.match(source, /const \[\s*prioritizedStreamSummary,\s*prioritizedStreamItems,\s*prioritizedLiveVideos,\s*\] = await Promise\.all/s);
   assert.match(source, /const \[\s*snapshots,\s*extended,\s*liveVideos,\s*\] = await Promise\.all/s);
-  assert.match(source, /const \[\s*liveVideoHistory,\s*streamSummary,\s*streamItems,\s*\] = await Promise\.all/s);
   assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);
+});
+
+test("Spotify catalog and stored YouTube counters are prioritized before optional enrichment", () => {
+  const priority = source.indexOf("priority_stream_summary");
+  const optional = source.indexOf("daily_snapshots");
+  assert.ok(priority >= 0 && optional > priority);
+  assert.match(source, /const resolvedStreamSummary = prioritizedStreamSummary/);
+  assert.match(source, /const resolvedStreamItems = prioritizedStreamItems/);
+  assert.match(source, /const resolvedLiveVideos = liveVideos\.length \? liveVideos : prioritizedLiveVideos/);
 });
 
 test("dashboard returns safe empty sections when individual data sources are unavailable", () => {
@@ -42,12 +51,31 @@ test("dashboard returns safe empty sections when individual data sources are una
     "extended_artist_data",
     "youtube_live_videos",
     "youtube_live_history",
-    "stream_summary",
-    "stream_items",
+    "priority_stream_summary",
+    "priority_stream_items",
+    "priority_youtube_live_videos",
     "youtube_coverage",
     "compact_history_overview",
     "release_impact",
   ]) {
     assert.match(source, new RegExp(`dashboardStage\\(\\s*"${stage}"`));
   }
+});
+
+test("internal artist picker lists existing monitored artists without public readiness", () => {
+  const routeStart = source.indexOf('router.get("/monitoring/internal/artists"');
+  const dashboardStart = source.indexOf('router.get("/monitoring/dashboard/:artistKey"');
+  assert.ok(routeStart >= 0 && dashboardStart > routeStart);
+  const route = source.slice(routeStart, dashboardStart);
+  assert.match(route, /requireMonitoringClerkUser/);
+  assert.match(route, /hasInternalArtistProEntitlement\(userId\)/);
+  assert.match(route, /JOIN songstats_artist_daily_snapshots/);
+  assert.doesNotMatch(route, /auditMonitoringReadiness|getMonitoringReadyArtist/);
+});
+
+test("monitor report endpoint returns a private PDF instead of CSV", () => {
+  assert.match(source, /createMonitoringReportPdf/);
+  assert.match(source, /content-type", "application\/pdf"/);
+  assert.match(source, /monitor-pro-\$\{safeArtist\}-\$\{month\}\.pdf/);
+  assert.doesNotMatch(source, /content-type", "text\/csv/);
 });

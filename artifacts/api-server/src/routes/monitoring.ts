@@ -21,6 +21,7 @@ import {
 } from "../lib/songstats-history-serving";
 import {
   ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
+  hasInternalArtistProEntitlement,
 } from "../lib/artist-pro-entitlement";
 import {
   authorizeMonitoringArtist,
@@ -31,6 +32,7 @@ import {
   requestDatabaseHttpStatus,
   safeDatabaseDiagnostic,
 } from "../lib/request-database";
+import { createMonitoringReportPdf } from "../lib/monitoring-report-pdf";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -306,6 +308,113 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     return result;
   };
 
+  // Start the paid Spotify catalog before optional licensed/audience work. The
+  // previous global budget could expire while waiting on Songstats or YouTube,
+  // leaving an already-populated stream archive invisible to subscribers.
+  const priorityStreamSummary = dashboardStage("priority_stream_summary", () => publicReadPool.query<{
+    snapshot_date: string;
+    track_count: number;
+    album_count: number;
+    track_daily_streams: string | number;
+    album_daily_streams: string | number;
+    track_total_streams: string | number;
+    album_total_streams: string | number;
+  }>(`
+    SELECT snapshot_date, track_count, album_count,
+           track_daily_streams, album_daily_streams,
+           track_total_streams, album_total_streams
+    FROM monitoring_stream_daily_artist_summaries
+    WHERE lower(artist_key) = ANY($1::text[])
+    ORDER BY snapshot_date DESC
+    LIMIT 1
+  `, [activeKeys]).then(result => result.rows), []);
+  const priorityStreamItems = dashboardStage("priority_stream_items", () => publicReadPool.query<{
+    item_type: "track" | "album";
+    item_key: string;
+    title: string;
+    spotify_url: string | null;
+    artwork_url: string | null;
+    compilation: boolean;
+    total_streams: string | number;
+    daily_streams: string | number;
+  }>(`
+    WITH latest_date AS (
+      SELECT max(snapshot_date) snapshot_date
+      FROM monitoring_stream_daily_snapshots
+      WHERE lower(artist_key) = ANY($1::text[])
+    )
+    SELECT i.item_type, i.item_key, i.title, i.spotify_url,
+           to_jsonb(i)->>'artwork_url' artwork_url,
+           i.compilation,
+           s.total_streams, s.daily_streams
+    FROM monitoring_stream_items i
+    JOIN latest_date d ON true
+    JOIN monitoring_stream_daily_snapshots s
+      ON s.artist_key=i.artist_key
+     AND s.item_type=i.item_type
+     AND s.item_key=i.item_key
+     AND s.snapshot_date=d.snapshot_date
+    WHERE lower(i.artist_key) = ANY($1::text[])
+    ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
+  `, [activeKeys]).then(result => result.rows), []);
+  const priorityLiveVideos = dashboardStage("priority_youtube_live_videos", () => publicReadPool.query(`
+    WITH matched_links AS (
+      SELECT DISTINCT ON (link.video_id)
+        link.artist_name,
+        link.video_id,
+        link.confidence_score,
+        link.priority
+      FROM youtube_artist_video_links link
+      WHERE link.active=true
+        AND link.confidence_score >= 80
+        AND (
+          lower(link.artist_key) = ANY($1::text[])
+          OR regexp_replace(
+            translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
+            '[^a-z0-9]', '', 'g'
+          ) = ANY($1::text[])
+        )
+      ORDER BY link.video_id, link.confidence_score DESC, link.priority DESC, link.id
+    )
+    SELECT
+      links.artist_name,
+      links.video_id,
+      tracked.title,
+      tracked.thumbnail_url,
+      'https://www.youtube.com/watch?v=' || links.video_id canonical_url,
+      COALESCE(latest.view_count, tracked.view_count) view_count,
+      latest.view_delta,
+      latest.seconds_since_previous,
+      COALESCE(latest.observed_at, tracked.last_snapshot_at, tracked.updated_at)::text observed_at,
+      NULL::bigint views_24h,
+      NULL::text views_24h_started_at,
+      NULL::text views_24h_ended_at,
+      NULL::bigint views_today_et,
+      NULL::text views_today_et_started_at,
+      NULL::text views_today_et_ended_at
+    FROM matched_links links
+    JOIN youtube_tracked_videos tracked ON tracked.video_id=links.video_id
+    LEFT JOIN youtube_video_intraday_latest_observations pointer ON pointer.video_id=links.video_id
+    LEFT JOIN youtube_video_intraday_shadow_snapshots latest
+      ON latest.video_id=pointer.video_id
+     AND latest.observed_at=pointer.latest_observed_at
+    WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
+    ORDER BY COALESCE(latest.view_count, tracked.view_count) DESC, tracked.title
+    LIMIT 100
+  `, [activeKeys]).then(result => result.rows), []);
+  // The public pool is intentionally capped at three connections. Resolve the
+  // three critical product datasets before starting optional enrichment so
+  // they cannot sit behind slower Songstats/history queries in the pool queue.
+  const [
+    prioritizedStreamSummary,
+    prioritizedStreamItems,
+    prioritizedLiveVideos,
+  ] = await Promise.all([
+    priorityStreamSummary,
+    priorityStreamItems,
+    priorityLiveVideos,
+  ]);
+
   const [
     snapshots,
     extended,
@@ -421,12 +530,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       LIMIT 100
     `, [activeKeys]).then(result => result.rows), []),
   ]);
-  const [
-    liveVideoHistory,
-    streamSummary,
-    streamItems,
-  ] = await Promise.all([
-    dashboardStage("youtube_live_history", () => publicReadPool.query(`
+  const liveVideoHistory = await dashboardStage("youtube_live_history", () => publicReadPool.query(`
       SELECT
         s.video_id,
         s.snapshot_date,
@@ -454,60 +558,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY s.video_id, s.snapshot_date
     `,
       [activeKeys],
-    ).then(result => result.rows), []),
-    dashboardStage("stream_summary", () => publicReadPool.query<{
-      snapshot_date: string;
-      track_count: number;
-      album_count: number;
-      track_daily_streams: string | number;
-      album_daily_streams: string | number;
-      track_total_streams: string | number;
-      album_total_streams: string | number;
-    }>(
-      `
-      SELECT snapshot_date, track_count, album_count,
-             track_daily_streams, album_daily_streams,
-             track_total_streams, album_total_streams
-      FROM monitoring_stream_daily_artist_summaries
-      WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY snapshot_date DESC
-      LIMIT 1
-    `,
-      [activeKeys],
-    ).then(result => result.rows), []),
-    dashboardStage("stream_items", () => publicReadPool.query<{
-      item_type: "track" | "album";
-      item_key: string;
-      title: string;
-      spotify_url: string | null;
-      artwork_url: string | null;
-      compilation: boolean;
-      total_streams: string | number;
-      daily_streams: string | number;
-    }>(
-      `
-      WITH latest_date AS (
-        SELECT max(snapshot_date) snapshot_date
-        FROM monitoring_stream_daily_snapshots
-        WHERE lower(artist_key) = ANY($1::text[])
-      )
-      SELECT i.item_type, i.item_key, i.title, i.spotify_url,
-             to_jsonb(i)->>'artwork_url' artwork_url,
-             i.compilation,
-             s.total_streams, s.daily_streams
-      FROM monitoring_stream_items i
-      JOIN latest_date d ON true
-      JOIN monitoring_stream_daily_snapshots s
-        ON s.artist_key=i.artist_key
-       AND s.item_type=i.item_type
-       AND s.item_key=i.item_key
-       AND s.snapshot_date=d.snapshot_date
-      WHERE lower(i.artist_key) = ANY($1::text[])
-      ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
-    `,
-      [activeKeys],
-    ).then(result => result.rows), []),
-  ]);
+    ).then(result => result.rows), []);
   const [youtubeCoverage, availableHistory] = await Promise.all([
     dashboardStage("youtube_coverage", () => publicReadPool.query<{
       channel_video_count: string | number | null;
@@ -587,6 +638,9 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       },
     ),
   ]);
+  const resolvedStreamSummary = prioritizedStreamSummary;
+  const resolvedStreamItems = prioritizedStreamItems;
+  const resolvedLiveVideos = liveVideos.length ? liveVideos : prioritizedLiveVideos;
   const extendedRow = extended[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
     historicStats: extendedRow.historic_stats,
@@ -604,7 +658,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     newestReleaseDate: null,
     releases: [],
   };
-  const latestStreamSummary = streamSummary[0] ?? null;
+  const latestStreamSummary = resolvedStreamSummary[0] ?? null;
   const normalizedReleaseTitle = (value: string) =>
     value
       .normalize("NFD")
@@ -655,7 +709,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     catalog,
     latestReleaseImpact: releaseImpact,
     availableHistory,
-    liveVideos: dedupeYoutubeMonitorRows(liveVideos as Array<{video_id:string;canonical_url?:string|null}>),
+    liveVideos: dedupeYoutubeMonitorRows(resolvedLiveVideos as Array<{video_id:string;canonical_url?:string|null}>),
     youtubeCoverage: {
       channelVideoCount: youtubeChannelVideoCount,
       importedVideoCount: nullableNumber(
@@ -691,7 +745,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       albumTotalStreams: nullableNumber(
         latestStreamSummary?.album_total_streams ?? null,
       ),
-      items: streamItems.map((item) => ({
+      items: resolvedStreamItems.map((item) => ({
         type: item.item_type,
         key: item.item_key,
         title: item.title,
@@ -706,11 +760,6 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       })),
     },
   };
-}
-
-function csvCell(value: unknown): string {
-  const text = value == null ? "" : String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function siteOrigin(): string {
@@ -767,6 +816,64 @@ router.get("/monitoring/artists", async (_req, res) => {
       database: safeDatabaseDiagnostic(error),
     }, "Monitoring artist availability failed");
     res.status(503).json({ error: "Monitoring availability is temporarily unavailable" });
+  }
+});
+
+router.get("/monitoring/internal/artists", requireMonitoringClerkUser, async (req, res) => {
+  const userId = clerkUserId(res);
+  if (!hasInternalArtistProEntitlement(userId)) {
+    res.status(403).json({ error: "Internal Artist Pro access is required" });
+    return;
+  }
+  try {
+    const result = await publicReadPool.query<{
+      artist_key: string;
+      artist_name: string | null;
+      last_snapshot_date: string | null;
+      spotify_item_count: string | number;
+      youtube_video_count: string | number;
+    }>(`
+      SELECT
+        coverage.artist_key,
+        coverage.artist_name,
+        max(snapshot.snapshot_date) last_snapshot_date,
+        (
+          SELECT count(*)
+          FROM monitoring_stream_items stream_item
+          WHERE stream_item.artist_key=coverage.artist_key
+        ) spotify_item_count,
+        (
+          SELECT count(DISTINCT video_link.video_id)
+          FROM youtube_artist_video_links video_link
+          WHERE video_link.artist_key=coverage.artist_key
+            AND video_link.active=true
+            AND video_link.confidence_score >= 80
+        ) youtube_video_count
+      FROM kworb_coverage coverage
+      JOIN songstats_artist_daily_snapshots snapshot
+        ON snapshot.artist_key=coverage.artist_key
+      WHERE COALESCE(coverage.spotify_id, '') <> ''
+      GROUP BY coverage.artist_key, coverage.artist_name
+      ORDER BY COALESCE(NULLIF(coverage.artist_name, ''), coverage.artist_key)
+    `);
+    res.setHeader("cache-control", "private, max-age=300");
+    res.json({
+      count: result.rows.length,
+      artists: result.rows.map(artist => ({
+        artistKey: artist.artist_key,
+        artistName: artist.artist_name?.trim() || artist.artist_key,
+        lastSnapshotDate: artist.last_snapshot_date,
+        spotifyItemCount: Number(artist.spotify_item_count ?? 0),
+        youtubeVideoCount: Number(artist.youtube_video_count ?? 0),
+      })),
+    });
+  } catch (error) {
+    logger.warn({
+      event: "internal_monitoring_artist_list_failure",
+      identityHash: safeClerkIdentityHash(userId),
+      database: safeDatabaseDiagnostic(error),
+    }, "Internal monitoring artist list failed");
+    res.status(requestDatabaseHttpStatus(error)).json({ error: "Monitoring artist list is temporarily unavailable" });
   }
 });
 
@@ -861,47 +968,22 @@ router.get("/monitoring/report/:artistKey", requireMonitoringClerkUser, async (r
       res.status(403).json({ error: "Artist Pro access is required for this artist" });
       return;
     }
-    const rows = dashboard.history.filter(point => point.date.startsWith(month));
-    const header = [
-      "date",
-      "spotify_monthly_listeners",
-      "spotify_followers",
-      "youtube_subscribers",
-      "youtube_channel_views",
-      "instagram_followers",
-      "tiktok_followers",
-      "facebook_followers",
-      "twitter_followers",
-      "soundcloud_followers",
-      "deezer_followers",
-    ];
-    const lines = [
-      ["Mexico Charts monthly monitoring report"],
-      ["artist", dashboard.subscription.artistName],
-      ["month", month],
-      ["generated_at", new Date().toISOString()],
-      ["coverage", "Licensed and normalized metrics available after subscription activation"],
-      [],
-      header,
-      ...rows.map(point => [
-        point.date,
-        point.spotifyMonthlyListeners,
-        point.spotifyFollowers,
-        point.youtubeSubscribers,
-        point.youtubeChannelViews,
-        point.instagramFollowers,
-        point.tiktokFollowers,
-        point.facebookFollowers,
-        point.twitterFollowers,
-        point.soundcloudFollowers,
-        point.deezerFollowers,
-      ]),
-    ];
-    const csv = `\uFEFF${lines.map(line => line.map(csvCell).join(",")).join("\n")}`;
+    const pdf = await createMonitoringReportPdf({
+      artistName: dashboard.subscription.artistName,
+      artistKey: dashboard.subscription.artistKey,
+      month,
+      generatedAt: new Date(),
+      history: dashboard.history,
+      spotifyCatalog: dashboard.spotifyCatalog,
+      liveVideos: dashboard.liveVideos,
+      topMexicoCities: dashboard.topMexicoCities,
+      dailyPulse: dashboard.dailyPulse,
+    });
     const safeArtist = dashboard.subscription.artistName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "artist";
-    res.setHeader("content-type", "text/csv; charset=utf-8");
-    res.setHeader("content-disposition", `attachment; filename="mexico-charts-${safeArtist}-${month}.csv"`);
-    res.send(csv);
+    res.setHeader("content-type", "application/pdf");
+    res.setHeader("content-disposition", `attachment; filename="mexico-charts-monitor-pro-${safeArtist}-${month}.pdf"`);
+    res.setHeader("cache-control", "private, no-store");
+    res.send(pdf);
   } catch (error) {
     const status = requestDatabaseHttpStatus(error);
     const unavailable = status === 503;

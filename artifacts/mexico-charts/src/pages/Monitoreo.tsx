@@ -178,7 +178,7 @@ export default function Monitoreo() {
       pick("Señales de lanzamientos nuevos", "New-release signals"),
       pick("Release Impact de cada lanzamiento", "Release Impact for every release"),
       pick("Resumen ejecutivo listo para imprimir", "Print-ready executive summary"),
-      pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report"),
+      pick("Reporte mensual PDF descargable", "Downloadable monthly PDF report"),
     ],
     seleccion: [
       pick("Paneles diarios para hasta 3 artistas", "Daily dashboards for up to 3 artists"),
