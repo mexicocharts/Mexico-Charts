@@ -73,6 +73,19 @@ test("internal artist picker lists existing monitored artists without public rea
   assert.doesNotMatch(route, /auditMonitoringReadiness|getMonitoringReadyArtist/);
 });
 
+test("internal authorization uses canonical candidates without a public-readiness scan", () => {
+  const readinessSource = readFileSync(
+    new URL("../lib/monitoring-readiness-service.ts", import.meta.url),
+    "utf8",
+  );
+  const lookupStart = readinessSource.indexOf("export async function getExistingMonitoringArtist");
+  const lookupEnd = readinessSource.indexOf("function evaluateRow", lookupStart);
+  const lookup = readinessSource.slice(lookupStart, lookupEnd);
+
+  assert.match(lookup, /c\.artist_key = ANY\(\$1::text\[\]\)/);
+  assert.doesNotMatch(lookup, /regexp_replace|songstats_artist_daily_snapshots/);
+});
+
 test("monitor report endpoint returns a private PDF instead of CSV", () => {
   assert.match(source, /createMonitoringReportPdf/);
   assert.match(source, /content-type", "application\/pdf"/);

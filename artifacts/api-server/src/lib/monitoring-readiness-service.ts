@@ -130,22 +130,9 @@ export async function getExistingMonitoringArtist(artistKey: string): Promise<Ex
     `SELECT c.artist_key, c.artist_name
      FROM kworb_coverage c
      WHERE COALESCE(c.spotify_id, '') <> ''
-       AND (
-         lower(c.artist_key) = ANY($1::text[])
-         OR regexp_replace(
-           translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
-           '[^a-z0-9]',
-           '',
-           'g'
-         ) = ANY($1::text[])
-       )
-       AND EXISTS (
-         SELECT 1
-         FROM songstats_artist_daily_snapshots snapshot
-         WHERE snapshot.artist_key = c.artist_key
-       )
+       AND c.artist_key = ANY($1::text[])
      ORDER BY
-       (lower(c.artist_key) = ANY($1::text[])) DESC,
+       array_position($1::text[], c.artist_key),
        c.artist_key
      LIMIT 1`,
     [candidates],
