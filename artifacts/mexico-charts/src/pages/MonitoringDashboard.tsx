@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   ArrowLeft,
+  BadgeCheck,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Disc3,
   Download,
+  ExternalLink,
   Headphones,
   Instagram,
   LayoutDashboard,
@@ -32,6 +34,10 @@ import SiteNav from "@/components/SiteNav";
 import { EditorialFooter } from "@/components/EditorialLayout";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { getArtistImageUrl, useArtistImages } from "@/hooks/useArtistImages";
+import { useArtistEnrichment } from "@/hooks/useArtistEnrichment";
+import { useItunesArtist } from "@/hooks/useItunesArtist";
+import { useDeezerArtist } from "@/hooks/useDeezerArtist";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import {
   MonitoringDashboardHttpError,
@@ -40,6 +46,37 @@ import {
 } from "@/lib/monitoringAccess.mjs";
 
 const G = "#39FF14";
+
+const platformCatalog = [
+  { key: "spotify", name: "Spotify", color: "#1ed760" },
+  { key: "youtube", name: "YouTube", color: "#ff3b30" },
+  { key: "instagram", name: "Instagram", color: "#ff4f9a" },
+  { key: "tiktok", name: "TikTok", color: "#ffffff" },
+  { key: "apple", name: "Apple Music", color: "#fa596f" },
+  { key: "deezer", name: "Deezer", color: "#a238ff" },
+] as const;
+
+type PublicArtistRecord = {
+  avatarUrl?: string | null;
+  platformLinks?: Array<{ source: string; url: string }>;
+};
+
+async function fetchPublicArtistRecord(artistKey: string): Promise<PublicArtistRecord | null> {
+  if (!artistKey) return null;
+  const response = await fetch(
+    `/api/providers/songstats/artist?artistKey=${encodeURIComponent(artistKey)}`,
+  );
+  return response.ok ? response.json() as Promise<PublicArtistRecord> : null;
+}
+
+function PlatformMark({ color }: { color: string }) {
+  return (
+    <span
+      className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_16px_currentColor]"
+      style={{ background: color, color }}
+    />
+  );
+}
 type MetricKey =
   | "spotifyMonthlyListeners"
   | "spotifyFollowers"
@@ -415,6 +452,52 @@ export default function MonitoringDashboard() {
   // The ready branch below is the only branch that dereferences this value.
   // monitoringDashboardViewState reports "ready" only when loadedData exists.
   const data = loadedData as DashboardPayload;
+  const artistName = loadedData?.subscription.artistName ?? "";
+  const enrichment = useArtistEnrichment(artistKey);
+  const appleMusic = useItunesArtist(artistName, Boolean(artistName));
+  const deezer = useDeezerArtist(artistName);
+  const artistImages = useArtistImages(artistName ? [artistName] : []);
+  const { data: publicArtistRecord } = useQuery<PublicArtistRecord | null>({
+    queryKey: ["monitoring-public-artist", artistKey],
+    queryFn: () => fetchPublicArtistRecord(artistKey),
+    enabled: Boolean(artistKey),
+    staleTime: 15 * 60 * 1000,
+  });
+  const artistPhoto = publicArtistRecord?.avatarUrl
+    || getArtistImageUrl(artistImages, artistName)
+    || enrichment?.spotify?.imageUrl
+    || enrichment?.youtube?.thumbnailUrl
+    || appleMusic?.artworkUrlHd
+    || null;
+  const profilePlatforms = useMemo(() => platformCatalog.map(platform => {
+    const savedLink = publicArtistRecord?.platformLinks?.find(link => {
+      const source = link.source.toLowerCase();
+      return source === platform.key
+        || (platform.key === "apple" && source === "apple_music");
+    });
+    let url = savedLink?.url ?? null;
+    if (platform.key === "spotify") url = enrichment?.spotify?.url ?? url;
+    if (platform.key === "youtube") url = enrichment?.youtube?.channelUrl ?? url;
+    if (platform.key === "apple") url = appleMusic?.appleUrl ?? url;
+    if (platform.key === "deezer") url = deezer?.deezerUrl ?? url;
+    if (["instagram", "tiktok"].includes(platform.key)) {
+      url = enrichment?.socialAccounts?.find(account => account.platform === platform.key)?.url ?? url;
+    }
+    const currentSnapshot = loadedData?.current;
+    const hasData = platform.key === "spotify"
+      ? Boolean(currentSnapshot?.spotifyMonthlyListeners || currentSnapshot?.spotifyFollowers)
+      : platform.key === "youtube"
+        ? Boolean(currentSnapshot?.youtubeSubscribers || currentSnapshot?.youtubeChannelViews)
+        : platform.key === "instagram"
+          ? Boolean(currentSnapshot?.instagramFollowers)
+          : platform.key === "tiktok"
+            ? Boolean(currentSnapshot?.tiktokFollowers)
+            : platform.key === "deezer"
+              ? Boolean(currentSnapshot?.deezerFollowers)
+              : Boolean(url);
+    return { ...platform, url, hasData };
+  }), [appleMusic, deezer, enrichment, loadedData?.current, publicArtistRecord]);
+  const connectedPlatformCount = profilePlatforms.filter(platform => platform.url).length;
   const dashboardViewState = monitoringDashboardViewState({
     isLoading,
     error,
@@ -517,7 +600,7 @@ export default function MonitoringDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070707] text-white">
+    <div className="min-h-screen overflow-x-hidden bg-[#050505] text-white">
       <PageSEO
         title={`${data?.subscription.artistName ?? pick("Monitor", "Monitor")} — Mexico Charts`}
         description={pick(
@@ -528,7 +611,9 @@ export default function MonitoringDashboard() {
         noindex
       />
       <SiteNav />
-      <main className="mx-auto max-w-7xl px-5 py-10 sm:px-7 lg:px-10 lg:py-14">
+      <main className="relative isolate mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10 lg:py-10">
+        <div className="pointer-events-none absolute inset-x-[-20vw] top-0 -z-10 h-[560px] bg-[radial-gradient(circle_at_18%_8%,rgba(57,255,20,.14),transparent_34%),radial-gradient(circle_at_88%_10%,rgba(35,92,255,.09),transparent_30%)]" />
+        <div className="pointer-events-none absolute inset-x-[-20vw] top-0 -z-20 h-[900px] opacity-[.035] [background-image:linear-gradient(rgba(255,255,255,.12)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.12)_1px,transparent_1px)] [background-size:48px_48px]" />
         {!auth.configured ? (
           <div className="rounded-3xl border border-white/10 p-10 text-center text-white/50">
             {pick(
@@ -584,49 +669,102 @@ export default function MonitoringDashboard() {
           <>
             <Link
               href="/cuenta"
-              className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.15em] text-white/35 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-full border border-white/[.08] bg-black/35 px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.15em] text-white/45 transition hover:border-[#39FF14]/30 hover:text-white"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               {pick("Mi cuenta", "My account")}
             </Link>
-            <header className="mt-6 flex flex-col gap-6 border-b border-white/[0.07] pb-8 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
-                    {data.subscription.accessSource === "internal"
-                      ? pick("Acceso interno", "Internal access")
-                      : pick("Monitoreo activo", "Active monitoring")}
-                  </span>
-                  {data.subscription.activatedAt && (
-                    <span className="text-[9px] font-bold text-white/30">
-                      {pick("Desde", "Since")}{" "}
-                      {dateLabel(data.subscription.activatedAt)}
-                    </span>
+            <header className="mt-5 overflow-hidden rounded-[28px] border border-white/[.09] bg-[#090909]/95 shadow-[0_38px_110px_rgba(0,0,0,.5)]">
+              <div className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:p-8">
+                <div className="relative h-24 w-24 overflow-hidden rounded-3xl border border-white/10 bg-[#39FF14]/10 sm:h-28 sm:w-28">
+                  {artistPhoto ? (
+                    <img src={artistPhoto} alt={data.subscription.artistName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-3xl font-black text-[#39FF14]">
+                      {data.subscription.artistName.charAt(0)}
+                    </div>
                   )}
+                  <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent" />
                 </div>
-                <h1 className="mt-4 text-4xl font-black tracking-[-0.05em] sm:text-6xl">
-                  {data.subscription.artistName}
-                </h1>
-                <p className="mt-3 text-sm text-white/40">
-                  {pick(
-                    "Historial privado de métricas licenciadas y normalizadas",
-                    "Private history of licensed, normalized metrics",
-                  )}
-                </p>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[.16em] text-[#39FF14]">
+                      Artist Pro
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-white/[.03] px-3 py-1.5 text-[8px] font-black uppercase tracking-[.16em] text-white/40">
+                      {data.subscription.accessSource === "internal"
+                        ? pick("Acceso interno", "Internal access")
+                        : pick("Monitoreo activo", "Active monitoring")}
+                    </span>
+                  </div>
+                  <div className="mt-4 flex min-w-0 items-center gap-2">
+                    <h1 className="truncate text-[clamp(2rem,4vw,3.35rem)] font-black uppercase leading-[.92] tracking-[-.045em]">
+                      {data.subscription.artistName}
+                    </h1>
+                    <BadgeCheck className="h-5 w-5 shrink-0 text-[#39FF14] sm:h-6 sm:w-6" />
+                  </div>
+                  <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-white/43">
+                    {pick(
+                      "Inteligencia diaria, crecimiento, catálogo y señales de audiencia en un solo perfil privado.",
+                      "Daily intelligence, growth, catalog and audience signals in one private profile.",
+                    )}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 overflow-hidden rounded-2xl border border-white/[.08] bg-black/45 lg:min-w-[270px]">
+                  <div className="p-4 sm:p-5">
+                    <p className="text-2xl font-black tracking-tight text-white">{data.history.length}</p>
+                    <p className="mt-1 text-[8px] font-black uppercase leading-4 tracking-[.14em] text-white/30">
+                      {pick("Lecturas guardadas", "Saved readings")}
+                    </p>
+                  </div>
+                  <div className="border-l border-white/[.07] p-4 sm:p-5">
+                    <p className="text-2xl font-black tracking-tight text-[#39FF14]">{connectedPlatformCount}</p>
+                    <p className="mt-1 text-[8px] font-black uppercase leading-4 tracking-[.14em] text-white/30">
+                      {pick("Perfiles conectados", "Connected profiles")}
+                    </p>
+                  </div>
+                  <div className="col-span-2 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/[.07] px-4 py-3 text-[8px] font-black uppercase tracking-[.13em] text-white/32 sm:px-5">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[#39FF14]" />
+                    <span>{pick("Datos al", "Data through")} {dateLabel(data.current?.date)}</span>
+                    {data.subscription.activatedAt && (
+                      <span className="border-l border-white/10 pl-3">
+                        {pick("Activo desde", "Active since")} {dateLabel(data.subscription.activatedAt)}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.14em] text-white/35">
-                <CheckCircle2 className="h-4 w-4 text-[#39FF14]" />
-                {data.history.length}{" "}
-                {pick("lecturas guardadas", "saved readings")}
+
+              <div className="grid grid-cols-2 border-t border-white/[.08] sm:grid-cols-3 lg:grid-cols-6">
+                {profilePlatforms.map((platform) => {
+                  const content = (
+                    <>
+                      <PlatformMark color={platform.color} />
+                      <span className="min-w-0 flex-1 truncate text-[9px] font-black uppercase tracking-[.1em]">{platform.name}</span>
+                      {platform.url ? <ExternalLink className="h-3.5 w-3.5 text-white/25" /> : <span className="text-[8px] font-black text-white/20">{platform.hasData ? pick("DATOS", "DATA") : "—"}</span>}
+                    </>
+                  );
+                  return platform.url ? (
+                    <a key={platform.key} href={platform.url} target="_blank" rel="noreferrer" aria-label={`${pick("Abrir", "Open")} ${platform.name}`} className="flex min-w-0 items-center gap-3 border-b border-r border-white/[.07] px-4 py-4 text-white/55 transition hover:bg-white/[.035] hover:text-white lg:border-b-0">
+                      {content}
+                    </a>
+                  ) : (
+                    <div key={platform.key} className="flex min-w-0 items-center gap-3 border-b border-r border-white/[.07] px-4 py-4 text-white/32 lg:border-b-0">
+                      {content}
+                    </div>
+                  );
+                })}
               </div>
             </header>
-            <nav className="mt-6 flex gap-2 overflow-x-auto pb-2">
+            <nav className="mt-5 flex gap-2 overflow-x-auto rounded-2xl border border-white/[.08] bg-black/35 p-2 backdrop-blur-xl">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setView(tab.id)}
-                  className={`shrink-0 rounded-full px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.14em] ${view === tab.id ? "bg-[#39FF14] text-black" : "border border-white/[0.08] text-white/40"}`}
+                  className={`shrink-0 rounded-xl px-4 py-3 text-[9px] font-black uppercase tracking-[0.14em] transition ${view === tab.id ? "bg-[#39FF14] text-black" : "text-white/38 hover:bg-white/[.04] hover:text-white"}`}
                 >
                   {tab.label}
                 </button>
