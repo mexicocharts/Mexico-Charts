@@ -4,6 +4,7 @@ import {
   MonitoringDashboardHttpError,
   internalMonitoringEntryPath,
   monitoringDashboardViewState,
+  shouldLoadPublicMonitoringCatalog,
   shouldRetryMonitoringDashboard,
 } from "./monitoringAccess.mjs";
 
@@ -14,6 +15,19 @@ test("founder monitoring entry does not depend on the public ready-only catalog"
     "/monitoreo/luis-miguel",
   );
   assert.equal(internalMonitoringEntryPath({ internalArtistProAccess: false }), null);
+});
+
+test("signed-in founder never starts the public ready-only catalog audit", () => {
+  assert.equal(shouldLoadPublicMonitoringCatalog({ isSignedIn: true }), false);
+  assert.equal(shouldLoadPublicMonitoringCatalog({
+    isSignedIn: true,
+    accountAccess: { internalArtistProAccess: true },
+  }), false);
+  assert.equal(shouldLoadPublicMonitoringCatalog({
+    isSignedIn: true,
+    accountAccess: { internalArtistProAccess: false },
+  }), true);
+  assert.equal(shouldLoadPublicMonitoringCatalog({ isSignedIn: false }), true);
 });
 
 for (const status of [401, 403]) {
@@ -29,8 +43,15 @@ for (const status of [401, 403]) {
   });
 }
 
-test("transient dashboard failures retain one retry", () => {
+test("dashboard HTTP 503 is terminal and cannot return to loading", () => {
   const error = new MonitoringDashboardHttpError(503, "Unavailable");
+  assert.equal(shouldRetryMonitoringDashboard(0, error), false);
+  assert.equal(shouldRetryMonitoringDashboard(1, error), false);
+  assert.equal(monitoringDashboardViewState({ isLoading: true, error, hasData: false }), "error");
+});
+
+test("a transport failure retains one retry", () => {
+  const error = new Error("Network unavailable");
   assert.equal(shouldRetryMonitoringDashboard(0, error), true);
   assert.equal(shouldRetryMonitoringDashboard(1, error), false);
 });

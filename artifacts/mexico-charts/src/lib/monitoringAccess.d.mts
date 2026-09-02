@@ -5,6 +5,11 @@ export function internalMonitoringEntryPath(input: {
   requestedArtistKey?: string | null;
 }): string | null;
 
+export function shouldLoadPublicMonitoringCatalog(input: {
+  isSignedIn: boolean;
+  accountAccess?: { internalArtistProAccess: boolean };
+}): boolean;
+
 export class MonitoringDashboardHttpError extends Error {
   status: number;
   constructor(status: number, message: string);

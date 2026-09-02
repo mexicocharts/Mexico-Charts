@@ -257,10 +257,6 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     snapshots,
     extended,
     liveVideos,
-    liveVideoHistory,
-    streamSummary,
-    streamItems,
-    youtubeCoverage,
   ] = await Promise.all([
     publicReadPool.query<MonitoringSnapshotRow>(
       `
@@ -345,13 +341,11 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       FROM canonical_candidates c
       CROSS JOIN eastern_bounds bounds
       JOIN youtube_tracked_videos v ON v.video_id=c.video_id
-      JOIN LATERAL (
-        SELECT s.view_count, s.view_delta, s.seconds_since_previous, s.observed_at
-        FROM youtube_video_intraday_shadow_snapshots s
-        WHERE s.video_id=c.video_id
-        ORDER BY s.observed_at DESC
-        LIMIT 1
-      ) latest ON true
+      JOIN youtube_video_intraday_latest_observations latest_pointer
+        ON latest_pointer.video_id=c.video_id
+      JOIN youtube_video_intraday_shadow_snapshots latest
+        ON latest.video_id=latest_pointer.video_id
+       AND latest.observed_at=latest_pointer.latest_observed_at
       LEFT JOIN LATERAL (
         SELECT s.view_count, s.observed_at
         FROM youtube_video_intraday_shadow_snapshots s
@@ -373,6 +367,12 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       ORDER BY latest.view_count DESC, c.title
       LIMIT 100
     `, [activeKeys]),
+  ]);
+  const [
+    liveVideoHistory,
+    streamSummary,
+    streamItems,
+  ] = await Promise.all([
     publicReadPool.query(`
       SELECT
         s.video_id,
@@ -454,7 +454,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     `,
       [activeKeys],
     ),
-    publicReadPool.query<{
+  ]);
+  const youtubeCoverage = await publicReadPool.query<{
       channel_video_count: string | number | null;
       videos_imported: string | number | null;
       expected_total_videos: string | number | null;
@@ -486,7 +487,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
         ) linked_video_count,
         (
           SELECT count(DISTINCT sample.video_id)
-          FROM youtube_video_intraday_shadow_snapshots sample
+          FROM youtube_video_intraday_latest_observations sample
           JOIN youtube_music_catalog_candidates candidate
             ON candidate.video_id=sample.video_id
           WHERE candidate.status IN ('review','verified')
@@ -512,8 +513,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       LIMIT 1
     `,
       [activeKeys],
-    ),
-  ]);
+    );
   const extendedRow = extended.rows[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
     historicStats: extendedRow.historic_stats,

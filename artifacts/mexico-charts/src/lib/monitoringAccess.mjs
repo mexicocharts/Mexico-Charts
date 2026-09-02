@@ -9,6 +9,10 @@ export function internalMonitoringEntryPath({
   return artistKey ? `/monitoreo/${encodeURIComponent(artistKey)}` : null;
 }
 
+export function shouldLoadPublicMonitoringCatalog({ isSignedIn, accountAccess }) {
+  return !isSignedIn || accountAccess?.internalArtistProAccess === false;
+}
+
 export class MonitoringDashboardHttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -18,17 +22,15 @@ export class MonitoringDashboardHttpError extends Error {
 }
 
 export function shouldRetryMonitoringDashboard(failureCount, error) {
-  if (error instanceof MonitoringDashboardHttpError && (error.status === 401 || error.status === 403)) {
+  if (error instanceof MonitoringDashboardHttpError) {
     return false;
   }
   return failureCount < 1;
 }
 
 export function monitoringDashboardViewState({ isLoading, error, hasData }) {
-  if (error instanceof MonitoringDashboardHttpError && (error.status === 401 || error.status === 403)) {
-    return "error";
-  }
+  if (error) return "error";
   if (isLoading) return "loading";
-  if (error || !hasData) return "error";
+  if (!hasData) return "error";
   return "ready";
 }

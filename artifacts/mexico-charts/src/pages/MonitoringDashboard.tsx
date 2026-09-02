@@ -374,21 +374,42 @@ export default function MonitoringDashboard() {
     enabled: auth.configured && auth.isSignedIn && Boolean(artistKey),
     staleTime: 5 * 60 * 1000,
     retry: shouldRetryMonitoringDashboard,
-    queryFn: async () => {
-      const response = await authenticatedFetch(
-        auth.getToken,
-        `/api/monitoring/dashboard/${encodeURIComponent(artistKey)}`,
-      );
-      const payload = (await response.json()) as DashboardPayload & {
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new MonitoringDashboardHttpError(
-          response.status,
-          payload.error || "Unable to load monitoring dashboard",
+    queryFn: async ({ signal }) => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      const cancelForQuery = () => controller.abort();
+      signal.addEventListener("abort", cancelForQuery, { once: true });
+      try {
+        const response = await authenticatedFetch(
+          auth.getToken,
+          `/api/monitoring/dashboard/${encodeURIComponent(artistKey)}`,
+          { signal: controller.signal },
         );
+        const payload = (await response.json()) as DashboardPayload & {
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new MonitoringDashboardHttpError(
+            response.status,
+            payload.error || "Unable to load monitoring dashboard",
+          );
+        }
+        return payload;
+      } catch (requestError) {
+        if (controller.signal.aborted && !signal.aborted) {
+          throw new MonitoringDashboardHttpError(
+            504,
+            pick(
+              "El Monitor tardó demasiado en responder. Intenta recargar la página.",
+              "The Monitor took too long to respond. Please reload the page.",
+            ),
+          );
+        }
+        throw requestError;
+      } finally {
+        window.clearTimeout(timeout);
+        signal.removeEventListener("abort", cancelForQuery);
       }
-      return payload;
     },
   });
   // The ready branch below is the only branch that dereferences this value.

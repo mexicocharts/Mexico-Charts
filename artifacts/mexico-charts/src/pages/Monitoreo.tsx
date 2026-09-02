@@ -26,7 +26,10 @@ import { useArtistMetadata } from "@/services/dataProvider";
 import { CONTACT_EMAIL, SITE_URL } from "@/config/brand";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
-import { internalMonitoringEntryPath } from "@/lib/monitoringAccess.mjs";
+import {
+  internalMonitoringEntryPath,
+  shouldLoadPublicMonitoringCatalog,
+} from "@/lib/monitoringAccess.mjs";
 
 const G = "#39FF14";
 
@@ -75,16 +78,6 @@ export default function Monitoreo() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  const { data: availability, isLoading: availabilityLoading } = useQuery<MonitoringArtistAvailability>({
-    queryKey: ["monitoringArtists"],
-    queryFn: async () => {
-      const response = await fetch("/api/monitoring/artists");
-      if (!response.ok) throw new Error("Monitoring artist availability unavailable");
-      return response.json() as Promise<MonitoringArtistAvailability>;
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
   const { data: accountAccess } = useQuery<AccountAccess>({
     queryKey: ["account-access", auth.userId],
     enabled: auth.configured && auth.isSignedIn,
@@ -92,6 +85,20 @@ export default function Monitoreo() {
       const response = await authenticatedFetch(auth.getToken, "/api/account/me");
       if (!response.ok) throw new Error("Account access unavailable");
       return response.json() as Promise<AccountAccess>;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+  const { data: availability, isLoading: availabilityLoading } = useQuery<MonitoringArtistAvailability>({
+    queryKey: ["monitoringArtists"],
+    enabled: shouldLoadPublicMonitoringCatalog({
+      isSignedIn: auth.isSignedIn,
+      accountAccess,
+    }),
+    queryFn: async () => {
+      const response = await fetch("/api/monitoring/artists");
+      if (!response.ok) throw new Error("Monitoring artist availability unavailable");
+      return response.json() as Promise<MonitoringArtistAvailability>;
     },
     staleTime: 5 * 60 * 1000,
     retry: 1,
