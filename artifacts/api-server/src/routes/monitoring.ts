@@ -1,5 +1,4 @@
 import { Router, type RequestHandler } from "express";
-import { createHash } from "node:crypto";
 import { publicReadPool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
@@ -12,7 +11,7 @@ import {
   getMonitoringReadyArtist,
 } from "../lib/monitoring-readiness-service";
 import { logger } from "../lib/logger";
-import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import { clerkConfigured, clerkUserId, requireClerkUser, safeClerkIdentityHash } from "../lib/auth";
 import { dedupeYoutubeMonitorRows } from "../lib/youtube-monitor-dedupe";
 import {
   loadCompactMonitoringHistoryOverview,
@@ -241,7 +240,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   logger.info({
     event: "artist_pro_monitoring_authorization",
     authenticatedIdentityResolved: Boolean(userId),
-    identityHash: userId ? createHash("sha256").update(userId).digest("hex").slice(0, 12) : null,
+    identityHash: userId ? safeClerkIdentityHash(userId) : null,
     requestedArtistKey,
     requestedCompactKey: lookupKeys.at(-1) ?? null,
     entitlementSource: authorization.source ?? "denied",

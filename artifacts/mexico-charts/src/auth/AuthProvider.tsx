@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { ClerkProvider, useAuth, useClerk, useUser } from "@clerk/react";
 import { useLanguage } from "@/i18n/LanguageContext";
+export { authenticatedFetch } from "./authenticatedFetch.mjs";
 
 type MexicoAuth = {
   configured: boolean;
@@ -39,11 +40,17 @@ function ClerkAuthBridge({ children }: { children: ReactNode }) {
     isLoaded,
     isSignedIn: Boolean(isSignedIn),
     userId: userId ?? null,
-    displayName: user?.fullName ?? user?.firstName ?? user?.primaryEmailAddress?.emailAddress ?? null,
+    displayName:
+      user?.fullName ??
+      user?.firstName ??
+      user?.primaryEmailAddress?.emailAddress ??
+      null,
     imageUrl: user?.imageUrl ?? null,
     openSignIn: () => openSignIn({}),
     openSignUp: () => openSignUp({}),
-    signOut: async () => { await signOut(); },
+    signOut: async () => {
+      await signOut();
+    },
     getToken: async () => getToken(),
   };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -53,9 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY?.trim();
   const { language } = useLanguage();
   const localization = useMemo(() => {
-    const emailCodeSubtitle = language === "es"
-      ? "Enviamos un código a tu correo. Si no lo ves, revisa Spam, Correo no deseado o Promociones."
-      : "We sent a code to your email. If you don't see it, check Spam, Junk, or Promotions.";
+    const emailCodeSubtitle =
+      language === "es"
+        ? "Enviamos un código a tu correo. Si no lo ves, revisa Spam, Correo no deseado o Promociones."
+        : "We sent a code to your email. If you don't see it, check Spam, Junk, or Promotions.";
 
     return {
       signIn: { emailCode: { subtitle: emailCodeSubtitle } },
@@ -64,7 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [language]);
 
   if (!publishableKey) {
-    return <AuthContext.Provider value={disabledAuth}>{children}</AuthContext.Provider>;
+    return (
+      <AuthContext.Provider value={disabledAuth}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
   return (
     <ClerkProvider
@@ -79,18 +91,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useMexicoAuth() {
   return useContext(AuthContext);
-}
-
-export async function authenticatedFetch(
-  getToken: MexicoAuth["getToken"],
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-) {
-  const token = await Promise.race<string | null>([
-    getToken().catch(() => null),
-    new Promise<null>(resolve => window.setTimeout(() => resolve(null), 3_000)),
-  ]);
-  const headers = new Headers(init.headers);
-  if (token) headers.set("authorization", `Bearer ${token}`);
-  return fetch(input, { ...init, headers, credentials: init.credentials ?? "same-origin" });
 }

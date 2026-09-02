@@ -10,7 +10,7 @@
     "audit:routes": "node scripts/audit-public-routes.mjs",
     "audit:seo": "node scripts/audit-seo.mjs",
     "audit:performance": "node scripts/audit-performance.mjs",
-    "test": "node --test src/lib/*.test.mjs",
+    "test": "node --test src/lib/*.test.mjs src/auth/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

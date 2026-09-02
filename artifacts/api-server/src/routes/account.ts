@@ -11,7 +11,7 @@ import {
   userListeningEvents,
   userMusicConnections,
 } from "@workspace/db";
-import { clerkConfigured, clerkUserId, requireClerkUser } from "../lib/auth";
+import { clerkConfigured, clerkUserId, requireClerkUser, safeClerkIdentityHash } from "../lib/auth";
 import { isAccountSchemaReady } from "../lib/account-schema";
 import { buildAccountMeResponse } from "../lib/account-response";
 import {
@@ -36,10 +36,6 @@ import {
 } from "../lib/user-music-connections";
 
 const router = Router();
-
-function safeIdentityHash(userId: string): string {
-  return createHash("sha256").update(userId).digest("hex").slice(0, 12);
-}
 
 function cleanArtistKey(value: unknown): string {
   return String(value ?? "").trim().toLowerCase().slice(0, 160);
@@ -145,7 +141,7 @@ router.get("/account/config", (_req, res) => {
 
 router.get("/account/me", requireClerkUser, async (_req, res) => {
   const userId = clerkUserId(res);
-  const identityHash = safeIdentityHash(userId);
+  const identityHash = safeClerkIdentityHash(userId);
   const totalStartedAt = performance.now();
   let databaseStage = "account_upsert";
   _req.log.info({
@@ -224,6 +220,7 @@ router.get("/account/me", requireClerkUser, async (_req, res) => {
 
 router.patch("/account/profile", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeClerkIdentityHash(userId);
   const username = cleanUsername(req.body?.username);
   if (username.length < 3) {
     res.status(400).json({ error: "Username must contain at least 3 letters or numbers" });
@@ -251,7 +248,7 @@ router.patch("/account/profile", requireClerkUser, async (req, res) => {
     }).returning();
     res.json({ profile });
   } catch (error) {
-    req.log.error({ error, userId, username }, "account profile update failed");
+    req.log.error({ error, identityHash, username }, "account profile update failed");
     const message = error instanceof Error && /unique|duplicate/i.test(error.message)
       ? "That username is already in use"
       : "Unable to update account profile";
@@ -261,6 +258,7 @@ router.patch("/account/profile", requireClerkUser, async (req, res) => {
 
 router.post("/account/connections/lastfm", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeClerkIdentityHash(userId);
   const username = String(req.body?.username ?? "").trim().slice(0, 80);
   if (!musicConnectionConfig().lastfm) {
     res.status(503).json({ error: "Last.fm connection is not configured yet" });
@@ -284,7 +282,7 @@ router.post("/account/connections/lastfm", requireClerkUser, async (req, res) =>
     }).returning();
     res.json({ connection: publicConnection(connection), playcount: user.playcount ?? null });
   } catch (error) {
-    req.log.warn({ error, userId, username }, "Last.fm connection failed");
+    req.log.warn({ error, identityHash, username }, "Last.fm connection failed");
     res.status(400).json({ error: "We could not find that Last.fm username" });
   }
 });
@@ -332,7 +330,7 @@ router.get("/account/connections/spotify/callback", async (req, res) => {
     });
     res.redirect("/cuenta?spotify=connected");
   } catch (error) {
-    req.log.error({ error, userId }, "Spotify connection callback failed");
+    req.log.error({ error, identityHash: userId ? safeClerkIdentityHash(userId) : null }, "Spotify connection callback failed");
     res.redirect("/cuenta?spotify=error");
   }
 });
@@ -357,6 +355,7 @@ router.delete("/account/connections/:provider", requireClerkUser, async (req, re
 
 router.get("/account/listening", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeClerkIdentityHash(userId);
   try {
     const connections = await db.select().from(userMusicConnections)
       .where(eq(userMusicConnections.clerkUserId, userId));
@@ -407,13 +406,14 @@ router.get("/account/listening", requireClerkUser, async (req, res) => {
       .map(([artistName, plays]) => ({ artistName, plays }));
     res.json({ listening: result, recentActivity, topArtists, storedEventsInResponseWindow: recentActivity.length });
   } catch (error) {
-    req.log.error({ error, userId }, "fan listening load failed");
+    req.log.error({ error, identityHash }, "fan listening load failed");
     res.status(502).json({ error: "Unable to refresh connected listening history" });
   }
 });
 
 router.post("/account/saved-artists", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeClerkIdentityHash(userId);
   const artistKey = cleanArtistKey(req.body?.artistKey);
   const artistName = cleanArtistName(req.body?.artistName);
   if (!artistKey || !artistName) {
@@ -438,13 +438,14 @@ router.post("/account/saved-artists", requireClerkUser, async (req, res) => {
     }).returning();
     res.status(201).json({ savedArtist: saved });
   } catch (error) {
-    req.log.error({ error, userId, artistKey }, "save artist failed");
+    req.log.error({ error, identityHash, artistKey }, "save artist failed");
     res.status(500).json({ error: "Unable to save artist" });
   }
 });
 
 router.delete("/account/saved-artists/:artistKey", requireClerkUser, async (req, res) => {
   const userId = clerkUserId(res);
+  const identityHash = safeClerkIdentityHash(userId);
   const artistKey = cleanArtistKey(req.params.artistKey);
   try {
     await db.delete(savedArtists).where(and(
@@ -453,7 +454,7 @@ router.delete("/account/saved-artists/:artistKey", requireClerkUser, async (req,
     ));
     res.status(204).end();
   } catch (error) {
-    req.log.error({ error, userId, artistKey }, "remove saved artist failed");
+    req.log.error({ error, identityHash, artistKey }, "remove saved artist failed");
     res.status(500).json({ error: "Unable to remove saved artist" });
   }
 });
