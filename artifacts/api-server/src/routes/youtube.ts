@@ -26,6 +26,7 @@ import {
   youtubeLiveCoverageVideoSql,
 } from "@workspace/db/youtube-live-coverage-query";
 import { readSafeDatabaseRuntimeIdentity } from "../lib/youtube-runtime-observability";
+import { safeErrorDetails } from "../lib/safe-error";
 
 const router = Router();
 
@@ -489,6 +490,66 @@ function requireAdmin(
   }
   return true;
 }
+
+// Lightweight, guarded proof that the serving API and the persisted YouTube
+// collector/validation state resolve through the same configured database.
+// This deliberately avoids the expensive catalog diagnostics in music-shadow/status.
+router.get("/admin/youtube/persistence-status", async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const client = await pool.connect();
+  try {
+    const databaseTarget = await readSafeDatabaseRuntimeIdentity(client);
+    const [observations, validationSession, validationSnapshot] = await Promise.all([
+      client.query<{
+        latest_observation_at: string | null;
+        observations_last_30_minutes: number;
+        recent_cycles: Array<{ observedMinute: string; saved: number }>;
+      }>(`
+        SELECT
+          max(observed_at)::text latest_observation_at,
+          count(*) FILTER (WHERE observed_at >= now() - interval '30 minutes')::int observations_last_30_minutes,
+          COALESCE((
+            SELECT jsonb_agg(to_jsonb(cycle) ORDER BY cycle.observed_minute DESC)
+            FROM (
+              SELECT date_trunc('minute', observed_at)::text observed_minute, count(*)::int saved
+              FROM youtube_video_intraday_shadow_snapshots
+              WHERE observed_at >= now() - interval '1 hour'
+              GROUP BY date_trunc('minute', observed_at)
+              ORDER BY date_trunc('minute', observed_at) DESC
+              LIMIT 8
+            ) cycle
+          ), '[]'::jsonb) recent_cycles
+        FROM youtube_video_intraday_shadow_snapshots
+      `),
+      client.query(`
+        SELECT id, status, started_at::text, ends_at::text, completed_at::text
+        FROM youtube_discovery_validation_sessions
+        ORDER BY id DESC
+        LIMIT 1
+      `),
+      client.query(`
+        SELECT session_id, validation_day::text, snapshot_at::text, metrics
+        FROM youtube_discovery_validation_daily_snapshots
+        ORDER BY snapshot_at DESC
+        LIMIT 1
+      `),
+    ]);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      databaseTargetConfiguration,
+      databaseTarget,
+      observations: observations.rows[0] ?? null,
+      validationSession: validationSession.rows[0] ?? null,
+      validationSnapshot: validationSnapshot.rows[0] ?? null,
+    });
+  } catch (error) {
+    logger.error(safeErrorDetails(error, { route: "youtube-persistence-status" }),
+      "[youtube] persistence status failed");
+    res.status(500).json({ error: "Persistence status unavailable." });
+  } finally {
+    client.release();
+  }
+});
 
 // GET /api/admin/youtube/search/channels?q=peso+pluma
 router.get("/admin/youtube/search/channels", async (req, res) => {
