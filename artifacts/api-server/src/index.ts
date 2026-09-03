@@ -17,6 +17,7 @@ import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-moni
 import { startTouringAlertDelivery } from "./lib/touring-alert-delivery";
 import { startTouringWeeklySummaryScheduler } from "./lib/touring-weekly-summary";
 import { initializeAccountSchema } from "./lib/account-schema";
+import { monitoringReadPool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -89,7 +90,16 @@ function scheduleRuntimeInitialization(): void {
 
 const server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
-  scheduleRuntimeInitialization();
+  // Wake the latency-sensitive Artist Pro connection before startup
+  // collectors compete for database capacity. This keeps the first signed-in
+  // dashboard request out of the database provider's cold-start window.
+  void monitoringReadPool.query("SELECT 1")
+    .then(() => logger.info({ event: "monitoring_read_pool_warmed" }, "Artist Pro monitoring pool warmed"))
+    .catch(error => logger.warn({
+      event: "monitoring_read_pool_warm_failed",
+      errorName: error instanceof Error ? error.name : "UnknownDatabaseError",
+    }, "Artist Pro monitoring pool warm-up failed; requests retain bounded fallbacks"))
+    .finally(scheduleRuntimeInitialization);
 });
 
 server.on("error", err => {

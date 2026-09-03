@@ -5,8 +5,8 @@ import test from "node:test";
 const source = readFileSync(new URL("./monitoring.ts", import.meta.url), "utf8");
 
 test("monitoring dashboard latest-video reads use compact observation state", () => {
-  assert.match(source, /JOIN youtube_video_intraday_latest_observations latest_pointer/);
-  assert.match(source, /latest\.observed_at=latest_pointer\.latest_observed_at/);
+  assert.match(source, /LEFT JOIN youtube_video_intraday_latest_observations pointer/);
+  assert.match(source, /latest\.observed_at=pointer\.latest_observed_at/);
   assert.doesNotMatch(
     source,
     /JOIN LATERAL \(\s*SELECT s\.view_count, s\.view_delta, s\.seconds_since_previous, s\.observed_at\s*FROM youtube_video_intraday_shadow_snapshots/s,
@@ -24,7 +24,8 @@ test("monitoring coverage counts compact latest rows instead of scanning history
 test("dashboard enrichment stages cannot hold the response past the UI timeout", () => {
   assert.match(source, /const dashboardStage = async <T>/);
   assert.match(source, /Promise\.race\(\[loaded, timedOut\]\)/);
-  assert.match(source, /8_000 - elapsedMilliseconds\(dashboardLoadStartedAt\)/);
+  assert.match(source, /DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds\(dashboardLoadStartedAt\)/);
+  assert.match(source, /DASHBOARD_LOAD_BUDGET_MS = 3_500/);
   assert.match(source, /outcome: "budget_exhausted"/);
   assert.match(source, /outcome: "timeout"/);
   assert.match(source, /Monitoring dashboard stage timed out; using an empty section/);
@@ -33,25 +34,25 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
 test("dashboard reads use the dedicated three-connection monitoring pool", () => {
   assert.match(source, /import \{ monitoringReadPool \} from "@workspace\/db"/);
   assert.doesNotMatch(source, /publicReadPool/);
-  assert.match(source, /const \[\s*prioritizedStreamSummary,\s*prioritizedStreamItems,\s*prioritizedLiveVideos,\s*\] = await Promise\.all/s);
-  assert.match(source, /const \[\s*snapshots,\s*extended,\s*liveVideos,\s*\] = await Promise\.all/s);
+  assert.match(source, /const \[prioritizedStreamSummary, prioritizedStreamItems, snapshots\] = await Promise\.all/);
+  assert.match(source, /const prioritizedLiveVideos = await dashboardStage/);
   assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);
 });
 
 test("Spotify catalog and stored YouTube counters are prioritized before optional enrichment", () => {
-  const priority = source.indexOf("priority_stream_summary");
-  const optional = source.indexOf("daily_snapshots");
-  assert.ok(priority >= 0 && optional > priority);
+  const priority = source.indexOf("priority_daily_snapshots");
+  const youtube = source.indexOf("priority_youtube_live_videos");
+  assert.ok(priority >= 0 && youtube > priority);
   assert.match(source, /const resolvedStreamSummary = prioritizedStreamSummary/);
   assert.match(source, /const resolvedStreamItems = prioritizedStreamItems/);
-  assert.match(source, /const resolvedLiveVideos = liveVideos\.length \? liveVideos : prioritizedLiveVideos/);
+  assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
+  assert.match(source, /priority_youtube_live_videos[\s\S]*\[activeKeys\]\)\.then\(result => result\.rows\), \[\], 1_500\)/);
 });
 
 test("dashboard returns safe empty sections when individual data sources are unavailable", () => {
   for (const stage of [
-    "daily_snapshots",
+    "priority_daily_snapshots",
     "extended_artist_data",
-    "youtube_live_videos",
     "youtube_live_history",
     "priority_stream_summary",
     "priority_stream_items",
@@ -71,7 +72,9 @@ test("internal artist picker lists existing monitored artists without public rea
   const route = source.slice(routeStart, dashboardStart);
   assert.match(route, /requireMonitoringClerkUser/);
   assert.match(route, /hasInternalArtistProEntitlement\(userId\)/);
-  assert.match(route, /JOIN songstats_artist_daily_snapshots/);
+  assert.match(route, /FROM songstats_artist_daily_snapshots/);
+  assert.match(route, /JOIN latest_snapshots snapshot/);
+  assert.doesNotMatch(route, /SELECT count\(\*\)[\s\S]*WHERE stream_item\.artist_key=coverage\.artist_key/);
   assert.doesNotMatch(route, /auditMonitoringReadiness|getMonitoringReadyArtist/);
 });
 

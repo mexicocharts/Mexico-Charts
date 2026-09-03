@@ -30,11 +30,12 @@ test("account HTTP routes contain no request-time schema DDL", async () => {
 test("server opens the health-check port before database schema initialization", async () => {
   const startupSource = await readFile(new URL("../index.ts", import.meta.url), "utf8");
   const listenIndex = startupSource.indexOf("app.listen(");
-  const scheduleIndex = startupSource.indexOf("scheduleRuntimeInitialization();", listenIndex);
+  const scheduleIndex = startupSource.indexOf(".finally(scheduleRuntimeInitialization)", listenIndex);
   const initializeIndex = startupSource.indexOf("await initializeAccountSchema()");
   assert.ok(initializeIndex >= 0);
   assert.ok(listenIndex >= 0);
   assert.ok(scheduleIndex > listenIndex);
+  assert.ok(startupSource.indexOf('monitoringReadPool.query("SELECT 1")', listenIndex) < scheduleIndex);
   assert.match(startupSource, /startup_schema_retry_scheduled/);
 });
 

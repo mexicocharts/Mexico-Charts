@@ -36,6 +36,7 @@ import { createMonitoringReportPdf } from "../lib/monitoring-report-pdf";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
+const DASHBOARD_LOAD_BUDGET_MS = 3_500;
 
 const requireMonitoringClerkUser: RequestHandler = (req, res, next) => {
   let identityResolved = false;
@@ -256,9 +257,17 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
 
   const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
   const dashboardLoadStartedAt = performance.now();
-  const dashboardStage = async <T>(stage: string, load: () => Promise<T>, fallback: T): Promise<T> => {
+  const dashboardStage = async <T>(
+    stage: string,
+    load: () => Promise<T>,
+    fallback: T,
+    maxStageDurationMs?: number,
+  ): Promise<T> => {
     const startedAt = performance.now();
-    const remainingDashboardBudgetMs = 8_000 - elapsedMilliseconds(dashboardLoadStartedAt);
+    const remainingDashboardBudgetMs = Math.min(
+      DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt),
+      maxStageDurationMs ?? Number.POSITIVE_INFINITY,
+    );
     if (remainingDashboardBudgetMs <= 0) {
       logger.warn({
         event: "monitoring_dashboard_stage",
@@ -357,7 +366,36 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     WHERE lower(i.artist_key) = ANY($1::text[])
     ORDER BY i.item_type, s.daily_streams DESC, s.total_streams DESC, i.title
   `, [activeKeys]).then(result => result.rows), []);
-  const priorityLiveVideos = dashboardStage("priority_youtube_live_videos", () => monitoringReadPool.query(`
+  const prioritySnapshots = dashboardStage("priority_daily_snapshots", () => monitoringReadPool.query<MonitoringSnapshotRow>(
+    `
+      SELECT
+        snapshot_date,
+        spotify_followers,
+        spotify_monthly_listeners,
+        spotify_popularity,
+        youtube_subscribers,
+        youtube_channel_views,
+        instagram_followers,
+        tiktok_followers,
+        facebook_followers,
+        twitter_followers,
+        soundcloud_followers,
+        deezer_followers
+      FROM songstats_artist_daily_snapshots
+      WHERE lower(artist_key) = ANY($1::text[])
+      ORDER BY snapshot_date ASC
+    `, [activeKeys]).then(result => result.rows), []);
+
+  // Resolve the core dashboard and Spotify catalog before attempting the
+  // heavier YouTube enrichment. A slow video query must never erase already
+  // stored audience history from the response.
+  const [prioritizedStreamSummary, prioritizedStreamItems, snapshots] = await Promise.all([
+    priorityStreamSummary,
+    priorityStreamItems,
+    prioritySnapshots,
+  ]);
+
+  const prioritizedLiveVideos = await dashboardStage("priority_youtube_live_videos", () => monitoringReadPool.query(`
     WITH matched_links AS (
       SELECT DISTINCT ON (link.video_id)
         link.artist_name,
@@ -367,13 +405,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       FROM youtube_artist_video_links link
       WHERE link.active=true
         AND link.confidence_score >= 80
-        AND (
-          lower(link.artist_key) = ANY($1::text[])
-          OR regexp_replace(
-            translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'),
-            '[^a-z0-9]', '', 'g'
-          ) = ANY($1::text[])
-        )
+        AND link.artist_key = ANY($1::text[])
       ORDER BY link.video_id, link.confidence_score DESC, link.priority DESC, link.id
     )
     SELECT
@@ -401,45 +433,9 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
     ORDER BY COALESCE(latest.view_count, tracked.view_count) DESC, tracked.title
     LIMIT 100
-  `, [activeKeys]).then(result => result.rows), []);
-  // The public pool is intentionally capped at three connections. Resolve the
-  // three critical product datasets before starting optional enrichment so
-  // they cannot sit behind slower Songstats/history queries in the pool queue.
-  const [
-    prioritizedStreamSummary,
-    prioritizedStreamItems,
-    prioritizedLiveVideos,
-  ] = await Promise.all([
-    priorityStreamSummary,
-    priorityStreamItems,
-    priorityLiveVideos,
-  ]);
+  `, [activeKeys]).then(result => result.rows), [], 1_500);
 
-  const [
-    snapshots,
-    extended,
-    liveVideos,
-  ] = await Promise.all([
-    dashboardStage("daily_snapshots", () => monitoringReadPool.query<MonitoringSnapshotRow>(
-      `
-      SELECT
-        snapshot_date,
-        spotify_followers,
-        spotify_monthly_listeners,
-        spotify_popularity,
-        youtube_subscribers,
-        youtube_channel_views,
-        instagram_followers,
-        tiktok_followers,
-        facebook_followers,
-        twitter_followers,
-        soundcloud_followers,
-        deezer_followers
-      FROM songstats_artist_daily_snapshots
-      WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY snapshot_date ASC
-    `, [activeKeys]).then(result => result.rows), []),
-    dashboardStage("extended_artist_data", () => monitoringReadPool.query<{
+  const extended = await dashboardStage("extended_artist_data", () => monitoringReadPool.query<{
       historic_stats: unknown;
       audience: unknown;
       audience_details: unknown;
@@ -450,86 +446,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       WHERE lower(artist_key) = ANY($1::text[])
       ORDER BY updated_at DESC
       LIMIT 1
-    `, [activeKeys]).then(result => result.rows), []),
-    dashboardStage("youtube_live_videos", () => monitoringReadPool.query(`
-      WITH eastern_bounds AS (
-        SELECT
-          (date_trunc('day', now() AT TIME ZONE 'America/New_York') AT TIME ZONE 'America/New_York') today_start,
-          ((date_trunc('day', now() AT TIME ZONE 'America/New_York') - interval '1 day') AT TIME ZONE 'America/New_York') previous_start
-      ), matched_candidates AS (
-        SELECT c.*,
-          row_number() OVER (
-            PARTITION BY
-              regexp_replace(translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g'),
-              c.video_id
-            ORDER BY
-              (lower(c.artist_key)=ANY($1::text[])) DESC,
-              (c.status='verified') DESC,
-              c.confidence_score DESC,
-              (c.canonical_url LIKE 'https://www.youtube.com/watch?v=%') DESC,
-              c.id
-          ) candidate_rank
-        FROM youtube_music_catalog_candidates c
-        WHERE (
-            lower(c.artist_key) = ANY($1::text[])
-            OR regexp_replace(
-              translate(lower(c.artist_key), 'áéíóúüñ', 'aeiouun'),
-              '[^a-z0-9]', '', 'g'
-            ) = ANY($1::text[])
-          )
-          AND c.status IN ('review','verified')
-          AND c.sampling_status='shadow'
-      ), canonical_candidates AS (
-        SELECT * FROM matched_candidates WHERE candidate_rank=1
-      )
-      SELECT
-        c.artist_name,
-        c.video_id,
-        COALESCE(NULLIF(v.title, ''), c.title) title,
-        v.thumbnail_url,
-        'https://www.youtube.com/watch?v=' || c.video_id canonical_url,
-        latest.view_count,
-        latest.view_delta,
-        latest.seconds_since_previous,
-        latest.observed_at::text observed_at,
-        CASE WHEN previous_start.view_count IS NULL OR today_start.view_count IS NULL THEN NULL
-          ELSE GREATEST(0, today_start.view_count - previous_start.view_count) END views_24h,
-        previous_start.observed_at::text views_24h_started_at,
-        today_start.observed_at::text views_24h_ended_at,
-        CASE WHEN today_start.view_count IS NULL OR latest.view_count IS NULL THEN NULL
-          ELSE GREATEST(0, latest.view_count - today_start.view_count) END views_today_et,
-        today_start.observed_at::text views_today_et_started_at,
-        CASE WHEN today_start.observed_at IS NULL THEN NULL ELSE latest.observed_at::text END views_today_et_ended_at
-      FROM canonical_candidates c
-      CROSS JOIN eastern_bounds bounds
-      JOIN youtube_tracked_videos v ON v.video_id=c.video_id
-      JOIN youtube_video_intraday_latest_observations latest_pointer
-        ON latest_pointer.video_id=c.video_id
-      JOIN youtube_video_intraday_shadow_snapshots latest
-        ON latest.video_id=latest_pointer.video_id
-       AND latest.observed_at=latest_pointer.latest_observed_at
-      LEFT JOIN LATERAL (
-        SELECT s.view_count, s.observed_at
-        FROM youtube_video_intraday_shadow_snapshots s
-        WHERE s.video_id=c.video_id
-          AND s.observed_at >= bounds.previous_start
-          AND s.observed_at < bounds.previous_start + interval '30 minutes'
-        ORDER BY s.observed_at
-        LIMIT 1
-      ) previous_start ON true
-      LEFT JOIN LATERAL (
-        SELECT s.view_count, s.observed_at
-        FROM youtube_video_intraday_shadow_snapshots s
-        WHERE s.video_id=c.video_id
-          AND s.observed_at >= bounds.today_start
-          AND s.observed_at < bounds.today_start + interval '30 minutes'
-        ORDER BY s.observed_at
-        LIMIT 1
-      ) today_start ON true
-      ORDER BY latest.view_count DESC, c.title
-      LIMIT 100
-    `, [activeKeys]).then(result => result.rows), []),
-  ]);
+    `, [activeKeys]).then(result => result.rows), [], 1_000);
   const liveVideoHistory = await dashboardStage("youtube_live_history", () => monitoringReadPool.query(`
       SELECT
         s.video_id,
@@ -640,7 +557,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   ]);
   const resolvedStreamSummary = prioritizedStreamSummary;
   const resolvedStreamItems = prioritizedStreamItems;
-  const resolvedLiveVideos = liveVideos.length ? liveVideos : prioritizedLiveVideos;
+  const resolvedLiveVideos = prioritizedLiveVideos;
   const extendedRow = extended[0];
   const insight = extendedRow ? buildSongstatsPublicInsight({
     historicStats: extendedRow.historic_stats,
@@ -833,27 +750,32 @@ router.get("/monitoring/internal/artists", requireMonitoringClerkUser, async (re
       spotify_item_count: string | number;
       youtube_video_count: string | number;
     }>(`
+      WITH latest_snapshots AS (
+        SELECT artist_key, max(snapshot_date)::text last_snapshot_date
+        FROM songstats_artist_daily_snapshots
+        GROUP BY artist_key
+      ), stream_counts AS (
+        SELECT artist_key, count(*)::int spotify_item_count
+        FROM monitoring_stream_items
+        GROUP BY artist_key
+      ), video_counts AS (
+        SELECT artist_key, count(DISTINCT video_id)::int youtube_video_count
+        FROM youtube_artist_video_links
+        WHERE active=true AND confidence_score >= 80
+        GROUP BY artist_key
+      )
       SELECT
         coverage.artist_key,
         coverage.artist_name,
-        max(snapshot.snapshot_date) last_snapshot_date,
-        (
-          SELECT count(*)
-          FROM monitoring_stream_items stream_item
-          WHERE stream_item.artist_key=coverage.artist_key
-        ) spotify_item_count,
-        (
-          SELECT count(DISTINCT video_link.video_id)
-          FROM youtube_artist_video_links video_link
-          WHERE video_link.artist_key=coverage.artist_key
-            AND video_link.active=true
-            AND video_link.confidence_score >= 80
-        ) youtube_video_count
+        snapshot.last_snapshot_date,
+        COALESCE(streams.spotify_item_count, 0) spotify_item_count,
+        COALESCE(videos.youtube_video_count, 0) youtube_video_count
       FROM kworb_coverage coverage
-      JOIN songstats_artist_daily_snapshots snapshot
+      JOIN latest_snapshots snapshot
         ON snapshot.artist_key=coverage.artist_key
+      LEFT JOIN stream_counts streams ON streams.artist_key=coverage.artist_key
+      LEFT JOIN video_counts videos ON videos.artist_key=coverage.artist_key
       WHERE COALESCE(coverage.spotify_id, '') <> ''
-      GROUP BY coverage.artist_key, coverage.artist_name
       ORDER BY COALESCE(NULLIF(coverage.artist_name, ''), coverage.artist_key)
     `);
     res.setHeader("cache-control", "private, max-age=300");
