@@ -320,6 +320,15 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   // Start the paid Spotify catalog before optional licensed/audience work. The
   // previous global budget could expire while waiting on Songstats or YouTube,
   // leaving an already-populated stream archive invisible to subscribers.
+  const priorityArtistIdentity = dashboardStage("priority_artist_identity", () => monitoringReadPool.query<{
+    avatar_url: string | null;
+  }>(`
+    SELECT avatar_url
+    FROM songstats_artists
+    WHERE lower(artist_key) = ANY($1::text[])
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `, [activeKeys]).then(result => result.rows), []);
   const priorityStreamSummary = dashboardStage("priority_stream_summary", () => monitoringReadPool.query<{
     snapshot_date: string;
     track_count: number;
@@ -389,7 +398,8 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   // Resolve the core dashboard and Spotify catalog before attempting the
   // heavier YouTube enrichment. A slow video query must never erase already
   // stored audience history from the response.
-  const [prioritizedStreamSummary, prioritizedStreamItems, snapshots] = await Promise.all([
+  const [prioritizedArtistIdentity, prioritizedStreamSummary, prioritizedStreamItems, snapshots] = await Promise.all([
+    priorityArtistIdentity,
     priorityStreamSummary,
     priorityStreamItems,
     prioritySnapshots,
@@ -614,6 +624,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
     subscription: {
       artistKey: active.artist_key,
       artistName: active.artist_name,
+      artistImageUrl: prioritizedArtistIdentity[0]?.avatar_url ?? null,
       status: active.status,
       activatedAt: active.created_at?.toISOString() ?? null,
       accessSource: authorization.source,

@@ -34,7 +34,7 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
 test("dashboard reads use the dedicated three-connection monitoring pool", () => {
   assert.match(source, /import \{ monitoringReadPool \} from "@workspace\/db"/);
   assert.doesNotMatch(source, /publicReadPool/);
-  assert.match(source, /const \[prioritizedStreamSummary, prioritizedStreamItems, snapshots\] = await Promise\.all/);
+  assert.match(source, /const \[prioritizedArtistIdentity, prioritizedStreamSummary, prioritizedStreamItems, snapshots\] = await Promise\.all/);
   assert.match(source, /const prioritizedLiveVideos = await dashboardStage/);
   assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);
 });
@@ -56,6 +56,7 @@ test("dashboard returns safe empty sections when individual data sources are una
     "youtube_live_history",
     "priority_stream_summary",
     "priority_stream_items",
+    "priority_artist_identity",
     "priority_youtube_live_videos",
     "youtube_coverage",
     "compact_history_overview",
@@ -63,6 +64,11 @@ test("dashboard returns safe empty sections when individual data sources are una
   ]) {
     assert.match(source, new RegExp(`dashboardStage\\(\\s*"${stage}"`));
   }
+});
+
+test("canonical Monitor Pro receives the stored artist identity image without substituting catalog art", () => {
+  assert.match(source, /SELECT avatar_url\s+FROM songstats_artists/s);
+  assert.match(source, /artistImageUrl: prioritizedArtistIdentity\[0\]\?\.avatar_url \?\? null/);
 });
 
 test("internal artist picker lists existing monitored artists without public readiness", () => {
