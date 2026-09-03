@@ -25,7 +25,7 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
   assert.match(source, /const dashboardStage = async <T>/);
   assert.match(source, /Promise\.race\(\[loaded, timedOut\]\)/);
   assert.match(source, /DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds\(dashboardLoadStartedAt\)/);
-  assert.match(source, /DASHBOARD_LOAD_BUDGET_MS = 3_500/);
+  assert.match(source, /DASHBOARD_LOAD_BUDGET_MS = 12_000/);
   assert.match(source, /outcome: "budget_exhausted"/);
   assert.match(source, /outcome: "timeout"/);
   assert.match(source, /Monitoring dashboard stage timed out; using an empty section/);
@@ -34,7 +34,7 @@ test("dashboard enrichment stages cannot hold the response past the UI timeout",
 test("dashboard reads use the dedicated three-connection monitoring pool", () => {
   assert.match(source, /import \{ monitoringReadPool \} from "@workspace\/db"/);
   assert.doesNotMatch(source, /publicReadPool/);
-  assert.match(source, /const \[prioritizedArtistIdentity, prioritizedStreamSummary, prioritizedStreamItems, snapshots\] = await Promise\.all/);
+  assert.match(source, /const \[prioritizedArtistIdentity, prioritizedStreamSummary, prioritizedStreamItems, spotifyHistory, spotifySnapshots, storedTrackArtwork, comparisonRows, snapshots\] = await Promise\.all/);
   assert.match(source, /const prioritizedLiveVideos = await dashboardStage/);
   assert.match(source, /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s);
 });
@@ -43,8 +43,8 @@ test("Spotify catalog and stored YouTube counters are prioritized before optiona
   const priority = source.indexOf("priority_daily_snapshots");
   const youtube = source.indexOf("priority_youtube_live_videos");
   assert.ok(priority >= 0 && youtube > priority);
-  assert.match(source, /const resolvedStreamSummary = prioritizedStreamSummary/);
-  assert.match(source, /const resolvedStreamItems = prioritizedStreamItems/);
+  assert.match(source, /let resolvedStreamSummary = prioritizedStreamSummary/);
+  assert.match(source, /let resolvedStreamItems = prioritizedStreamItems/);
   assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
   assert.match(source, /priority_youtube_live_videos[\s\S]*\[activeKeys\]\)\.then\(result => result\.rows\), \[\], 1_500\)/);
 });
@@ -57,6 +57,10 @@ test("dashboard returns safe empty sections when individual data sources are una
     "priority_stream_summary",
     "priority_stream_items",
     "priority_artist_identity",
+    "priority_spotify_history",
+    "priority_spotify_snapshot",
+    "priority_comparisons",
+    "complete_kworb_catalog",
     "priority_youtube_live_videos",
     "youtube_coverage",
     "compact_history_overview",
@@ -67,8 +71,15 @@ test("dashboard returns safe empty sections when individual data sources are una
 });
 
 test("canonical Monitor Pro receives the stored artist identity image without substituting catalog art", () => {
-  assert.match(source, /SELECT avatar_url\s+FROM songstats_artists/s);
-  assert.match(source, /artistImageUrl: prioritizedArtistIdentity\[0\]\?\.avatar_url \?\? null/);
+  assert.match(source, /SELECT COALESCE\(songstats\.avatar_url, image\.image_url\) avatar_url/s);
+  assert.match(source, /FROM artist_images/);
+  assert.match(source, /artistImageUrl: prioritizedArtistIdentity\[0\]\?\.avatar_url \?\? insight\?\.avatarUrl \?\? null/);
+});
+
+test("complete Spotify catalog reuses the existing stored artwork layer", () => {
+  assert.match(source, /priority_stored_track_artwork/);
+  assert.match(source, /FROM deezer_track_covers/);
+  assert.match(source, /for \(const track of storedTrackArtwork\)/);
 });
 
 test("internal artist picker lists existing monitored artists without public readiness", () => {

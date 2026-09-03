@@ -47,6 +47,9 @@ export type MonitoringReportInput = {
     headline: string;
     summary: string;
   };
+  spotifyHistory: Array<{ date: string; totalStreams: number | null; dailyStreams: number | null }>;
+  liveVideoHistory: Array<{ video_id: string; snapshot_date: string; view_count: string | number | null }>;
+  comparisonArtists: Array<{ artistName: string; spotifyMonthlyListeners: number | null }>;
 };
 
 const COLORS = {
@@ -236,8 +239,9 @@ export function createMonitoringReportPdf(input: MonitoringReportInput): Promise
   doc.fillColor(COLORS.green).font("Helvetica-Bold").fontSize(7).text("QUÉ INCLUYE ESTE REPORTE", 422, 145);
   const notes = [
     `${input.spotifyCatalog.trackCount} canciones y ${input.spotifyCatalog.albumCount} álbumes con streams almacenados.`,
-    `${input.liveVideos.length} videos de YouTube vinculados con contadores almacenados.`,
-    `${input.history.length} lecturas históricas normalizadas disponibles.`,
+    `${input.spotifyHistory.length} cortes diarios de Spotify disponibles.`,
+    `${input.liveVideos.length} videos vinculados y ${input.liveVideoHistory.length} observaciones históricas de YouTube.`,
+    `${input.history.length} lecturas históricas y ${input.comparisonArtists.length} referentes reales disponibles.`,
     "Las ausencias se muestran como no disponibles; Mexico Charts no inventa datos.",
     "No se incluyen credenciales, respuestas crudas ni información de facturación.",
   ];

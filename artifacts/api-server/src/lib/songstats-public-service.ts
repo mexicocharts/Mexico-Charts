@@ -281,7 +281,10 @@ function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[middle]! : Math.round((sorted[middle - 1]! + sorted[middle]!) / 2);
 }
 
-function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCatalog {
+function normalizedCatalog(
+  catalogPayload: JsonObject | null,
+  maximumReleases = 12,
+): SongstatsPublicCatalog {
   const trackRows = firstArrayAtKeys(catalogPayload, ["catalog", "tracks", "songs", "recordings"]);
   const albumRows = firstArrayAtKeys(catalogPayload, ["albums", "releases", "discography"]);
   const candidates = [
@@ -308,7 +311,7 @@ function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCa
       : 0,
     medianReleaseGapDays: median(gaps),
     newestReleaseDate: latest,
-    releases: deduped.slice(0, 12),
+    releases: deduped.slice(0, maximumReleases),
   };
 }
 
@@ -495,7 +498,10 @@ export function buildSongstatsPublicInsight(input: {
   const historicStats = objectValue(input.historicStats);
   const audience = objectValue(input.audience);
   const audienceDetails = objectValue(input.audienceDetails);
-  const catalog = normalizedCatalog(objectValue(input.catalog));
+  const catalog = normalizedCatalog(
+    objectValue(input.catalog),
+    monitoringAccess ? Number.POSITIVE_INFINITY : 12,
+  );
   const histories = sourceHistories(historicStats);
   const current = Object.fromEntries(
     METRICS.map(metric => [metric.key, null]),

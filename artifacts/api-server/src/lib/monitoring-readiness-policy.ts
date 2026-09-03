@@ -4,7 +4,7 @@ import {
   type SongstatsPublicMetricKey,
 } from "./songstats-public-service";
 
-export const MONITORING_READINESS_POLICY_VERSION = 2;
+export const MONITORING_READINESS_POLICY_VERSION = 3;
 
 export type MonitoringReadinessReason =
   | "missing_licensed_endpoint"
@@ -18,7 +18,8 @@ export type MonitoringReadinessReason =
   | "missing_mexico_audience"
   | "missing_stream_catalog"
   | "stream_snapshot_stale"
-  | "missing_daily_streams";
+  | "missing_daily_streams"
+  | "missing_lifetime_streams";
 
 export interface MonitoringReadinessInput {
   historicStats: unknown;
@@ -129,9 +130,13 @@ export function evaluateMonitoringReadiness(
     [completeGrowthMetrics >= 1, "insufficient_growth_history"],
     [trendSeries >= 2, "insufficient_trend_history"],
     [mexicoCities >= 1, "missing_mexico_audience"],
-    // Songstats' licensed catalog payload is required above. Per-track daily
-    // stream summaries are enrichment, not a launch gate: they are not
-    // consistently available for every otherwise monitorable artist.
+    [input.trackCount > 0 && input.albumCount > 0, "missing_stream_catalog"],
+    [fresh(input.streamSnapshotDate, 14, now), "stream_snapshot_stale"],
+    [positive(input.trackDailyStreams), "missing_daily_streams"],
+    [
+      positive(input.trackTotalStreams) && positive(input.albumTotalStreams),
+      "missing_lifetime_streams",
+    ],
   ];
   const reasons = checks.filter(([passed]) => !passed).map(([, reason]) => reason);
   return {

@@ -50,6 +50,16 @@ test("Monitor Pro report is a real multi-page PDF containing all product section
       headline: "Spotify y YouTube avanzan",
       summary: "La lectura más reciente muestra crecimiento en ambas plataformas.",
     },
+    spotifyHistory: [
+      { date: "2026-09-01", totalStreams: 4_990_000_000, dailyStreams: 1_200_000 },
+      { date: "2026-09-02", totalStreams: 5_000_000_000, dailyStreams: 1_250_000 },
+    ],
+    liveVideoHistory: [
+      { video_id: "abc123", snapshot_date: "2026-09-02", view_count: 500_000_000 },
+    ],
+    comparisonArtists: [
+      { artistName: "Peso Pluma", spotifyMonthlyListeners: 38_000_000 },
+    ],
   });
 
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");

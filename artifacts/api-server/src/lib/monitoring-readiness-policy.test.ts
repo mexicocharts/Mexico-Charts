@@ -67,3 +67,19 @@ test("rejects a technically complete artist when Mexico audience detail is empty
   assert.equal(result.ready, false);
   assert.ok(result.reasons.includes("missing_mexico_audience"));
 });
+
+test("does not call an artist customer-ready without the paid complete stream catalog", () => {
+  const input = completeInput();
+  input.streamSnapshotDate = "2026-01-01";
+  input.trackCount = 0;
+  input.albumCount = 0;
+  input.trackDailyStreams = 0;
+  input.trackTotalStreams = 0;
+  input.albumTotalStreams = 0;
+  const result = evaluateMonitoringReadiness(input);
+  assert.equal(result.ready, false);
+  assert.ok(result.reasons.includes("missing_stream_catalog"));
+  assert.ok(result.reasons.includes("stream_snapshot_stale"));
+  assert.ok(result.reasons.includes("missing_daily_streams"));
+  assert.ok(result.reasons.includes("missing_lifetime_streams"));
+});

@@ -154,7 +154,24 @@ export type MonitorDashboardData = {
     view_count: string | number | null;
     daily_view_delta: string | number | null;
   }>;
+  comparisonArtists: Array<{
+    artistKey: string;
+    artistName: string;
+    artistImageUrl: string | null;
+    snapshotDate: string;
+    spotifyMonthlyListeners: number | null;
+    spotifyGrowth30: { absolute: number; percentage: number | null } | null;
+    youtubeChannelViews: number | null;
+    youtubeGrowth30: { absolute: number; percentage: number | null } | null;
+    instagramFollowers: number | null;
+  }>;
+  reportCapabilities: {
+    monthlyPdf: boolean;
+    weeklyEmail: boolean;
+    csvExport: boolean;
+  };
   spotifyCatalog: {
+    source: "archive" | "kworb_live_complete_catalog" | "unavailable";
     snapshotDate: string | null;
     trackCount: number;
     albumCount: number;
@@ -162,6 +179,11 @@ export type MonitorDashboardData = {
     albumDailyStreams: number | null;
     trackTotalStreams: number | null;
     albumTotalStreams: number | null;
+    history: Array<{
+      date: string;
+      totalStreams: number | null;
+      dailyStreams: number | null;
+    }>;
     items: Array<{
       type: "track" | "album";
       key: string;
@@ -357,20 +379,25 @@ function TrendChart({
   setMetric: (metric: TrendKey) => void;
 }) {
   const { data } = useMonitorPro();
+  const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(90);
   const metricKey = {
     spotify: "spotifyMonthlyListeners",
     instagram: "instagramFollowers",
     tiktok: "tiktokFollowers",
   }[metric] as MonitorMetricKey;
-  const chart = useMemo(
-    () =>
-      data.history.flatMap((point) =>
+  const chart = useMemo(() => {
+    const available = data.history.flatMap((point) =>
         point[metricKey] == null
           ? []
           : [{ date: point.date, value: point[metricKey] as number }],
-      ),
-    [data.history, metricKey],
-  );
+      );
+    const latest = available.at(-1)?.date;
+    if (!latest) return [];
+    const cutoff = new Date(`${latest}T12:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays + 1);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+    return available.filter(point => point.date >= cutoffDate);
+  }, [data.history, metricKey, rangeDays]);
   const growth30 = data.growth[metricKey]?.days30 ?? null;
   const meta = {
     spotify: {
@@ -397,7 +424,7 @@ function TrendChart({
     <Panel className="p-5 sm:p-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <Kicker>Historial premium · 90 días</Kicker>
+          <Kicker>Historial premium · {rangeDays} días</Kicker>
           <h2 className="mt-2 text-2xl font-black">{meta.label}</h2>
           <p
             className={`mt-2 text-xs font-black ${(growth30?.absolute ?? 0) < 0 ? "text-red-400" : "text-[#39FF14]"}`}
@@ -407,7 +434,16 @@ function TrendChart({
               : "Recopilando ventana de 30 días"}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          {([7, 30, 90] as const).map((days) => (
+            <button
+              key={days}
+              onClick={() => setRangeDays(days)}
+              className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[.13em] ${rangeDays === days ? "bg-[#39FF14] text-black" : "border border-white/10 text-white/35 hover:text-white"}`}
+            >
+              {days}d
+            </button>
+          ))}
           {(["spotify", "instagram", "tiktok"] as const).map((key) => (
             <button
               key={key}
@@ -898,6 +934,40 @@ function SpotifyView() {
           ))}
         </div>
       </Panel>
+      <Panel className="p-6 sm:p-7">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Kicker>Historial diario de Kworb</Kicker>
+            <h3 className="mt-2 text-2xl font-black">Streams diarios de Spotify</h3>
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
+            {data.spotifyCatalog.history.length} lecturas reales
+          </p>
+        </div>
+        <div className="mt-6 h-64">
+          {data.spotifyCatalog.history.filter(point => point.dailyStreams != null).length > 1 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.spotifyCatalog.history.filter(point => point.dailyStreams != null)}>
+                <defs>
+                  <linearGradient id="monitor-spotify-daily" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1ed760" stopOpacity={0.34} />
+                    <stop offset="100%" stopColor="#1ed760" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(255,255,255,.06)" vertical={false} />
+                <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }} tickFormatter={compact} width={54} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "#111", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }} formatter={(value) => exact(Number(value))} />
+                <Area type="monotone" dataKey="dailyStreams" stroke="#1ed760" strokeWidth={3} fill="url(#monitor-spotify-daily)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="grid h-full place-items-center rounded-2xl border border-white/[.06] text-xs font-bold text-white/25">
+              El historial diario todavía no está disponible para este artista.
+            </div>
+          )}
+        </div>
+      </Panel>
       <Panel className="overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-white/[.07] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
@@ -1061,6 +1131,7 @@ function VideosView() {
         views,
         delta: Number(video.view_delta ?? 0),
         secondsSincePrevious: Number(video.seconds_since_previous ?? 0),
+        observedAt: video.observed_at,
         milestone,
         progress: milestone
           ? Math.min(100, Number(((views / milestone) * 100).toFixed(1)))
@@ -1138,8 +1209,8 @@ function VideosView() {
             </p>
             <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
               {[
-                [compact(totalTrackedViews), "vistas monitoreadas"],
-                [`+${compact(totalLatestGain)}`, "últimas lecturas"],
+                [compact(totalTrackedViews), "vistas monitoreadas · Fuente: YouTube Data API"],
+                [`+${compact(totalLatestGain)}`, "últimas lecturas · Cálculo de Mexico Charts"],
                 [
                   channelVideoCount == null
                     ? `${videos.length}/—`
@@ -1227,7 +1298,7 @@ function VideosView() {
                   {exact(video.views)}
                 </p>
                 <p className="text-[8px] font-black uppercase tracking-[.11em] text-white/25">
-                  vistas totales
+                  vistas totales · Fuente: YouTube Data API
                 </p>
                 <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/[.06] pt-4">
                   <div>
@@ -1238,7 +1309,7 @@ function VideosView() {
                       +{exact(video.delta)}
                     </p>
                     <p className="text-[8px] text-white/20">
-                      en {intervalLabel(video.secondsSincePrevious)}
+                      en {intervalLabel(video.secondsSincePrevious)} · Cálculo de Mexico Charts
                     </p>
                   </div>
                   <div className="text-right">
@@ -1253,6 +1324,9 @@ function VideosView() {
                     </p>
                   </div>
                 </div>
+                <p className="mt-3 text-[8px] text-white/20">
+                  Lectura {video.observedAt ? new Date(video.observedAt).toLocaleString("es-MX") : "sin hora disponible"}
+                </p>
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-red-600 to-[#39FF14]"
@@ -1386,7 +1460,7 @@ function CompareView() {
         <div className="p-6 sm:p-7">
           <Kicker>Comparación de artistas</Kicker>
           <h2 className="mt-2 text-3xl font-black">
-            {data.subscription.artistName} vs referentes mexicanos
+            {data.subscription.artistName} vs referentes de Mexico Charts
           </h2>
           <p className="mt-2 text-xs text-white/35">
             Datos de {dateLabel(current?.date)}
@@ -1413,6 +1487,14 @@ function CompareView() {
                   youtube30,
                   instagram: current?.instagramFollowers ?? null,
                 },
+                ...data.comparisonArtists.map((artist) => ({
+                  name: artist.artistName,
+                  image: artist.artistImageUrl,
+                  listeners: artist.spotifyMonthlyListeners,
+                  spotify30: artist.spotifyGrowth30?.absolute ?? null,
+                  youtube30: artist.youtubeGrowth30?.absolute ?? null,
+                  instagram: artist.instagramFollowers,
+                })),
               ].map((row, index) => (
                 <tr
                   key={row.name}
@@ -1457,16 +1539,13 @@ function CompareView() {
                   </td>
                 </tr>
               ))}
-              <tr>
-                <td
-                  colSpan={5}
-                  className="px-6 py-8 text-center text-sm text-white/35"
-                >
-                  Los datos comparables de otros artistas no forman parte del
-                  payload autorizado actual. No se muestran cifras de
-                  demostración.
-                </td>
-              </tr>
+              {!data.comparisonArtists.length && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-white/35">
+                    Todavía no existen referentes con métricas reales comparables. No se muestran cifras de demostración.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -1640,6 +1719,9 @@ function ReportsView() {
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/45">
               Resumen ejecutivo, historial disponible, catálogo completo de
               Spotify, YouTube y mercados observados
+            </p>
+            <p className="mt-3 text-[9px] font-bold leading-5 text-white/30">
+              PDF mensual disponible · resumen semanal por correo y exportación CSV pendientes de implementación
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <button

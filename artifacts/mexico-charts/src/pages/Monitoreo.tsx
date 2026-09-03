@@ -184,16 +184,16 @@ export default function Monitoreo() {
       pick("Paneles diarios para hasta 3 artistas", "Daily dashboards for up to 3 artists"),
       pick("Comparación directa entre artistas", "Side-by-side artist comparisons"),
       pick("Audiencia, crecimiento y catálogo de cada artista", "Audience, growth and catalog for every artist"),
-      pick("Alertas individuales por artista", "Individual alerts for every artist"),
+      pick("Actividad diaria por artista; alertas configurables en preparación", "Per-artist daily activity; configurable alerts in development"),
       pick("Vista consolidada de la selección", "Consolidated selection view"),
       pick("Ranking de videos entre los 3 artistas", "Cross-artist video ranking"),
-      pick("Resumen semanal combinado", "Combined weekly summary"),
+      pick("Resumen semanal combinado en preparación", "Combined weekly summary in development"),
     ],
     profesional: [
       pick("Paneles diarios para hasta 10 artistas", "Daily dashboards for up to 10 artists"),
       pick("Comparaciones de rendimiento en grupo", "Group performance comparisons"),
-      pick("Reportes individuales y consolidados", "Individual and consolidated reports"),
-      pick("Exportaciones para análisis y presentaciones", "Exports for analysis and presentations"),
+      pick("PDF mensual individual disponible; reportes consolidados en preparación", "Individual monthly PDF available; consolidated reports in development"),
+      pick("Exportaciones CSV en preparación", "CSV exports in development"),
       pick("Activación y soporte prioritarios", "Priority setup and support"),
       pick("Calendario de lanzamientos del portafolio", "Portfolio release calendar"),
       pick("Benchmarks del grupo seleccionado", "Selected-group benchmarks"),
@@ -202,7 +202,7 @@ export default function Monitoreo() {
       pick("Acceso a todos los artistas elegibles", "Access to every eligible artist"),
       pick("Comparaciones en todo el catálogo", "Catalog-wide comparisons"),
       pick("Historial, discografías y alertas", "History, catalogs and alerts"),
-      pick("Reportes generales y por artista", "Catalog-wide and artist reports"),
+      pick("PDF mensual por artista; reportes generales en preparación", "Monthly artist PDF; catalog-wide reports in development"),
       pick("Acceso sujeto a confirmación comercial", "Access subject to commercial confirmation"),
       pick("Radar de crecimiento y nuevos lanzamientos", "Growth and new-release radar"),
       pick("Rankings generales del catálogo", "Catalog-wide rankings"),
@@ -358,7 +358,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual PDF descargable; resumen semanal y CSV en preparación", "Downloadable monthly PDF report; weekly summary and CSV in development")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
