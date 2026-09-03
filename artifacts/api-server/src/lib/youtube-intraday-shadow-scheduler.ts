@@ -191,6 +191,7 @@ const LOCK_KEY = 392_410_604;
 const CHECK_MS = 5 * 60 * 1000;
 let schedulerStarted = false;
 let discoveryRunning = false;
+let collectorRunInFlight = false;
 
 export function youtubeEasternMidnightAnchor(at: Date): { dateKey: string; shouldAnchor: boolean } {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -577,6 +578,21 @@ async function seedApprovedVideoLinksIntoIntradayCatalog(client: PgClient) {
       evidence=youtube_music_catalog_candidates.evidence || excluded.evidence,
       updated_at=now()
     WHERE youtube_music_catalog_candidates.status <> 'rejected'
+      AND (
+        youtube_music_catalog_candidates.artist_name IS DISTINCT FROM excluded.artist_name
+        OR (
+          youtube_music_catalog_candidates.artist_browse_id LIKE 'existing-link:%'
+          AND youtube_music_catalog_candidates.artist_browse_id IS DISTINCT FROM excluded.artist_browse_id
+        )
+        OR (
+          NULLIF(excluded.title, '') IS NOT NULL
+          AND youtube_music_catalog_candidates.title IS DISTINCT FROM NULLIF(excluded.title, '')
+        )
+        OR youtube_music_catalog_candidates.confidence_score < excluded.confidence_score
+        OR youtube_music_catalog_candidates.sampling_status <> 'shadow'
+        OR NOT COALESCE(youtube_music_catalog_candidates.evidence_sources, '[]'::jsonb) @> excluded.evidence_sources
+        OR NOT COALESCE(youtube_music_catalog_candidates.evidence, '{}'::jsonb) @> excluded.evidence
+      )
     RETURNING artist_key
   `);
   return {
@@ -681,6 +697,14 @@ async function reuseStoredYoutubeSources(client: PgClient) {
       metadata=youtube_tracked_videos.metadata || excluded.metadata,
       last_seen_at=now(),
       updated_at=now()
+    WHERE
+      (NULLIF(excluded.title, '') IS NOT NULL
+        AND youtube_tracked_videos.title IS DISTINCT FROM NULLIF(excluded.title, ''))
+      OR (excluded.thumbnail_url IS NOT NULL
+        AND youtube_tracked_videos.thumbnail_url IS DISTINCT FROM excluded.thumbnail_url)
+      OR (excluded.view_count IS NOT NULL
+        AND youtube_tracked_videos.view_count IS DISTINCT FROM excluded.view_count)
+      OR NOT COALESCE(youtube_tracked_videos.metadata, '{}'::jsonb) @> excluded.metadata
   `);
 
   const kworbLinks = await client.query<{ artist_key: string }>(`
@@ -728,6 +752,13 @@ async function reuseStoredYoutubeSources(client: PgClient) {
       active=true,
       metadata=youtube_artist_video_links.metadata || excluded.metadata,
       updated_at=now()
+    WHERE
+      (NULLIF(excluded.artist_name, '') IS NOT NULL
+        AND youtube_artist_video_links.artist_name IS DISTINCT FROM NULLIF(excluded.artist_name, ''))
+      OR youtube_artist_video_links.confidence_score < excluded.confidence_score
+      OR youtube_artist_video_links.priority < excluded.priority
+      OR youtube_artist_video_links.active IS NOT TRUE
+      OR NOT COALESCE(youtube_artist_video_links.metadata, '{}'::jsonb) @> excluded.metadata
     RETURNING artist_key
   `);
 
@@ -770,6 +801,11 @@ async function reuseStoredYoutubeSources(client: PgClient) {
       active=true,
       metadata=youtube_artist_video_links.metadata || excluded.metadata,
       updated_at=now()
+    WHERE
+      youtube_artist_video_links.confidence_score < excluded.confidence_score
+      OR youtube_artist_video_links.priority < excluded.priority
+      OR youtube_artist_video_links.active IS NOT TRUE
+      OR NOT COALESCE(youtube_artist_video_links.metadata, '{}'::jsonb) @> excluded.metadata
     RETURNING artist_key
   `);
 
@@ -1655,6 +1691,20 @@ export function startYoutubeIntradayShadowScheduler() {
     return;
   }
   const runScheduledCheck = (reason: string) => {
+    if (collectorRunInFlight) {
+      logger.warn({
+        event: "youtube_intraday_cycle",
+        status: "locked",
+        reason,
+        skipReason: "previous-in-process-cycle-still-running",
+        requestedVideos: 0,
+        fetched: 0,
+        saved: 0,
+        apiCalls: 0,
+      }, "[youtube-shadow:intraday] cycle locked; requested=0; fetched=0; saved=0; apiCalls=0");
+      return;
+    }
+    collectorRunInFlight = true;
     const eastern = youtubeEasternMidnightAnchor(new Date());
     // Run every five-minute pass in the anchor window. Each pass excludes
     // videos already sampled in that window and prioritizes artists that do
@@ -1682,7 +1732,7 @@ export function startYoutubeIntradayShadowScheduler() {
       }
     }).catch(error => {
       logger.error(safeErrorDetails(error,{reason,job:"intraday-scheduler-invocation"}), "[youtube-shadow:intraday] scheduler invocation failed");
-    });
+    }).finally(() => { collectorRunInFlight = false; });
   };
   setTimeout(() => runScheduledCheck("startup"), 1_000).unref();
   setInterval(() => runScheduledCheck("five-minute-check"), CHECK_MS).unref();
