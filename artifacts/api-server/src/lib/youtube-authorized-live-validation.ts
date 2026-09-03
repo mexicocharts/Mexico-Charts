@@ -3,6 +3,7 @@ import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
 import { INNERTUBE_PRIMARY_SOURCE } from "./youtube-discovery-provenance";
+import { connectWithBoundedRetry } from "./youtube-validation-connection";
 import {
   readSafeDatabaseRuntimeIdentity,
   youtubeValidationRunLogLevel,
@@ -14,6 +15,7 @@ const SEARCH_LOGICAL_TARGET = 25;
 const SEARCH_REQUEST_HARD_CAP = 40;
 const SEARCH_MIN_INTERVAL_MS = 2_500;
 const VALIDATION_DAYS = 7;
+const VALIDATION_CONNECTION_ATTEMPTS = 3;
 let started = false;
 let lastSearchAttemptAt = 0;
 
@@ -402,7 +404,24 @@ async function snapshotDay(client: PgClient, sessionId: string) {
 }
 
 export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
-  const client=await youtubeValidationPool.connect();
+  const client=await connectWithBoundedRetry({
+    connect:()=>youtubeValidationPool.connect(),
+    maxAttempts:VALIDATION_CONNECTION_ATTEMPTS,
+    retryDelayMs:attempt=>attempt*5_000,
+    onFailedAttempt:({attempt,durationMs,error,maxAttempts,retryDelayMs})=>{
+      logger.warn({
+        event:"youtube_protected_validation_connection_attempt",
+        job:"protected-live-validation",
+        phase:"database-connect",
+        attempt,
+        maxAttempts,
+        durationMs,
+        retryDelayMs,
+        retrying:retryDelayMs!==null,
+        ...safeErrorDetails(error),
+      },`[youtube-authorized-validation] database connection attempt ${attempt}/${maxAttempts} failed; retrying=${retryDelayMs!==null}`);
+    },
+  });
   try {
     const databaseTarget=await readSafeDatabaseRuntimeIdentity(client);
     await ensureTables(client);
