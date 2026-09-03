@@ -69,6 +69,17 @@ export const youtubeCoveragePool = new Pool({
   connectionTimeoutMillis: 5_000,
   idleTimeoutMillis: 30_000,
 });
+
+// Protected discovery validation performs a long, advisory-locked comparison
+// pass. Isolate its single connection so unrelated API/startup work cannot
+// prevent the scheduled snapshot from reaching the database.
+export const youtubeValidationPool = new Pool({
+  connectionString: databaseUrl,
+  application_name: "mexico-charts-youtube-validation",
+  max: 1,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 30_000,
+});
 export const db = drizzle(pool, { schema });
 
 export * from "./pool-config";

@@ -1,4 +1,4 @@
-import { pool } from "@workspace/db";
+import { youtubeValidationPool } from "@workspace/db";
 import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
@@ -402,7 +402,7 @@ async function snapshotDay(client: PgClient, sessionId: string) {
 }
 
 export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
-  const client=await pool.connect();
+  const client=await youtubeValidationPool.connect();
   try {
     const databaseTarget=await readSafeDatabaseRuntimeIdentity(client);
     await ensureTables(client);
