@@ -17,7 +17,7 @@ import { startTouringAnnouncementMonitor } from "./lib/touring-announcement-moni
 import { startTouringAlertDelivery } from "./lib/touring-alert-delivery";
 import { startTouringWeeklySummaryScheduler } from "./lib/touring-weekly-summary";
 import { initializeAccountSchema } from "./lib/account-schema";
-import { monitoringReadPool } from "@workspace/db";
+import { databaseTargetConfiguration, monitoringReadPool } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -32,6 +32,13 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+logger[databaseTargetConfiguration.conflictingTargets ? "warn" : "info"]({
+  event: "database_target_configuration",
+  ...databaseTargetConfiguration,
+}, databaseTargetConfiguration.conflictingTargets
+  ? "Multiple database targets differ; runtime is using the selected source"
+  : "Database target configuration resolved");
 
 let runtimeInitialized = false;
 let runtimeRetryTimer: NodeJS.Timeout | null = null;

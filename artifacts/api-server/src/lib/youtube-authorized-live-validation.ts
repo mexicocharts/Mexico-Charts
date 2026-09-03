@@ -3,6 +3,10 @@ import { logger } from "./logger";
 import { bootstrapYoutubeApiUsage, reserveYoutubeApiUsage } from "./youtube-api-budget";
 import { safeErrorDetails } from "./safe-error";
 import { INNERTUBE_PRIMARY_SOURCE } from "./youtube-discovery-provenance";
+import {
+  readSafeDatabaseRuntimeIdentity,
+  youtubeValidationRunLogLevel,
+} from "./youtube-runtime-observability";
 
 const RUN_LOCK = 8_604_260;
 const CHECK_MS = 6 * 60 * 60 * 1_000;
@@ -367,7 +371,7 @@ async function captureComparator(client: PgClient, session:{id:string;started_at
 }
 
 async function snapshotDay(client: PgClient, sessionId: string) {
-  await client.query(`INSERT INTO youtube_discovery_validation_daily_snapshots(session_id,validation_day,metrics)
+  const result = await client.query<{ snapshot_at: string; metrics: Record<string, unknown> }>(`INSERT INTO youtube_discovery_validation_daily_snapshots(session_id,validation_day,metrics)
     SELECT $1::bigint,CURRENT_DATE,jsonb_build_object(
       'authorizedDiscoveries',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND association_status IN ('accepted','protected_review')),
       'authorizedAccepted',count(DISTINCT video_id) FILTER (WHERE source LIKE 'authorized_%' AND association_status='accepted'),
@@ -392,22 +396,25 @@ async function snapshotDay(client: PgClient, sessionId: string) {
       ),
       'searchUsage',COALESCE((SELECT to_jsonb(u) FROM youtube_discovery_validation_api_usage u WHERE u.session_id=$1 AND u.usage_date=CURRENT_DATE),'{}'::jsonb)
     ) FROM youtube_discovery_validation_events WHERE session_id=$1
-    ON CONFLICT (session_id,validation_day) DO UPDATE SET metrics=excluded.metrics,snapshot_at=now()`,[sessionId]);
+    ON CONFLICT (session_id,validation_day) DO UPDATE SET metrics=excluded.metrics,snapshot_at=now()
+    RETURNING snapshot_at::text, metrics`,[sessionId]);
+  return result.rows[0]!;
 }
 
 export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
   const client=await pool.connect();
   try {
+    const databaseTarget=await readSafeDatabaseRuntimeIdentity(client);
     await ensureTables(client);
     const locked=await client.query<{locked:boolean}>("SELECT pg_try_advisory_lock($1) locked",[RUN_LOCK]);
-    if (!locked.rows[0]?.locked) return {status:"skipped",reason:"already-running"};
+    if (!locked.rows[0]?.locked) return {status:"skipped" as const,reason:"already-running",databaseTarget};
     try {
       const session=await activeSession(client);
       if (new Date(session.ends_at)<=new Date()) {
         await captureComparator(client,session);
-        await snapshotDay(client,session.id);
+        const snapshot=await snapshotDay(client,session.id);
         await client.query("UPDATE youtube_discovery_validation_sessions SET status='complete',completed_at=now() WHERE id=$1",[session.id]);
-        return {status:"complete",sessionId:session.id};
+        return {status:"complete" as const,sessionId:session.id,snapshot,databaseTarget};
       }
       // Rebuild decision-window comparator accounting from explicit immutable
       // provenance before slower API scans. A long channel backlog must not
@@ -418,8 +425,8 @@ export async function runYoutubeAuthorizedLiveValidation(reason="scheduled") {
       await scanAuthorizedChannels(client,session.id);
       await runPrioritizedSearches(client,session);
       await captureComparator(client,session);
-      await snapshotDay(client,session.id);
-      return {status:"running",sessionId:session.id,reason,endsAt:session.ends_at};
+      const snapshot=await snapshotDay(client,session.id);
+      return {status:"running" as const,sessionId:session.id,reason,endsAt:session.ends_at,snapshot,databaseTarget};
     } finally {
       await client.query("SELECT pg_advisory_unlock($1)",[RUN_LOCK]).catch(()=>{});
     }
@@ -430,7 +437,12 @@ export function startYoutubeAuthorizedLiveValidation() {
   if (started) return;
   started=true;
   const run=(reason:string)=>void runYoutubeAuthorizedLiveValidation(reason)
-    .then(result=>logger.info(result,"[youtube-authorized-validation] run complete"))
+    .then(result=>{
+      const level=youtubeValidationRunLogLevel(result.status);
+      const metrics="snapshot" in result ? result.snapshot?.metrics ?? {} : {};
+      logger[level]({event:"youtube_protected_validation_cycle",...result},
+        `[youtube-authorized-validation] cycle ${result.status}; session=${"sessionId" in result ? result.sessionId : "none"}; authorized=${String(metrics["authorizedDiscoveries"] ?? "n/a")}; comparator=${String(metrics["innertubeDiscoveries"] ?? "n/a")}; overlap=${String(metrics["overlap"] ?? "n/a")}; misses=${String(metrics["authorizedMisses"] ?? "n/a")}`);
+    })
     .catch(error=>logger.error(safeErrorDetails(error,{job:"protected-live-validation"}),"[youtube-authorized-validation] run failed"));
   setTimeout(()=>run("startup"),15_000).unref();
   setInterval(()=>run("six-hour-check"),CHECK_MS).unref();

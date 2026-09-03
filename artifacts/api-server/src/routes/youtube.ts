@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, pool, publicReadPool } from "@workspace/db";
+import { databaseTargetConfiguration, db, pool, publicReadPool } from "@workspace/db";
 import { youtubeChannelDailySnapshots, youtubeChannels, youtubeVideos } from "@workspace/db/schema";
 import { asc, desc, eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -25,6 +25,7 @@ import {
   youtubeLiveCoverageReadMode,
   youtubeLiveCoverageVideoSql,
 } from "@workspace/db/youtube-live-coverage-query";
+import { readSafeDatabaseRuntimeIdentity } from "../lib/youtube-runtime-observability";
 
 const router = Router();
 
@@ -1052,6 +1053,7 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
     await ensureYoutubeVideoTrackerTables(client);
     await ensureYoutubeShadowTables(client);
     await ensureYoutubeIntradayShadowTables(client);
+    const databaseTarget = await readSafeDatabaseRuntimeIdentity(client);
     const unifiedQuota = await youtubeApiDailyUsage(client);
     const [counts, usage, artists, runs, rejectedCandidates, pilotArtists] = await Promise.all([
       client.query<{
@@ -1162,6 +1164,8 @@ router.get("/admin/youtube/music-shadow/status", async (req, res) => {
       publicDataChanged: false,
       shadowMode: true,
       automationEnabled: youtubeIntradayShadowAutomationEnabled(),
+      databaseTargetConfiguration,
+      databaseTarget,
       catalogReady: readyPilotArtists === YOUTUBE_SHADOW_PILOT_ARTISTS.length,
       readyPilotArtists,
       totalPilotArtists: YOUTUBE_SHADOW_PILOT_ARTISTS.length,

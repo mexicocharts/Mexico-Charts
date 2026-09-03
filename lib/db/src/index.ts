@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import { resolveDatabaseUrl } from "./database-url.mjs";
+import { databaseUrlConfiguration, resolveDatabaseUrl } from "./database-url.mjs";
 import {
   defaultPoolOptions,
   monitoringReadPoolOptions,
@@ -13,6 +13,7 @@ const { Pool } = pg;
 export type { Pool as PgPool, PoolClient, QueryResultRow } from "pg";
 
 const databaseUrl = resolveDatabaseUrl();
+export const databaseTargetConfiguration = Object.freeze(databaseUrlConfiguration());
 
 export const pool = new Pool({
   connectionString: databaseUrl,

@@ -30,6 +30,11 @@ import {
   youtubeShadowDiscoveryFailure,
   youtubeShadowPilotIsReady,
 } from "./youtube-shadow-bootstrap-policy";
+import {
+  readSafeDatabaseRuntimeIdentity,
+  type SafeDatabaseRuntimeIdentity,
+  youtubeCollectorRunLogLevel,
+} from "./youtube-runtime-observability";
 
 type PgClient = {
   query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
@@ -134,6 +139,7 @@ export interface YoutubeIntradayShadowSummary {
   importedChannelErrors: string[];
   compactLatestUpserts: number;
   compactLatestMaxObservedAt: string | null;
+  databaseTarget: SafeDatabaseRuntimeIdentity | null;
   error?: string;
 }
 
@@ -1457,6 +1463,7 @@ export async function runYoutubeIntradayShadow(
     importedChannelErrors: [],
     compactLatestUpserts: 0,
     compactLatestMaxObservedAt: null,
+    databaseTarget: null,
   };
   if (!force && !youtubeIntradayShadowAutomationEnabled()) return { ...summary, status: "disabled" };
   if (!process.env["YOUTUBE_API_KEY"]) return { ...summary, status: "failed", error: "Missing YOUTUBE_API_KEY." };
@@ -1465,6 +1472,7 @@ export async function runYoutubeIntradayShadow(
     const lock = await client.query<{ locked: boolean }>("SELECT pg_try_advisory_lock($1) AS locked", [LOCK_KEY]);
     if (!lock.rows[0]?.locked) return { ...summary, status: "locked" };
     try {
+      summary.databaseTarget = await readSafeDatabaseRuntimeIdentity(client);
       await ensureYoutubeVideoTrackerTables(client);
       await ensureYoutubeShadowTables(client);
       await ensureYoutubeIntradayShadowTables(client);
@@ -1658,7 +1666,9 @@ export function startYoutubeIntradayShadowScheduler() {
       false,
       false,
     ).then(summary => {
-      logger.info(summary, "[youtube-shadow:intraday] run complete");
+      const level = youtubeCollectorRunLogLevel(summary.status);
+      logger[level]({ event: "youtube_intraday_cycle", ...summary },
+        `[youtube-shadow:intraday] cycle ${summary.status}; requested=${summary.requestedVideos}; fetched=${summary.fetched}; saved=${summary.saved}; apiCalls=${summary.apiCalls}`);
       // This uses a separate pool and advisory lock after the collector client
       // has been released, so coverage maintenance cannot postpone observation
       // persistence or the next collector lock acquisition.
