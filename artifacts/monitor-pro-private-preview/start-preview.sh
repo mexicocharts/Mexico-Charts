@@ -3,19 +3,53 @@ set -euo pipefail
 
 checkout=/tmp/monitor-pro-preview-approved
 expected_revision=9a7e2b212fd1f58af1c832aa3c59ce979a022c96
+approved_branch=codex/canonical-monitor-pro-experience
+approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
 api_port=8099
 api_log=/tmp/monitor-pro-private-api.log
 build_log=/tmp/monitor-pro-private-build.log
 
+restore_approved_checkout() {
+  local restore_root restore_checkout
+  restore_root="$(mktemp -d /tmp/monitor-pro-preview-restore.XXXXXX)"
+  restore_checkout="$restore_root/checkout"
+
+  if ! (
+    git clone --quiet --single-branch --branch "$approved_branch" \
+      "$approved_repository" "$restore_checkout"
+    git -C "$restore_checkout" checkout --quiet --detach "$expected_revision"
+    [[ "$(git -C "$restore_checkout" rev-parse HEAD)" == "$expected_revision" ]]
+    CI=1 pnpm --dir "$restore_checkout" install --frozen-lockfile --offline
+    [[ -z "$(git -C "$restore_checkout" status --porcelain --untracked-files=no)" ]]
+  ); then
+    rm -rf -- "$restore_root"
+    echo "Approved Monitor Pro checkout restoration failed." >&2
+    exit 1
+  fi
+
+  if [[ -e "$checkout" ]]; then
+    rm -rf -- "$restore_root"
+    echo "Approved Monitor Pro checkout appeared during restoration." >&2
+    exit 1
+  fi
+
+  mv -- "$restore_checkout" "$checkout"
+  rmdir -- "$restore_root"
+}
+
 if [[ ! -d "$checkout/.git" ]]; then
-  echo "Approved Monitor Pro checkout is unavailable." >&2
-  exit 1
+  restore_approved_checkout
 fi
 
 actual_revision="$(git -C "$checkout" rev-parse HEAD)"
 if [[ "$actual_revision" != "$expected_revision" ]]; then
   echo "Approved Monitor Pro checkout revision mismatch." >&2
   exit 1
+fi
+
+if [[ ! -x "$checkout/node_modules/.bin/vite" &&
+      ! -x "$checkout/artifacts/mexico-charts/node_modules/.bin/vite" ]]; then
+  CI=1 pnpm --dir "$checkout" install --frozen-lockfile --offline
 fi
 
 if [[ -z "${PORT:-}" || -z "${BASE_PATH:-}" ]]; then
