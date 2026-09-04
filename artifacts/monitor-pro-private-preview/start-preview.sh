@@ -5,6 +5,7 @@ checkout=/tmp/monitor-pro-preview-approved
 expected_revision=34ecae3fe529b9db7fab114e679cb6d21d95b542
 api_port=8099
 api_log=/tmp/monitor-pro-private-api.log
+build_log=/tmp/monitor-pro-private-build.log
 
 if [[ ! -d "$checkout/.git" ]]; then
   echo "Approved Monitor Pro checkout is unavailable." >&2
@@ -22,6 +23,10 @@ if [[ -z "${PORT:-}" || -z "${BASE_PATH:-}" ]]; then
   exit 1
 fi
 
+: "${MONITOR_PRO_CLERK_PUBLISHABLE_KEY:?Monitor Pro publishable key is required.}"
+: "${MONITOR_PRO_CLERK_SECRET_KEY:?Monitor Pro secret key is required.}"
+: "${MONITOR_PRO_ARTIST_PRO_INTERNAL_USER_IDS:?Monitor Pro internal user IDs are required.}"
+
 cleanup() {
   if [[ -n "${api_pid:-}" ]]; then
     kill "$api_pid" 2>/dev/null || true
@@ -32,10 +37,23 @@ trap cleanup EXIT INT TERM
 cd "$checkout"
 unset REPLIT_DEPLOYMENT
 
-NODE_ENV=development MONITOR_PRO_READONLY_PREVIEW=true PORT="$api_port" \
-  /home/runner/workspace/scripts/node_modules/.bin/tsx \
-  artifacts/api-server/src/monitor-pro-preview.ts \
-  >"$api_log" 2>&1 &
+if ! VITE_CLERK_PUBLISHABLE_KEY="$MONITOR_PRO_CLERK_PUBLISHABLE_KEY" \
+  BASE_PATH="$BASE_PATH" \
+  pnpm --filter @workspace/mexico-charts run build >"$build_log" 2>&1; then
+  echo "Approved Monitor Pro frontend build failed." >&2
+  exit 1
+fi
+
+(
+  export NODE_ENV=development
+  export MONITOR_PRO_READONLY_PREVIEW=true
+  export PORT="$api_port"
+  export CLERK_PUBLISHABLE_KEY="$MONITOR_PRO_CLERK_PUBLISHABLE_KEY"
+  export CLERK_SECRET_KEY="$MONITOR_PRO_CLERK_SECRET_KEY"
+  export ARTIST_PRO_INTERNAL_USER_IDS="$MONITOR_PRO_ARTIST_PRO_INTERNAL_USER_IDS"
+  exec /home/runner/workspace/scripts/node_modules/.bin/tsx \
+    artifacts/api-server/src/monitor-pro-preview.ts
+) >"$api_log" 2>&1 &
 api_pid=$!
 
 ready=false
@@ -61,5 +79,10 @@ fi
 export NODE_ENV=development
 export MONITOR_PRO_API_TARGET="http://127.0.0.1:${api_port}"
 export MONITOR_PRO_STATIC_ROOT="$checkout/artifacts/mexico-charts/dist/public"
+
+# The static server does not need Clerk credentials or internal user IDs.
+unset CLERK_PUBLISHABLE_KEY CLERK_SECRET_KEY ARTIST_PRO_INTERNAL_USER_IDS
+unset MONITOR_PRO_CLERK_PUBLISHABLE_KEY MONITOR_PRO_CLERK_SECRET_KEY
+unset MONITOR_PRO_ARTIST_PRO_INTERNAL_USER_IDS MONITOR_PRO_VITE_CLERK_PUBLISHABLE_KEY
 
 exec node /home/runner/workspace/artifacts/monitor-pro-private-preview/server.mjs
