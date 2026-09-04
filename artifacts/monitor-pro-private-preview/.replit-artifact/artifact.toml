@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/monitor-pro-private-preview/"
+title = "Monitor Pro Private Preview"
+description = "Private authenticated preview of the real Mexico Charts Monitor Pro frontend backed exclusively by the isolated read-only Monitor Pro API launcher."
+version = "1.0.0"
+id = "artifacts/monitor-pro-private-preview"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/monitor-pro-private-preview/" ]
+localPort = 21499
+
+[services.development]
+run = "bash /home/runner/workspace/artifacts/monitor-pro-private-preview/start-preview.sh"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/monitor-pro-private-preview", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/monitor-pro-private-preview/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21499"
+BASE_PATH = "/monitor-pro-private-preview/"

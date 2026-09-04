@@ -35,27 +35,32 @@ id = "5v7Dxm78Hlzgw9iPiGo6S"
 uri = "file://screenshots/pollstar-profile.jpg"
 type = "image"
 title = "Peso Pluma — Touring Profile"
+logical_id = "cc9d3710-9839-4b5b-8431-831858daa310"
 
 [[outputs]]
 id = "X4iUbYWZyZQrXSEa3un_S"
 uri = "file://screenshots/touring-home.jpg"
 type = "image"
 title = "Touring Hub Homepage"
+logical_id = "55a2c58f-7e83-4f24-8453-55b23e1d2084"
 
 [[outputs]]
 id = "xaruP45PWwl7hjm5ircGx"
 uri = "file://screenshots/pollstar-profile-top.jpg"
 type = "image"
 title = "Part 1 — Hero · 288 Shows · Pullquote · Stats · Tour Map"
+logical_id = "cec6b983-cf39-44f2-9419-c59d5bc63f46"
 
 [[outputs]]
 id = "QTKvykecUs0OA2u6MebTD"
 uri = "file://screenshots/pollstar-profile-bottom.jpg"
 type = "image"
 title = "Part 2 — Tour Map · Las Noches Más Grandes · Market Impact · Timeline (top)"
+logical_id = "78e18341-d63f-4748-985c-0a575a198119"
 
 [[outputs]]
 id = "T3STtVaDfJsSH_Pg3Ao2g"
 uri = "file://screenshots/pollstar-profile-bottom2.jpg"
 type = "image"
 title = "Part 3 — Market Impact · Timeline · Closing Shot · Footer"
+logical_id = "57df4956-9a2b-43c3-b146-8a88844837d8"

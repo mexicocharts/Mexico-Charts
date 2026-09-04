@@ -2,3 +2,4 @@
 - [Production secret isolation](production-secret-isolation.md) — Production deployment secrets must be explicitly configured; artifact runtime env does not promote development secrets.
 - [Artist image lookup deduplication](artist-image-lookup-deduplication.md) — Deduplicate case variants before requesting artist images because shared URLs are nulled.
 - [Canonical route and sitemap synchronization](canonical-route-sitemap-sync.md) — Approved profile routes must be added to the route source and public sitemap together.
+- [Monitor Pro preview authentication](monitor-pro-preview-auth.md) — The external Clerk live tenant rejects Replit dev origins, so private previews render but cannot sign in without an allowed dev origin.
