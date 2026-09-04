@@ -3,3 +3,4 @@
 - [Artist image lookup deduplication](artist-image-lookup-deduplication.md) — Deduplicate case variants before requesting artist images because shared URLs are nulled.
 - [Canonical route and sitemap synchronization](canonical-route-sitemap-sync.md) — Approved profile routes must be added to the route source and public sitemap together.
 - [Monitor Pro preview authentication](monitor-pro-preview-auth.md) — The external Clerk live tenant rejects Replit dev origins, so private previews render but cannot sign in without an allowed dev origin.
+- [Monitor Pro test-key preview build](monitor-pro-preview-build-env.md) — Preview-only Clerk test keys must be mapped at build/process scope; the full app audit mis-resolves the mounted base path.

@@ -37,9 +37,12 @@ trap cleanup EXIT INT TERM
 cd "$checkout"
 unset REPLIT_DEPLOYMENT
 
-if ! VITE_CLERK_PUBLISHABLE_KEY="$MONITOR_PRO_CLERK_PUBLISHABLE_KEY" \
-  BASE_PATH="$BASE_PATH" \
-  pnpm --filter @workspace/mexico-charts run build >"$build_log" 2>&1; then
+if ! (
+  cd "$checkout/artifacts/mexico-charts"
+  VITE_CLERK_PUBLISHABLE_KEY="$MONITOR_PRO_CLERK_PUBLISHABLE_KEY" \
+    BASE_PATH="$BASE_PATH" \
+    pnpm exec vite build --config vite.config.ts
+) >"$build_log" 2>&1; then
   echo "Approved Monitor Pro frontend build failed." >&2
   exit 1
 fi
