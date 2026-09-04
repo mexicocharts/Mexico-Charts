@@ -2,7 +2,7 @@
 set -euo pipefail
 
 checkout=/tmp/monitor-pro-preview-approved
-expected_revision=34ecae3fe529b9db7fab114e679cb6d21d95b542
+expected_revision=9a7e2b212fd1f58af1c832aa3c59ce979a022c96
 api_port=8099
 api_log=/tmp/monitor-pro-private-api.log
 build_log=/tmp/monitor-pro-private-build.log
