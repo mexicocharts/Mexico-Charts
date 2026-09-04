@@ -4,6 +4,22 @@ import test from "node:test";
 
 const source = readFileSync(new URL("./monitoring.ts", import.meta.url), "utf8");
 
+test("Spotify identity orders by the timestamp actually declared on songstats_artists", () => {
+  const identity = source.slice(source.indexOf('dashboardStage("priority_artist_identity"'), source.indexOf('const priorityStreamSummary'));
+  assert.match(identity, /FROM songstats_artists[\s\S]*ORDER BY last_synced_at DESC/);
+  assert.doesNotMatch(identity, /ORDER BY updated_at/);
+});
+
+test("paid video read includes the existing public catalog and deduplicates by video ID", () => {
+  const videos = source.slice(source.indexOf('dashboardStage("priority_youtube_live_videos"'), source.indexOf('const extended ='));
+  assert.match(videos, /FROM youtube_artist_video_links/);
+  assert.match(videos, /UNION ALL[\s\S]*FROM youtube_music_catalog_candidates/);
+  assert.match(videos, /candidate.status IN \('review','verified'\)/);
+  assert.match(videos, /candidate.sampling_status='shadow'/);
+  assert.match(videos, /SELECT DISTINCT ON \(link.video_id\)/);
+  assert.doesNotMatch(videos, /LIMIT 10\b/);
+});
+
 test("monitoring dashboard latest-video reads use compact observation state", () => {
   assert.match(source, /LEFT JOIN youtube_video_intraday_latest_observations pointer/);
   assert.match(source, /latest\.observed_at=pointer\.latest_observed_at/);

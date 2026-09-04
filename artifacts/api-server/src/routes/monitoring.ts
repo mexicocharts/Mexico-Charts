@@ -379,7 +379,7 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
       SELECT avatar_url
       FROM songstats_artists
       WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY updated_at DESC
+      ORDER BY last_synced_at DESC
       LIMIT 1
     ) songstats ON true
     LEFT JOIN LATERAL (
@@ -591,16 +591,27 @@ async function loadAuthorizedMonitoring(userId: string, requestedArtistKey: stri
   }
 
   const prioritizedLiveVideos = await dashboardStage("priority_youtube_live_videos", () => monitoringReadPool.query(`
-    WITH matched_links AS (
+    WITH eligible_sources AS (
+      SELECT link.artist_name, link.video_id, link.confidence_score,
+             link.priority, link.id
+      FROM youtube_artist_video_links link
+      WHERE link.active=true
+        AND link.confidence_score >= 80
+        AND regexp_replace(translate(lower(link.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = ANY($1::text[])
+      UNION ALL
+      SELECT candidate.artist_name, candidate.video_id, candidate.confidence_score,
+             0 AS priority, candidate.id
+      FROM youtube_music_catalog_candidates candidate
+      WHERE candidate.status IN ('review','verified')
+        AND candidate.sampling_status='shadow'
+        AND regexp_replace(translate(lower(candidate.artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = ANY($1::text[])
+    ), matched_links AS (
       SELECT DISTINCT ON (link.video_id)
         link.artist_name,
         link.video_id,
         link.confidence_score,
         link.priority
-      FROM youtube_artist_video_links link
-      WHERE link.active=true
-        AND link.confidence_score >= 80
-        AND link.artist_key = ANY($1::text[])
+      FROM eligible_sources link
       ORDER BY link.video_id, link.confidence_score DESC, link.priority DESC, link.id
     )
     SELECT
