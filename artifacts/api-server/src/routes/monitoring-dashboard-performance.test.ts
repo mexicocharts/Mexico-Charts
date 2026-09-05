@@ -29,6 +29,8 @@ test("paid video read includes the existing public catalog and deduplicates by v
   assert.match(videos, /candidate.status IN \('review','verified'\)/);
   assert.match(videos, /candidate.sampling_status='shadow'/);
   assert.match(videos, /SELECT DISTINCT ON \(link.video_id\)/);
+  assert.match(videos, /link\.artist_key = ANY\(\$1::text\[\]\)/);
+  assert.doesNotMatch(videos, /regexp_replace/);
   assert.doesNotMatch(videos, /LIMIT 10\b/);
 });
 
@@ -178,8 +180,10 @@ test("internal authorization uses canonical candidates without a public-readines
 });
 
 test("monitor report endpoint returns a private PDF instead of CSV", () => {
+  const report = source.slice(source.indexOf('"/monitoring/report/:artistKey"'));
   assert.match(source, /createMonitoringWeeklyReport/);
   assert.match(source, /content-type", "application\/pdf"/);
   assert.match(source, /reporte-semanal-\$\{safeArtist\}-\$\{weekEnd\}\.pdf/);
   assert.doesNotMatch(source, /content-type", "text\/csv/);
+  assert.doesNotMatch(report, /Object\.values\(dashboard\.sectionStatus\)/);
 });

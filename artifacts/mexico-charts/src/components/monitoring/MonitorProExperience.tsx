@@ -401,8 +401,8 @@ function TrendChart({
   const { data } = useMonitorPro();
   const [range, setRange] = useState<
     "7d" | "30d" | "90d" | "6m" | "1y" | "all"
-  >("90d");
-  const rangeDays = {
+  >("all");
+  const requestedRangeDays = {
     "7d": 7,
     "30d": 30,
     "90d": 90,
@@ -424,7 +424,6 @@ function TrendChart({
       auth.userId,
       data.subscription.artistKey,
       metricKey,
-      range,
     ],
     enabled: auth.isSignedIn,
     staleTime: 5 * 60 * 1000,
@@ -432,7 +431,7 @@ function TrendChart({
     queryFn: async ({ signal }) => {
       const response = await authenticatedFetch(
         auth.getToken,
-        `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=${range}&resolution=${range === "all" ? "auto" : "daily"}`,
+        `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=all&resolution=auto`,
         { signal },
       );
       if (!response.ok)
@@ -440,7 +439,7 @@ function TrendChart({
       return response.json();
     },
   });
-  const chart = useMemo(() => {
+  const allAvailable = useMemo(() => {
     const base = data.history.flatMap((point) =>
       point[metricKey] == null
         ? []
@@ -449,17 +448,44 @@ function TrendChart({
     const merged = new Map(base.map((point) => [point.date, point]));
     for (const [date, value] of metricHistory.data?.points ?? [])
       merged.set(date, { date, value });
-    const available = [...merged.values()].sort((a, b) =>
-      a.date.localeCompare(b.date),
+    return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date));
+  }, [data.history, metricKey, metricHistory.data]);
+  const availableSpanDays = useMemo(() => {
+    const earliest = allAvailable[0]?.date;
+    const latest = allAvailable.at(-1)?.date;
+    if (!earliest || !latest) return 0;
+    return (
+      Math.floor(
+        (Date.parse(`${latest}T12:00:00Z`) -
+          Date.parse(`${earliest}T12:00:00Z`)) /
+          86_400_000,
+      ) + 1
     );
-    const latest = available.at(-1)?.date;
-    if (!latest) return [];
-    if (rangeDays == null) return available;
+  }, [allAvailable]);
+  const rangeOptions = (
+    [
+      ["7d", 7],
+      ["30d", 30],
+      ["90d", 90],
+      ["6m", 182],
+      ["1y", 365],
+    ] as const
+  )
+    .filter(([, days]) => availableSpanDays >= days)
+    .map(([option]) => option);
+  const rangeDays =
+    requestedRangeDays != null && availableSpanDays >= requestedRangeDays
+      ? requestedRangeDays
+      : null;
+  const effectiveRange = rangeDays == null ? "all" : range;
+  const chart = useMemo(() => {
+    const latest = allAvailable.at(-1)?.date;
+    if (!latest || rangeDays == null) return allAvailable;
     const cutoff = new Date(`${latest}T12:00:00Z`);
     cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays + 1);
     const cutoffDate = cutoff.toISOString().slice(0, 10);
-    return available.filter((point) => point.date >= cutoffDate);
-  }, [data.history, metricKey, rangeDays, metricHistory.data]);
+    return allAvailable.filter((point) => point.date >= cutoffDate);
+  }, [allAvailable, rangeDays]);
   const historyAvailability = data.availableHistory.metrics.find(
     (candidate) => candidate.metricKey === metricKey,
   );
@@ -496,7 +522,10 @@ function TrendChart({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Kicker>
-            Historial premium · {range === "all" ? "todo lo disponible" : range}
+            Historial premium ·{" "}
+            {effectiveRange === "all"
+              ? `${availableSpanDays} días disponibles`
+              : effectiveRange}
           </Kicker>
           <h2 className="mt-2 text-2xl font-black">{meta.label}</h2>
           <p
@@ -508,13 +537,13 @@ function TrendChart({
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          {(["7d", "30d", "90d", "6m", "1y", "all"] as const).map((option) => (
+          {[...rangeOptions, "all" as const].map((option) => (
             <button
               key={option}
               onClick={() => setRange(option)}
-              className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[.13em] ${range === option ? "bg-[#39FF14] text-black" : "border border-white/10 text-white/35 hover:text-white"}`}
+              className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[.13em] ${effectiveRange === option ? "bg-[#39FF14] text-black" : "border border-white/10 text-white/35 hover:text-white"}`}
             >
-              {option === "all" ? "Todo" : option}
+              {option === "all" ? `Todo · ${availableSpanDays}d` : option}
             </button>
           ))}
           {(["spotify", "instagram", "tiktok"] as const).map((key) => (
@@ -529,9 +558,11 @@ function TrendChart({
         </div>
       </div>
       <p className="mt-4 text-[9px] leading-5 text-white/35">
-        {historyAvailability?.status === "available"
-          ? `${historyAvailability.observationCount} observaciones disponibles · ${dateLabel(historyAvailability.earliestAvailableDate)}–${dateLabel(historyAvailability.latestAvailableDate)}`
-          : "El historial licenciado todavía no está importado para esta métrica; este estado no implica que Songstats carezca de datos anteriores."}
+        {allAvailable.length
+          ? `${allAvailable.length} observaciones realmente entregadas · ${dateLabel(allAvailable[0]?.date)}–${dateLabel(allAvailable.at(-1)?.date)}`
+          : "No se entregó historial para esta métrica."}
+        {historyAvailability?.status !== "available" &&
+          " El historial licenciado anterior todavía no está integrado a esta respuesta."}
       </p>
       <div className="mt-6 h-72">
         {chart.length > 1 ? (
@@ -853,8 +884,8 @@ function TrendsView({
           <div>
             <Kicker>Historial</Kicker>
             <h3 className="mt-2 text-xl font-black">
-              {data.history.length} lecturas guardadas · 7d, 30d, 90d, 6m, 1 año
-              y todo el historial disponible
+              {data.history.length} lecturas guardadas en la ventana realmente
+              entregada
             </h3>
           </div>
           <span className="w-fit rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[.14em] text-[#39FF14]">
@@ -1854,10 +1885,7 @@ const viewReadStages: Record<View, string[]> = {
 };
 
 function hasReadFailure(view: View, data: MonitorDashboardData) {
-  const stages =
-    view === "reportes"
-      ? Object.keys(data.sectionStatus ?? {})
-      : viewReadStages[view];
+  const stages = viewReadStages[view];
   return stages.some(
     (stage) =>
       data.sectionStatus?.[stage] && data.sectionStatus[stage] !== "loaded",

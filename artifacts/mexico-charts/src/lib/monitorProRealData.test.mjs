@@ -23,9 +23,11 @@ test("actual shared monitoring routes render the canonical real-data experience"
 
 test("canonical experience exposes bounded and all-available real history windows", () => {
   assert.match(experience, /"7d" \| "30d" \| "90d" \| "6m" \| "1y" \| "all"/);
-  assert.match(experience, /\["7d", "30d", "90d", "6m", "1y", "all"\]/);
-  assert.match(experience, /range=\$\{range\}/);
-  assert.match(experience, /El historial licenciado todavía no está importado/);
+  assert.match(experience, /availableSpanDays >= days/);
+  assert.match(experience, /range=all&resolution=auto/);
+  assert.match(experience, /observaciones realmente entregadas/);
+  assert.match(experience, /historial licenciado anterior todavía no está integrado/);
+  assert.doesNotMatch(experience, /todo el historial disponible/);
   assert.match(experience, /data\.spotifyCatalog\.history/);
 });
 

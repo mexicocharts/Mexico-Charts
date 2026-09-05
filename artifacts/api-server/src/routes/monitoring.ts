@@ -800,30 +800,20 @@ async function loadAuthorizedMonitoring(
       monitoringReadPool
         .query(
           `
-    WITH link_artist_keys AS MATERIALIZED (
-      SELECT DISTINCT artist_key FROM youtube_artist_video_links
-    ), candidate_artist_keys AS MATERIALIZED (
-      SELECT DISTINCT artist_key FROM youtube_music_catalog_candidates
-    ), eligible_sources AS (
+    WITH eligible_sources AS (
       SELECT link.artist_name, link.video_id, link.confidence_score,
              link.priority, link.id
       FROM youtube_artist_video_links link
       WHERE link.active=true
         AND link.confidence_score >= 80
-        AND link.artist_key IN (
-          SELECT artist_key FROM link_artist_keys
-          WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = ANY($1::text[])
-        )
+        AND link.artist_key = ANY($1::text[])
       UNION ALL
       SELECT candidate.artist_name, candidate.video_id, candidate.confidence_score,
              0 AS priority, candidate.id
       FROM youtube_music_catalog_candidates candidate
       WHERE candidate.status IN ('review','verified')
         AND candidate.sampling_status='shadow'
-        AND candidate.artist_key IN (
-          SELECT artist_key FROM candidate_artist_keys
-          WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = ANY($1::text[])
-        )
+        AND candidate.artist_key = ANY($1::text[])
     ), matched_links AS (
       SELECT DISTINCT ON (link.video_id)
         link.artist_name,
@@ -895,15 +885,6 @@ async function loadAuthorizedMonitoring(
       monitoringReadPool
         .query(
           `
-      WITH artist_keys AS MATERIALIZED (
-        SELECT DISTINCT artist_key FROM youtube_artist_video_links
-      ), selected_artist_keys AS MATERIALIZED (
-        SELECT artist_key FROM artist_keys
-        WHERE regexp_replace(
-          translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
-          '[^a-z0-9]', '', 'g'
-        ) = ANY($1::text[])
-      )
       SELECT
         s.video_id,
         s.snapshot_date,
@@ -920,7 +901,7 @@ async function loadAuthorizedMonitoring(
           WHERE link.video_id=s.video_id
             AND link.active=true
             AND link.confidence_score >= 80
-            AND link.artist_key IN (SELECT artist_key FROM selected_artist_keys)
+            AND link.artist_key = ANY($1::text[])
         )
       ORDER BY s.video_id, s.snapshot_date
     `,
@@ -945,15 +926,11 @@ async function loadAuthorizedMonitoring(
             observed_video_count: string | number;
           }>(
             `
-      WITH artist_keys AS MATERIALIZED (
-        SELECT DISTINCT artist_key FROM youtube_artist_video_links
-      ), selected_links AS MATERIALIZED (
+      WITH selected_links AS MATERIALIZED (
         SELECT link.video_id, link.confidence_score
         FROM youtube_artist_video_links link
-        WHERE link.active=true AND link.artist_key IN (
-          SELECT artist_key FROM artist_keys
-          WHERE regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g') = ANY($1::text[])
-        )
+        WHERE link.active=true
+          AND link.artist_key = ANY($1::text[])
       ), counts AS (
         SELECT count(DISTINCT link.video_id) linked_video_count,
                count(DISTINCT link.video_id) FILTER (
@@ -975,13 +952,7 @@ async function loadAuthorizedMonitoring(
       CROSS JOIN counts
       LEFT JOIN youtube_channel_upload_import_state import_state
         ON import_state.artist_key=yc.artist_key
-      WHERE (
-        lower(yc.artist_key) = ANY($1::text[])
-        OR regexp_replace(
-          translate(lower(yc.artist_key), 'áéíóúüñ', 'aeiouun'),
-          '[^a-z0-9]', '', 'g'
-        ) = ANY($1::text[])
-      )
+      WHERE lower(yc.artist_key) = ANY($1::text[])
       LIMIT 1
     `,
             [activeKeys],
@@ -1491,17 +1462,6 @@ router.get(
         res
           .status(403)
           .json({ error: "Artist Pro access is required for this artist" });
-        return;
-      }
-      if (
-        Object.values(dashboard.sectionStatus).some(
-          (status) => status !== "loaded",
-        )
-      ) {
-        res.status(503).json({
-          error:
-            "No se pudo cargar el reporte completo. Intenta nuevamente; no se generó un PDF con secciones vacías por un error de consulta.",
-        });
         return;
       }
       if (weekEnd !== dashboard.history.at(-1)?.date) {
