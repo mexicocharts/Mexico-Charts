@@ -51,6 +51,14 @@ export async function startMonitorProPreview() {
   process.env["DATABASE_URL"] = process.env["NEON_DATABASE_URL"];
   const { pool, publicReadPool, monitoringReadPool } =
     await import("@workspace/db");
+  // Founder acceptance can leave this isolated preview idle between tabs. Keep
+  // its three read-only pool connections available so the next authenticated
+  // request does not have to establish a cold Neon connection inside the
+  // dashboard's strict serving budget. This changes no production pool and
+  // starts no polling or background work.
+  for (const readPool of [pool, publicReadPool, monitoringReadPool]) {
+    readPool.options.idleTimeoutMillis = 0;
+  }
   const previewDatabaseIdentity = await monitoringReadPool.query(
     "SELECT current_database() AS database_name, current_setting('application_name') AS application_name",
   );

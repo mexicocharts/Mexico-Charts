@@ -37,3 +37,11 @@ test("preview transitive application imports exclude runtime jobs and production
   assert.doesNotMatch(imports, /src\/(index|app)\.ts|routes\/(index|youtube|kworb|account|stripe-webhook)\.ts/);
   assert.doesNotMatch(imports, /scheduler|authorized-live-validation|intraday-shadow|retention|cleanup|announcement-monitor|alert-delivery|weekly-summary/);
 });
+
+test("preview keeps its read-only pools alive without starting a polling job", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("./monitor-pro-preview.ts", import.meta.url), "utf8"),
+  );
+  assert.match(source, /readPool\.options\.idleTimeoutMillis = 0/);
+  assert.doesNotMatch(source, /setInterval|setTimeout/);
+});
