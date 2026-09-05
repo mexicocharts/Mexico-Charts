@@ -58,6 +58,8 @@ export async function startMonitorProPreview() {
   // starts no polling or background work.
   for (const readPool of [pool, publicReadPool, monitoringReadPool]) {
     readPool.options.idleTimeoutMillis = 0;
+    readPool.options.keepAlive = true;
+    readPool.options.keepAliveInitialDelayMillis = 10_000;
   }
   const previewDatabaseIdentity = await monitoringReadPool.query(
     "SELECT current_database() AS database_name, current_setting('application_name') AS application_name",

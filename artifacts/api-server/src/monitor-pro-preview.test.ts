@@ -43,5 +43,7 @@ test("preview keeps its read-only pools alive without starting a polling job", a
     readFile(new URL("./monitor-pro-preview.ts", import.meta.url), "utf8"),
   );
   assert.match(source, /readPool\.options\.idleTimeoutMillis = 0/);
+  assert.match(source, /readPool\.options\.keepAlive = true/);
+  assert.match(source, /keepAliveInitialDelayMillis = 10_000/);
   assert.doesNotMatch(source, /setInterval|setTimeout/);
 });
