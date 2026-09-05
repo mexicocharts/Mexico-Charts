@@ -2,7 +2,7 @@
 set -euo pipefail
 
 checkout=/tmp/monitor-pro-preview-approved
-expected_revision=73515701cf3b4825fdf6226b8bed45e6bfd171e2
+expected_revision=156f91345ba82d5506616fa74d0b090f797cc4c7
 approved_branch=codex/canonical-monitor-pro-experience
 approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
 api_port=8099
