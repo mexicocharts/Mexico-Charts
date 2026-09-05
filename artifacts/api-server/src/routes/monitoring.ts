@@ -375,7 +375,13 @@ async function loadAuthorizedMonitoring(
   );
   if (!authorization.allowed || !active) return null;
 
-  const activeKeys = songstatsArtistKeyCandidates(active.artist_key);
+  const activeKeys = [
+    ...new Set([
+      ...songstatsArtistKeyCandidates(active.artist_key),
+      ...songstatsArtistKeyCandidates(active.artist_name),
+      ...lookupKeys,
+    ]),
+  ];
   const dashboardLoadStartedAt = performance.now();
   const sectionStatus: Record<
     string,

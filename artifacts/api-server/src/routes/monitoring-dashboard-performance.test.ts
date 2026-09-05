@@ -34,6 +34,13 @@ test("paid video read includes the existing public catalog and deduplicates by v
   assert.doesNotMatch(videos, /LIMIT 10\b/);
 });
 
+test("paid reads retain both the requested route alias and authorized canonical alias", () => {
+  assert.match(
+    source,
+    /const activeKeys = \[[\s\S]*songstatsArtistKeyCandidates\(active\.artist_key\)[\s\S]*songstatsArtistKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
+  );
+});
+
 test("monitoring dashboard latest-video reads use compact observation state", () => {
   assert.match(
     source,
@@ -180,7 +187,9 @@ test("internal authorization uses canonical candidates without a public-readines
 });
 
 test("monitor report endpoint returns a private PDF instead of CSV", () => {
-  const report = source.slice(source.indexOf('"/monitoring/report/:artistKey"'));
+  const report = source.slice(
+    source.indexOf('"/monitoring/report/:artistKey"'),
+  );
   assert.match(source, /createMonitoringWeeklyReport/);
   assert.match(source, /content-type", "application\/pdf"/);
   assert.match(source, /reporte-semanal-\$\{safeArtist\}-\$\{weekEnd\}\.pdf/);
