@@ -98,7 +98,7 @@ export default function MonitoringDashboard() {
     try {
       const response = await authenticatedFetch(
         auth.getToken,
-        `/api/monitoring/report/${encodeURIComponent(artistKey)}?month=${encodeURIComponent(month)}`,
+        `/api/monitoring/report/${encodeURIComponent(artistKey)}?weekEnd=${encodeURIComponent(month)}`,
       );
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as {

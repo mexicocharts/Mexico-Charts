@@ -13,14 +13,19 @@ const route = readFileSync(
 
 test("actual shared monitoring routes render the canonical real-data experience", () => {
   assert.match(route, /useRoute\("\/monitoreo\/:artistKey"\)/);
-  assert.match(route, /\/api\/monitoring\/dashboard\/\$\{encodeURIComponent\(artistKey\)\}/);
+  assert.match(
+    route,
+    /\/api\/monitoring\/dashboard\/\$\{encodeURIComponent\(artistKey\)\}/,
+  );
   assert.match(route, /<MonitorProExperience/);
   assert.doesNotMatch(route, /pesoPlumaMonitorDemo|MonitoringFeaturePreview/);
 });
 
-test("canonical experience exposes real 7, 30 and 90 day windows", () => {
-  assert.match(experience, /useState<7 \| 30 \| 90>\(90\)/);
-  assert.match(experience, /\(\[7, 30, 90\] as const\)/);
+test("canonical experience exposes bounded and all-available real history windows", () => {
+  assert.match(experience, /"7d" \| "30d" \| "90d" \| "6m" \| "1y" \| "all"/);
+  assert.match(experience, /\["7d", "30d", "90d", "6m", "1y", "all"\]/);
+  assert.match(experience, /range=\$\{range\}/);
+  assert.match(experience, /El historial licenciado todavía no está importado/);
   assert.match(experience, /data\.spotifyCatalog\.history/);
 });
 
@@ -31,6 +36,9 @@ test("YouTube direct and derived values keep their approved labels", () => {
 });
 
 test("unimplemented report and alert promises are identified honestly", () => {
-  assert.match(experience, /resumen semanal por correo y exportación CSV pendientes de implementación/);
+  assert.match(
+    experience,
+    /envío por correo y exportación CSV\s+pendientes de implementación/,
+  );
   assert.match(experience, /Configuración persistente aún no disponible/);
 });

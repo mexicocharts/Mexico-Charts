@@ -36,6 +36,8 @@ import {
 } from "recharts";
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
+import { useQuery } from "@tanstack/react-query";
+import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
@@ -62,6 +64,10 @@ export type MonitorSnapshot = Record<MonitorMetricKey, number | null> & {
 };
 
 export type MonitorDashboardData = {
+  sectionStatus?: Record<
+    string,
+    "loaded" | "failed" | "timeout" | "budget_exhausted"
+  >;
   subscription: {
     artistKey: string;
     artistName: string;
@@ -100,6 +106,19 @@ export type MonitorDashboardData = {
       }
     >
   >;
+  availableHistory: {
+    historyLabel: string;
+    availableMetricCount: number;
+    metrics: Array<{
+      metricKey: string;
+      status: "available" | "unavailable";
+      earliestAvailableDate: string | null;
+      latestAvailableDate: string | null;
+      observationCount: number;
+      spanDays: number;
+      multiYear: boolean;
+    }>;
+  };
   topMexicoCities: Array<{
     name: string;
     region: string | null;
@@ -166,6 +185,7 @@ export type MonitorDashboardData = {
     instagramFollowers: number | null;
   }>;
   reportCapabilities: {
+    weeklyPdf?: boolean;
     monthlyPdf: boolean;
     weeklyEmail: boolean;
     csvExport: boolean;
@@ -379,25 +399,70 @@ function TrendChart({
   setMetric: (metric: TrendKey) => void;
 }) {
   const { data } = useMonitorPro();
-  const [rangeDays, setRangeDays] = useState<7 | 30 | 90>(90);
+  const [range, setRange] = useState<
+    "7d" | "30d" | "90d" | "6m" | "1y" | "all"
+  >("90d");
+  const rangeDays = {
+    "7d": 7,
+    "30d": 30,
+    "90d": 90,
+    "6m": 182,
+    "1y": 365,
+    all: null,
+  }[range];
   const metricKey = {
     spotify: "spotifyMonthlyListeners",
     instagram: "instagramFollowers",
     tiktok: "tiktokFollowers",
   }[metric] as MonitorMetricKey;
-  const chart = useMemo(() => {
-    const available = data.history.flatMap((point) =>
-        point[metricKey] == null
-          ? []
-          : [{ date: point.date, value: point[metricKey] as number }],
+  const auth = useMexicoAuth();
+  const metricHistory = useQuery<{
+    points: Array<[string, number, ...unknown[]]>;
+  }>({
+    queryKey: [
+      "monitor-history",
+      auth.userId,
+      data.subscription.artistKey,
+      metricKey,
+      range,
+    ],
+    enabled: auth.isSignedIn,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    queryFn: async ({ signal }) => {
+      const response = await authenticatedFetch(
+        auth.getToken,
+        `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=${range}&resolution=${range === "all" ? "auto" : "daily"}`,
+        { signal },
       );
+      if (!response.ok)
+        throw new Error("No se pudo cargar el historial completo");
+      return response.json();
+    },
+  });
+  const chart = useMemo(() => {
+    const base = data.history.flatMap((point) =>
+      point[metricKey] == null
+        ? []
+        : [{ date: point.date, value: point[metricKey] as number }],
+    );
+    const merged = new Map(base.map((point) => [point.date, point]));
+    for (const [date, value] of metricHistory.data?.points ?? [])
+      merged.set(date, { date, value });
+    const available = [...merged.values()].sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
     const latest = available.at(-1)?.date;
     if (!latest) return [];
+    if (rangeDays == null) return available;
     const cutoff = new Date(`${latest}T12:00:00Z`);
     cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays + 1);
     const cutoffDate = cutoff.toISOString().slice(0, 10);
-    return available.filter(point => point.date >= cutoffDate);
-  }, [data.history, metricKey, rangeDays]);
+    return available.filter((point) => point.date >= cutoffDate);
+  }, [data.history, metricKey, rangeDays, metricHistory.data]);
+  const historyAvailability = data.availableHistory.metrics.find(
+    (candidate) => candidate.metricKey === metricKey,
+  );
   const growth30 = data.growth[metricKey]?.days30 ?? null;
   const meta = {
     spotify: {
@@ -422,9 +487,17 @@ function TrendChart({
   ];
   return (
     <Panel className="p-5 sm:p-7">
+      {metricHistory.isError && (
+        <p role="alert" className="mb-4 text-xs text-amber-300">
+          No se pudo cargar el historial completo. La gráfica muestra sólo las
+          lecturas ya recibidas; no confirma ausencia de historia anterior.
+        </p>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <Kicker>Historial premium · {rangeDays} días</Kicker>
+          <Kicker>
+            Historial premium · {range === "all" ? "todo lo disponible" : range}
+          </Kicker>
           <h2 className="mt-2 text-2xl font-black">{meta.label}</h2>
           <p
             className={`mt-2 text-xs font-black ${(growth30?.absolute ?? 0) < 0 ? "text-red-400" : "text-[#39FF14]"}`}
@@ -435,13 +508,13 @@ function TrendChart({
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
-          {([7, 30, 90] as const).map((days) => (
+          {(["7d", "30d", "90d", "6m", "1y", "all"] as const).map((option) => (
             <button
-              key={days}
-              onClick={() => setRangeDays(days)}
-              className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[.13em] ${rangeDays === days ? "bg-[#39FF14] text-black" : "border border-white/10 text-white/35 hover:text-white"}`}
+              key={option}
+              onClick={() => setRange(option)}
+              className={`rounded-full px-3 py-2 text-[8px] font-black uppercase tracking-[.13em] ${range === option ? "bg-[#39FF14] text-black" : "border border-white/10 text-white/35 hover:text-white"}`}
             >
-              {days}d
+              {option === "all" ? "Todo" : option}
             </button>
           ))}
           {(["spotify", "instagram", "tiktok"] as const).map((key) => (
@@ -455,6 +528,11 @@ function TrendChart({
           ))}
         </div>
       </div>
+      <p className="mt-4 text-[9px] leading-5 text-white/35">
+        {historyAvailability?.status === "available"
+          ? `${historyAvailability.observationCount} observaciones disponibles · ${dateLabel(historyAvailability.earliestAvailableDate)}–${dateLabel(historyAvailability.latestAvailableDate)}`
+          : "El historial licenciado todavía no está importado para esta métrica; este estado no implica que Songstats carezca de datos anteriores."}
+      </p>
       <div className="mt-6 h-72">
         {chart.length > 1 ? (
           <ResponsiveContainer width="100%" height="100%">
@@ -775,8 +853,8 @@ function TrendsView({
           <div>
             <Kicker>Historial</Kicker>
             <h3 className="mt-2 text-xl font-black">
-              {data.history.length} lecturas guardadas · ventanas de 30 y 90
-              días cuando existen
+              {data.history.length} lecturas guardadas · 7d, 30d, 90d, 6m, 1 año
+              y todo el historial disponible
             </h3>
           </div>
           <span className="w-fit rounded-full border border-[#39FF14]/25 bg-[#39FF14]/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[.14em] text-[#39FF14]">
@@ -938,27 +1016,68 @@ function SpotifyView() {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <Kicker>Historial diario de Kworb</Kicker>
-            <h3 className="mt-2 text-2xl font-black">Streams diarios de Spotify</h3>
+            <h3 className="mt-2 text-2xl font-black">
+              Streams diarios de Spotify
+            </h3>
           </div>
           <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
             {data.spotifyCatalog.history.length} lecturas reales
           </p>
         </div>
         <div className="mt-6 h-64">
-          {data.spotifyCatalog.history.filter(point => point.dailyStreams != null).length > 1 ? (
+          {data.spotifyCatalog.history.filter(
+            (point) => point.dailyStreams != null,
+          ).length > 1 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.spotifyCatalog.history.filter(point => point.dailyStreams != null)}>
+              <AreaChart
+                data={data.spotifyCatalog.history.filter(
+                  (point) => point.dailyStreams != null,
+                )}
+              >
                 <defs>
-                  <linearGradient id="monitor-spotify-daily" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient
+                    id="monitor-spotify-daily"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
                     <stop offset="0%" stopColor="#1ed760" stopOpacity={0.34} />
                     <stop offset="100%" stopColor="#1ed760" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="rgba(255,255,255,.06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }} tickFormatter={compact} width={54} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "#111", border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }} formatter={(value) => exact(Number(value))} />
-                <Area type="monotone" dataKey="dailyStreams" stroke="#1ed760" strokeWidth={3} fill="url(#monitor-spotify-daily)" />
+                <CartesianGrid
+                  stroke="rgba(255,255,255,.06)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "rgba(255,255,255,.3)", fontSize: 9 }}
+                  tickFormatter={compact}
+                  width={54}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "#111",
+                    border: "1px solid rgba(255,255,255,.12)",
+                    borderRadius: 12,
+                  }}
+                  formatter={(value) => exact(Number(value))}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="dailyStreams"
+                  stroke="#1ed760"
+                  strokeWidth={3}
+                  fill="url(#monitor-spotify-daily)"
+                />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -1209,8 +1328,14 @@ function VideosView() {
             </p>
             <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
               {[
-                [compact(totalTrackedViews), "vistas monitoreadas · Fuente: YouTube Data API"],
-                [`+${compact(totalLatestGain)}`, "últimas lecturas · Cálculo de Mexico Charts"],
+                [
+                  compact(totalTrackedViews),
+                  "vistas monitoreadas · Fuente: YouTube Data API",
+                ],
+                [
+                  `+${compact(totalLatestGain)}`,
+                  "últimas lecturas · Cálculo de Mexico Charts",
+                ],
                 [
                   channelVideoCount == null
                     ? `${videos.length}/—`
@@ -1309,7 +1434,8 @@ function VideosView() {
                       +{exact(video.delta)}
                     </p>
                     <p className="text-[8px] text-white/20">
-                      en {intervalLabel(video.secondsSincePrevious)} · Cálculo de Mexico Charts
+                      en {intervalLabel(video.secondsSincePrevious)} · Cálculo
+                      de Mexico Charts
                     </p>
                   </div>
                   <div className="text-right">
@@ -1325,7 +1451,10 @@ function VideosView() {
                   </div>
                 </div>
                 <p className="mt-3 text-[8px] text-white/20">
-                  Lectura {video.observedAt ? new Date(video.observedAt).toLocaleString("es-MX") : "sin hora disponible"}
+                  Lectura{" "}
+                  {video.observedAt
+                    ? new Date(video.observedAt).toLocaleString("es-MX")
+                    : "sin hora disponible"}
                 </p>
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
                   <div
@@ -1541,8 +1670,12 @@ function CompareView() {
               ))}
               {!data.comparisonArtists.length && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-sm text-white/35">
-                    Todavía no existen referentes con métricas reales comparables. No se muestran cifras de demostración.
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-sm text-white/35"
+                  >
+                    Todavía no existen referentes con métricas reales
+                    comparables. No se muestran cifras de demostración.
                   </td>
                 </tr>
               )}
@@ -1693,12 +1826,82 @@ function AlertsView() {
   );
 }
 
+const viewReadStages: Record<View, string[]> = {
+  resumen: [
+    "priority_daily_snapshots",
+    "priority_artist_identity",
+    "extended_artist_data",
+  ],
+  tendencias: [
+    "priority_daily_snapshots",
+    "extended_artist_data",
+    "compact_history_overview",
+  ],
+  spotify: [
+    "priority_stream_items",
+    "complete_kworb_catalog",
+    "priority_stored_track_artwork",
+  ],
+  videos: [
+    "priority_youtube_live_videos",
+    "youtube_coverage",
+    "youtube_live_history",
+  ],
+  mercados: ["extended_artist_data"],
+  comparar: ["priority_comparisons", "extended_artist_data"],
+  alertas: ["priority_daily_snapshots", "extended_artist_data"],
+  reportes: [],
+};
+
+function hasReadFailure(view: View, data: MonitorDashboardData) {
+  const stages =
+    view === "reportes"
+      ? Object.keys(data.sectionStatus ?? {})
+      : viewReadStages[view];
+  return stages.some(
+    (stage) =>
+      data.sectionStatus?.[stage] && data.sectionStatus[stage] !== "loaded",
+  );
+}
+
+function ReadFailureNotice({
+  view,
+  data,
+}: {
+  view: View;
+  data: MonitorDashboardData;
+}) {
+  if (!hasReadFailure(view, data)) return null;
+  return (
+    <Panel className="p-6">
+      <div role="alert">
+        <h2 className="text-xl font-black">
+          No se pudo cargar esta sección completa
+        </h2>
+        <p className="mt-3 text-sm text-white/60">
+          La consulta no terminó correctamente. Esto no significa que el artista
+          no tenga datos.
+        </p>
+        <button
+          type="button"
+          className="mt-4 rounded-xl bg-[#39FF14] px-4 py-3 text-sm font-black text-black"
+          onClick={() => window.location.reload()}
+        >
+          Volver a cargar
+        </button>
+      </div>
+    </Panel>
+  );
+}
+
 function ReportsView() {
   const { data, onDownloadReport, reportLoading, reportError } =
     useMonitorPro();
-  const availableMonths = [
-    ...new Set(data.history.map((point) => point.date.slice(0, 7))),
-  ].reverse();
+  // Only the latest complete payload is available for report generation.
+  // Older audience points alone do not establish historical catalog/market cuts.
+  const availableMonths = data.history.at(-1)?.date
+    ? [data.history.at(-1)!.date]
+    : [];
   const [month, setMonth] = useState(availableMonths[0] ?? "");
   const changes =
     data.dailyPulse.signals
@@ -1711,17 +1914,18 @@ function ReportsView() {
         <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <Kicker>
-              Reporte mensual · {month || "historial en recopilación"}
+              Reporte semanal · corte {month || "historial en recopilación"}
             </Kicker>
             <h2 className="mt-3 max-w-2xl text-4xl font-black tracking-[-.045em]">
-              Reporte mensual de rendimiento
+              Reporte semanal de rendimiento
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-white/45">
               Resumen ejecutivo, historial disponible, catálogo completo de
               Spotify, YouTube y mercados observados
             </p>
             <p className="mt-3 text-[9px] font-bold leading-5 text-white/30">
-              PDF mensual disponible · resumen semanal por correo y exportación CSV pendientes de implementación
+              PDF semanal de ocho páginas · envío por correo y exportación CSV
+              pendientes de implementación
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
               <button
@@ -1745,7 +1949,7 @@ function ReportsView() {
                     </option>
                   ))
                 ) : (
-                  <option value="">Sin meses disponibles</option>
+                  <option value="">Sin cortes disponibles</option>
                 )}
               </select>
             </div>
@@ -1799,7 +2003,7 @@ function ReportsView() {
         <div className="flex items-center justify-between">
           <div>
             <Kicker>Reportes anteriores</Kicker>
-            <h3 className="mt-2 text-2xl font-black">Historial mensual</h3>
+            <h3 className="mt-2 text-2xl font-black">Cortes semanales</h3>
           </div>
           <span className="rounded-full border border-white/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[.13em] text-white/30">
             {availableMonths.length} disponibles
@@ -1816,7 +2020,8 @@ function ReportsView() {
                   {month ? `Reporte de ${month}` : "Historial en recopilación"}
                 </p>
                 <p className="mt-1 text-[9px] text-white/30">
-                  PDF generado con datos reales disponibles
+                  PDF semanal con datos reales. Los cortes anteriores requieren
+                  catálogos y mercados históricos completos.
                 </p>
               </div>
             </div>
@@ -2017,16 +2222,21 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
                 )}
               </div>
             </header>
-            {view === "resumen" && <SummaryView open={setView} />}{" "}
-            {view === "tendencias" && (
-              <TrendsView metric={metric} setMetric={setMetric} />
-            )}{" "}
-            {view === "spotify" && <SpotifyView />}{" "}
-            {view === "videos" && <VideosView />}{" "}
-            {view === "mercados" && <MarketsView />}{" "}
-            {view === "comparar" && <CompareView />}{" "}
-            {view === "alertas" && <AlertsView />}{" "}
-            {view === "reportes" && <ReportsView />}
+            <ReadFailureNotice view={view} data={data} />
+            {!hasReadFailure(view, data) && (
+              <>
+                {view === "resumen" && <SummaryView open={setView} />}{" "}
+                {view === "tendencias" && (
+                  <TrendsView metric={metric} setMetric={setMetric} />
+                )}{" "}
+                {view === "spotify" && <SpotifyView />}{" "}
+                {view === "videos" && <VideosView />}{" "}
+                {view === "mercados" && <MarketsView />}{" "}
+                {view === "comparar" && <CompareView />}{" "}
+                {view === "alertas" && <AlertsView />}{" "}
+                {view === "reportes" && <ReportsView />}
+              </>
+            )}
             <footer className="mt-6 flex flex-col gap-2 border-t border-white/[.07] pt-5 text-[8px] leading-5 text-white/25 sm:flex-row sm:justify-between">
               <span>
                 Datos de Songstats y YouTube · {dateLabel(data.current?.date)}

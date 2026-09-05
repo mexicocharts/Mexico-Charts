@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMonitoringReportPdf } from "./monitoring-report-pdf";
+import { createMonitoringWeeklyReport } from "./monitoring-weekly-report";
 
 test("Monitor Pro report is a real multi-page PDF containing all product sections", async () => {
-  const pdf = await createMonitoringReportPdf({
+  const pdf = await createMonitoringWeeklyReport({
     artistName: "Luis Miguel",
     artistKey: "luismiguel",
-    month: "2026-09",
+    weekEnd: "2026-09-02",
+    artistImageUrl: null,
     generatedAt: new Date("2026-09-02T12:00:00Z"),
     history: [
       {
@@ -64,5 +65,5 @@ test("Monitor Pro report is a real multi-page PDF containing all product section
 
   assert.equal(pdf.subarray(0, 5).toString(), "%PDF-");
   assert.ok(pdf.length > 8_000, `expected a designed report, received ${pdf.length} bytes`);
-  assert.ok((pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length >= 5);
+  assert.equal((pdf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length, 8);
 });
