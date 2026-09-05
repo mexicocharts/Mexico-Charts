@@ -16,6 +16,8 @@ export type MonitoringKworbCatalog = {
 };
 
 const CACHE_MS = 6 * 60 * 60 * 1_000;
+const OEMBED_TRACK_LIMIT = 36;
+const OEMBED_CONCURRENCY = 24;
 const cache = new Map<
   string,
   { expiresAt: number; value: MonitoringKworbCatalog }
@@ -109,8 +111,7 @@ function chunks<T>(values: T[], size: number): T[][] {
 }
 
 async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
-  const token = await spotifyApplicationToken();
-  if (!token) return items;
+  const token = await spotifyApplicationToken().catch(() => null);
   const artwork = new Map<string, string>();
   const load = async (
     type: "tracks" | "albums",
@@ -151,13 +152,56 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
   const albumIds = items
     .filter((item) => item.type === "album" && /^[A-Za-z0-9]+$/.test(item.key))
     .map((item) => item.key);
-  await Promise.all([
-    load("tracks", trackIds, 50),
-    load("albums", albumIds, 20),
-  ]);
-  return items.map((item) => ({
+  if (token)
+    await Promise.all([
+      load("tracks", trackIds, 50),
+      load("albums", albumIds, 20),
+    ]);
+  const apiEnriched = items.map((item) => ({
     ...item,
     artworkUrl: artwork.get(`${item.type}:${item.key}`) ?? null,
+  }));
+  const oembedCandidates = [
+    ...apiEnriched.filter(
+      (item) => item.type === "album" && !item.artworkUrl,
+    ),
+    ...apiEnriched
+      .filter((item) => item.type === "track" && !item.artworkUrl)
+      .slice(0, OEMBED_TRACK_LIMIT),
+  ];
+  for (const batch of chunks(oembedCandidates, OEMBED_CONCURRENCY)) {
+    await Promise.all(
+      batch.map(async (item) => {
+        if (!item.spotifyUrl) return;
+        try {
+          const url = new URL(item.spotifyUrl);
+          if (
+            url.protocol !== "https:" ||
+            url.hostname !== "open.spotify.com" ||
+            !/^\/(?:track|album)\/[A-Za-z0-9]+$/.test(url.pathname)
+          )
+            return;
+          const response = await fetch(
+            `https://open.spotify.com/oembed?url=${encodeURIComponent(url.href)}`,
+            { signal: AbortSignal.timeout(3_000) },
+          );
+          if (!response.ok) return;
+          const payload = (await response.json()) as {
+            thumbnail_url?: string;
+          };
+          const thumbnail = payload.thumbnail_url?.trim();
+          if (thumbnail && /^https:\/\//i.test(thumbnail))
+            artwork.set(`${item.type}:${item.key}`, thumbnail);
+        } catch {
+          // Artwork is optional enrichment; the real stream row remains usable.
+        }
+      }),
+    );
+  }
+  return apiEnriched.map((item) => ({
+    ...item,
+    artworkUrl:
+      item.artworkUrl ?? artwork.get(`${item.type}:${item.key}`) ?? null,
   }));
 }
 

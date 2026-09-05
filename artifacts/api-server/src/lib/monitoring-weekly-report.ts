@@ -70,7 +70,7 @@ const dateLabel = (date: string) =>
 async function imageBytes(raw: string | null | undefined) {
   if (!raw) return null;
   const allowed =
-    /^(?:i\.scdn\.co|(?:[a-z-]+\.)?dzcdn\.net|i\.ytimg\.com|yt3\.ggpht\.com|yt3\.googleusercontent\.com|is[1-5]-ssl\.mzstatic\.com|cdn\.songstats\.com)$/;
+    /^(?:i\.scdn\.co|image-cdn-[a-z]+\.spotifycdn\.com|(?:[a-z-]+\.)?dzcdn\.net|i\.ytimg\.com|yt3\.ggpht\.com|yt3\.googleusercontent\.com|is[1-5]-ssl\.mzstatic\.com|cdn\.songstats\.com)$/;
   try {
     const url = new URL(raw);
     if (
@@ -125,9 +125,16 @@ export async function createMonitoringWeeklyReport(
   const videos = [...input.liveVideos]
     .sort((a, b) => (n(b.view_count) ?? -1) - (n(a.view_count) ?? -1))
     .slice(0, 3);
+  const featuredSpotify = (["track", "album"] as const).flatMap(type =>
+    input.spotifyCatalog.items
+      .filter(item => item.type === type)
+      .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1))
+      .slice(0, 5),
+  );
   const images = await Promise.all([
     imageBytes(input.artistImageUrl),
     ...videos.map((v) => imageBytes(v.thumbnail_url)),
+    ...featuredSpotify.map(item => imageBytes(item.artworkUrl)),
   ]);
   const doc = new PDFDocument({
     autoFirstPage: false,
@@ -409,14 +416,15 @@ export async function createMonitoringWeeklyReport(
     text(x + 18, 318, "TÍTULO", 6, MUTED);
     text(x + 232, 318, "DIARIOS", 6, MUTED);
     text(x + 292, 318, "TOTAL", 6, MUTED);
-    sp.items
+    const featured = sp.items
       .filter((i) => i.type === type)
       .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1))
-      .slice(0, 5)
-      .forEach((item, i) => {
+      .slice(0, 5);
+    featured.forEach((item, i) => {
         const y = 286 - i * 42;
-        text(x + 18, y, `0${i + 1}`, 7, GREEN);
-        text(x + 43, y, item.title, 8.5, WHITE, 175);
+        const imageIndex = 1 + videos.length + col * 5 + i;
+        picture(images[imageIndex], x + 18, y - 5, 30, 30);
+        text(x + 56, y, item.title, 8.5, WHITE, 162);
         text(x + 232, y, compact(item.dailyStreams), 8, GREEN, 55);
         text(x + 292, y, compact(item.totalStreams), 8, WHITE, 55);
       });
