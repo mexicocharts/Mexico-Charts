@@ -1,4 +1,5 @@
 /** Optional POSIX host adapter. No database/provider imports or initialization. */
+import { Buffer } from 'node:buffer';
 import { constants } from 'node:fs';
 import { mkdir, lstat, open, rename, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -37,13 +38,21 @@ export function createPrivateAuditStorage(directory) {
     if(state && (state.isSymbolicLink() || !state.isFile()))throw new Error('Audit artifacts cannot be symlinks or non-files');
     return state;
   }
-  return {
-    async read(key) {
+  async function readText(key) {
       const path=filename(key);
       if(!await parents(key,false)||!await fileGuard(path))return null;
       const file=await open(path,constants.O_RDONLY|constants.O_NOFOLLOW);
-      try { const value=await file.readFile('utf8');return key.endsWith('.csv')?value:JSON.parse(value); }
+      try {
+        const bytes=await file.readFile(),value=bytes.toString('utf8');
+        if(!bytes.equals(Buffer.from(value,'utf8')))throw new Error('Audit text artifact must contain exact valid UTF8 bytes');
+        return value;
+      }
       finally { await file.close(); }
+  }
+  return {
+    readText,
+    async read(key) {
+      const value=await readText(key);return value===null?null:key.endsWith('.csv')?value:JSON.parse(value);
     },
     async persist(key,value) {
       const path=filename(key);

@@ -1,4 +1,7 @@
 /** Private read-only orchestration helpers. No database, filesystem, network, or wall-clock initialization. */
+import {sha256Utf8} from './sha256.mjs';
+export {sha256Utf8} from './sha256.mjs';
+import {populationManifestInputs,prepareAuditQueries} from './manifest-helper.mjs';
 const PROTOCOL = 'monitor-audit-json-v1';
 const COLUMNS = ['protocol', 'total_rows', 'payload_chars', 'payload_md5', 'chunk_start', 'chunk_chars', 'chunk'];
 function requireValue(condition, message) { if (!condition) throw new Error(message); }
@@ -127,7 +130,10 @@ function safeId(value) { requireValue(typeof value === 'string' && /^[A-Za-z0-9_
 function quoteCsv(value) { return '"' + String(value ?? '').replaceAll('"', '""') + '"'; }
 export function reportCsv(report) {
   const columns = ['artistKey','artistName','classification','auditStatus','publicEligible','readinessReasons','resultArtifact'];
-  return [columns.join(','), ...report.artists.map(artist => columns.map(column => quoteCsv(column === 'readinessReasons' ? serialize(artist[column]) : artist[column])).join(','))].join('\r\n') + '\r\n';
+  const lineage=report.populationBasis?{populationBasis:'inherited_verified_cohort',parentRunId:report.populationBasis.parentRunId,
+    populationBasisArtifact:report.populationBasis.lineageArtifact,populationFreshness:'original_capture_not_recaptured'}:{};
+  columns.push(...Object.keys(lineage));
+  return [columns.join(','), ...report.artists.map(artist => columns.map(column => quoteCsv(column === 'readinessReasons' ? serialize(artist[column]) : Object.hasOwn(lineage,column)?lineage[column]:artist[column])).join(','))].join('\r\n') + '\r\n';
 }
 
 /** Caller persist/read MUST access durable private storage, never only an isolate store or remote /tmp.
@@ -135,7 +141,7 @@ export function reportCsv(report) {
  * read(key) returns that value or null. execute(sql, context) is the existing SELECT-only tool.
  */
 export function createAuditReplay({ evaluator, metadata, execute, persist, read, chunkSize = 24000,
-  failedToolRetries = 0, replayImplementation = null }) {
+  failedToolRetries = 0, replayImplementation = null, readText }) {
   requireValue(plain(evaluator) && typeof evaluator.groupMonitoringCandidateIdentities === 'function' && typeof evaluator.evaluateMonitoringCandidate === 'function', 'Pure evaluator is required');
   requireValue(plain(metadata) && ['runId','revision','sourceHash','evaluatorHash','now'].every(key => typeof metadata[key] === 'string' && metadata[key]), 'Explicit run/revision/source/evaluator/clock metadata is required');
   safeId(metadata.runId);
@@ -281,6 +287,7 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     return value;
   }
   async function collectPopulation({ sources, missingSchemaTables = [], bundledPopulation }) {
+    requireValue(metadata.populationBasis===undefined,'Inherited run metadata cannot capture a fresh population');
     requireValue(Array.isArray(sources) && sources.length > 0 && new Set(sources.map(source => source.id)).size === sources.length, 'Unique complete population source plans are required');
     const bundled=bundledPopulation===undefined?null:checkedBundledPopulation(bundledPopulation);
     const priorPopulation=await read(prefix+'population.json');
@@ -336,6 +343,183 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     await persist(prefix + 'population.json', population);
     return population;
   }
+  /** Reconstruct a complete captured cohort without SQL or parent writes. */
+  async function verifyPopulationSources({population,sourceInputs,bundledPopulation}) {
+    requireValue(serialize(population.metadata)===serialize(metadata)&&!population.populationBasis&&
+      Array.isArray(population.missingSchemaTables)&&population.missingSchemaTables.length===0&&
+      (population.databasePopulationComplete??population.populationComplete)===true,
+      'Parent must have complete original database capture coverage and no inherited basis');
+    const sourceNames=['population','accepted_aliases','discovery'];
+    const queryNames={population:'population',accepted_aliases:'acceptedAliases',discovery:'discovery'};
+    requireValue(Array.isArray(population.sourcePlans)&&Array.isArray(population.pages)&&population.pages.length===3&&
+      serialize(population.sourcePlans.map(plan=>plan.id))===serialize(sourceNames), 'Parent requires the exact complete ordered source plans');
+    const originalFrame=async(id,sql,expectedRows)=>{
+      const saved=await read(prefix+'decoded/'+id+'.json');
+      requireValue(saved?.sql===sql&&saved.expectedRows===expectedRows&&saved.captureMode==='whole'&&
+        (saved.canonicalRowOrder??false)===false,'Parent prerequisite capture does not match original manifest');
+      const captured=await captureRawRows({id,sql,expectedRows,chunked:false,canonicalRowOrder:false},saved);
+      verifySavedCapture(saved,captured);return captured.rows;
+    };
+    const schema=await originalFrame('schema_inventory',sourceInputs.schemaSql,sourceInputs.sourceTables.length);
+    requireValue(serialize(schema.map(row=>row.table_name).sort())===serialize(sourceInputs.sourceTables.slice().sort())&&
+      schema.every(row=>row.present===true),'Parent schema capture is missing sources or incomplete');
+    const [counts]=await originalFrame('source_counts',sourceInputs.sourceCounts,1);
+    requireValue(serialize(Object.keys(counts).sort())===serialize(sourceNames.slice().sort()),'Parent source count columns mismatch');
+    for(const plan of population.sourcePlans){const count=counts[plan.id];
+      requireValue((typeof count==='number'&&Number.isSafeInteger(count)||typeof count==='string'&&/^\d+$/.test(count)&&Number.isSafeInteger(Number(count)))&&
+        Number(count)===plan.totalRows,'Parent independently captured source counts differ from population plan');}
+    const rows=[];
+    for(const [index,plan] of population.sourcePlans.entries()){
+      requireValue(['whole','digest_chunks'].includes(plan.capture)&&Number.isSafeInteger(plan.totalRows)&&plan.totalRows>=0,
+        'Parent limited/paged sources cannot establish inherited coverage');
+      const page=population.pages[index],chunked=plan.capture==='digest_chunks',id=plan.id+(chunked?'_digest_chunks':'_whole');
+      const sql=sourceInputs.prepared[queryNames[plan.id]];
+      requireValue(page.id===id&&page.source===plan.id&&page.offset===0&&page.rows===plan.totalRows&&
+        page.consistentSourceContent===true&&page.immutableSourceFrame===!chunked,'Parent source page proof mismatch');
+      const saved=await read(prefix+'decoded/'+id+'.json');
+      requireValue(saved?.sql===sql&&saved.expectedRows===plan.totalRows&&saved.captureMode===(chunked?'chunks':'whole')&&
+        (saved.canonicalRowOrder??false)===chunked,'Parent decoded source does not match manifest SQL');
+      const captured=await captureRawRows({id,sql,expectedRows:plan.totalRows,chunked,canonicalRowOrder:chunked},saved);
+      verifySavedCapture(saved,captured);
+      requireValue(serialize(page.contentProof)===serialize(saved.transportProof),'Parent source content proof differs from decoded proof');
+      rows.push(...captured.rows);
+    }
+    const databaseRows=rows.length;
+    if(bundledPopulation!==undefined){
+      const bundled=checkedBundledPopulation(bundledPopulation),artifact=prefix+'bundled/population.json';
+      const saved=await read(artifact);
+      requireValue(serialize(saved)===serialize({sourceHash:metadata.sourceHash,...bundled}),'Parent bundled source artifact mismatch');
+      const expected={artifact,sourceHash:metadata.sourceHash,revision:bundled.revision,rows:bundled.rows.length,rowsMd5:bundled.rowsMd5,
+        rowsHashVersion:bundled.rowsHashVersion,sourceFiles:bundled.sourceFiles,sourceInventory:bundled.sourceInventory};
+      requireValue(serialize(expected)===serialize(population.bundledSourceProof)&&population.databaseRawRows===databaseRows&&
+        population.populationComplete===false&&population.populationScope===bundled.populationScope&&
+        serialize(population.populationLimitations)===serialize(bundled.populationLimitations),'Parent bundled coverage/provenance mismatch');
+      rows.push(...bundled.rows);
+    }else requireValue(!population.bundledSourceProof&&population.populationComplete===true&&
+      serialize(population.populationLimitations)===serialize([]),'Unexpected parent population scope');
+    requireValue(rows.length===population.rawRows&&population.sourceSnapshotScope==='independent_source_contents',
+      'Parent population source count or snapshot scope mismatch');
+    requireValue(serialize(evaluator.groupMonitoringCandidateIdentities(rows))===serialize(population.candidates),
+      'Current grouping differs from the complete original candidate order or identity contents');
+    return rows;
+  }
+  function inheritedPopulationValue(population,lineage) {
+    const basis={kind:'inherited_verified_cohort',freshness:'original_capture_not_recaptured',
+      lineageArtifact:prefix+'population-lineage.json',lineageMd5:checkpointMd5(lineage),checkpointHashVersion:CHECKPOINT_HASH_VERSION,
+      parentRunId:lineage.parentMetadata.runId,parentMetadata:lineage.parentMetadata,metadataArtifact:lineage.parentArtifacts.find(item=>item.artifact===lineage.parentMetadata.runId+'/manifest.json'),
+      populationArtifact:lineage.parentArtifacts.find(item=>item.artifact===lineage.parentMetadata.runId+'/population.json'),candidatesMd5:lineage.parentCandidatesMd5,
+      populationInputsMd5:lineage.populationInputsMd5,originalCaptureCoverage:{
+        databasePopulationComplete:population.databasePopulationComplete??population.populationComplete,
+        populationComplete:population.populationComplete,missingSchemaTables:population.missingSchemaTables,
+        populationLimitations:population.populationLimitations,sourceSnapshotScope:population.sourceSnapshotScope},
+      sourceCaptureClock:'original_source_artifacts_only_no_new_capture',evidenceBasis:{revision:metadata.revision,sourceHash:metadata.sourceHash,evaluatorHash:metadata.evaluatorHash,clockMode:metadata.clockMode}};
+    return {...population,metadata,populationBasis:basis,populationComplete:false,databasePopulationComplete:false,
+      populationLimitations:[...population.populationLimitations,'inherited_cohort_not_fresh_population'],sourceSnapshotScope:'inherited_independent_source_contents'};
+  }
+  async function inheritPopulation({parent,manifestText}) {
+    requireValue(typeof readText==='function'&&plain(parent),'Inherited populations require exact-byte durable reads and parent bindings');
+    safeId(parent.runId);
+    requireValue(parent.runId!==metadata.runId,'Inherited population must use a separate new run');
+    const inventory=new Map();
+    const originalRead=async key=>{
+      requireValue(key.startsWith(parent.runId+'/'),'Parent verification cannot read another run');
+      const body=await readText(key);requireValue(typeof body==='string','Missing immutable parent artifact: '+key);
+      inventory.set(key,{artifact:key,sha256:sha256Utf8(body),bytes:utf8(body).length});
+      return JSON.parse(body);
+    };
+    const parentMetadata=await originalRead(parent.runId+'/manifest.json');
+    const population=await originalRead(parent.runId+'/population.json');
+    requireValue(inventory.get(parent.runId+'/manifest.json').sha256===parent.metadataSha256&&
+      inventory.get(parent.runId+'/population.json').sha256===parent.populationSha256,
+      'Parent immutable metadata or population byte hash mismatch');
+    requireValue(parentMetadata.runId===parent.runId&&serialize(population.metadata)===serialize(parentMetadata)&&
+      checkpointMd5(population.candidates)===parent.candidatesMd5,'Parent metadata or exact candidate checksum mismatch');
+    requireValue(typeof parentMetadata.databaseName==='string'&&parentMetadata.databaseName&&
+      parentMetadata.databaseName===metadata.databaseName,'Inherited cohort must retain the same database identity');
+    const checkedManifest=(body,owner)=>{
+      requireValue(typeof body==='string'&&/^[0-9a-f]{64}$/.test(owner.sourceHash)&&sha256Utf8(body)===owner.sourceHash,
+        'Source manifest exact byte SHA256 mismatch');
+      const value=JSON.parse(body);requireValue(value.revision===owner.revision,'Source manifest revision mismatch');return value;
+    };
+    const anchor={kind:'inherited_verified_cohort',parentRunId:parent.runId,parentMetadataSha256:parent.metadataSha256,
+      parentPopulationSha256:parent.populationSha256,parentCandidatesMd5:parent.candidatesMd5,
+      parentSourceHash:parentMetadata.sourceHash,parentEvaluatorHash:parentMetadata.evaluatorHash};
+    requireValue(serialize(metadata.populationBasis)===serialize(anchor),'Child metadata must pin the exact original population basis');
+    const previousManifest=checkedManifest(parent.manifestText,parentMetadata),currentManifest=checkedManifest(manifestText,metadata);
+    const originalInputs=populationManifestInputs(previousManifest,population.missingSchemaTables);
+    const currentInputs=populationManifestInputs(currentManifest,population.missingSchemaTables);
+    requireValue(serialize(originalInputs)===serialize(currentInputs),'Population SQL, schema inventory or bundled identity source inputs changed');
+    if(currentManifest.bundledPopulation!==undefined)checkedBundledPopulation(currentManifest.bundledPopulation);
+    const forbidden=async()=>{throw new Error('Parent inheritance verification prohibits SQL and writes');};
+    const originalReplay=createAuditReplay({evaluator,metadata:parentMetadata,read:originalRead,persist:forbidden,execute:forbidden,
+      chunkSize:parent.chunkSize??24000});
+    await originalReplay.verifyPopulationSources({population,sourceInputs:originalInputs,bundledPopulation:previousManifest.bundledPopulation});
+    const lineage={protocol:'monitor-audit-population-lineage-v1',metadata,parentMetadata,parentChunkSize:parent.chunkSize??24000,parentManifestText:parent.manifestText,
+      currentManifestText:manifestText,parentArtifacts:[...inventory.values()],parentCandidatesMd5:parent.candidatesMd5,
+      checkpointHashVersion:CHECKPOINT_HASH_VERSION,populationInputsMd5:checkpointMd5(currentInputs)};
+    const inherited=inheritedPopulationValue(population,lineage),basis=inherited.populationBasis;
+    for(const [key,value] of [[basis.lineageArtifact,lineage],[prefix+'population.json',inherited]]){
+      const existing=await read(key);requireValue(existing==null||serialize(existing)===serialize(value),'Existing inherited population or lineage differs; use a new run');
+    }
+    await manifest();
+    // Only new-run artifacts are persisted. A partially saved child can resume exactly.
+    if(await read(basis.lineageArtifact)==null)await persist(basis.lineageArtifact,lineage);
+    if(await read(prefix+'population.json')==null)await persist(prefix+'population.json',inherited);
+    return inherited;
+  }
+  async function verifyInheritedPopulation(population) {
+    const basis=population.populationBasis;
+    requireValue(plain(basis)&&plain(metadata.populationBasis),'Inherited run requires its pinned population basis');
+    const anchor={kind:'inherited_verified_cohort',parentRunId:basis.parentRunId,parentMetadataSha256:basis.metadataArtifact?.sha256,
+      parentPopulationSha256:basis.populationArtifact?.sha256,parentCandidatesMd5:basis.candidatesMd5,
+      parentSourceHash:basis.parentMetadata?.sourceHash,parentEvaluatorHash:basis.parentMetadata?.evaluatorHash};
+    requireValue(serialize(metadata.populationBasis)===serialize(anchor),'Inherited basis differs from immutable run metadata');
+    requireValue(typeof readText==='function'&&basis.kind==='inherited_verified_cohort'&&
+      basis.freshness==='original_capture_not_recaptured'&&basis.lineageArtifact===prefix+'population-lineage.json'&&
+      basis.checkpointHashVersion===CHECKPOINT_HASH_VERSION&&basis.parentRunId!==metadata.runId&&
+      population.populationComplete===false&&population.databasePopulationComplete===false,
+      'Invalid inherited population basis');
+    requireValue(serialize(await read(prefix+'population.json'))===serialize(population),'Inherited population differs from durable checkpoint');
+    const lineage=await read(basis.lineageArtifact);
+    requireValue(lineage?.protocol==='monitor-audit-population-lineage-v1'&&checkpointMd5(lineage)===basis.lineageMd5&&
+      serialize(lineage.metadata)===serialize(metadata)&&serialize(lineage.parentMetadata)===serialize(basis.parentMetadata)&&
+      lineage.parentCandidatesMd5===checkpointMd5(population.candidates)&&lineage.parentCandidatesMd5===basis.candidatesMd5&&
+      lineage.populationInputsMd5===basis.populationInputsMd5,'Inherited lineage or candidate order mismatch');
+    requireValue(Array.isArray(lineage.parentArtifacts)&&lineage.parentArtifacts.length>=2&&
+      new Set(lineage.parentArtifacts.map(item=>item.artifact)).size===lineage.parentArtifacts.length&&
+      lineage.parentArtifacts.some(item=>serialize(item)===serialize(basis.metadataArtifact))&&
+      lineage.parentArtifacts.some(item=>serialize(item)===serialize(basis.populationArtifact)),'Inherited parent artifact inventory mismatch');
+    const visited=new Set();
+    const originalRead=async key=>{
+      requireValue(key.startsWith(basis.parentRunId+'/'),'Inherited artifact escapes parent run');
+      const artifact=lineage.parentArtifacts.find(item=>item.artifact===key);
+      requireValue(artifact,'Inherited source artifact was removed from lineage inventory: '+key);
+      const body=await readText(key);
+      requireValue(typeof body==='string'&&sha256Utf8(body)===artifact.sha256&&utf8(body).length===artifact.bytes,
+        'Inherited original artifact bytes changed or are missing: '+key);
+      visited.add(key);return JSON.parse(body);
+    };
+    const originalMetadata=await originalRead(basis.metadataArtifact.artifact);
+    const originalPopulation=await originalRead(basis.populationArtifact.artifact);
+    requireValue(serialize(originalMetadata)===serialize(basis.parentMetadata)&&
+      checkpointMd5(originalPopulation.candidates)===basis.candidatesMd5,'Inherited original identity binding mismatch');
+    requireValue(sha256Utf8(lineage.parentManifestText)===originalMetadata.sourceHash&&
+      sha256Utf8(lineage.currentManifestText)===metadata.sourceHash,'Inherited manifest byte hash mismatch');
+    const originalManifest=JSON.parse(lineage.parentManifestText),currentManifest=JSON.parse(lineage.currentManifestText);
+    requireValue(originalManifest.revision===originalMetadata.revision&&currentManifest.revision===metadata.revision,'Inherited manifest revision mismatch');
+    const originalInputs=populationManifestInputs(originalManifest,originalPopulation.missingSchemaTables);
+    const currentInputs=populationManifestInputs(currentManifest,originalPopulation.missingSchemaTables);
+    requireValue(serialize(originalInputs)===serialize(currentInputs)&&checkpointMd5(currentInputs)===basis.populationInputsMd5,
+      'Inherited population source inputs mismatch');
+    const forbidden=async()=>{throw new Error('Inherited resume prohibits parent SQL and writes');};
+    await createAuditReplay({evaluator,metadata:originalMetadata,read:originalRead,persist:forbidden,execute:forbidden,chunkSize:lineage.parentChunkSize})
+      .verifyPopulationSources({population:originalPopulation,sourceInputs:originalInputs,bundledPopulation:originalManifest.bundledPopulation});
+    requireValue(visited.size===lineage.parentArtifacts.length,'Inherited lineage contains an unexpected artifact inventory');
+    requireValue(serialize(inheritedPopulationValue(originalPopulation,lineage))===serialize(population),
+      'Inherited population does not preserve the verified original scope and source provenance');
+    return {basisMd5:checkpointMd5(basis),evidenceSql:prepareAuditQueries(currentManifest,{
+      missingTables:population.missingSchemaTables,now:metadata.now,clockMode:metadata.clockMode}).evidence};
+  }
   async function legacyPopulationProof(population) {
     const sourceCheckpointMd5=checkpointMd5(population);
     const key=prefix+'canonical-checkpoints/'+CHECKPOINT_HASH_VERSION+'/population/'+sourceCheckpointMd5+'.json';
@@ -372,6 +556,10 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     requireValue(plain(population) && serialize(population.metadata) === serialize(metadata) && Array.isArray(population.candidates), 'This run requires its durable complete population checkpoint');
     requireValue(typeof evidenceSql === 'function' && Number.isSafeInteger(maximumArtists) && maximumArtists >= 1 && maximumArtists <= 25, 'Bounded sequential evidence plan required');
     requireValue(metadata.clockMode !== 'evidence_transaction_timestamp' || chunkedArtistKeys.length === 0, 'Transaction-clock captures require one full response; repeated chunks would change the capture timestamp');
+    const inheritedProof=(metadata.populationBasis||population.populationBasis)?await verifyInheritedPopulation(population):null;
+    const populationBasisMd5=inheritedProof?.basisMd5??null;
+    if(inheritedProof){const supplied=evidenceSql;evidenceSql=candidate=>{const sql=supplied(candidate);
+      requireValue(sql===inheritedProof.evidenceSql(candidate),'Inherited evidence SQL differs from the current source manifest');return sql;};}
     const populationMd5 = checkpointMd5(population.candidates);
     let legacyProof;
     const getLegacyProof=()=>legacyProof??=(legacyPopulationProof(population));
@@ -388,6 +576,7 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
       const key=prefix+'results/'+index+'.json',saved=await read(key);
       if(saved==null)return null;
       requireValue(saved.artistKey===candidate.artistKey,'Result checkpoint candidate mismatch');
+      if(populationBasisMd5)requireValue(saved.populationBasisMd5===populationBasisMd5,'Result checkpoint inherited basis mismatch');
       if(saved.candidateHashVersion===CHECKPOINT_HASH_VERSION){
         requireValue(saved.candidateMd5===checkpointMd5(candidate)&&saved.resultMd5===checkpointMd5(saved.result),'Result checkpoint candidate or result checksum mismatch');return saved;
       }
@@ -415,6 +604,7 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     const legacyReport=priorReport!=null&&priorReport.populationHashVersion===undefined;
     const reportKey=migratedReport!=null||legacyReport?migratedReportKey:prefix+'report.json';
     if (priorReport != null) {
+      if(populationBasisMd5)requireValue(priorReport.populationBasisMd5===populationBasisMd5&&serialize(priorReport.populationBasis)===serialize(population.populationBasis),'Report checkpoint inherited basis mismatch');
       requireValue(serialize(priorReport.metadata)===serialize(metadata)&&Array.isArray(priorReport.artists),'Report checkpoint population or metadata mismatch');
       requireValue(priorReport.artists.every((row,index) => row.artistKey === population.candidates[index]?.artistKey), 'Report checkpoint is not a contiguous unique candidate prefix');
       if(legacyReport){
@@ -428,6 +618,8 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     }
     const report = { metadata, populationHashVersion:CHECKPOINT_HASH_VERSION,populationMd5,checkpointArtifact:reportKey,
       ...(legacyReport?{legacyRecovery:{sourceArtifact:prefix+'report.json',sourceCheckpointMd5:checkpointMd5(priorReport)}}:migratedReport?.legacyRecovery?{legacyRecovery:migratedReport.legacyRecovery}:{}),
+      ...(populationBasisMd5?{populationBasis:population.populationBasis,populationBasisMd5,databasePopulationComplete:false,
+        populationLimitations:population.populationLimitations,sourceSnapshotScope:population.sourceSnapshotScope}:{}),
       totalCandidates:population.candidates.length, populationComplete:population.populationComplete,
       ...(population.bundledSourceProof?{databasePopulationComplete:population.databasePopulationComplete,populationScope:population.populationScope,
         populationLimitations:population.populationLimitations,bundledSourceProof:population.bundledSourceProof}:{}),
@@ -441,7 +633,7 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
         const id = 'evidence_' + index + (chunked ? '_chunks' : '');
         const rows = await captureRows({id,sql:evidenceSql(candidate),expectedRows:1,chunked});
         const result=decisionFor(candidate,rows[0]);
-        saved = {artistKey:candidate.artistKey,candidateHashVersion:CHECKPOINT_HASH_VERSION,candidateMd5:checkpointMd5(candidate),
+        saved = {...(populationBasisMd5?{populationBasisMd5}:{}),artistKey:candidate.artistKey,candidateHashVersion:CHECKPOINT_HASH_VERSION,candidateMd5:checkpointMd5(candidate),
           evidenceArtifact:prefix+'decoded/'+id+'.json',resultMd5:checkpointMd5(result),result};
         await persist(key,saved);
       }
@@ -463,5 +655,5 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     await persist(reportKey.replace(/\.json$/,'.csv'),reportCsv(report));
     return report;
   }
-  return { captureRows, collectPopulation, auditNext };
+  return { captureRows, collectPopulation, inheritPopulation, verifyPopulationSources, auditNext };
 }

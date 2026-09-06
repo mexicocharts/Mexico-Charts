@@ -25,3 +25,20 @@ export function prepareAuditQueries(manifest,{missingTables,now,clockMode}){
     },
   };
 }
+
+/** Population-only identity inputs. Evidence SQL and revision may evolve independently. */
+export function populationManifestInputs(manifest,missingTables=[]) {
+  check(manifest?.readOnly===true&&manifest.providerCalls===0&&Array.isArray(manifest.sourceTables), 'Reviewed population manifest required');
+  check(new Set(manifest.sourceTables).size===manifest.sourceTables.length&&missingTables.every(table=>manifest.sourceTables.includes(table)), 'Population source inventory mismatch');
+  const names=['population','acceptedAliases','discovery'];
+  check(names.every(name=>typeof manifest.queries?.[name]==='string'),'Complete population SQL inputs required');
+  const queries=Object.fromEntries(names.map(name=>[name,manifest.queries[name]]));
+  const prepared=Object.fromEntries(names.map(name=>[name,applyAuditMissingSources(manifest,queries[name],missingTables)]));
+  // All source inventory/typed schema substitutions are retained, including unneeded
+  // empty CTEs: a changed schema inventory is not an inherited fresh inspection.
+  const {revision,...bundled}=manifest.bundledPopulation??{};
+  check(typeof manifest.queries.schema==='string','Original schema inventory SQL required');
+  const sourceCounts=`SELECT (SELECT count(*) FROM (${prepared.population}) p) population, (SELECT count(*) FROM (${prepared.acceptedAliases}) a) accepted_aliases, (SELECT count(*) FROM (${prepared.discovery}) d) discovery`;
+  return {schemaSql:manifest.queries.schema,sourceCounts,sourceTables:manifest.sourceTables,emptySourceCtes:manifest.emptySourceCtes,missingTables,
+    queries,prepared,bundledPopulation:manifest.bundledPopulation===undefined?null:bundled};
+}

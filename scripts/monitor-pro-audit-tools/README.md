@@ -70,7 +70,59 @@ The existing pure identity grouper retains input order for rows tied on source p
 
 Evidence reads are sequential, one whole response per artist. The transport wrapper begins with SELECT while keeping the source query materialized; both SELECT- and WITH-leading sources are supported. Raw output is durably saved before parsing; strict RFC4180/JSON decoding, row counts, Unicode lengths, MD5 and exact artist matching reject incomplete or mixed captures. A model/log preview truncation is not raw-tool truncation. Transaction-clock mode rejects repeated chunk queries because they change capture time. Preserve actual incomplete transport as a blocker.
 
-Resume with the same metadata and saved population order. Completed raw/decoded/result files are reused; the compact JSON/CSV report advances without duplicate rows. Prioritize artists once before the first evidence result, then preserve that order. `auditComplete` requires complete source coverage, every candidate audited, and no incomplete evidence. C can still have other unresolved findings; count incomplete evidence separately from unclassified rows.
+Resume with the same metadata and saved population order. Completed raw/decoded/result files are reused; the compact JSON/CSV report advances without duplicate rows. Preserve the captured candidate order exactly. Priority artists may use separate indexed evidence captures; never sort or rewrite the population checkpoint in place. `auditComplete` requires complete source coverage, every candidate audited, and no incomplete evidence. C can still have other unresolved findings; count incomplete evidence separately from unclassified rows.
+
+## Explicit inheritance of a verified population cohort
+
+When only evidence/diagnostic logic changes, `inheritPopulation` can establish a **separate new run** over the complete original cohort without another population SQL read. It does not capture the population again, prove current schema freshness, copy old evidence/results, or turn the inherited cohort into a complete current global inventory. Original metadata, source proofs and files stay immutable.
+
+This opt-in path requires the exact original manifest text, metadata/population file SHA256 pins and ordered candidate canonical MD5. SHA256 is computed over the original UTF8 text bytes; the host `readText` rejects malformed UTF8 and uses the same no-follow path guards as `read`. Canonical object-key MD5 is separately labelled `json_sorted_object_keys_v1`; it is never described as a file hash. Load the intended original metadata/candidate pins from retained, independently reviewed artifacts. Do not manufacture new original metadata to satisfy these checks.
+
+```javascript
+const parent = {
+  runId: originalRunId,
+  metadataSha256: verifiedOriginalMetadataFileSha256,
+  populationSha256: verifiedOriginalPopulationFileSha256,
+  candidatesMd5: verifiedOrderedCandidateCanonicalMd5,
+  manifestText: exactOriginalSqlManifestUtf8,
+  chunkSize: originalChunkSize, // e.g. the original capture's 100000; never guess
+};
+const metadata = {
+  ...newRunMetadata, // new runId/revision/sourceHash/evaluatorHash/clock metadata
+  populationBasis: {
+    kind: 'inherited_verified_cohort',
+    parentRunId: parent.runId,
+    parentMetadataSha256: parent.metadataSha256,
+    parentPopulationSha256: parent.populationSha256,
+    parentCandidatesMd5: parent.candidatesMd5,
+    parentSourceHash: originalMetadata.sourceHash,
+    parentEvaluatorHash: originalMetadata.evaluatorHash,
+  },
+};
+const replay = MonitorAuditReplay.createAuditReplay({
+  evaluator: CurrentMonitorAudit, metadata, execute, read, persist, readText,
+});
+const population = await replay.inheritPopulation({
+  parent, manifestText: exactCurrentSqlManifestUtf8,
+});
+const queries = MonitorAuditManifest.prepareAuditQueries(
+  JSON.parse(exactCurrentSqlManifestUtf8),
+  {missingTables: population.missingSchemaTables, now: metadata.now, clockMode: metadata.clockMode},
+);
+const report = await replay.auditNext({population, evidenceSql: queries.evidence, maximumArtists: 25});
+```
+
+Use caller adapters which route old run keys to the original private storage and new run keys to their separate storage. Both `read` and `readText` must refer to the same artifacts; `readText` returns exact durable file text, not JSON serialization of `read`. The utility's exported `sha256Utf8` can calculate UTF8 SHA256 in the browser isolate; an independently verified host digest is also suitable for establishing the input pins. The current `metadata.sourceHash` and original source hash must match SHA256 calculated from the two exact supplied manifest texts.
+
+The inherited path requires the original `schema_inventory` and `source_counts` full captures, then the three ordered source plans `population`, `accepted_aliases`, `discovery`. Every source must have a complete whole frame or validated digest chunks. It reconstructs **all original raw frames**, including retained retry attempts, verifies SQL/row counts/MD5/offsets/decoded values, reconciles independently captured schema/counts, and verifies any bundled identity artifact. Paged, incomplete, missing-schema or already-inherited populations are rejected. The original chunk size is required for byte-identical request validation. No parent SQL or parent persistence is available in this verifier.
+
+Original and current population, accepted-alias, discovery and schema SQL, source-table inventory, typed empty-source CTEs, bundled rows/order/checksums/source-file hashes/inventory/limitations must match exactly; only the bundled revision label may differ. Evidence SQL and evaluator version may change. The current evaluator must regroup all verified original DB and bundled rows into the **exact original candidate array**, including full order and nested array order. Object property order alone is canonically equivalent. A grouping change, identity input change, manually sorted candidate array or new source inventory requires a separately captured population.
+
+New-run `population-lineage.json` retains exact manifest texts and SHA256/byte inventory for the original metadata, population, prerequisite captures, full source frames and bundled artifact. `population.json` explicitly includes `populationBasis.kind:'inherited_verified_cohort'`, original parent metadata, current evidence version, original coverage and unchanged source proofs. Its `populationComplete` and `databasePopulationComplete` remain **false**; `originalCaptureCoverage.databasePopulationComplete` describes only the verified historical capture. The original run-start clock is preserved as metadata, not advertised as a population capture timestamp. Digest chunks and separate sources still represent independent source contents; no common snapshot timestamp is invented.
+
+Every inherited `auditNext` rechecks the pinned durable child and original artifacts, complete original raw proof, source-input equality and candidate order before evidence. Removing the caller's basis cannot disable verification: inherited mode is pinned in the immutable child run metadata. Coherent child-lineage rewrites which omit raw artifacts, changed original bytes, and SQL which differs from the current manifest fail closed. New evidence remains one transaction-clock response per artist; no old rows/results are copied. Each child result and JSON report carries the basis checksum. Inherited CSVs add explicit parent run, lineage artifact and cohort freshness columns; ordinary CSV output stays unchanged.
+
+These checks reread/hash the complete original artifacts on each bounded batch, adding local private-storage work but no database queries. A caller may preload byte-verbatim artifacts from durable storage for that invocation; do not substitute an unverified cross-resume cache. Keep the original capture and new evidence clocks/provenance separate. Even after all inherited candidates are audited, global `auditComplete` remains false and the report states `requires_further_investigation` because it is not a fresh all-source population scan.
 
 ## Explicit retry of a failed SQL-tool envelope
 
