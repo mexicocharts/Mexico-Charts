@@ -23,6 +23,8 @@ function fixture() {
     artist_key: artist.artistKey, extended: [extended], snapshot, summary, raw_summary: summary,
     legacy: [{ coverage: { spotify_id: "spotify-1" }, extended, snapshot, summary }],
     source_evidence: { artistImage: true, catalog: { tracks: 1, albums: 1, tracksWithArtwork: 1, albumsWithArtwork: 1 },
+      liveCatalogInvestigation: { status: "reviewed", source: "kworb_live_complete_catalog", reference: "fixture:reviewed-live-catalog",
+        observedAt: "2026-08-10T11:00:00Z", spotifyArtistId: "spotify-1", catalogEvidenceApplied: true, artworkEvidenceApplied: true },
       currentHistory: { days: 20, previousDate: "2026-08-09", lastDate: "2026-08-10" },
       catalogCompleteness: { verified: true, reference: "fixture:full-provider-catalog", expectedTracks: 1, expectedAlbums: 1 },
       spotifyHistory: { days: 20 }, streamHistory: { days: 20 }, youtube: { approvedVideos: 2, observedVideos: 2, videosWithArtwork: 2 },
@@ -141,6 +143,31 @@ test("A requires the complete approved surfaces in addition to legacy readiness"
   assert.equal(incomplete.publicEligible, false);
   assert.equal(incomplete.classification, "C");
   assert.ok(incomplete.findings.some(finding => finding.code === "missing_album_artwork"));
+});
+
+test("stored catalog and artwork gaps stay unknown until the integrated live fallback is investigated", () => {
+  const { artist, row, now } = fixture();
+  const emptySummary = { ...row.summary, track_count: 0, album_count: 0, track_daily_streams: 0, track_total_streams: 0, album_total_streams: 0 };
+  const storedGap = { ...row, summary: emptySummary, raw_summary: emptySummary, legacy: [{ ...row.legacy[0]!, summary: emptySummary }],
+    source_evidence: { ...row.source_evidence, liveCatalogInvestigation: null,
+      catalog: { tracks: 0, albums: 0, tracksWithArtwork: 0, albumsWithArtwork: 0 } } };
+  const result = evaluateMonitoringCandidate(artist, storedGap, now);
+  assert.equal(result.classification, null);
+  assert.equal(result.auditStatus, "incomplete");
+  assert.ok(result.findings.some(finding => finding.code === "live_catalog_fallback_uninvestigated"));
+  assert.ok(result.findings.every(finding => finding.status !== "blocked"));
+  const independentHistoryGap = evaluateMonitoringCandidate(artist, { ...storedGap,
+    source_evidence: { ...storedGap.source_evidence, spotifyHistory: { days: 0 } } }, now);
+  assert.equal(independentHistoryGap.classification, "C");
+  assert.equal(independentHistoryGap.auditStatus, "incomplete");
+  assert.ok(independentHistoryGap.findings.some(finding => finding.code === "missing_spotify_daily_history" && finding.status === "blocked"));
+  for (const investigation of [null, { ...row.source_evidence.liveCatalogInvestigation, catalogEvidenceApplied: false },
+    { ...row.source_evidence.liveCatalogInvestigation, spotifyArtistId: "different-artist" }]) {
+    const missingArtwork = evaluateMonitoringCandidate(artist, { ...row, source_evidence: { ...row.source_evidence,
+      liveCatalogInvestigation: investigation, catalog: { ...row.source_evidence.catalog, albumsWithArtwork: 0 } } }, now);
+    assert.equal(missingArtwork.classification, null);
+    assert.ok(missingArtwork.findings.some(finding => finding.code === "missing_album_artwork" && finding.status === "investigation_required"));
+  }
 });
 
 test("legacy exact-source references preserve the previous duplicated-payload result", () => {

@@ -252,6 +252,20 @@ export function evaluateMonitoringCandidate(
     mexicoCities: readiness.mexicoCities, comparisonPeers: count(sourceEvidence["comparisonPeers"]), generationVerified: false,
     verification: "Actual authenticated PDF generation and visual review are separate runtime acceptance checks." };
   const findings: MonitoringCandidateFinding[] = [];
+  // The dashboard already serves a live Kworb catalog and Spotify artwork
+  // enrichment. SQL absence alone does not investigate those approved sources.
+  // A reviewed capture must identify the artist and its reproducible evidence;
+  // the caller must apply that evidence to the same items/summary being audited.
+  const liveInvestigation = object(sourceEvidence["liveCatalogInvestigation"]);
+  const reviewedLiveCapture = liveInvestigation["status"] === "reviewed"
+    && liveInvestigation["source"] === "kworb_live_complete_catalog"
+    && typeof liveInvestigation["reference"] === "string" && Boolean(liveInvestigation["reference"].trim())
+    && typeof liveInvestigation["observedAt"] === "string" && Number.isFinite(Date.parse(liveInvestigation["observedAt"]))
+    && typeof liveInvestigation["spotifyArtistId"] === "string" && artist.spotifyIds.includes(liveInvestigation["spotifyArtistId"]);
+  const liveCatalogApplied = reviewedLiveCapture && liveInvestigation["catalogEvidenceApplied"] === true;
+  const liveArtworkApplied = liveCatalogApplied && liveInvestigation["artworkEvidenceApplied"] === true;
+  const liveCatalogReasons = new Set(["missing_stream_catalog", "stream_snapshot_stale", "missing_daily_streams", "missing_lifetime_streams"]);
+  let needsLiveInvestigation = false;
   if (row.missing_schema_tables?.length) findings.push({
     code: "source_schema_unavailable", section: "source_inventory", status: "investigation_required",
     evidence: `Source tables unavailable: ${row.missing_schema_tables.join(", ")}. Remaining tables were still inspected.`,
@@ -271,17 +285,21 @@ export function evaluateMonitoringCandidate(
       && count(object(sourceEvidence["compactHistory"])["points"]) > 0)
       || (["missing_spotify_audience", "missing_youtube_audience", "insufficient_platform_breadth"].includes(reason)
         && Boolean(row.compact_history?.available_metric_keys?.length));
+    const liveSourceUninvestigated = liveCatalogReasons.has(reason) && !liveCatalogApplied;
+    if (!repairable && liveSourceUninvestigated) needsLiveInvestigation = true;
     findings.push({
       code: reason,
       section: /stream/.test(reason) ? "spotify" : /mexico/.test(reason) ? "markets" : "audience_and_growth",
-      status: repairable ? "repairable" : endpointFailure || compactNeedsEvaluation ? "investigation_required" : "blocked",
+      status: repairable ? "repairable" : endpointFailure || compactNeedsEvaluation || liveSourceUninvestigated ? "investigation_required" : "blocked",
       evidence: reason === "missing_licensed_endpoint"
         ? `Missing stored licensed payloads: ${missingEndpoints.join(", ")}. Failed endpoint keys: ${failedEndpoints.join(", ") || "none"}.`
-        : compactNeedsEvaluation ? "Verified compact historical observations exist; the legacy payload parser cannot prove their growth/trend coverage."
+        : liveSourceUninvestigated ? "The stored catalog fails this check; the dashboard's approved live Kworb catalog has not been reviewed and applied to this audit. Stored absence does not establish source absence."
+          : compactNeedsEvaluation ? "Verified compact historical observations exist; the legacy payload parser cannot prove their growth/trend coverage."
           : repairable ? "Existing exact raw stream rows satisfy this check; the serving summary does not."
           : `The existing v${MONITORING_READINESS_POLICY_VERSION} check fails across the resolved stored source keys.`,
       action: repairable ? "Serve or rebuild the artist summary from the existing exact dated track and album rows."
-        : compactNeedsEvaluation ? "Evaluate the existing verified compact metric dates and baselines before assigning a source classification."
+        : liveSourceUninvestigated ? "Investigate the existing live catalog and apply its actual items, timestamps and exact summary before classifying this gap."
+          : compactNeedsEvaluation ? "Evaluate the existing verified compact metric dates and baselines before assigning a source classification."
           : endpointFailure ? "Investigate the recorded endpoint failure before assigning a complete source classification."
           : "Obtain the missing approved source evidence before enabling paid monitoring.",
     });
@@ -355,8 +373,15 @@ export function evaluateMonitoringCandidate(
   for (const [kind, countKey, artworkKey] of [["track", "tracks", "tracksWithArtwork"], ["album", "albums", "albumsWithArtwork"]] as const) {
     const total = count(catalog[countKey]);
     const covered = count(catalog[artworkKey]);
-    addMissing(total > 0 && covered === total, `missing_${kind}_artwork`, "spotify", `${covered}/${total} stored ${kind} catalog items have matched artwork.`);
+    const coveredCompletely = total > 0 && covered === total;
+    if (!coveredCompletely && !liveArtworkApplied) needsLiveInvestigation = true;
+    addMissing(coveredCompletely, `missing_${kind}_artwork`, "spotify", `${covered}/${total} stored ${kind} catalog items have matched artwork.${!liveArtworkApplied ? " The approved live catalog and Spotify artwork fallback have not been reviewed and applied to this audit." : ""}`, false, !liveArtworkApplied);
   }
+  if (needsLiveInvestigation) findings.push({
+    code: "live_catalog_fallback_uninvestigated", section: "spotify", status: "investigation_required",
+    evidence: "The dashboard already supports a live Kworb catalog with Spotify artwork enrichment. This stored-data audit has no reviewed, applied capture of that fallback for the failing catalog checks.",
+    action: "Read and validate the existing live source, preserve its reference and artist identity, and evaluate the actual served catalog and artwork. Do not invent counts or require a new database write.",
+  });
   addMissing(count(spotifyHistory["days"]) >= 2, "missing_spotify_daily_history", "spotify",
     `${count(spotifyHistory["days"])} stored Spotify aggregate dates; ${count(streamHistory["days"])} exact stream catalog dates. Raw track sums are a distinct measure and do not replace the original Spotify aggregate series.`);
   addMissing(count(youtube["approvedVideos"]) > 0 && count(youtube["observedVideos"]) === count(youtube["approvedVideos"]),
