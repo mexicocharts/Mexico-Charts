@@ -449,6 +449,49 @@ test("candidate, native and legacy YouTube diagnostics keep absent approved cove
 });
 
 const postgresModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
+test("native daily gaps remain under investigation without promoting unreviewed intraday or unrelated history", () => {
+  const { artist, row, now } = fixture();
+  for (const youtubeHistory of [
+    { days: 0, videos: 0, videosWithHistory: 0 },
+    { days: 20, videos: 2, videosWithHistory: 1 },
+  ]) {
+    const input = { ...row, source_evidence: { ...row.source_evidence, youtubeHistory } };
+    const result = evaluateMonitoringCandidate(artist, input, now);
+    assert.equal(result.legacyPublicEligible, true, "the exact legacy contract is unchanged");
+    assert.equal(result.publicEligible, false, "the full daily coverage gate still fails");
+    assert.equal(result.classification, null);
+    assert.equal(result.auditStatus, "incomplete");
+    assert.ok(result.findings.some(finding => finding.code === "missing_youtube_daily_history" && finding.status === "investigation_required"));
+    assert.ok(result.findings.some(finding => finding.code === "youtube_native_intraday_fallback_uninvestigated" && finding.status === "investigation_required"));
+    assert.ok(result.findings.every(finding => finding.status !== "repairable" && finding.status !== "blocked"));
+    assert.deepEqual(result.sourceEvidence["youtubeHistory"], youtubeHistory, "no alternate counts are substituted");
+
+    const independentBlocker = evaluateMonitoringCandidate(artist, { ...input,
+      source_evidence: { ...input.source_evidence, spotifyHistory: { days: 0 } } }, now);
+    assert.equal(independentBlocker.classification, "C");
+    assert.equal(independentBlocker.auditStatus, "incomplete");
+    assert.ok(independentBlocker.findings.some(finding => finding.code === "missing_spotify_daily_history" && finding.status === "blocked"));
+
+    for (const unrelated of [
+      { inspected: true, nativeDailyHistory: { points: 200, candidateOnlyVideosWithHistory: 2 } },
+      { inspected: true, channelDailyHistory: { points: 200, days: 90 } },
+      { inspected: true, nativeIntradayHistory: { inspected: true, sourceType: "youtube_api_shadow", points: 200, videosWithHistory: 2 } },
+      { inspected: true, protectedComparatorHistory: { points: 200, days: 90 } },
+    ]) {
+      const unreviewed = evaluateMonitoringCandidate(artist, { ...input,
+        source_evidence: { ...input.source_evidence, youtubeServing: unrelated } }, now);
+      assert.equal(unreviewed.classification, null, "counts alone cannot establish an approved daily projection");
+      assert.equal(unreviewed.publicEligible, false);
+      assert.ok(unreviewed.findings.some(finding => finding.code === "youtube_native_intraday_fallback_uninvestigated"));
+      assert.deepEqual(unreviewed.sourceEvidence["youtubeHistory"], youtubeHistory);
+    }
+  }
+  const complete = evaluateMonitoringCandidate(artist, row, now);
+  assert.equal(complete.classification, "A");
+  assert.equal(complete.auditStatus, "complete");
+  assert.ok(!complete.findings.some(finding => /youtube.*history|youtube_native_intraday/.test(finding.code)));
+});
+
 test("read-only source audit SQL executes on PostgreSQL and keeps artists omitted by old joins", { skip: !postgresModule }, async () => {
   const { PGlite } = await import(postgresModule!);
   const db = new PGlite();

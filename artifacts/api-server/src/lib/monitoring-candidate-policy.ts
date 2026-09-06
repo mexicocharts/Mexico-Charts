@@ -490,8 +490,20 @@ export function evaluateMonitoringCandidate(
     "missing_approved_youtube_catalog", "youtube", `${count(youtube["observedVideos"])}/${count(youtube["approvedVideos"])} active approved video links have observed views.`, false, youtubeSourceNeedsReview);
   addMissing(count(youtube["approvedVideos"]) > 0 && count(youtube["videosWithArtwork"]) === count(youtube["approvedVideos"]),
     "missing_youtube_artwork", "youtube", `${count(youtube["videosWithArtwork"])}/${count(youtube["approvedVideos"])} approved videos have thumbnails.`, false, youtubeSourceNeedsReview);
-  addMissing(count(youtubeHistory["days"]) >= 2 && count(youtubeHistory["videosWithHistory"]) === count(youtube["approvedVideos"]),
-    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have stored history across ${count(youtubeHistory["days"])} distinct dates in the dashboard's 90-day Eastern range. Older native history stays diagnostic; shadow and review links do not satisfy this check.`, false, youtubeSourceNeedsReview);
+  const youtubeDailyHistoryComplete = count(youtubeHistory["days"]) >= 2
+    && count(youtubeHistory["videosWithHistory"]) === count(youtube["approvedVideos"]);
+  // The evidence query currently inventories native daily rows, not the native
+  // official-API intraday archive already used for current video observations.
+  // A daily serving gap cannot establish source absence before that distinct
+  // archive is inspected. No intraday count or candidate relationship passes
+  // this daily-history gate or establishes a reviewed serving repair.
+  if (!youtubeDailyHistoryComplete) findings.push({
+    code: "youtube_native_intraday_fallback_uninvestigated", section: "youtube", status: "investigation_required",
+    evidence: "The approved-video history in youtube_video_daily_snapshots is incomplete in the served 90-day Eastern range. Historical coverage of official youtube_api_shadow observations in youtube_video_intraday_shadow_snapshots has not been established by this audit; empty daily storage does not prove those observations are absent.",
+    action: "Inspect exact approved-video identities, stored source types, observation timestamps, per-video Eastern dates and gaps in the native intraday archive. Review any proposed serving projection separately; candidate/channel histories and protected comparator records do not satisfy approved daily history.",
+  });
+  addMissing(youtubeDailyHistoryComplete,
+    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have stored history across ${count(youtubeHistory["days"])} distinct dates in the dashboard's 90-day Eastern range. Older native history stays diagnostic; shadow and review links do not satisfy this check. The separate official native intraday archive remains uninvestigated.`, false, !youtubeDailyHistoryComplete);
   addMissing(freshComparisonPeers != null && freshComparisonPeers > 0, "missing_comparison_peer", "comparisons",
     `${freshComparisonPeers ?? "Unknown"} fresh peers out of ${count(sourceEvidence["comparisonPeers"])} stored peer artists; only each peer's latest positive snapshot within the existing 14-day freshness limit qualifies.`,
     false, comparisonDates == null && count(sourceEvidence["comparisonPeers"]) > 0);

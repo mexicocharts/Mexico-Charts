@@ -44,7 +44,7 @@ scenario('unknown_schema',null,({row})=>{row.missing_schema_tables=['songstats_h
 scenario('unknown_invalid_identity',null,({artist})=>{artist.spotifyIds=['invalid-shared-provider'];});
 scenario('unknown_provider_conflict',null,({artist})=>{artist.identityConflict=true;artist.spotifyIds.push('0000000000000000000200');});
 scenario('unknown_live_artwork_fallback',null,({row})=>{delete row.source_evidence.liveCatalogInvestigation;row.source_evidence.catalog.albumsWithArtwork=0;});
-scenario('C_bounded_youtube_history_retains_old_alltime','C',({row})=>{row.source_evidence.youtubeHistory={days:0,videos:0,videosWithHistory:0,rangeDays:90,allTime:{days:50,videos:2,videosWithHistory:2}};});
+scenario('unknown_bounded_youtube_history_retains_old_alltime',null,({row})=>{row.source_evidence.youtubeHistory={days:0,videos:0,videosWithHistory:0,rangeDays:90,allTime:{days:50,videos:2,videosWithHistory:2}};});
 scenario('unknown_candidate_only_youtube',null,({row})=>{Object.assign(row.source_evidence,{youtube:{approvedVideos:0,observedVideos:0,videosWithArtwork:0},youtubeHistory:{days:0,videos:0,videosWithHistory:0},youtubeObservations:[],youtubeImport:[],youtubeServing:{inspected:true,catalog:{videos:2,candidateOnlyVideos:2},nativeDailyHistory:{points:20,candidateOnlyVideosWithHistory:2}}});});
 scenario('B_scoped_licensed_audience_endpoint_contract','B',({artist,row})=>{const extended={...row.extended[0],artist_key:artist.artistKey,audience_details_fetched_at:'2026-08-08T10:00:00Z',audience:null};row.extended=[extended];row.legacy[0].extended=extended;});
 scenario('unknown_missing_catalog_endpoint',null,({row})=>{row.extended[0].catalog=null;});
@@ -55,7 +55,11 @@ try{
   globalThis.Date=class extends originalDate{constructor(...values){if(!values.length)throw new Error('Implicit clock forbidden');super(...values);}static now(){throw new Error('Date.now forbidden');}};
   for(const value of cases){const expected=direct.evaluateMonitoringCandidate(value.artist,value.row,value.now);const actual=bundle.evaluateMonitoringCandidate(value.artist,value.row,value.now);
     assert.equal(expected.classification,value.expected,value.name);assert.deepEqual(json(actual),json(expected),value.name);
-    if(value.name==='C_bounded_youtube_history_retains_old_alltime')assert.equal(actual.sourceEvidence.youtubeHistory.allTime.days,50);
+    if(value.name==='unknown_bounded_youtube_history_retains_old_alltime'){
+      assert.equal(actual.sourceEvidence.youtubeHistory.allTime.days,50);
+      assert.ok(actual.findings.some(finding=>finding.code==='youtube_native_intraday_fallback_uninvestigated'&&finding.status==='investigation_required'));
+      assert.equal(actual.publicEligible,false);
+    }
   }
 }finally{globalThis.Date=originalDate;}
 const sourceRows=[
