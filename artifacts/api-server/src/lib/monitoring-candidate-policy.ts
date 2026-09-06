@@ -67,6 +67,9 @@ export function isMonitoringSpotifyArtistId(value: unknown): value is string {
 }
 
 const SOURCE_PRIORITY = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists"];
+// Locale comparisons can equate distinct stored spellings. Break only those
+// ties by raw UTF-16 order; never normalize away a source key or display name.
+const compareRawIdentityStrings = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
 /** Keep Unicode identity names exact. Removing their characters can produce an
  * empty key, or reduce distinct mixed-script names to the same ASCII fragment.
  * ASCII and accent-normalized Latin names retain the established aliases.
@@ -101,7 +104,8 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   groups.forEach((group, id) => merged.set(root(id), [...(merged.get(root(id)) ?? []), ...group]));
   return [...merged.values()].map(group => {
     const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source), lead = INSPECTION_SOURCE_PRIORITY.indexOf(source); return lead >= 0 ? 100 + lead : index < 0 ? 99 : index; };
-    const ordered = [...group].sort((a, b) => priority(a.source) - priority(b.source) || a.artist_key.localeCompare(b.artist_key));
+    const ordered = [...group].sort((a, b) => priority(a.source) - priority(b.source) || a.artist_key.localeCompare(b.artist_key) ||
+      compareRawIdentityStrings(a.artist_key, b.artist_key) || compareRawIdentityStrings(a.artist_name ?? "", b.artist_name ?? ""));
     // Inspection leads must not replace an existing source's canonical key or
     // display name, including its key fallback and accepted discovery target.
     // The earlier subscription-only representation also keeps precedence over
@@ -144,7 +148,7 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
       candidateRecords,
       identityMappingStatus: identityConflict ? "conflict" as const : spotifyIds.some(isMonitoringSpotifyArtistId) ? "provider_id" as const : identityAliasEvidence.length ? "accepted_registry" as const : "unverified" as const,
     };
-  }).sort((a, b) => a.artistKey.localeCompare(b.artistKey));
+  }).sort((a, b) => a.artistKey.localeCompare(b.artistKey) || compareRawIdentityStrings(a.artistKey, b.artistKey));
 }
 
 export interface MonitoringCandidateEvidenceRow {

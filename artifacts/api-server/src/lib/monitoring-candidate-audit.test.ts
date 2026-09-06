@@ -54,6 +54,61 @@ test("population includes source-only and no-Spotify artists while aliases and p
   assert.ok(result.some(row => row.artistKey === "only raw streams"));
 });
 
+test("canonical keys and labels are stable across exact Unicode and same-key name permutations", () => {
+  const rows = [
+    ...["álpha", "a\u0301lpha"].flatMap(artist_key => ["youtube_music_catalog_candidates", "youtube_artist_video_links"]
+      .map(source => ({ artist_key, artist_name: "Name", spotify_id: null, source }))),
+    ...[null, "", "Name", "name", "Náme", "Na\u0301me"].map(artist_name => ({
+      artist_key: "edge", artist_name, spotify_id: null, source: "youtube_artist_video_links",
+    })),
+  ];
+  assert.equal("álpha".localeCompare("a\u0301lpha"), 0, "different stored keys reproduce the locale tie");
+  const original = JSON.stringify(rows);
+  const expected = groupMonitoringCandidateIdentities(rows);
+  const alpha = expected.find(group => group.sourceKeys.includes("álpha"))!;
+  assert.equal(alpha.artistKey, "a\u0301lpha", "the tied key uses raw ordering, not input position or normalization");
+  assert.deepEqual(alpha.sourceKeys, ["a\u0301lpha", "álpha"], "both original spellings remain source evidence");
+  assert.equal(expected.find(group => group.artistKey === "edge")?.artistName, "Name");
+  let seed = 412;
+  for (let permutation = 0; permutation < 40; permutation++) {
+    const shuffled = rows.slice();
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      const other = seed % (index + 1);
+      [shuffled[index], shuffled[other]] = [shuffled[other]!, shuffled[index]!];
+    }
+    // These rows have no ordered diagnostic relations: the whole group object
+    // must match, including every exact source key and canonical display name.
+    assert.deepEqual(groupMonitoringCandidateIdentities(shuffled), expected);
+  }
+  assert.equal(JSON.stringify(rows), original, "grouping never reorders or normalizes the source rows");
+});
+
+test("locale-tied group ordering retains existing canonical priority and provider safeguards", () => {
+  const rows = [
+    { artist_key: "álpha", artist_name: "Low priority label", spotify_id: "0000000000000000000101", source: "youtube_artist_video_links" },
+    { artist_key: "a\u0301lpha", artist_name: "Other low priority label", spotify_id: "0000000000000000000101", source: "monitoring_stream_items" },
+    { artist_key: "z canonical", artist_name: "Existing Canonical Label", spotify_id: "0000000000000000000101", source: "kworb_coverage" },
+    { artist_key: "invalid first", artist_name: null, spotify_id: "invalid-shared-provider", source: "kworb_coverage" },
+    { artist_key: "invalid second", artist_name: null, spotify_id: "invalid-shared-provider", source: "songstats_artists" },
+    { artist_key: "東京", artist_name: "Stored Tokyo", spotify_id: null, source: "official_artists" },
+    { artist_key: "東\u200d京", artist_name: "Distinct exact Unicode key", spotify_id: null, source: "official_artists" },
+  ];
+  assert.equal("東京".localeCompare("東\u200d京"), 0);
+  const expected = groupMonitoringCandidateIdentities(rows);
+  assert.equal(expected.length, 5, "malformed shared provider values and distinct Unicode keys do not merge");
+  const canonical = expected.find(group => group.artistKey === "z canonical")!;
+  assert.equal(canonical.artistName, "Existing Canonical Label");
+  assert.deepEqual(canonical.sourceKeys, ["a\u0301lpha", "z canonical", "álpha"]);
+  assert.equal(canonical.identityMappingStatus, "provider_id");
+  assert.deepEqual(expected.filter(group => group.artistKey.startsWith("東")).map(group => group.artistKey), ["東\u200d京", "東京"]);
+  for (let offset = 0; offset < rows.length; offset++) {
+    const rotated = [...rows.slice(offset), ...rows.slice(0, offset)];
+    assert.deepEqual(groupMonitoringCandidateIdentities(rotated), expected);
+    assert.deepEqual(groupMonitoringCandidateIdentities(rotated.reverse()), expected);
+  }
+});
+
 test("subscription leads preserve existing canonical identities and labels in either input order", () => {
   const scenarios = [
     { existing: [{ artist_key: "zz accepted registry", artist_name: "Accepted Registry Name", spotify_id: null, source: "musicbrainz_artists",
