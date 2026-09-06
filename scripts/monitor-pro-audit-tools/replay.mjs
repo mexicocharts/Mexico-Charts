@@ -123,13 +123,17 @@ export function reportCsv(report) {
  * persist(key, JSON-compatible value) resolves only after durable replacement succeeds.
  * read(key) returns that value or null. execute(sql, context) is the existing SELECT-only tool.
  */
-export function createAuditReplay({ evaluator, metadata, execute, persist, read, chunkSize = 24000 }) {
+export function createAuditReplay({ evaluator, metadata, execute, persist, read, chunkSize = 24000,
+  failedToolRetries = 0, replayImplementation = null }) {
   requireValue(plain(evaluator) && typeof evaluator.groupMonitoringCandidateIdentities === 'function' && typeof evaluator.evaluateMonitoringCandidate === 'function', 'Pure evaluator is required');
   requireValue(plain(metadata) && ['runId','revision','sourceHash','evaluatorHash','now'].every(key => typeof metadata[key] === 'string' && metadata[key]), 'Explicit run/revision/source/evaluator/clock metadata is required');
   safeId(metadata.runId);
   requireValue(['run_fixed','evidence_transaction_timestamp'].includes(metadata.clockMode), 'An explicit audit clock mode is required');
   requireValue(/T.*(?:Z|[+-]\d\d:\d\d)$/.test(metadata.now) && Number.isFinite(new Date(metadata.now).getTime()), 'A fixed explicit timezone-bearing audit clock is required');
   requireValue([execute,persist,read].every(value => typeof value === 'function'), 'Caller execution and durable persistence functions are required');
+  requireValue(Number.isSafeInteger(failedToolRetries) && failedToolRetries >= 0 && failedToolRetries <= 3, 'Failed-tool retries must be explicitly bounded to 0..3');
+  requireValue(!failedToolRetries || (plain(replayImplementation) && /^[0-9a-f]{40}$/.test(replayImplementation.revision ?? '') &&
+    /^[0-9a-f]{64}$/.test(replayImplementation.sha256 ?? '')), 'Explicit reviewed replay implementation revision and SHA256 are required for retries');
   const prefix = metadata.runId + '/';
   let manifestChecked = false;
   async function manifest() {
@@ -137,8 +141,20 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     const existing = await read(prefix + 'manifest.json');
     if (existing !== null && existing !== undefined) requireValue(serialize(existing) === serialize(metadata), 'Checkpoint metadata does not match this run');
     else await persist(prefix + 'manifest.json', metadata);
+    if (failedToolRetries) {
+      const key=prefix+'replay-implementations/'+replayImplementation.sha256+'.retries-'+failedToolRetries+'.json';
+      const implementation={revision:replayImplementation.revision,sha256:replayImplementation.sha256,
+        originalReplayHash:metadata.replayHash ?? null,sourceHash:metadata.sourceHash,evaluatorHash:metadata.evaluatorHash,
+        failedToolRetries,scope:'explicit_failed_envelope_retry_only',requiredSourceQueryPolicy:'byte_identical_saved_request'};
+      const previous=await read(key);
+      if(previous != null) requireValue(serialize(previous) === serialize(implementation), 'Replay implementation checkpoint mismatch');
+      else await persist(key,implementation);
+    }
     manifestChecked = true;
   }
+  const failedToolEnvelope = value => plain(value) && value.success === false && Number.isSafeInteger(value.exitCode) && value.exitCode !== 0 &&
+    (value.exitReason === null || typeof value.exitReason === 'string') && typeof value.output === 'string' &&
+    value.truncated !== true && value.isTruncated !== true;
   async function captureRows({ id, sql, expectedRows, chunked = false, canonicalRowOrder = false }) {
     await manifest(); safeId(id);
     requireValue(Number.isSafeInteger(expectedRows) && expectedRows >= 0, 'An independently established expected row count is required');
@@ -151,17 +167,24 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
       requireValue(md5Utf8(serialize(prior.rows)) === prior.normalizedRowsMd5, 'Decoded checkpoint checksum mismatch');
       return prior.rows;
     }
-    const pieces = []; let start = 1, identity = null;
+    const pieces = [], rawAttempts = []; let start = 1, identity = null;
     while (true) {
       const requestSql = buildJsonChunkSql(sql, start, chunked ? chunkSize : null, {canonicalRowOrder});
-      const rawKey = prefix + 'raw/' + id + '/' + (chunked ? start : 'full') + '.json';
-      let saved = await read(rawKey);
-      if (saved == null) {
-        const rawResult = await execute(requestSql, { id, chunkStart:start, chunkSize:chunked ? chunkSize : null });
-        saved = { id, sql:requestSql, rawResult };
-        await persist(rawKey, saved); // Always checkpoint exact raw output before decoding or evaluation.
+      const rawBase = prefix + 'raw/' + id + '/' + (chunked ? start : 'full');
+      let saved;
+      for(let attempt=0;attempt<=failedToolRetries;attempt++) {
+        const rawKey=rawBase+(attempt?'.retry-'+attempt:'')+'.json';
+        saved=await read(rawKey);
+        if(saved == null) {
+          const rawResult = await execute(requestSql, { id, chunkStart:start, chunkSize:chunked ? chunkSize : null, attempt });
+          saved = { id, sql:requestSql, rawResult, ...(attempt ? {retryOf:rawBase+'.json',attempt} : {}) };
+          await persist(rawKey, saved); // Each attempt is durable before status checks, decoding or evaluation.
+        }
+        requireValue(saved.id === id && saved.sql === requestSql && (!attempt || (saved.retryOf === rawBase+'.json' && saved.attempt === attempt)), 'Raw checkpoint request mismatch');
+        const failed=failedToolEnvelope(saved.rawResult);
+        rawAttempts.push({artifact:rawKey,chunkStart:start,attempt,outcome:failed?'failed_tool_envelope':'returned_envelope'});
+        if(!failed || attempt===failedToolRetries)break;
       }
-      requireValue(saved.id === id && saved.sql === requestSql, 'Raw checkpoint request mismatch');
       const [frame] = decodeReplitCsv(saved.rawResult, { expectedColumns:COLUMNS, expectedRows:1 });
       requireValue(frame.protocol === PROTOCOL && /^[0-9a-f]{32}$/.test(frame.payload_md5), 'Invalid SQL transport frame');
       const totalRows = integer(frame.total_rows, 'total_rows'), chars = integer(frame.payload_chars, 'payload_chars');
@@ -178,7 +201,9 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
         requireValue(Array.isArray(rows) && rows.length === expectedRows && rows.every(plain), 'Framed payload must contain the exact expected object rows');
         const transportProof = { method:chunked ? 'full_source_content_digest_chunks' : 'single_full_source_frame',
           protocol:PROTOCOL, sourceSqlMd5:md5Utf8(sql), validated:true, totalRows, payloadMd5:frame.payload_md5, payloadCharacters:chars, chunkCount:pieces.length,
-          characterUnit:'postgresql_unicode_characters', rowOrder:canonicalRowOrder ? 'jsonb_text_C' : 'source_query' };
+          characterUnit:'postgresql_unicode_characters', rowOrder:canonicalRowOrder ? 'jsonb_text_C' : 'source_query',
+          rawAttempts,attemptCount:rawAttempts.length,failedAttemptCount:rawAttempts.filter(attempt=>attempt.outcome==='failed_tool_envelope').length,
+          replayImplementation:failedToolRetries ? replayImplementation : null };
         await persist(decodedKey, { sql, expectedRows, rows, canonicalRowOrder, captureMode:chunked ? 'chunks' : 'whole',
           normalizedRowsMd5:md5Utf8(serialize(rows)), payloadMd5:frame.payload_md5, payloadCharacters:chars, transportProof });
         return rows;

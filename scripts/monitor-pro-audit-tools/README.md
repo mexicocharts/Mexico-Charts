@@ -67,6 +67,22 @@ Evidence reads are sequential, one whole response per artist. The transport wrap
 
 Resume with the same metadata and saved population order. Completed raw/decoded/result files are reused; the compact JSON/CSV report advances without duplicate rows. Prioritize artists once before the first evidence result, then preserve that order. `auditComplete` requires complete source coverage, every candidate audited, and no incomplete evidence. C can still have other unresolved findings; count incomplete evidence separately from unclassified rows.
 
+## Explicit retry of a failed SQL-tool envelope
+
+The default makes no extra attempts. If the caller explicitly authorizes a bounded retry, supply:
+
+```javascript
+const replay = MonitorAuditReplay.createAuditReplay({
+  evaluator:MonitorAudit, metadata, execute, read, persist,
+  failedToolRetries:1,
+  replayImplementation:{revision:reviewedRetryUtilityCommit,sha256:verifiedRetryBundleHash},
+});
+```
+
+Only a complete failure envelope (`success:false`, nonzero integer exitCode, string output and string/null exitReason) may trigger another attempt. A successful malformed/truncated frame, mismatched artist/count, changed payload digest or mismatched saved request never retries automatically. Every retry must use byte-identical SQL and the same capture ID. The original `<offset>.json` or `full.json` stays unchanged; extra attempts are saved as `<offset>.retry-1.json`, etc. A successful saved retry is reused on resume with the same opt-in; no earlier successful chunk is rerun. Exhausted saved failures cause no new SQL on another invocation. The explicit limit is0..3 retries per request, including saved retry attempts; increasing it requires a new explicit caller choice and creates a separate immutable retry-policy record.
+
+For a compatible transport-only upgrade, preserve the exact parsed original run metadata, original SQL manifest/queries and original evaluator. Do not replace the run's sourceHash, evaluatorHash, replayHash or revision with new artifact hashes. Verify and load the reviewed replacement replay bundle separately, passing its actual revision/SHA256 above. The helper writes a `replay-implementations/<hash>.retries-<limit>.json` sidecar containing the original source/evaluator hashes and the explicit retry policy. Every existing raw request still must match exactly. New transport proofs include all raw attempt references and their outcomes; the prior successful full-payload digest still governs all subsequent chunks. This upgrade records the implementation change without relabeling existing evidence. Source query or evaluator changes require their own audit run; they are not a compatible retry upgrade.
+
 ## Verification
 
 ```sh

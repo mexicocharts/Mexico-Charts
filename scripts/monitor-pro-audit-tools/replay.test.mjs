@@ -12,6 +12,8 @@ const columns = ['protocol','total_rows','payload_chars','payload_md5','chunk_st
 const csv = rows => rows.map(row => row.map(value => '"'+String(value).replaceAll('"','""')+'"').join(',')).join('\r\n')+'\r\n';
 const raw = output => ({exitCode:0,exitReason:null,output,success:true});
 const metadata = {runId:'test_run',revision:'reviewed_revision',sourceHash:'reviewed_source_hash',evaluatorHash:'reviewed_evaluator_hash',now:'2026-09-06T12:00:00Z',clockMode:'run_fixed'};
+const retryImplementation={revision:'a'.repeat(40),sha256:'b'.repeat(64)};
+const failedEnvelope={success:false,exitCode:1,exitReason:'EXECUTE_SQL_COMMAND_ERROR',output:'exitCode=null exitReason=signal stderr='};
 const candidate = (key) => ({artistKey:key,artistName:key,sourceKeys:[key]});
 const evaluator = {
   groupMonitoringCandidateIdentities: rows => rows.map(row => candidate(row.artist_key)),
@@ -278,4 +280,69 @@ test('replay requires an explicit clock mode rather than silently treating a tra
   const {clockMode,...omitted}=metadata;
   assert.throws(()=>createAuditReplay({evaluator,metadata:omitted,...memory(),execute:async()=>{}}),/explicit audit clock/);
   assert.throws(()=>prepareAuditQueries({}, {missingTables:[],now:metadata.now}),/explicit audit clock/);
+});
+
+test('explicit failed-envelope retries preserve every attempt and resume successful population chunks without new SQL',async()=>{
+  const storage=memory(), rows=[{artist_key:'alpha',declared_aliases:['東京 😀']},{artist_key:'beta',declared_aliases:[]}];
+  const sql='SELECT source', chunkSize=17;
+  const firstKey='test_run/raw/base_digest_chunks/1.json', failedKey='test_run/raw/base_digest_chunks/18.json';
+  await storage.persist(firstKey,{id:'base_digest_chunks',sql:buildJsonChunkSql(sql,1,chunkSize,{canonicalRowOrder:true}),rawResult:framed(rows,{chunkStart:1,chunkSize})});
+  const failure={id:'base_digest_chunks',sql:buildJsonChunkSql(sql,18,chunkSize,{canonicalRowOrder:true}),rawResult:failedEnvelope};
+  await storage.persist(failedKey,failure);
+  const queries=[];let stopAfterResult=true;
+  const execute=async(request,context)=>{queries.push(context);return framed(rows,context);};
+  const persist=async(key,value)=>{await storage.persist(key,value);if(stopAfterResult&&key.endsWith('/raw/base_digest_chunks/18.retry-1.json')){stopAfterResult=false;throw Error('stopped after durable successful retry');}};
+  const args={evaluator,metadata,...storage,execute,chunkSize,failedToolRetries:1,replayImplementation:retryImplementation};
+  const plan={sources:[{id:'base',capture:'digest_chunks',totalRows:2,selectAll:()=>sql}]};
+  await assert.rejects(createAuditReplay({...args,persist}).collectPopulation(plan),/stopped/);
+  assert.equal(queries.length,1);assert.equal(queries[0].chunkStart,18);assert.equal(queries[0].attempt,1);
+  const population=await createAuditReplay(args).collectPopulation(plan), proof=population.pages[0].contentProof;
+  assert.equal(population.populationComplete,true);assert.deepEqual(await storage.read(failedKey),failure);
+  assert.equal(queries.filter(query=>query.chunkStart===18).length,1);assert.ok(!queries.some(query=>query.chunkStart===1));
+  assert.equal(proof.failedAttemptCount,1);assert.equal(proof.attemptCount,proof.chunkCount+1);
+  assert.deepEqual(proof.rawAttempts.filter(attempt=>attempt.chunkStart===18).map(attempt=>[attempt.attempt,attempt.outcome]),[[0,'failed_tool_envelope'],[1,'returned_envelope']]);
+  assert.deepEqual(proof.replayImplementation,retryImplementation);
+  assert.deepEqual(await storage.read('test_run/manifest.json'),metadata);
+  const implementation=await storage.read('test_run/replay-implementations/'+retryImplementation.sha256+'.retries-1.json');
+  assert.equal(implementation.sourceHash,metadata.sourceHash);assert.equal(implementation.failedToolRetries,1);
+  const count=queries.length;await createAuditReplay(args).collectPopulation(plan);assert.equal(queries.length,count);
+});
+
+test('failed-envelope retry limits are opt-in, bounded and exhausted failures remain immutable on resume',async()=>{
+  for(const limit of [0,1,2]){
+    const storage=memory();let queries=0;
+    const args={evaluator,metadata,...storage,failedToolRetries:limit,replayImplementation:retryImplementation,execute:async()=>{queries++;return failedEnvelope;}};
+    const request={id:'failed',sql:'SELECT source',expectedRows:1};
+    await assert.rejects(createAuditReplay(args).captureRows(request),/successful completion/);assert.equal(queries,1+limit);
+    const snapshots=structuredClone([...storage.values.entries()]);
+    await assert.rejects(createAuditReplay(args).captureRows(request),/successful completion/);assert.equal(queries,1+limit);
+    assert.deepEqual([...storage.values.entries()],snapshots);assert.equal(await storage.read('test_run/decoded/failed.json'),null);
+  }
+  for(const limit of [-1,4,Infinity,0.5])assert.throws(()=>createAuditReplay({evaluator,metadata,...memory(),execute:async()=>{},failedToolRetries:limit,replayImplementation:retryImplementation}),/bounded/);
+  assert.throws(()=>createAuditReplay({evaluator,metadata,...memory(),execute:async()=>{},failedToolRetries:1}),/implementation/);
+});
+
+test('retry opt-in never repeats successful malformed/truncated/drifting frames or mismatched raw artifacts',async()=>{
+  for(const kind of ['malformed','truncated','failed_truncated','failed_is_truncated','ambiguous_failure','drift','raw_mismatch','retry_mismatch']){
+    const storage=memory();let queries=0;
+    const id='checked',sql='SELECT source',chunkSize=17;
+    if(kind==='raw_mismatch')await storage.persist('test_run/raw/checked/1.json',{id,sql:'SELECT different source',rawResult:failedEnvelope});
+    if(kind==='retry_mismatch'){
+      await storage.persist('test_run/raw/checked/1.json',{id,sql:buildJsonChunkSql(sql,1,chunkSize),rawResult:failedEnvelope});
+      await storage.persist('test_run/raw/checked/1.retry-1.json',{id,sql:buildJsonChunkSql(sql,1,chunkSize),rawResult:failedEnvelope,retryOf:'wrong.json',attempt:1});
+    }
+    const execute=async(request,context)=>{queries++;
+      if(kind==='malformed')return raw('START TRANSACTION\nROLLBACK\n');
+      if(kind==='failed_truncated')return {...failedEnvelope,truncated:true};
+      if(kind==='failed_is_truncated')return {...failedEnvelope,isTruncated:true};
+      if(kind==='ambiguous_failure')return {...failedEnvelope,exitCode:0};
+      const value=framed([{artist_key:kind==='drift'&&queries===2?'bravo':'alpha'}],context);
+      return kind==='truncated'?{...value,truncated:true}:value;
+    };
+    const replay=createAuditReplay({evaluator,metadata,...storage,execute,chunkSize,failedToolRetries:2,replayImplementation:retryImplementation});
+    await assert.rejects(replay.captureRows({id,sql,expectedRows:1,chunked:true}));
+    assert.equal(queries,['raw_mismatch','retry_mismatch'].includes(kind)?0:kind==='drift'?2:1,kind);
+    assert.ok(!storage.writes.some(key=>key.includes('.retry-')&&!['retry_mismatch'].includes(kind)),kind);
+    assert.equal(await storage.read('test_run/decoded/checked.json'),null);
+  }
 });
