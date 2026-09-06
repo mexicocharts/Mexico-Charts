@@ -12,6 +12,10 @@ if (Number.isNaN(port) || port <= 0) {
 }
 
 const basePath = process.env.BASE_PATH ?? "/";
+const projectRoot = path.resolve(import.meta.dirname);
+const workspaceRoot = path.resolve(projectRoot, "..", "..");
+const assetsRoot = path.resolve(workspaceRoot, "attached_assets");
+const workspacePackagesRoot = path.resolve(workspaceRoot, "lib");
 
 export default defineConfig({
   base: basePath,
@@ -40,7 +44,7 @@ export default defineConfig({
     },
     dedupe: ["react", "react-dom"],
   },
-  root: path.resolve(import.meta.dirname),
+  root: projectRoot,
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
@@ -52,6 +56,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      allow: [projectRoot, assetsRoot, workspacePackagesRoot],
     },
     proxy: {
       "/api": "http://localhost:8080",
