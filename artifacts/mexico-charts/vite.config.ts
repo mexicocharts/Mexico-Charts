@@ -52,6 +52,7 @@ export default defineConfig({
     allowedHosts: true,
     fs: {
       strict: true,
+      deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/.local/**"],
     },
     proxy: {
       "/api": "http://localhost:8080",
