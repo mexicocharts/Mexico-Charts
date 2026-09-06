@@ -50,6 +50,7 @@ import {
 } from "@/lib/monitorRequest.mjs";
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import MonitorVideoHistory from "./MonitorVideoHistory";
+import { compareCatalogCounts, formatCatalogDaily } from "@/lib/monitorCatalog.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1023,8 +1024,8 @@ function SpotifyView() {
       title: item.title,
       spotifyUrl: item.spotifyUrl,
       artworkUrl: item.artworkUrl,
-      daily: item.dailyStreams ?? 0,
-      total: item.totalStreams ?? 0,
+      daily: item.dailyStreams,
+      total: item.totalStreams,
     }));
   const spotifyAlbums = data.spotifyCatalog.items
     .filter((item) => item.type === "album")
@@ -1033,8 +1034,8 @@ function SpotifyView() {
       title: item.title,
       spotifyUrl: item.spotifyUrl,
       artworkUrl: item.artworkUrl,
-      daily: item.dailyStreams ?? 0,
-      total: item.totalStreams ?? 0,
+      daily: item.dailyStreams,
+      total: item.totalStreams,
     }));
   const spotifyCatalog = {
     trackCount: data.spotifyCatalog.trackCount,
@@ -1051,7 +1052,7 @@ function SpotifyView() {
         ? item.title.toLocaleLowerCase("es-MX").includes(normalizedQuery)
         : true,
     )
-    .sort((a, b) => b[sortBy] - a[sortBy]);
+    .sort((a, b) => compareCatalogCounts(a[sortBy], b[sortBy]));
   const heroAlbums = spotifyAlbums.slice(0, 4);
   return (
     <div className="space-y-5">
@@ -1110,7 +1111,7 @@ function SpotifyView() {
                 <div className="absolute inset-x-0 bottom-0 p-3">
                   <p className="truncate text-xs font-black">{album.title}</p>
                   <p className="mt-1 text-[9px] font-black text-[#39FF14]">
-                    +{compact(album.daily)} diarios
+                    {formatCatalogDaily(album.daily, compact)} diarios
                   </p>
                 </div>
               </div>
@@ -1279,7 +1280,7 @@ function SpotifyView() {
                       Diarios
                     </p>
                     <p className="mt-1 text-sm font-black text-[#39FF14]">
-                      +{compact(album.daily)}
+                      {formatCatalogDaily(album.daily, compact)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -1363,7 +1364,7 @@ function SpotifyView() {
               </div>
               <div className="text-right">
                 <p className="text-sm font-black text-[#39FF14]">
-                  +{compact(track.daily)}
+                  {formatCatalogDaily(track.daily, compact)}
                 </p>
                 <p className="text-[8px] uppercase tracking-[.1em] text-white/22">
                   diarios

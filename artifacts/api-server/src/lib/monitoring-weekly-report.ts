@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import type { MonitoringReportInput } from "./monitoring-report-pdf";
+import { compareMonitoringCatalogDaily, type MonitoringReportInput } from "./monitoring-report-pdf";
 
 // Presentation recovered from build-peso-monitor-report.py, the original
 // eight-page approved report. Coordinates retain its 792x612 landscape grid.
@@ -128,7 +128,7 @@ export async function createMonitoringWeeklyReport(
   const featuredSpotify = (["track", "album"] as const).flatMap(type =>
     input.spotifyCatalog.items
       .filter(item => item.type === type)
-      .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1))
+      .sort(compareMonitoringCatalogDaily)
       .slice(0, 5),
   );
   const images = await Promise.all([
@@ -418,7 +418,7 @@ export async function createMonitoringWeeklyReport(
     text(x + 292, 318, "TOTAL", 6, MUTED);
     const featured = sp.items
       .filter((i) => i.type === type)
-      .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1))
+      .sort(compareMonitoringCatalogDaily)
       .slice(0, 5);
     featured.forEach((item, i) => {
         const y = 286 - i * 42;

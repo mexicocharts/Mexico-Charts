@@ -77,6 +77,16 @@ function compact(value: number | null | undefined): string {
   return number(value);
 }
 
+export function compareMonitoringCatalogDaily(a: { dailyStreams: number | null }, b: { dailyStreams: number | null }): number {
+  return a.dailyStreams == null ? (b.dailyStreams == null ? 0 : 1)
+    : b.dailyStreams == null ? -1 : b.dailyStreams - a.dailyStreams;
+}
+
+export function monitoringCatalogReportRows(items: Array<{ title: string; dailyStreams: number | null; totalStreams: number | null }>): [string, string, string][] {
+  return [...items].sort(compareMonitoringCatalogDaily).slice(0, 10)
+    .map(item => [item.title, item.dailyStreams == null ? "—" : `${item.dailyStreams >= 0 ? "+" : ""}${compact(item.dailyStreams)}`, compact(item.totalStreams)]);
+}
+
 function numeric(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const parsed = Number(value);
@@ -173,10 +183,8 @@ export function createMonitoringReportPdf(input: MonitoringReportInput): Promise
   const youtubeDelta = current?.youtubeChannelViews != null && previous?.youtubeChannelViews != null
     ? current.youtubeChannelViews - previous.youtubeChannelViews
     : null;
-  const topTracks = input.spotifyCatalog.items.filter(item => item.type === "track")
-    .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1)).slice(0, 10);
-  const topAlbums = input.spotifyCatalog.items.filter(item => item.type === "album")
-    .sort((a, b) => (b.dailyStreams ?? -1) - (a.dailyStreams ?? -1)).slice(0, 10);
+  const topTracks = monitoringCatalogReportRows(input.spotifyCatalog.items.filter(item => item.type === "track"));
+  const topAlbums = monitoringCatalogReportRows(input.spotifyCatalog.items.filter(item => item.type === "album"));
 
   beginPage(doc, "Reporte ejecutivo", 1, 5);
   doc.fillColor(COLORS.green).font("Helvetica-Bold").fontSize(9).text("REPORTE PRIVADO / ARTIST PRO", 44, 94);
@@ -216,8 +224,8 @@ export function createMonitoringReportPdf(input: MonitoringReportInput): Promise
   metricCard(doc, 215, 116, "Canciones / acumulado", compact(input.spotifyCatalog.trackTotalStreams), "catálogo registrado", COLORS.spotify);
   metricCard(doc, 396, 116, "Álbumes / diario", compact(input.spotifyCatalog.albumDailyStreams), `${input.spotifyCatalog.albumCount} álbumes`, COLORS.spotify);
   metricCard(doc, 577, 116, "Álbumes / acumulado", compact(input.spotifyCatalog.albumTotalStreams), "álbumes registrados", COLORS.spotify);
-  table(doc, "Canciones con más streams diarios", topTracks.map(item => [item.title, `+${compact(item.dailyStreams)}`, compact(item.totalStreams)]), 34, 232, 354);
-  table(doc, "Álbumes con más streams diarios", topAlbums.map(item => [item.title, `+${compact(item.dailyStreams)}`, compact(item.totalStreams)]), 404, 232, 354);
+  table(doc, "Canciones con más streams diarios", topTracks, 34, 232, 354);
+  table(doc, "Álbumes con más streams diarios", topAlbums, 404, 232, 354);
   footer(doc, input);
 
   beginPage(doc, "YouTube en vivo", 4, 5);

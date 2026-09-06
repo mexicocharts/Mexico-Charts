@@ -278,8 +278,8 @@ test("Spotify catalog and stored YouTube counters are prioritized before optiona
   const priority = source.indexOf("priority_daily_snapshots");
   const youtube = source.indexOf("priority_youtube_live_videos");
   assert.ok(priority >= 0 && youtube > priority);
-  assert.match(source, /let resolvedStreamSummary[^\n]*= prioritizedStreamSummary/);
-  assert.match(source, /let resolvedStreamItems = prioritizedStreamItems/);
+  assert.match(source, /let resolvedStreamSummary:[\s\S]*?= prioritizedStreamSummary;/);
+  assert.match(source, /let resolvedStreamItems:[\s\S]*?= prioritizedStreamItems;/);
   assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
   assert.match(
     source,

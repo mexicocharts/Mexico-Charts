@@ -5,8 +5,8 @@ export type MonitoringKworbCatalogItem = {
   spotifyUrl: string | null;
   artworkUrl: string | null;
   compilation: boolean;
-  totalStreams: number;
-  dailyStreams: number;
+  totalStreams: number | null;
+  dailyStreams: number | null;
 };
 
 export type MonitoringKworbCatalog = {
@@ -26,18 +26,27 @@ const cache = new Map<
 function decodeHtml(value: string) {
   return value
     .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;|&apos;/g, "'")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
+    .replace(/&(#x[\da-f]+|#\d+|amp|quot|apos|nbsp|lt|gt);/gi, (entity, name: string) => {
+      const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", nbsp: " ", lt: "<", gt: ">" };
+      if (!name.startsWith("#")) return named[name.toLowerCase()] ?? entity;
+      const hex = name.slice(0, 2).toLowerCase() === "#x";
+      const point = Number.parseInt(name.slice(hex ? 2 : 1), hex ? 16 : 10);
+      return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+        ? String.fromCodePoint(point) : entity;
+    })
     .trim();
 }
 
-function numberValue(value: string) {
-  const parsed = Number(value.replaceAll(",", ""));
-  return Number.isFinite(parsed) ? parsed : 0;
+function numberValue(value: string, signed = false): number | null {
+  const text = decodeHtml(value);
+  if (!(signed ? /^-?(?:\d+|\d{1,3}(?:,\d{3})+)$/ : /^(?:\d+|\d{1,3}(?:,\d{3})+)$/).test(text)) return null;
+  const parsed = Number(text.replaceAll(",", ""));
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function attribute(markup: string, name: string): string | null {
+  const match = markup.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'<>]+))`, "i"));
+  return match ? decodeHtml(match[1] ?? match[2] ?? match[3] ?? "") : null;
 }
 
 function fallbackKey(title: string) {
@@ -54,15 +63,20 @@ export function parseMonitoringKworbCatalog(
   type: "track" | "album",
 ): MonitoringKworbCatalogItem[] {
   const rows: MonitoringKworbCatalogItem[] = [];
-  const pattern =
-    /<tr[^>]*><td class="text"><div>([\s\S]*?)<\/div><\/td><td>([\d,]+)<\/td><td>([\d,]+)<\/td><\/tr>/g;
+  // Bound each match to a physical row before reading any cells. A missing
+  // count must never make the title/ID consume the following row's metrics.
+  const pattern = /<tr\b[^>]*>((?:(?!<\/?tr\b)[\s\S])*)<\/tr\s*>/gi;
   for (const match of html.matchAll(pattern)) {
-    const cell = match[1] ?? "";
-    const spotifyUrl = cell.match(/href="([^"]+)"/)?.[1] ?? null;
+    const cells = [...match[1]!.matchAll(/<td\b([^>]*)>((?:(?!<\/?td\b)[\s\S])*)<\/td\s*>/gi)];
+    if (cells.length !== 3 || !attribute(cells[0]![1]!, "class")?.split(/\s+/).includes("text")) continue;
+    const cell = cells[0]![2]!;
+    const resource = type === "track" ? "track" : "album";
+    const spotifyUrl = [...cell.matchAll(/<a\b([^>]*)>/gi)]
+      .map((link) => attribute(link[1]!, "href"))
+      .find((url) => url != null && new RegExp(`^https://open\\.spotify\\.com/${resource}/[A-Za-z0-9]+(?:[?#]|$)`).test(url)) ?? null;
     const markedTitle = decodeHtml(cell);
     const title = markedTitle.replace(/^\*\s*/, "").replace(/^\^\s*/, "");
     if (!title) continue;
-    const resource = type === "track" ? "track" : "album";
     const spotifyId = spotifyUrl?.match(
       new RegExp(`/${resource}/([A-Za-z0-9]+)`),
     )?.[1];
@@ -73,11 +87,31 @@ export function parseMonitoringKworbCatalog(
       spotifyUrl,
       artworkUrl: null,
       compilation: type === "album" && markedTitle.startsWith("^"),
-      totalStreams: numberValue(match[2] ?? "0"),
-      dailyStreams: numberValue(match[3] ?? "0"),
+      totalStreams: numberValue(cells[1]![2]!),
+      dailyStreams: numberValue(cells[2]![2]!, true),
     });
   }
   return rows;
+}
+
+export function summarizeMonitoringKworbCatalog(items: MonitoringKworbCatalogItem[]) {
+  const tracks = items.filter((item) => item.type === "track");
+  const albums = items.filter((item) => item.type === "album");
+  const sum = (group: MonitoringKworbCatalogItem[], field: "totalStreams" | "dailyStreams") => {
+    let total = 0;
+    for (const item of group) {
+      const value = item[field];
+      if (value == null || !Number.isSafeInteger(value)) return null;
+      total += value;
+      if (!Number.isSafeInteger(total)) return null;
+    }
+    return total;
+  };
+  return {
+    trackCount: tracks.length, albumCount: albums.length,
+    trackDailyStreams: sum(tracks, "dailyStreams"), albumDailyStreams: sum(albums, "dailyStreams"),
+    trackTotalStreams: sum(tracks, "totalStreams"), albumTotalStreams: sum(albums, "totalStreams"),
+  };
 }
 
 type SpotifyImageItem = {

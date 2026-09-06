@@ -45,7 +45,7 @@ import { loadLatestMonitoringStreamSummary, loadMonitoringSpotifyHistory, type M
 import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
 import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../lib/monitoring-history-request";
 import { monitoringBuildIdentity } from "../lib/monitoring-build";
-import { loadCompleteMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
+import { loadCompleteMonitoringKworbCatalog, summarizeMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
 import { loadMonitoringPriorityArtistIdentity } from "../lib/monitoring-priority-identity";
 import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory } from "../lib/monitoring-youtube-serving";
 import { loadMonitoringYoutubeNativeHistory } from "../lib/monitoring-youtube-native-history";
@@ -483,8 +483,16 @@ async function loadAuthorizedMonitoring(
     prioritySnapshots,
   ]);
 
-  let resolvedStreamItems = prioritizedStreamItems;
-  let resolvedStreamSummary: Array<Omit<MonitoringStreamSummaryRow, "source_table" | "derivation"> & { source_table: string; derivation: string }> = prioritizedStreamSummary;
+  let resolvedStreamItems: Array<Omit<(typeof prioritizedStreamItems)[number], "total_streams" | "daily_streams"> & {
+    total_streams: string | number | null; daily_streams: string | number | null;
+  }> = prioritizedStreamItems;
+  let resolvedStreamSummary: Array<Omit<MonitoringStreamSummaryRow,
+    "source_table" | "derivation" | "track_daily_streams" | "album_daily_streams" | "track_total_streams" | "album_total_streams"
+  > & {
+    source_table: string; derivation: string;
+    track_daily_streams: string | number | null; album_daily_streams: string | number | null;
+    track_total_streams: string | number | null; album_total_streams: string | number | null;
+  }> = prioritizedStreamSummary;
   let spotifyCatalogSource:
     | "archive"
     | "kworb_live_complete_catalog"
@@ -511,25 +519,16 @@ async function loadAuthorizedMonitoring(
         total_streams: item.totalStreams,
         daily_streams: item.dailyStreams,
       }));
-      const tracks = completeCatalog.items.filter(
-        (item) => item.type === "track",
-      );
-      const albums = completeCatalog.items.filter(
-        (item) => item.type === "album",
-      );
-      const sum = (
-        items: typeof completeCatalog.items,
-        field: "totalStreams" | "dailyStreams",
-      ) => items.reduce((total, item) => total + item[field], 0);
+      const totals = summarizeMonitoringKworbCatalog(completeCatalog.items);
       resolvedStreamSummary = [
         {
           snapshot_date: completeCatalog.fetchedAt.slice(0, 10),
-          track_count: tracks.length,
-          album_count: albums.length,
-          track_daily_streams: sum(tracks, "dailyStreams"),
-          album_daily_streams: sum(albums, "dailyStreams"),
-          track_total_streams: sum(tracks, "totalStreams"),
-          album_total_streams: sum(albums, "totalStreams"),
+          track_count: totals.trackCount,
+          album_count: totals.albumCount,
+          track_daily_streams: totals.trackDailyStreams,
+          album_daily_streams: totals.albumDailyStreams,
+          track_total_streams: totals.trackTotalStreams,
+          album_total_streams: totals.albumTotalStreams,
           fetched_at: completeCatalog.fetchedAt,
           source_table: "kworb_live_complete_catalog",
           source_artist_keys: [active.artist_key],
