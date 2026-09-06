@@ -95,8 +95,10 @@ test("verified standalone registries enter private full and targeted SQL without
     for (const key of ["reviewonly", "review only", "review-only", "rejectedonly", "rejected only", "rejected-only", "x", "Existing Name"]) {
       assert.equal(await getMonitoringCandidateIdentity(key, readPool as never), null, key);
     }
-    const page = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10T12:00:00Z") });
-    assert.equal(page.populationComplete, true);
+    const registryKeys = population.map(artist => artist.artistKey);
+    const page = await getMonitoringCandidateDirectory({ artistKeys: registryKeys }, { readPool: readPool as never, now: new Date("2026-08-10T12:00:00Z") });
+    assert.equal(page.databasePopulationComplete, true);
+    assert.equal(page.populationComplete, false, "live external rosters remain a separate uninspected scope");
     assert.equal(page.total, 5);
     for (const key of ["mexicanonly", "social only", "youtube only", "x東京"]) {
       const candidate = page.artists.find(value => value.artistKey === key)!;
@@ -128,7 +130,7 @@ test("verified standalone registries enter private full and targeted SQL without
     assert.equal(await getMonitoringCandidateIdentity("mexican-only", readPool as never), null);
     assert.equal(await getMonitoringCandidateIdentity("social-only", readPool as never), null);
     assert.equal(await getMonitoringCandidateIdentity("youtube-only", readPool as never), null);
-    const partial = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10T12:00:00Z") });
+    const partial = await getMonitoringCandidateDirectory({ artistKeys: registryKeys }, { readPool: readPool as never, now: new Date("2026-08-10T12:00:00Z") });
     assert.equal(partial.populationComplete, false);
     assert.deepEqual(partial.missingSchemaTables, [...sources].sort());
     assert.equal(partial.total, 1);

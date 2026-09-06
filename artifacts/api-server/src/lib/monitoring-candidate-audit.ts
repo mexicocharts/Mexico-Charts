@@ -6,6 +6,7 @@ import { loadMonitoringAuditSchema, withUnavailableMonitoringSources } from "./m
 import { buildLatestMonitoringStreamSummarySql } from "./monitoring-stream-serving";
 import { buildMonitoringCompactReadinessSql } from "./monitoring-compact-readiness";
 import { buildMonitoringYoutubeDiagnosticsSql } from "./monitoring-youtube-serving";
+import { getMonitoringBundledRosterRows, monitoringCandidatePopulationScope } from "./monitoring-bundled-roster";
 import { MONITORING_COMPLETE_CONTRACT_VERSION, MONITORING_COMPLETE_CONTRACT, groupMonitoringCandidateIdentities, evaluateMonitoringCandidate, monitoringIdentityKeyCandidates, isMonitoringSpotifyArtistId,
   type MonitoringCandidateSourceRow, type MonitoringCandidateIdentity, type MonitoringCandidateEvidenceRow, type MonitoringCandidateAuditArtist } from "./monitoring-candidate-policy";
 export * from "./monitoring-candidate-policy";
@@ -78,7 +79,7 @@ async function loadMonitoringIdentityCatalog(readPool: AuditPool, missing: strin
 async function loadCandidateRows(readPool: AuditPool, missing: string[]) {
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(MONITORING_CANDIDATE_POPULATION_SQL, missing), []);
-  return [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing)];
+  return [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing), ...getMonitoringBundledRosterRows()];
 }
 
 export async function loadMonitoringCandidatePopulation(readPool: AuditPool = monitoringReadPool) {
@@ -129,13 +130,18 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
     // The nationality registry stores normalized_name, not an artist_key column.
     return `${sql}${verifiedLead ? " AND" : " WHERE"} (${keyColumn}=ANY($1::text[])${provider ? ` OR ${provider}=ANY($2::text[])` : ""}${normalized})`;
   }).join(" UNION ALL ");
-  const initial = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]);
+  const bundled = getMonitoringBundledRosterRows();
+  const matchingBundled = (values: string[]) => {
+    const tokens = new Set(values.flatMap(monitoringIdentityKeyCandidates));
+    return bundled.filter(row => monitoringIdentityKeyCandidates(row.artist_key).some(key => tokens.has(key)));
+  };
+  const initial = [...await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
+    withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]), ...matchingBundled(requested)];
   const sourceKeys = expandAliases([...new Set([...requested, ...initial.flatMap(row => [row.artist_key, ...monitoringIdentityKeyCandidates(row.artist_key)])])]);
   const spotifyIds = [...new Set(initial.map(row => row.spotify_id?.trim()).filter(isMonitoringSpotifyArtistId))];
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, compactSqlKeys(sourceKeys)]);
-  const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases]).find(candidate => candidate.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => keys.has(key)));
+  const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases, ...matchingBundled([...sourceKeys, ...rows.map(row => row.artist_key)])]).find(candidate => candidate.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => keys.has(key)));
   if (!candidate) return null;
   if (!candidate.identityConflict) return candidate;
   const exactKey = candidate.sourceKeys.find(key => key === artistKey) ?? candidate.artistKey;
@@ -266,7 +272,7 @@ const evidenceCache = new Map<string, { expiresAt: number; value: MonitoringCand
 export async function getMonitoringCandidateList() {
   const artists = await loadMonitoringCandidatePopulation();
   const missingSchemaTables = await loadMonitoringAuditSchema();
-  return { count: artists.length, artists, populationComplete: missingSchemaTables.length === 0, missingSchemaTables };
+  return { count: artists.length, artists, ...monitoringCandidatePopulationScope(missingSchemaTables), missingSchemaTables };
 }
 
 export async function getMonitoringCandidateDirectory(options: MonitoringCandidateDirectoryOptions = {}, dependencies: AuditDependencies = {}) {
@@ -306,7 +312,7 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
     policyVersion: MONITORING_READINESS_POLICY_VERSION,
     contractVersion: MONITORING_COMPLETE_CONTRACT_VERSION,
     contract: MONITORING_COMPLETE_CONTRACT,
-    populationComplete: missingSchemaTables.length === 0,
+    ...monitoringCandidatePopulationScope(missingSchemaTables),
     populationUnit: "resolved_identity_groups" as const,
     missingSchemaTables,
     total: population.length,

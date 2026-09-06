@@ -11,6 +11,8 @@ export async function computeMonitoringSourceFingerprint(artifactDir) {
     "artifacts/api-server/src/lib/auth.ts", "artifacts/api-server/src/lib/request-database.ts",
     "artifacts/api-server/src/lib/songstats-artist-key.ts", "artifacts/api-server/src/lib/songstats-public-service.ts",
     "artifacts/api-server/src/lib/songstats-history-serving.ts", "lib/db/src/database-url.mjs",
+    "artifacts/api-server/src/lib/supplemental-artist-data.ts",
+    "artifacts/mexico-charts/scripts/artist-profile-routes.mjs", "artifacts/mexico-charts/scripts/supplemental-artist-routes.mjs",
     "lib/db/src/index.ts", "lib/db/src/pool-config.ts", "pnpm-lock.yaml",
   ];
   for (const file of await readdir(path.join(artifactDir, "src/lib"))) {

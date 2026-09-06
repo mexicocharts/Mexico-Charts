@@ -22,11 +22,44 @@ export type MonitoringCandidate = {
   invalidSpotifyIds?: string[];
   identityConflict?: boolean;
   declaredAliases?: string[];
-  identityMappingStatus?: "provider_id" | "accepted_registry" | "unverified" | "conflict";
-  identityAliasEvidence?: Array<{ source: string; artistKey: string; mbid?: string; candidateId?: string; matchedArtistKey?: string; verification: string; aliases: string[] }>;
-  candidateRecords?: Array<{ source: string; recordId: string; artistName: string | null; lookupName: string; status: string | null; matchedArtistKey: string | null }>;
+  identityMappingStatus?:
+    | "provider_id"
+    | "accepted_registry"
+    | "unverified"
+    | "conflict";
+  identityAliasEvidence?: Array<{
+    source: string;
+    artistKey: string;
+    mbid?: string;
+    candidateId?: string;
+    matchedArtistKey?: string;
+    verification: string;
+    aliases: string[];
+  }>;
+  candidateRecords?: Array<{
+    source: string;
+    recordId: string;
+    artistName: string | null;
+    lookupName: string;
+    status: string | null;
+    matchedArtistKey: string | null;
+  }>;
 };
-export type MonitoringDirectory = {
+export type MonitoringPopulationScope = {
+  databasePopulationComplete?: boolean;
+  populationScope?: "database_and_bundled_rosters";
+  populationLimitations?: Array<
+    | "external_artist_metadata_active_uninspected"
+    | "external_mexican_artist_master_uninspected"
+  >;
+  bundledSourceInventory?: Array<{
+    source: "artist_profile_routes" | "supplemental_artist_data";
+    rowCount: number;
+    sourcePaths: string[];
+    freshness: "bundled_source_revision";
+  }>;
+};
+export type MonitoringDirectory = MonitoringPopulationScope & {
   policyVersion: number;
   contractVersion: string | number;
   total: number;
@@ -50,20 +83,28 @@ export function loadCompleteMonitoringAudit(
     signal?: AbortSignal;
     onProgress?: (completed: number, total: number) => void;
   },
-): Promise<{
-  policyVersion: number;
-  contractVersion: string | number;
-  auditScope: string;
-  contract?: unknown;
-  populationComplete: boolean;
-  missingSchemaTables: string[];
-  pageAuditedAt: string[];
-  auditComplete: boolean;
-  incompleteAuditCount: number;
-  total: number;
-  counts: MonitoringDirectory["counts"];
-  artists: MonitoringCandidate[];
-}>;
+): Promise<
+  MonitoringPopulationScope & {
+    policyVersion: number;
+    contractVersion: string | number;
+    auditScope: string;
+    contract?: unknown;
+    populationComplete: boolean;
+    missingSchemaTables: string[];
+    pageAuditedAt: string[];
+    auditComplete: boolean;
+    incompleteAuditCount: number;
+    total: number;
+    counts: MonitoringDirectory["counts"];
+    artists: MonitoringCandidate[];
+  }
+>;
+export function monitoringPopulationSummary(
+  data: MonitoringPopulationScope & { populationComplete: boolean },
+): string;
+export function monitoringPopulationLimitations(
+  data: MonitoringPopulationScope,
+): string[];
 export function monitoringSourceSummary(
   evidence: Record<string, unknown>,
 ): string[][];

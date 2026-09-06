@@ -17,6 +17,8 @@ import {
 } from "@/lib/monitorRequest.mjs";
 import {
   loadCompleteMonitoringAudit,
+  monitoringPopulationSummary,
+  monitoringPopulationLimitations,
   monitoringSourceSummary,
   validateMonitoringDirectory,
   type MonitoringDirectory,
@@ -121,7 +123,7 @@ export default function MonitoringFounder() {
       link.remove();
       URL.revokeObjectURL(url);
       updateProgress(
-        `${audit.total} artistas exportados; ${audit.incompleteAuditCount} auditorías pendientes.${audit.populationComplete ? "" : " El inventario está incompleto: faltan fuentes por verificar."}`,
+        `${audit.total} artistas exportados; ${audit.incompleteAuditCount} auditorías pendientes.${audit.populationComplete ? "" : ` ${monitoringPopulationSummary(audit)}`}`,
         false,
       );
     } catch (error) {
@@ -239,18 +241,34 @@ export default function MonitoringFounder() {
                     role="alert"
                     className="mt-6 rounded-xl border border-amber-400/30 p-4 text-sm text-amber-100/80"
                   >
-                    <p>
-                      Inventario parcial: algunas fuentes no están disponibles.
-                      El número mostrado corresponde a los candidatos
-                      encontrados; no confirma que sean todos.
-                    </p>
+                    <p>{monitoringPopulationSummary(data)}</p>
                     <details className="mt-2 text-xs">
                       <summary className="cursor-pointer">
-                        Fuentes pendientes de verificar
+                        Alcance y fuentes pendientes de verificar
                       </summary>
-                      <p className="mt-2 break-words font-mono">
-                        {data.missingSchemaTables.join(", ")}
-                      </p>
+                      {data.missingSchemaTables.length > 0 && (
+                        <p className="mt-2 break-words font-mono">
+                          Fuentes de base de datos pendientes:{" "}
+                          {data.missingSchemaTables.join(", ")}
+                        </p>
+                      )}
+                      {monitoringPopulationLimitations(data).map((reason) => (
+                        <p key={reason} className="mt-2">
+                          {reason}
+                        </p>
+                      ))}
+                      {data.bundledSourceInventory?.map((source) => (
+                        <p key={source.source} className="mt-2 break-words">
+                          {source.source === "artist_profile_routes"
+                            ? "Rutas de perfiles"
+                            : "Datos suplementarios"}
+                          : {source.rowCount} registros incluidos en esta
+                          versión.
+                          <span className="mt-1 block font-mono">
+                            {source.sourcePaths.join(", ")}
+                          </span>
+                        </p>
+                      ))}
                     </details>
                   </div>
                 )}
@@ -376,8 +394,11 @@ export default function MonitoringFounder() {
                             <p>Inspeccionar cada ID de origen por separado:</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {artist.sourceKeys.map((key) => (
-                                <Link key={key} href={`/monitoreo/${encodeURIComponent(key)}`}
-                                  className="break-all rounded border border-white/20 px-3 py-2 font-mono underline">
+                                <Link
+                                  key={key}
+                                  href={`/monitoreo/${encodeURIComponent(key)}`}
+                                  className="break-all rounded border border-white/20 px-3 py-2 font-mono underline"
+                                >
                                   {key}
                                 </Link>
                               ))}
@@ -391,8 +412,10 @@ export default function MonitoringFounder() {
                               spotifyIds: artist.spotifyIds,
                               invalidSpotifyIds: artist.invalidSpotifyIds,
                               declaredAliases: artist.declaredAliases,
-                              identityMappingStatus: artist.identityMappingStatus,
-                              identityAliasEvidence: artist.identityAliasEvidence,
+                              identityMappingStatus:
+                                artist.identityMappingStatus,
+                              identityAliasEvidence:
+                                artist.identityAliasEvidence,
                               candidateRecords: artist.candidateRecords,
                               candidateSources: artist.candidateSources,
                               readinessReasons: artist.readinessReasons,

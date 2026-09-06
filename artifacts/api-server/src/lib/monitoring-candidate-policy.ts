@@ -56,7 +56,7 @@ const acceptedDiscoveryRow = (row: MonitoringCandidateSourceRow) => row.source =
 const declaredRowAliases = (row: MonitoringCandidateSourceRow) => acceptedRegistryRow(row) || acceptedDiscoveryRow(row)
   ? [...new Set([row.artist_name, ...(acceptedDiscoveryRow(row) ? [row.artist_key] : []), ...(Array.isArray(row.declared_aliases) ? row.declared_aliases : [])]
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map(value => value.trim()))] : [];
-const INSPECTION_SOURCE_PRIORITY = ["monitoring_subscriptions", "mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates"];
+const INSPECTION_SOURCE_PRIORITY = ["monitoring_subscriptions", "mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates", "artist_profile_routes", "supplemental_artist_data"];
 const assertedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates", ...INSPECTION_SOURCE_PRIORITY].includes(row.source) ? null : row.spotify_id?.trim() || null;
 /** Provider IDs are opaque 22-character base62 values. Preserve malformed
  * assertions for review, but never use them as cross-artist identity edges. */

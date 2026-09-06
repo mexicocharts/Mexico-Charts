@@ -563,8 +563,10 @@ test("subscription-only candidates are privately inspectable without billing dat
       assert.equal((await getMonitoringCandidateIdentity(key, readPool as never))?.artistKey, "subscription only");
     }
     assert.equal(await getMonitoringCandidateIdentity("Untrusted Display Name", readPool as never), null);
-    const directory = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10") });
-    assert.equal(directory.populationComplete, true);
+    const fixtureKeys = population.map(artist => artist.artistKey);
+    const directory = await getMonitoringCandidateDirectory({ artistKeys: fixtureKeys }, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(directory.databasePopulationComplete, true);
+    assert.equal(directory.populationComplete, false, "database inventory does not certify the current external rosters");
     assert.equal(directory.total, 3);
     const audit = directory.artists.find(artist => artist.artistKey === "subscription only")!;
     assert.equal(audit.classification, null);
@@ -605,7 +607,7 @@ test("subscription-only candidates are privately inspectable without billing dat
     assert.equal(deniedOtherArtist.allowed, false);
 
     await db.exec("DROP TABLE monitoring_subscriptions");
-    const missing = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10") });
+    const missing = await getMonitoringCandidateDirectory({ artistKeys: fixtureKeys }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(missing.populationComplete, false);
     assert.deepEqual(missing.missingSchemaTables, ["monitoring_subscriptions"]);
     assert.equal(missing.total, 1);
@@ -676,7 +678,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     assert.equal(conflicted?.identityConflict, true);
     assert.deepEqual(conflicted?.matchKeys, ["luis miguel"]);
     const page = await getMonitoringCandidateDirectory({ limit: 2 }, { readPool: readPool as never, now: new Date("2026-08-10") });
-    assert.equal(page.total, 8);
+    assert.equal(page.total, 570, "563 bundled profiles plus seven independent source candidates; Luis Miguel is shared");
     assert.equal(page.artists.length, 2);
     assert.equal(page.hasMore, true);
     assert.equal(page.populationComplete, false);
@@ -689,14 +691,14 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     for (const key of ["banda-ms", "bandams", "bandamsdesergiolizarraga", "MS accepted alias only"]) {
       const ms = await getMonitoringCandidateIdentity(key, readPool as never);
       assert.equal(ms?.artistKey, "banda ms");
-      assert.deepEqual(ms?.sourceKeys, ["banda ms", "bandamsdesergiolizarraga"]);
+      assert.deepEqual(ms?.sourceKeys, ["banda ms", "banda-ms-de-sergio-lizarraga", "banda-sinaloense-ms-de-sergio-lizarraga", "bandamsdesergiolizarraga"]);
       assert.equal(ms?.identityConflict, false);
     }
     assert.equal((await getMonitoringCandidateIdentity("banda-m", readPool as never))?.identityMappingStatus, "unverified");
     assert.equal(await getMonitoringCandidateIdentity("unreviewed group", readPool as never), null);
     const msPage = await getMonitoringCandidateDirectory({ artistKeys: ["bandams"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(msPage.total, 1);
-    assert.deepEqual(msPage.artists[0]?.sourceKeys, ["banda ms", "bandamsdesergiolizarraga"]);
+    assert.deepEqual(msPage.artists[0]?.sourceKeys, ["banda ms", "banda-ms-de-sergio-lizarraga", "banda-sinaloense-ms-de-sergio-lizarraga", "bandamsdesergiolizarraga"]);
     assert.ok(msPage.artists[0]?.declaredAliases.includes("MS accepted alias only"));
     // Production evidence: this accepted long-name record has no short alias.
     // It identifies the long-name sources, but cannot safely repair Banda MS.
@@ -707,7 +709,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     assert.deepEqual(shortMs?.sourceKeys, ["banda ms"]);
     assert.equal(shortMs?.identityMappingStatus, "unverified");
     const longMs = await getMonitoringCandidateIdentity("bandamsdesergiolizarraga", readPool as never);
-    assert.deepEqual(longMs?.sourceKeys, ["banda ms de sergio lizarraga", "bandamsdesergiolizarraga"]);
+    assert.deepEqual(longMs?.sourceKeys, ["banda ms de sergio lizarraga", "banda-ms-de-sergio-lizarraga", "banda-sinaloense-ms-de-sergio-lizarraga", "bandamsdesergiolizarraga"]);
     assert.equal(longMs?.identityAliasEvidence[0]?.verification, "auto_review_accepted");
     const unresolvedMs = await getMonitoringCandidateDirectory({ artistKeys: ["bandams"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(unresolvedMs.artists[0]?.classification, null);
@@ -781,7 +783,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
       INSERT INTO spotify_artist_candidates(artist_key,artist_name,status,candidates) VALUES
       ('only spotify proposal','Only Spotify Proposal','review','[{"spotifyArtistId":"0000000000000000000108"}]')`);
     const linkedMs = await getMonitoringCandidateIdentity("banda-ms", readPool as never);
-    assert.deepEqual(linkedMs?.sourceKeys, ["banda ms", "banda ms de sergio lizarraga", "bandamsdesergiolizarraga"]);
+    assert.deepEqual(linkedMs?.sourceKeys, ["banda ms", "banda ms de sergio lizarraga", "banda-ms-de-sergio-lizarraga", "banda-sinaloense-ms-de-sergio-lizarraga", "bandamsdesergiolizarraga"]);
     assert.equal(linkedMs?.identityConflict, false);
     assert.equal(linkedMs?.identityAliasEvidence.find(row => row.source === "artist_candidates")?.candidateId, "100");
     for (const key of ["pendingdiscovery", "rejecteddiscovery", "only spotify proposal"]) {

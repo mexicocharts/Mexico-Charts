@@ -6,6 +6,73 @@ const incompleteDirectory = () =>
     "La respuesta del directorio está incompleta. La clasificación no está confirmada.",
   );
 
+const populationLimitationLabels = {
+  external_artist_metadata_active_uninspected:
+    "Cobertura actual de Artist Metadata Active sin verificar en esta consulta.",
+  external_mexican_artist_master_uninspected:
+    "Cobertura actual de Mexican Artist Master sin verificar en esta consulta.",
+};
+const populationFields = [
+  "databasePopulationComplete",
+  "populationScope",
+  "populationLimitations",
+  "bundledSourceInventory",
+];
+const stringList = (value) =>
+  Array.isArray(value) &&
+  value.every((item) => typeof item === "string" && item.trim()) &&
+  new Set(value).size === value.length;
+
+function validatePopulationScope(data) {
+  // Legacy responses omit the entire scope extension. A partial extension must
+  // not silently discard unknown coverage or mislabel a database scan as global.
+  if (!populationFields.some((field) => data[field] !== undefined)) return;
+  if (
+    typeof data.databasePopulationComplete !== "boolean" ||
+    data.populationScope !== "database_and_bundled_rosters" ||
+    !stringList(data.populationLimitations) ||
+    !data.populationLimitations.every((reason) =>
+      Object.hasOwn(populationLimitationLabels, reason),
+    ) ||
+    !Array.isArray(data.bundledSourceInventory) ||
+    data.bundledSourceInventory.some(
+      (source) =>
+        !source ||
+        !["artist_profile_routes", "supplemental_artist_data"].includes(
+          source.source,
+        ) ||
+        !Number.isSafeInteger(source.rowCount) ||
+        source.rowCount < 0 ||
+        !stringList(source.sourcePaths) ||
+        source.sourcePaths.length === 0 ||
+        source.freshness !== "bundled_source_revision",
+    ) ||
+    new Set(data.bundledSourceInventory.map((source) => source.source)).size !==
+      data.bundledSourceInventory.length ||
+    (data.databasePopulationComplete && data.missingSchemaTables.length > 0) ||
+    (data.populationComplete &&
+      (!data.databasePopulationComplete ||
+        data.populationLimitations.length > 0))
+  )
+    throw incompleteDirectory();
+}
+
+function populationScopeIdentity(data) {
+  if (data.populationScope === undefined) return null;
+  return JSON.stringify({
+    scope: data.populationScope,
+    limitations: [...data.populationLimitations].sort(),
+    sources: data.bundledSourceInventory
+      .map(({ source, rowCount, sourcePaths, freshness }) => ({
+        source,
+        rowCount,
+        sourcePaths: [...sourcePaths].sort(),
+        freshness,
+      }))
+      .sort((a, b) => a.source.localeCompare(b.source)),
+  });
+}
+
 export function validateMonitoringDirectory(data) {
   if (
     !data ||
@@ -20,11 +87,12 @@ export function validateMonitoringDirectory(data) {
     !data.counts ||
     !data.auditedAt ||
     typeof data.populationComplete !== "boolean" ||
-    !Array.isArray(data.missingSchemaTables) ||
+    !stringList(data.missingSchemaTables) ||
     data.policyVersion == null ||
     data.contractVersion == null
   )
     throw incompleteDirectory();
+  validatePopulationScope(data);
   const counts = { A: 0, B: 0, C: 0, incomplete: 0 };
   for (const artist of data.artists) {
     if (
@@ -38,7 +106,9 @@ export function validateMonitoringDirectory(data) {
       !Array.isArray(artist.findings) ||
       !Array.isArray(artist.readinessReasons) ||
       !Array.isArray(artist.sourceKeys) ||
-      !artist.sourceKeys.every((key) => typeof key === "string" && key.trim()) ||
+      !artist.sourceKeys.every(
+        (key) => typeof key === "string" && key.trim(),
+      ) ||
       !Array.isArray(artist.candidateSources) ||
       !artist.sourceEvidence ||
       typeof artist.sourceEvidence !== "object"
@@ -87,6 +157,7 @@ export async function loadCompleteMonitoringAudit(
   const pageAuditedAt = [];
   const missingSchemaTables = new Set();
   let populationComplete = true;
+  let databasePopulationComplete = true;
   let first;
   let next = 0;
   while (true) {
@@ -98,7 +169,8 @@ export async function loadCompleteMonitoringAudit(
       page.offset !== next ||
       page.total !== first.total ||
       page.policyVersion !== first.policyVersion ||
-      page.contractVersion !== first.contractVersion
+      page.contractVersion !== first.contractVersion ||
+      populationScopeIdentity(page) !== populationScopeIdentity(first)
     ) {
       throw new Error(
         "El catálogo o su política cambió durante la exportación. Vuelve a intentarlo.",
@@ -108,6 +180,7 @@ export async function loadCompleteMonitoringAudit(
       throw new Error("El directorio no avanzó; vuelve a intentarlo.");
     artists.push(...page.artists);
     populationComplete &&= page.populationComplete;
+    databasePopulationComplete &&= page.databasePopulationComplete === true;
     page.missingSchemaTables.forEach((table) => missingSchemaTables.add(table));
     pageAuditedAt.push(page.auditedAt);
     next += page.artists.length;
@@ -135,6 +208,14 @@ export async function loadCompleteMonitoringAudit(
       ? "all_candidates"
       : "all_discovered_candidates",
     populationComplete,
+    ...(first.populationScope === undefined
+      ? {}
+      : {
+          databasePopulationComplete,
+          populationScope: first.populationScope,
+          populationLimitations: [...first.populationLimitations],
+          bundledSourceInventory: first.bundledSourceInventory,
+        }),
     auditComplete: populationComplete && incompleteAuditCount === 0,
     incompleteAuditCount,
     missingSchemaTables: [...missingSchemaTables],
@@ -143,6 +224,22 @@ export async function loadCompleteMonitoringAudit(
     counts,
     artists,
   };
+}
+
+export function monitoringPopulationSummary(data) {
+  if (data.populationComplete)
+    return "Inventario completo para las fuentes verificadas.";
+  if (data.databasePopulationComplete === true)
+    return "Fuentes de la base de datos consultadas y catálogos de esta versión incluidos. La cobertura actual de las hojas externas sigue sin verificarse en esta consulta.";
+  if (data.databasePopulationComplete === false)
+    return "Inventario parcial: faltan fuentes de la base de datos por verificar. Los candidatos encontrados no confirman la población completa.";
+  return "Inventario parcial: faltan fuentes por verificar. Los candidatos encontrados no confirman la población completa.";
+}
+
+export function monitoringPopulationLimitations(data) {
+  return (data.populationLimitations ?? []).map(
+    (reason) => populationLimitationLabels[reason],
+  );
 }
 
 export function monitoringSourceSummary(sourceEvidence) {

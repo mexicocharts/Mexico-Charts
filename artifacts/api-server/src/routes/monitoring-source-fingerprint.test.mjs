@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeMonitoringSourceFingerprint } from "../../monitoring-source-fingerprint.mjs";
 
-test("native history helper changes alter the packaged Monitor Pro fingerprint without changing routes", async () => {
+test("native history helpers and nested roster source changes alter the packaged Monitor Pro fingerprint without changing routes", async () => {
   const temporary = await mkdtemp(path.join(tmpdir(), "monitoring-fingerprint-"));
   const artifact = path.join(temporary, "artifacts/api-server");
   const realArtifact = fileURLToPath(new URL("../../", import.meta.url));
@@ -16,6 +16,8 @@ test("native history helper changes alter the packaged Monitor Pro fingerprint w
     "artifacts/api-server/src/lib/auth.ts", "artifacts/api-server/src/lib/request-database.ts",
     "artifacts/api-server/src/lib/songstats-artist-key.ts", "artifacts/api-server/src/lib/songstats-public-service.ts",
     "artifacts/api-server/src/lib/songstats-history-serving.ts", "lib/db/src/database-url.mjs",
+    "artifacts/api-server/src/lib/supplemental-artist-data.ts",
+    "artifacts/mexico-charts/scripts/artist-profile-routes.mjs", "artifacts/mexico-charts/scripts/supplemental-artist-routes.mjs",
     "lib/db/src/index.ts", "lib/db/src/pool-config.ts", "pnpm-lock.yaml",
   ];
   const helpers = ["monitoring-youtube-native-history.ts", "monitoring-youtube-history-request.ts"];
@@ -39,6 +41,15 @@ test("native history helper changes alter the packaged Monitor Pro fingerprint w
       await writeFile(target, Buffer.concat([originals.get(helper), Buffer.from("\n// native-history mutation proof\n")]));
       assert.notEqual(await computeMonitoringSourceFingerprint(artifact), baseline, `${helper} must be covered independently of its route import`);
       await writeFile(target, originals.get(helper));
+      assert.equal(await computeMonitoringSourceFingerprint(artifact), baseline);
+    }
+    for (const file of ["artifacts/api-server/src/lib/supplemental-artist-data.ts",
+      "artifacts/mexico-charts/scripts/artist-profile-routes.mjs", "artifacts/mexico-charts/scripts/supplemental-artist-routes.mjs"]) {
+      const target = path.join(temporary, file);
+      const original = await readFile(target);
+      await writeFile(target, Buffer.concat([original, Buffer.from("\n// roster source mutation proof\n")]));
+      assert.notEqual(await computeMonitoringSourceFingerprint(artifact), baseline, `${file} must be fingerprinted independently of the adapter import`);
+      await writeFile(target, original);
       assert.equal(await computeMonitoringSourceFingerprint(artifact), baseline);
     }
     await writeFile(path.join(artifact, "src/lib/monitoring-youtube-native-history.test.ts"), "fixture-only change");

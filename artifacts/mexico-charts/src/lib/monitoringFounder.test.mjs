@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   loadCompleteMonitoringAudit,
+  monitoringPopulationSummary,
+  monitoringPopulationLimitations,
   monitoringSourceSummary,
   validateMonitoringDirectory,
 } from "./monitoringFounder.mjs";
@@ -199,4 +201,176 @@ test("source coverage distinguishes unverified evidence from a measured zero", (
   });
   assert.equal(measured[0][1], "0 días");
   assert.equal(measured[1][1], "22 observaciones");
+});
+
+function scopedPage(artists, offset, total, overrides = {}) {
+  return page(artists, offset, total, {
+    populationComplete: false,
+    databasePopulationComplete: true,
+    populationScope: "database_and_bundled_rosters",
+    populationLimitations: [
+      "external_artist_metadata_active_uninspected",
+      "external_mexican_artist_master_uninspected",
+    ],
+    bundledSourceInventory: [
+      {
+        source: "artist_profile_routes",
+        rowCount: 563,
+        sourcePaths: ["scripts/artist-profile-routes.mjs"],
+        freshness: "bundled_source_revision",
+      },
+      {
+        source: "supplemental_artist_data",
+        rowCount: 39,
+        sourcePaths: ["src/lib/supplemental-artist-data.ts"],
+        freshness: "bundled_source_revision",
+      },
+    ],
+    ...overrides,
+  });
+}
+
+test("a complete database scan preserves global unknown roster scope without changing artist decisions", async () => {
+  const first = scopedPage([candidate("a")], 0, 2);
+  const second = scopedPage([candidate("b", "B")], 1, 2);
+  // Source ordering and object-key insertion order are not semantic changes.
+  second.populationLimitations.reverse();
+  second.bundledSourceInventory = second.bundledSourceInventory
+    .reverse()
+    .map((source) => ({
+      freshness: source.freshness,
+      sourcePaths: source.sourcePaths,
+      rowCount: source.rowCount,
+      source: source.source,
+    }));
+  const audit = await loadCompleteMonitoringAudit(async (offset) =>
+    offset === 0 ? first : second,
+  );
+  assert.equal(audit.databasePopulationComplete, true);
+  assert.equal(audit.populationComplete, false);
+  assert.equal(audit.auditComplete, false);
+  assert.equal(audit.incompleteAuditCount, 0);
+  assert.equal(audit.auditScope, "all_discovered_candidates");
+  assert.deepEqual(
+    audit.artists.map((artist) => [artist.classification, artist.auditStatus]),
+    [
+      ["A", "complete"],
+      ["B", "complete"],
+    ],
+  );
+  assert.deepEqual(audit.populationLimitations, first.populationLimitations);
+  assert.deepEqual(audit.bundledSourceInventory, first.bundledSourceInventory);
+  assert.equal(audit.populationScope, first.populationScope);
+  assert.match(monitoringPopulationSummary(first), /base de datos consultadas/);
+  assert.match(
+    monitoringPopulationSummary(first),
+    /hojas externas sigue sin verificarse/,
+  );
+  assert.equal(monitoringPopulationLimitations(first).length, 2);
+  assert.ok(
+    monitoringPopulationLimitations(first).every((text) =>
+      text.includes("en esta consulta"),
+    ),
+  );
+});
+
+test("malformed or contradictory population scope cannot claim complete coverage", () => {
+  const valid = scopedPage([candidate("a")], 0, 1);
+  for (const overrides of [
+    { databasePopulationComplete: "true" },
+    { databasePopulationComplete: undefined },
+    { populationScope: undefined },
+    { populationScope: "all_sources" },
+    { populationLimitations: undefined },
+    { populationLimitations: ["unrecognized_source"] },
+    {
+      populationLimitations: [
+        valid.populationLimitations[0],
+        valid.populationLimitations[0],
+      ],
+    },
+    { bundledSourceInventory: undefined },
+    { bundledSourceInventory: [null] },
+    {
+      bundledSourceInventory: [
+        valid.bundledSourceInventory[0],
+        valid.bundledSourceInventory[0],
+      ],
+    },
+    {
+      bundledSourceInventory: [
+        { ...valid.bundledSourceInventory[0], rowCount: -1 },
+      ],
+    },
+    {
+      bundledSourceInventory: [
+        { ...valid.bundledSourceInventory[0], rowCount: "563" },
+      ],
+    },
+    {
+      bundledSourceInventory: [
+        { ...valid.bundledSourceInventory[0], sourcePaths: [] },
+      ],
+    },
+    {
+      bundledSourceInventory: [
+        { ...valid.bundledSourceInventory[0], freshness: "live" },
+      ],
+    },
+    { missingSchemaTables: ["missing_source"] },
+    { populationComplete: true },
+    {
+      populationComplete: true,
+      databasePopulationComplete: false,
+      populationLimitations: [],
+    },
+  ]) {
+    assert.throws(
+      () => validateMonitoringDirectory({ ...valid, ...overrides }),
+      (error) => error.status === 502,
+    );
+  }
+  const legacy = page([candidate("a")], 0, 1);
+  assert.equal(validateMonitoringDirectory(legacy), legacy);
+});
+
+test("export rejects changing roster scope but retains an observed database coverage failure", async () => {
+  const first = scopedPage([candidate("a")], 0, 2);
+  for (const second of [
+    page([candidate("b")], 1, 2),
+    scopedPage([candidate("b")], 1, 2, { populationLimitations: [] }),
+    scopedPage([candidate("b")], 1, 2, {
+      bundledSourceInventory: [
+        { ...first.bundledSourceInventory[0], rowCount: 564 },
+        first.bundledSourceInventory[1],
+      ],
+    }),
+    scopedPage([candidate("b")], 1, 2, {
+      bundledSourceInventory: [
+        { ...first.bundledSourceInventory[0], sourcePaths: ["new-roster.mjs"] },
+        first.bundledSourceInventory[1],
+      ],
+    }),
+  ]) {
+    await assert.rejects(
+      loadCompleteMonitoringAudit(async (offset) =>
+        offset === 0 ? first : second,
+      ),
+      /cambió durante la exportación/,
+    );
+  }
+  const unavailable = scopedPage([candidate("b", null)], 1, 2, {
+    databasePopulationComplete: false,
+    missingSchemaTables: ["history_source"],
+  });
+  const audit = await loadCompleteMonitoringAudit(async (offset) =>
+    offset === 0 ? first : unavailable,
+  );
+  assert.equal(audit.databasePopulationComplete, false);
+  assert.equal(audit.auditComplete, false);
+  assert.deepEqual(audit.missingSchemaTables, ["history_source"]);
+  assert.match(
+    monitoringPopulationSummary(unavailable),
+    /faltan fuentes de la base de datos/,
+  );
 });
