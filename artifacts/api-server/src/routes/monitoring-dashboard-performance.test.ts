@@ -126,10 +126,84 @@ test("actual subscription lookup isolates mixed-script keys and returns only the
       const statement = statements.at(-1)!;
       assert.match(statement.sql, /FROM monitoring_subscriptions/);
       assert.equal(statement.values[0], userId);
-      const compactKeys = statement.values[3] as string[];
-      assert.ok(compactKeys.every(key => /^[a-z0-9]+$/.test(key)));
-      if (/[^\x00-\x7f]/.test(requested) || requested === "!!!") assert.deepEqual(compactKeys, []);
+      if (statement.values.length === 4) {
+        const compactKeys = statement.values[3] as string[];
+        assert.ok(compactKeys.every(key => /^[a-z0-9]+$/.test(key)));
+        if (/[^\x00-\x7f]/.test(requested) || requested === "!!!") assert.deepEqual(compactKeys, []);
+      } else {
+        assert.match(statement.sql, /SELECT 1 AS found[\s\S]*clerk_user_id = \$1 AND status = ANY\(\$2::text\[\]\)[\s\S]*LIMIT 1/);
+        assert.deepEqual(statement.values[1], ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES);
+      }
     }
+  } finally { await db.close(); }
+});
+
+test("actual alias authorization skips source reads for viewers without active grants and preserves paid boundaries", { skip: !postgresModule }, async () => {
+  const { PGlite } = await import(postgresModule!);
+  const { transpileModule, ScriptTarget } = await import("typescript");
+  const { monitoringIdentityKeyCandidates } = await import("../lib/monitoring-candidate-policy");
+  const { authorizeMonitoringArtist } = await import("../lib/monitoring-authorization");
+  const { ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES } = await import("../lib/artist-pro-entitlement");
+  const start = source.indexOf("async function resolveMonitoringAccess(");
+  const end = source.indexOf("async function loadAuthorizedMonitoring(", start);
+  assert.ok(start >= 0 && end > start);
+  const authorizationSource = transpileModule(source.slice(start, end), {
+    compilerOptions: { target: ScriptTarget.ES2022 },
+  }).outputText;
+  const db = new PGlite();
+  const identityReads: string[] = [];
+  const statements: Array<{ sql: string; values: unknown[] }> = [];
+  const identityFailure = new Error("Synthetic source identity read failure");
+  try {
+    await db.exec(`CREATE TABLE monitoring_subscriptions (
+      clerk_user_id text, artist_key text, artist_name text, status text,
+      created_at timestamptz, updated_at timestamptz
+    );
+    INSERT INTO monitoring_subscriptions VALUES
+      ('paid-user','owned canonical','Owned artist','active',now(),now()),
+      ('other-user','other canonical','Other artist','active',now(),now()),
+      ('inactive-user','owned canonical','Owned artist','canceled',now(),now());`);
+    const resolve = new Function(
+      "monitoringIdentityKeyCandidates", "authorizeMonitoringArtist", "monitoringReadPool",
+      "getExistingMonitoringArtist", "ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES", "logger", "safeClerkIdentityHash",
+      `${authorizationSource}\nreturn resolveMonitoringAccess;`,
+    )(
+      monitoringIdentityKeyCandidates,
+      (input: Parameters<typeof authorizeMonitoringArtist>[0]) => authorizeMonitoringArtist({ ...input, internalUserIds: "fixture-founder" }),
+      { query: async (sql: string, values: unknown[]) => { statements.push({ sql, values }); return db.query(sql, values); } },
+      async (key: string) => {
+        identityReads.push(key);
+        if (key === "failed-alias") throw identityFailure;
+        const artistKey = ["approved-alias", "owned canonical"].includes(key) ? "owned canonical" : "other canonical";
+        return { artistKey, artistName: artistKey, matchKeys: [artistKey, key], identityConflict: false };
+      },
+      ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES, { info() {} }, () => "fixture-hash",
+    ) as (userId: string, requestedArtistKey: string) => ReturnType<typeof authorizeMonitoringArtist>;
+
+    for (const userId of ["free-user", "inactive-user"]) {
+      const before = statements.length;
+      const access = await resolve(userId, "failed-alias");
+      assert.equal(access.allowed, false);
+      assert.equal(access.outcome, "entitlement_denied");
+      assert.equal(access.publicReadinessEvaluated, false);
+      assert.deepEqual(identityReads, [], "zero active grants must not reach a failing source resolver");
+      assert.equal(statements.length - before, 2, "one direct lookup and one bounded active-grant check");
+      assert.deepEqual(statements.at(-1)?.values, [userId, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES]);
+    }
+    const paid = await resolve("paid-user", "approved-alias");
+    assert.equal(paid.allowed, true);
+    assert.equal(paid.source, "subscription");
+    assert.equal(paid.grant?.artist_key, "owned canonical");
+    assert.equal(paid.grant?.status, "active");
+    assert.equal(paid.publicReadinessEvaluated, false);
+    assert.deepEqual(identityReads, ["approved-alias", "owned canonical"]);
+    const other = await resolve("paid-user", "other-alias");
+    assert.equal(other.allowed, false, "another viewer's active grant must not authorize this alias");
+    assert.equal(other.outcome, "entitlement_denied");
+    assert.equal(identityReads.at(-1), "other-alias");
+    const beforeFailure = identityReads.length;
+    await assert.rejects(resolve("paid-user", "failed-alias"), error => error === identityFailure);
+    assert.equal(identityReads.length, beforeFailure + 1, "paid alias-resolution failures remain failures");
   } finally { await db.close(); }
 });
 

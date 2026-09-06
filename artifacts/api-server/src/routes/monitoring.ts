@@ -183,6 +183,15 @@ async function resolveMonitoringAccess(
         );
       const direct = (await readSubscription(lookupKeys)).rows[0];
       if (direct) return direct;
+      // A viewer with no paid grant cannot benefit from alias resolution. Deny
+      // before reading source identities, including when those reads would fail.
+      const activeViewerGrant = await monitoringReadPool.query<{ found: number }>(
+        `SELECT 1 AS found FROM monitoring_subscriptions
+         WHERE clerk_user_id = $1 AND status = ANY($2::text[])
+         LIMIT 1`,
+        [userId, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES],
+      );
+      if (!activeViewerGrant.rows.length) return null;
       // A stored paid key may differ from the route's accepted registry alias.
       // Resolve only trusted identity edges; user and active-status predicates
       // remain mandatory on the second artist-specific subscription read.
