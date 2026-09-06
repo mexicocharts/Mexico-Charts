@@ -1,5 +1,5 @@
 import PDFDocument from "pdfkit";
-import { compareMonitoringCatalogDaily, type MonitoringReportInput } from "./monitoring-report-pdf";
+import { compareMonitoringCatalogDaily, monitoringCatalogDateDescription, type MonitoringReportInput } from "./monitoring-report-pdf";
 
 // Presentation recovered from build-peso-monitor-report.py, the original
 // eight-page approved report. Coordinates retain its 792x612 landscape grid.
@@ -432,7 +432,7 @@ export async function createMonitoringWeeklyReport(
   text(
     34,
     48,
-    `Spotify: lectura del catálogo ${sp.snapshotDate ?? "sin fecha"}. Los totales de canciones y álbumes se superponen; no se suman.`,
+    `Spotify: lectura del catálogo ${monitoringCatalogDateDescription(sp)}. Los totales de canciones y álbumes se superponen; no se suman.`,
     7,
     MUTED,
   );

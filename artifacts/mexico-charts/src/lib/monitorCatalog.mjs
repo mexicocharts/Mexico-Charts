@@ -8,3 +8,12 @@ export function compareCatalogCounts(left, right, direction = "desc") {
 export function formatCatalogDaily(value, format) {
   return value == null ? "—" : `${value >= 0 ? "+" : ""}${format(value)}`;
 }
+
+/** A retrieval timestamp never supplies a missing live source date. */
+export function formatCatalogCutoff(catalog, formatDate) {
+  if (catalog.source !== "kworb_live_complete_catalog" && catalog.sourceDates == null)
+    return `Corte ${formatDate(catalog.snapshotDate)}`;
+  const { tracks = null, albums = null } = catalog.sourceDates ?? {};
+  if (tracks != null && tracks === albums) return `Corte ${formatDate(tracks)}`;
+  return `Canciones: ${formatDate(tracks)} · Álbumes: ${formatDate(albums)}`;
+}

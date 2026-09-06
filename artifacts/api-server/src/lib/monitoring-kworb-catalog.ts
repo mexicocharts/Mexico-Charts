@@ -11,6 +11,8 @@ export type MonitoringKworbCatalogItem = {
 
 export type MonitoringKworbCatalog = {
   fetchedAt: string;
+  sourceDates: { tracks: string | null; albums: string | null };
+  snapshotDate: string | null;
   source: "kworb_live_complete_catalog";
   items: MonitoringKworbCatalogItem[];
 };
@@ -42,6 +44,18 @@ function numberValue(value: string, signed = false): number | null {
   if (!(signed ? /^-?(?:\d+|\d{1,3}(?:,\d{3})+)$/ : /^(?:\d+|\d{1,3}(?:,\d{3})+)$/).test(text)) return null;
   const parsed = Number(text.replaceAll(",", ""));
   return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+/** A page's declared observation date is independent of retrieval/cache time. */
+export function parseMonitoringKworbSourceDate(html: string): string | null {
+  const text = decodeHtml(html.replace(/<br\b[^>]*>|<\/(?:p|div|h[1-6])\s*>/gi, "\n"));
+  const declarations = [...text.matchAll(/Last[ \t]+updated[ \t]*:[ \t]*([^\r\n]*)/gi)];
+  if (declarations.length !== 1) return null;
+  const value = declarations[0]![1]!.trim();
+  if (!/^\d{4}\/\d{2}\/\d{2}$/.test(value)) return null;
+  const date = value.replaceAll("/", "-");
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date ? date : null;
 }
 
 function attribute(markup: string, name: string): string | null {
@@ -278,8 +292,11 @@ export async function loadCompleteMonitoringKworbCatalog(
     );
   }
   const items = await enrichSpotifyArtwork(parsedItems);
+  const sourceDates = { tracks: parseMonitoringKworbSourceDate(songs), albums: parseMonitoringKworbSourceDate(albums) };
   const value: MonitoringKworbCatalog = {
     fetchedAt: new Date().toISOString(),
+    sourceDates,
+    snapshotDate: sourceDates.tracks != null && sourceDates.tracks === sourceDates.albums ? sourceDates.tracks : null,
     source: "kworb_live_complete_catalog",
     items,
   };

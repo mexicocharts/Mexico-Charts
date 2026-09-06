@@ -33,7 +33,9 @@ export type MonitoringReportInput = {
   generatedAt: Date;
   history: Snapshot[];
   spotifyCatalog: {
+    source?: "archive" | "kworb_live_complete_catalog" | "unavailable";
     snapshotDate: string | null;
+    sourceDates?: { tracks: string | null; albums: string | null } | null;
     trackCount: number;
     albumCount: number;
     trackDailyStreams: number | null;
@@ -63,6 +65,12 @@ const COLORS = {
   spotify: "#1ED760",
   red: "#FF5C68",
 };
+
+export function monitoringCatalogDateDescription(catalog: MonitoringReportInput["spotifyCatalog"]): string {
+  if (catalog.source !== "kworb_live_complete_catalog" && catalog.sourceDates == null) return catalog.snapshotDate ?? "sin fecha";
+  const { tracks = null, albums = null } = catalog.sourceDates ?? {};
+  return tracks != null && tracks === albums ? tracks : `canciones ${tracks ?? "sin fecha"}; álbumes ${albums ?? "sin fecha"}`;
+}
 
 function number(value: number | null | undefined): string {
   return value == null ? "—" : new Intl.NumberFormat("es-MX").format(value);

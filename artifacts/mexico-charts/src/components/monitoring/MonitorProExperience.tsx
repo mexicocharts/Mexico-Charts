@@ -50,7 +50,7 @@ import {
 } from "@/lib/monitorRequest.mjs";
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import MonitorVideoHistory from "./MonitorVideoHistory";
-import { compareCatalogCounts, formatCatalogDaily } from "@/lib/monitorCatalog.mjs";
+import { compareCatalogCounts, formatCatalogDaily, formatCatalogCutoff } from "@/lib/monitorCatalog.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -211,6 +211,7 @@ export type MonitorDashboardData = {
   spotifyCatalog: {
     source: "archive" | "kworb_live_complete_catalog" | "unavailable";
     snapshotDate: string | null;
+    sourceDates?: { tracks: string | null; albums: string | null } | null;
     trackCount: number;
     albumCount: number;
     trackDailyStreams: number | null;
@@ -1093,7 +1094,7 @@ function SpotifyView() {
                 {spotifyCatalog.albumCount} álbumes
               </span>
               <span className="rounded-full border border-white/10 bg-white/[.04] px-4 py-2 text-[9px] font-black uppercase tracking-[.14em] text-white/55">
-                Corte {dateLabel(data.spotifyCatalog.snapshotDate)}
+                {formatCatalogCutoff(data.spotifyCatalog, dateLabel)}
               </span>
             </div>
           </div>

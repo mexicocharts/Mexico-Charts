@@ -487,12 +487,14 @@ async function loadAuthorizedMonitoring(
     total_streams: string | number | null; daily_streams: string | number | null;
   }> = prioritizedStreamItems;
   let resolvedStreamSummary: Array<Omit<MonitoringStreamSummaryRow,
-    "source_table" | "derivation" | "track_daily_streams" | "album_daily_streams" | "track_total_streams" | "album_total_streams"
+    "source_table" | "derivation" | "snapshot_date" | "track_daily_streams" | "album_daily_streams" | "track_total_streams" | "album_total_streams"
   > & {
     source_table: string; derivation: string;
+    snapshot_date: string | null;
     track_daily_streams: string | number | null; album_daily_streams: string | number | null;
     track_total_streams: string | number | null; album_total_streams: string | number | null;
   }> = prioritizedStreamSummary;
+  let catalogSourceDates: { tracks: string | null; albums: string | null } | null = null;
   let spotifyCatalogSource:
     | "archive"
     | "kworb_live_complete_catalog"
@@ -509,6 +511,7 @@ async function loadAuthorizedMonitoring(
     );
     if (completeCatalog) {
       spotifyCatalogSource = completeCatalog.source;
+      catalogSourceDates = completeCatalog.sourceDates;
       resolvedStreamItems = completeCatalog.items.map((item) => ({
         item_type: item.type,
         item_key: item.key,
@@ -522,7 +525,7 @@ async function loadAuthorizedMonitoring(
       const totals = summarizeMonitoringKworbCatalog(completeCatalog.items);
       resolvedStreamSummary = [
         {
-          snapshot_date: completeCatalog.fetchedAt.slice(0, 10),
+          snapshot_date: completeCatalog.snapshotDate,
           track_count: totals.trackCount,
           album_count: totals.albumCount,
           track_daily_streams: totals.trackDailyStreams,
@@ -797,6 +800,7 @@ async function loadAuthorizedMonitoring(
     },
     spotifyCatalog: {
       source: spotifyCatalogSource,
+      sourceDates: catalogSourceDates,
       summaryProvenance: latestStreamSummary ? {
         source: latestStreamSummary.source_table,
         derivation: latestStreamSummary.derivation,
