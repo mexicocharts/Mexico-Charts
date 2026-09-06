@@ -1,31 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runRosterProbeBatch } from './roster-probe-batch.mjs';
-function fixture() {
- const candidates=[{artistKey:'outside',artistName:'Outside'}, {artistKey:'a',artistName:'A'}, {artistKey:'b',artistName:'B'}];
- const reconciliation={scope:'approved_roster_only',auxiliaryCandidates:3,groups:candidates.map((candidate,artistIndex)=>({candidate,artistIndex,status:artistIndex?'roster_route_correspondence':'outside_approved_roster'})),artists:[{evaluateCandidateIndices:[1,2,1]}]};
- const saved=new Map(),calls=[],checkpoints=[];
- return {candidates,reconciliation,saved,calls,checkpoints,readProbe:async index=>saved.get(index),
- runProbe:async options=>{calls.push(options);const i=candidates.findIndex(c=>c.artistKey===options.artistKey);saved.set(i,{artistIndex:i,decision:{...candidates[i],classification:null,auditStatus:'incomplete'}});return {success:true};},
- saveCheckpoint:async value=>checkpoints.push(value),now:()=>0};
+import { runRosterProbeBatch, PROBE_WALL_MS } from './roster-probe-batch.mjs';
+function fixture(){
+ let time=0;const states=new Map(),starts=[],calls=[],checkpoints=[];
+ return {indices:[1,4,9],states,starts,calls,checkpoints,now:()=>time,advance:n=>time+=n,
+ readState:async i=>states.get(i),reserve:async i=>{const a={index:i};starts.push(a);return a},
+ execute:async(a,o)=>{calls.push([a.index,o]);return {status:'completed',decision:{classification:'C',auditStatus:'incomplete'}}},
+ finish:async(a,o)=>states.set(a.index,o),checkpoint:async r=>checkpoints.push(structuredClone(r))};
 }
-test('only roster candidates run, duplicate row does not duplicate query, individual gaps continue',async()=>{
- const f=fixture(),r=await runRosterProbeBatch(f);assert.deepEqual(f.calls.map(c=>c.artistKey),['a','b']);assert.deepEqual(r.completed,[1,2]);assert.equal(r.failure,null);
+test('historical 41788ms tail stops before reserving or invoking next artist',async()=>{
+ const f=fixture();f.execute=async(a,o)=>{f.calls.push([a.index,o]);f.advance(108212);return {status:'completed'}};
+ const r=await runRosterProbeBatch(f);assert.equal(r.reason,'budget_stop');assert.equal(r.nextIndex,4);assert.equal(f.starts.length,1);assert.equal(f.calls[0][1].wallMs,120000);
 });
-test('saved results reuse exact identities without another query',async()=>{
- const f=fixture();f.saved.set(1,{artistIndex:1,decision:{...f.candidates[1]}});const r=await runRosterProbeBatch(f);assert.deepEqual(r.reused,[1]);assert.equal(f.calls.length,1);
+test('claim persistence exhausting admission budget produces zero-query deferral',async()=>{
+ const f=fixture();f.reserve=async i=>{f.advance(30000);return {index:i}};
+ const r=await runRosterProbeBatch(f);assert.equal(r.nextIndex,1);assert.equal(f.calls.length,0);assert.equal(f.states.get(1).status,'zero_query_deferred');
 });
-test('out-of-roster injection and candidate mutation are rejected before execution',async()=>{
- const f=fixture();f.reconciliation.artists[0].evaluateCandidateIndices.push(0);await assert.rejects(runRosterProbeBatch(f));assert.equal(f.calls.length,0);
- const g=fixture();g.reconciliation.groups[1].candidate={artistKey:'wrong'};await assert.rejects(runRosterProbeBatch(g));assert.equal(g.calls.length,0);
+test('full fixed probe budget includes pre-query work and never shrinks',async()=>{
+ const f=fixture();f.execute=async(a,o)=>{assert.equal(o.wallMs,PROBE_WALL_MS);assert.ok(o.wallMs-3498>38500);f.advance(10000);f.calls.push(a.index);return {status:'completed'}};
+ const r=await runRosterProbeBatch(f);assert.equal(r.reason,'pass_complete');assert.deepEqual(f.calls,[1,4,9]);
 });
-test('failed bounded driver operation is saved and never automatically retried',async()=>{
- const f=fixture();let count=0;f.runProbe=async()=>{count++;return {success:false,error:{code:'57014'}}};const r=await runRosterProbeBatch(f);assert.equal(count,1);assert.equal(r.failure.artistIndex,1);assert.equal(r.automaticRetries,0);
+test('partial batch and repeated resume reuse completed incomplete evaluations',async()=>{
+ const f=fixture();await runRosterProbeBatch({...f,maximumArtists:1});assert.equal(f.states.get(1).decision.auditStatus,'incomplete');
+ await runRosterProbeBatch({...f,maximumArtists:1});await runRosterProbeBatch(f);const r=await runRosterProbeBatch(f);
+ assert.deepEqual(f.calls.map(x=>x[0]),[1,4,9]);assert.equal(r.reason,'pass_complete');assert.equal(r.nextIndex,null);
 });
-test('artist cap and remaining wall budget are respected',async()=>{
- const f=fixture();const r=await runRosterProbeBatch({...f,maximumArtists:1});assert.deepEqual(r.completed,[1]);
- const g=fixture();let t=0;g.now=()=>{t+=60000;return t};const s=await runRosterProbeBatch(g);assert.equal(s.completed.length,1);
+test('zero-query failure does not advance next index and can safely resume',async()=>{
+ const f=fixture();let attempts=0;f.execute=async()=>++attempts===1?{status:'zero_query_deferred',sourceQueries:0}:{status:'completed'};
+ const first=await runRosterProbeBatch(f);assert.equal(first.nextIndex,1);assert.deepEqual(first.completed,[]);
+ await runRosterProbeBatch(f);assert.equal(attempts,4);assert.equal(f.states.get(1).status,'completed');
 });
-test('mismatched saved evidence rejects without querying',async()=>{
- const f=fixture();f.saved.set(1,{artistIndex:1,decision:{artistKey:'a',artistName:'wrong'}});await assert.rejects(runRosterProbeBatch(f));assert.equal(f.calls.length,0);
+test('individual capture failures skip later without replay; systemic failures stop',async()=>{
+ const f=fixture();f.states.set(1,{status:'capture_failure'});f.execute=async(a)=>{f.calls.push(a.index);return a.index===4?{status:'completed'}:{status:'systemic_failure'}};
+ const r=await runRosterProbeBatch(f);assert.deepEqual(f.calls,[4,9]);assert.equal(r.reason,'systemic_failure');
+ await runRosterProbeBatch(f);assert.deepEqual(f.calls,[4,9]);
+});
+test('unknown in-flight evidence prevents another external request',async()=>{
+ const f=fixture();f.states.set(1,{status:'in_flight'});await assert.rejects(runRosterProbeBatch(f));assert.equal(f.calls.length,0);
+});
+test('recovered completion after interruption is not executed again',async()=>{
+ const f=fixture();f.readState=async i=>i===1?{status:'completed',recovered:true}:f.states.get(i);
+ await runRosterProbeBatch(f);assert.deepEqual(f.calls.map(x=>x[0]),[4,9]);
+});
+test('checkpoint persistence failure stops before next request',async()=>{
+ const f=fixture();f.finish=async()=>{throw new Error('fsync failed')};await assert.rejects(runRosterProbeBatch(f),/fsync failed/);assert.equal(f.calls.length,1);
 });

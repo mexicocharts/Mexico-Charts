@@ -1,44 +1,48 @@
 import assert from 'node:assert/strict';
 
-// Audit orchestration only. runProbe must be the unchanged, pinned configured driver.
-// It retains its own read-only connection, query deadlines, evidence validation and close.
-export async function runRosterProbeBatch({ reconciliation, candidates, readProbe, runProbe,
-  saveCheckpoint, now = () => performance.now(), maximumArtists = 25, wallMs = 150000 }) {
+export const BATCH_WALL_MS = 150000;
+export const PROBE_WALL_MS = 120000;
+export const CHECKPOINT_RESERVE_MS = 5000;
+
+// Reserve the complete probe lifecycle, including source verification and request
+// persistence, before claiming an artist. Never hand the driver a shrinking tail.
+// readState/reserve/finish must use the durable, exclusively locked attempt store.
+export async function runRosterProbeBatch({ indices, readState, reserve, execute,
+  finish, checkpoint, now = () => performance.now(), maximumArtists = 25,
+  wallMs = BATCH_WALL_MS }) {
+  assert.equal(wallMs, BATCH_WALL_MS);
   assert(Number.isSafeInteger(maximumArtists) && maximumArtists >= 1 && maximumArtists <= 25);
-  assert(wallMs >= 40000 && wallMs <= 150000);
-  assert.equal(reconciliation.scope, 'approved_roster_only');
-  assert.equal(reconciliation.auxiliaryCandidates, candidates.length);
-  const allowed = new Set(reconciliation.groups.filter(group => group.status === 'roster_route_correspondence')
-    .map(group => group.artistIndex));
-  const indices = [...new Set(reconciliation.artists.flatMap(artist => artist.evaluateCandidateIndices))];
+  assert(indices.length && new Set(indices).size === indices.length);
+  assert(indices.every(i => Number.isSafeInteger(i) && i >= 0));
+  const started = now(), completed = [], skipped = [];
+  const stop = async (reason, nextIndex, failure = null) => {
+    const result = { reason, nextIndex, completed, skipped, failure,
+      elapsedMs: now() - started, wallMs, probeWallMs: PROBE_WALL_MS };
+    await checkpoint(result); return result;
+  };
   for (const index of indices) {
-    assert(Number.isSafeInteger(index) && allowed.has(index));
-    assert.deepEqual(reconciliation.groups[index].candidate, candidates[index]);
-  }
-  const started = now(), reused = [], completed = [];
-  let failure = null;
-  for (const index of indices) {
-    const candidate = candidates[index];
-    const saved = await readProbe(index);
-    if (saved) {
-      assert.equal(saved.artistIndex, index);
-      assert.equal(saved.decision.artistKey, candidate.artistKey);
-      assert.equal(saved.decision.artistName, candidate.artistName);
-      reused.push(index); continue;
+    const state = await readState(index);
+    if (state?.status === 'completed' || state?.status === 'capture_failure') {
+      skipped.push(index); continue;
     }
-    if (completed.length >= maximumArtists || wallMs - (now() - started) < 40000) break;
-    const result = await runProbe({ artistKey: candidate.artistKey,
-      wallMs: Math.floor(wallMs - (now() - started)) });
-    if (!result.success) { failure = { artistIndex: index, result }; break; }
-    const probe = await readProbe(index);
-    assert(probe && probe.artistIndex === index && probe.decision.artistKey === candidate.artistKey
-      && probe.decision.artistName === candidate.artistName, 'Missing or mismatched saved probe');
-    completed.push(index);
-    await saveCheckpoint({ completed: [...completed], reused: [...reused], failure: null });
-    // An incomplete classification is a per-artist evidence gap, not a batch stop.
+    if (state?.status === 'integrity_failure' || state?.status === 'systemic_failure')
+      return stop(state.status, index, state);
+    assert(!state || state.status === 'zero_query_deferred', 'Unresolved attempt must be recovered before scheduling');
+    if (completed.length >= maximumArtists || wallMs - (now() - started) < PROBE_WALL_MS + CHECKPOINT_RESERVE_MS)
+      return stop('budget_stop', index);
+    const attempt = await reserve(index);
+    // Claim persistence is part of the budget. A late claim remains resumable
+    // without invoking the driver or consuming the artist's evaluation state.
+    if (wallMs - (now() - started) < PROBE_WALL_MS + CHECKPOINT_RESERVE_MS) {
+      await finish(attempt, { status: 'zero_query_deferred', sourceQueries: 0, driverInvoked: false });
+      return stop('budget_stop', index);
+    }
+    const outcome = await execute(attempt, { wallMs: PROBE_WALL_MS });
+    assert(['completed','capture_failure','zero_query_deferred','systemic_failure','integrity_failure'].includes(outcome.status));
+    await finish(attempt, outcome);
+    if (outcome.status === 'completed') completed.push(index);
+    else if (outcome.status === 'capture_failure') skipped.push(index);
+    else return stop(outcome.status, index, outcome);
   }
-  const result = { completed, reused, failure, automaticRetries: 0,
-    elapsedMs: now() - started, maximumArtists, wallMs };
-  await saveCheckpoint(result);
-  return result;
+  return stop('pass_complete', null);
 }
