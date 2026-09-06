@@ -169,3 +169,11 @@ MONITOR_HISTORY_PGLITE_MODULE=/absolute/path/to/pglite/dist/index.js \
 ```
 
 The pure verifier checks14 A/B/C/unclassified scenarios with implicit Date construction and Date.now forbidden. Fixtures remain synthetic; verification never claims production artists are eligible. Generated metadata records the current source revision, so historical population totals must not be reused as a fresh audit result.
+
+## Approved-roster audit helpers
+
+`roster-reconciliation.mjs` preserves original roster rows and candidate groups, using an injected existing route resolver. Route correspondence never grants provider identity or public eligibility. Conflicting routes/provider identities remain explicit; image-writer spelling matches are only unresolved leads. Outside groups do not enter the scoped evaluation selection.
+
+`roster-probe-batch.mjs` is **currently blocked for continued capture**. The first real scoped run exposed a budget-admission boundary that the six orchestration fixtures did not cover: the wrapper admitted a probe with 41,788 ms remaining, but approximately 3,498 ms of saved-evidence verification consumed the margin required by the unchanged driver's pre-connection guard (38,500 ms). The probe stopped before connecting or querying. Its failed reserved statement remains immutable, so blindly rerunning the batch cannot safely advance it.
+
+Do not treat this as missing artist data or bypass the driver's deadlines, read-only checks, or no-retry protection. Continuation requires reviewed orchestration that accounts for pre-query verification before admitting another probe, plus a separately identified evidence attempt for the preserved failed reservation. Keep the total batch/query bounds and all original evidence. The successful population capture and completed artist results do not need recapture.
