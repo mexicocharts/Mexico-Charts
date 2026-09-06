@@ -54,6 +54,30 @@ test("population includes source-only and no-Spotify artists while aliases and p
   assert.ok(result.some(row => row.artistKey === "only raw streams"));
 });
 
+test("subscription leads preserve existing canonical identities and labels in either input order", () => {
+  const scenarios = [
+    { existing: [{ artist_key: "zz accepted registry", artist_name: "Accepted Registry Name", spotify_id: null, source: "musicbrainz_artists",
+      mbid: "accepted-fixture", verified: "auto", declared_aliases: ["aa subscription alias"] }], key: "aa subscription alias" },
+    { existing: [{ artist_key: "history source", artist_name: "Stored History Name", spotify_id: null, source: "monitoring_stream_items" }], key: "history source" },
+    { existing: [{ artist_key: "unnamed history", artist_name: null, spotify_id: null, source: "monitoring_stream_daily_snapshots" }], key: "unnamed history" },
+    { existing: [{ artist_key: "discovery alias", artist_name: "Accepted Discovery Name", spotify_id: null, source: "artist_candidates",
+      discovery_status: "linked_existing_artist", matched_artist_key: "accepted target" }], key: "discovery alias" },
+  ];
+  for (const scenario of scenarios) {
+    const original = groupMonitoringCandidateIdentities(scenario.existing)[0]!;
+    const subscription = { artist_key: scenario.key, artist_name: "Untrusted Customer Label", spotify_id: null, source: "monitoring_subscriptions" };
+    for (const rows of [[...scenario.existing, subscription], [subscription, ...scenario.existing]]) {
+      const groups = groupMonitoringCandidateIdentities(rows);
+      assert.equal(groups.length, 1);
+      assert.equal(groups[0]?.artistKey, original.artistKey);
+      assert.equal(groups[0]?.artistName, original.artistName);
+      assert.equal(groups[0]?.identityMappingStatus, original.identityMappingStatus);
+      assert.ok(!groups[0]?.matchKeys.includes("Untrusted Customer Label"));
+      assert.ok(groups[0]?.sourceKeys.includes(scenario.key), "the distinct stored lead remains source evidence");
+    }
+  }
+});
+
 test("complete readiness requires a dated fresh peer and adjacent daily pulse observations", () => {
   const { artist, row, now } = fixture();
   for (const currentHistory of [
@@ -490,6 +514,104 @@ test("native daily gaps remain under investigation without promoting unreviewed 
   assert.equal(complete.classification, "A");
   assert.equal(complete.auditStatus, "complete");
   assert.ok(!complete.findings.some(finding => /youtube.*history|youtube_native_intraday/.test(finding.code)));
+});
+
+test("subscription-only candidates are privately inspectable without billing data or new access grants", { skip: !postgresModule }, async () => {
+  const { PGlite } = await import(postgresModule!);
+  const db = new PGlite();
+  try {
+    const database = await import("@workspace/db");
+    const { is } = await import("drizzle-orm");
+    const { getTableConfig, PgTable } = await import("drizzle-orm/pg-core");
+    for (const value of Object.values(database)) {
+      if (!is(value, PgTable)) continue;
+      const config = getTableConfig(value as InstanceType<typeof PgTable>);
+      if (!(MONITORING_AUDIT_SOURCE_TABLES as readonly string[]).includes(config.name)) continue;
+      const columns = config.columns.map(column => `"${column.name}" ${column.getSQLType().replace(/^serial$/, "integer").replace(/^bigserial$/, "bigint")}`);
+      await db.exec(`CREATE TABLE "${config.name}" (${columns.join(", ")})`);
+    }
+    await db.exec("CREATE TABLE youtube_channel_upload_import_state (artist_key text, channel_id text, status text, completed_at timestamptz, next_page_token text, videos_imported integer, expected_total_videos integer)");
+    await db.exec(`INSERT INTO spotify_artists(artist_key,spotify_name,spotify_artist_id,verified) VALUES
+      ('real source','Real Source','0000000000000000000301',true);
+      INSERT INTO monitoring_subscriptions(stripe_subscription_id,clerk_user_id,artist_key,artist_name,status) VALUES
+      ('private-billing-one','owner-one','subscription only','Real Source','active'),
+      ('private-billing-two','owner-two','subscription only','Real Source','trialing'),
+      ('private-billing-three','former-owner','cancelled only','Cancelled Only','canceled'),
+      ('private-billing-four','owner-one','real source','Untrusted Display Name','active'),
+      ('private-billing-empty','owner-one','   ','Blank Key','active')`);
+    const raw = (await db.query(MONITORING_CANDIDATE_POPULATION_SQL)).rows;
+    const subscriptionRows = raw.filter((row: { source: string }) => row.source === "monitoring_subscriptions");
+    assert.equal(subscriptionRows.length, 4, "customers and statuses cannot duplicate the artist projection");
+    for (const row of subscriptionRows) {
+      assert.deepEqual(Object.keys(row).sort(), ["artist_key", "artist_name", "source", "spotify_id"]);
+      assert.equal(row.spotify_id, null);
+    }
+    assert.ok(!JSON.stringify(raw).includes("private-billing"));
+    assert.ok(!JSON.stringify(raw).includes("owner-one"));
+    const population = groupMonitoringCandidateIdentities(raw);
+    assert.equal(population.length, 3, "blank keys are ignored and repeated stored keys collapse");
+    const only = population.find(artist => artist.artistKey === "subscription only")!;
+    assert.deepEqual(only.sourceKeys, ["subscription only"]);
+    assert.deepEqual(only.spotifyIds, []);
+    assert.deepEqual(only.declaredAliases, []);
+    assert.equal(only.identityMappingStatus, "unverified");
+    assert.ok(!only.matchKeys.includes("real source"), "a customer-supplied name cannot bridge to a provider artist");
+    assert.deepEqual(population.find(artist => artist.artistKey === "real source")?.sourceKeys, ["real source"]);
+    assert.deepEqual(population.find(artist => artist.artistKey === "real source")?.candidateSources, ["monitoring_subscriptions", "spotify_artists"]);
+    const readPool = { connect: async () => ({ query: async (input: { text: string; values: unknown[] }) => db.query(input.text, input.values), release() {} }) };
+    for (const key of ["subscription only", "subscription-only", "subscriptiononly"]) {
+      assert.equal((await getMonitoringCandidateIdentity(key, readPool as never))?.artistKey, "subscription only");
+    }
+    assert.equal(await getMonitoringCandidateIdentity("Untrusted Display Name", readPool as never), null);
+    const directory = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(directory.populationComplete, true);
+    assert.equal(directory.total, 3);
+    const audit = directory.artists.find(artist => artist.artistKey === "subscription only")!;
+    assert.equal(audit.classification, null);
+    assert.equal(audit.auditStatus, "incomplete");
+    assert.equal(audit.publicEligible, false);
+    assert.ok(audit.readinessReasons.includes("identity_source_mapping_unverified"));
+    assert.ok(directory.artists.some(artist => artist.artistKey === "cancelled only"), "stored status never gates private candidate coverage");
+
+    const { authorizeMonitoringArtist } = await import("./monitoring-authorization");
+    const findExistingArtist = async (key: string) => {
+      const identity = await getMonitoringCandidateIdentity(key, readPool as never);
+      return identity ? { artist_key: identity.artistKey, artist_name: identity.artistName, status: "internal", created_at: null,
+        match_keys: identity.matchKeys, identity_conflict: identity.identityConflict } : null;
+    };
+    const founder = await authorizeMonitoringArtist({ userId: "founder", requestedArtistKey: "subscription-only", internalUserIds: "founder",
+      findActiveSubscription: async () => { throw new Error("Founder inspection must not require a paid subscription"); }, findExistingArtist });
+    assert.equal(founder.allowed, true);
+    assert.equal(founder.source, "internal");
+    assert.equal(founder.grant?.artist_key, "subscription only");
+    assert.equal(founder.publicReadinessEvaluated, false);
+    for (const userId of [null, "free-user", "former-owner"]) {
+      let identityLookups = 0;
+      const denied = await authorizeMonitoringArtist({ userId, requestedArtistKey: "subscription only", internalUserIds: "founder",
+        findActiveSubscription: async () => null,
+        findExistingArtist: async key => { identityLookups++; return findExistingArtist(key); } });
+      assert.equal(denied.allowed, false);
+      assert.equal(identityLookups, 0, "candidate presence does not authorize source inspection for a viewer without a grant");
+    }
+    const grant = { artist_key: "subscription only", artist_name: "Paid Name", status: "active", created_at: null };
+    const paid = await authorizeMonitoringArtist({ userId: "owner-one", requestedArtistKey: "subscription only", internalUserIds: "founder",
+      findActiveSubscription: async () => grant, findExistingArtist });
+    assert.equal(paid.allowed, true);
+    assert.equal(paid.source, "subscription");
+    assert.equal(paid.grant?.artist_name, grant.artist_name);
+    assert.ok(!paid.grant?.match_keys?.includes("real source"));
+    const deniedOtherArtist = await authorizeMonitoringArtist({ userId: "owner-one", requestedArtistKey: "cancelled only", internalUserIds: "founder",
+      findActiveSubscription: async () => null, findExistingArtist });
+    assert.equal(deniedOtherArtist.allowed, false);
+
+    await db.exec("DROP TABLE monitoring_subscriptions");
+    const missing = await getMonitoringCandidateDirectory({}, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(missing.populationComplete, false);
+    assert.deepEqual(missing.missingSchemaTables, ["monitoring_subscriptions"]);
+    assert.equal(missing.total, 1);
+    assert.equal(missing.artists[0]?.classification, null, "a missing source relation is unknown coverage, not a zero count");
+    assert.equal(await getMonitoringCandidateIdentity("subscription only", readPool as never), null);
+  } finally { await db.close(); }
 });
 
 test("read-only source audit SQL executes on PostgreSQL and keeps artists omitted by old joins", { skip: !postgresModule }, async () => {

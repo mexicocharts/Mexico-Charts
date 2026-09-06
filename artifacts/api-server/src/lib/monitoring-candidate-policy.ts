@@ -97,9 +97,13 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   const merged = new Map<number, MonitoringCandidateSourceRow[]>();
   groups.forEach((group, id) => merged.set(root(id), [...(merged.get(root(id)) ?? []), ...group]));
   return [...merged.values()].map(group => {
-    const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source); return index < 0 ? 99 : index; };
+    const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source); return source === "monitoring_subscriptions" ? 100 : index < 0 ? 99 : index; };
     const ordered = [...group].sort((a, b) => priority(a.source) - priority(b.source) || a.artist_key.localeCompare(b.artist_key));
-    const first = ordered.find(row => row.source !== "artist_candidates") ?? ordered[0]!;
+    // Subscription leads must not replace an existing source's canonical key or
+    // display name, including its key fallback and accepted discovery target.
+    const existing = ordered.filter(row => row.source !== "monitoring_subscriptions");
+    const representatives = existing.length ? existing : ordered;
+    const first = representatives.find(row => row.source !== "artist_candidates") ?? representatives[0]!;
     // artist_candidates stores discovery names, not serving artist_key values.
     // Preserve those records separately; an accepted matched_artist_id is an
     // explicit relationship, never a fabricated source-data row.
@@ -122,7 +126,7 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
         artistName: row.artist_name, lookupName: row.artist_key, status: row.discovery_status ?? null, matchedArtistKey: row.matched_artist_key ?? null }));
     return {
       artistKey: acceptedDiscoveryRow(first) ? first.matched_artist_key! : first.artist_key,
-      artistName: ordered.find(row => row.artist_name?.trim())?.artist_name?.trim() || first.artist_key,
+      artistName: representatives.find(row => row.artist_name?.trim())?.artist_name?.trim() || first.artist_key,
       sourceKeys,
       matchKeys: [...new Set([...sourceKeys, ...declaredAliases, ...acceptedTargets, ...candidateRecords.map(row => row.lookupName)]
         .flatMap(key => [key, key.toLowerCase(), ...monitoringIdentityKeyCandidates(key)]))],

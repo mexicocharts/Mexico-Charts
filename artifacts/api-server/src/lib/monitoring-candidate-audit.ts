@@ -23,6 +23,9 @@ export const MONITORING_DISCOVERY_CANDIDATES_SQL = `SELECT normalized_name artis
   FROM artist_candidates
   UNION ALL SELECT artist_key, artist_name, NULL::text, 'spotify_artist_candidates', artist_key, status, NULL::text
   FROM spotify_artist_candidates`;
+/** Subscriptions contribute only distinct stored artist keys and display names.
+ * Customer, billing and status fields never enter this private source inventory;
+ * candidate presence establishes neither a provider identity nor viewer access. */
 export const MONITORING_CANDIDATE_POPULATION_SQL = `
   SELECT artist_key, artist_name, spotify_id, 'kworb_coverage' source FROM kworb_coverage
   UNION ALL SELECT artist_key, artist_name, NULL, 'official_artists' FROM official_artists
@@ -45,6 +48,7 @@ export const MONITORING_CANDIDATE_POPULATION_SQL = `
   UNION ALL SELECT artist_key, NULL, NULL, 'artist_images' FROM artist_images
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'deezer_track_covers' FROM deezer_track_covers
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'youtube_music_catalog_candidates' FROM youtube_music_catalog_candidates
+  UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'monitoring_subscriptions' FROM monitoring_subscriptions
 `;
 
 type AuditPool = Pick<PgPool, "connect">;
@@ -110,7 +114,7 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
   const targeted = pieces.map(sql => {
     const table = sql.match(/FROM ([a-z_]+)$/)?.[1] ?? "";
     const provider = providerColumns[table];
-    const boundedIdentity = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "youtube_channels"].includes(table);
+    const boundedIdentity = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "youtube_channels", "monitoring_subscriptions"].includes(table);
     const latinKey = "translate(lower(artist_key), 'áéíóúüñ', 'aeiouun')";
     const normalized = boundedIdentity ? ` OR (length(${latinKey})=octet_length(${latinKey}) AND regexp_replace(${latinKey}, '[^a-z0-9]', '', 'g')=ANY($3::text[]))` : "";
     return `${sql} WHERE artist_key=ANY($1::text[])${provider ? ` OR ${provider}=ANY($2::text[])` : ""}${normalized}`;

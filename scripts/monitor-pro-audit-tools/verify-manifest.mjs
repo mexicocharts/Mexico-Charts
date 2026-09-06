@@ -11,7 +11,7 @@ const storage=createPrivateAuditStorage(output);
 const {PGlite}=await import(process.env.MONITOR_HISTORY_PGLITE_MODULE);const db=new PGlite();
 try{
   const manifest=JSON.parse(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory),'utf8'));
-  const inventory=await db.query(manifest.queries.schema);assert.equal(inventory.rows.length,32);assert.ok(inventory.rows.every(row=>row.present===false));
+  const inventory=await db.query(manifest.queries.schema);assert.deepEqual(inventory.rows.map(row=>row.table_name).sort(),manifest.sourceTables.slice().sort());assert.ok(inventory.rows.every(row=>row.present===false));
   const prepared=prepareAuditQueries(manifest,{missingTables:manifest.sourceTables,now:'2026-08-10T12:00:00Z',clockMode:'run_fixed'});
   for(const sql of [prepared.population,prepared.acceptedAliases,prepared.discovery])assert.equal((await db.query(sql)).rows.length,0);
   assert.deepEqual((await db.query(prepared.sourceCounts)).rows,[{population:0,accepted_aliases:0,discovery:0}]);
@@ -29,6 +29,6 @@ try{
   const framed=await db.query(buildJsonChunkSql(sql));assert.equal(framed.rows[0].total_rows,1);
   assert.equal(JSON.parse(framed.rows[0].chunk)[0].artist_key,"quoted ' 東京");
   assert.throws(()=>applyAuditMissingSources(manifest,'SELECT 1',['unknown_source']));
-  const report={revision:manifest.revision,actualPostgreSql:true,sourceTables:32,allTypedMissingCtesExecuted:true,populationQueries:3,sourceCountsExecuted:true,fixedClockEvidenceExecuted:true,framedEvidenceExecuted:true,transactionClockEvidenceExecuted:true,quotedUnicodeIdentityPreserved:true,productionQueries:0};
+  const report={revision:manifest.revision,actualPostgreSql:true,sourceTables:manifest.sourceTables.length,allTypedMissingCtesExecuted:true,populationQueries:3,sourceCountsExecuted:true,fixedClockEvidenceExecuted:true,framedEvidenceExecuted:true,transactionClockEvidenceExecuted:true,quotedUnicodeIdentityPreserved:true,productionQueries:0};
   await storage.persist('monitor-audit-manifest.verification.json',report);console.log(JSON.stringify(report));
 }finally{await db.close();}
