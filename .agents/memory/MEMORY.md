@@ -5,3 +5,4 @@
 - [Monitor Pro preview authentication](monitor-pro-preview-auth.md) — The external Clerk live tenant rejects Replit dev origins, so private previews render but cannot sign in without an allowed dev origin.
 - [Monitor Pro test-key preview build](monitor-pro-preview-build-env.md) — Preview-only Clerk test keys must be mapped at build/process scope; the full app audit mis-resolves the mounted base path.
 - [Tool-orchestration V8 runtime](tool-orchestration-v8.md) — Durable CodeExecution omits Node globals such as Buffer and TextEncoder; use plain JS or impure filesystem helpers.
+- [Saved SELECT adapter contract](saved-select-adapter-contract.md) — Decode serialized JSON arrays before grouping; empty arrays stay empty and literal null/undefined IDs are rejected.
