@@ -25,7 +25,10 @@ export const MONITORING_DISCOVERY_CANDIDATES_SQL = `SELECT normalized_name artis
   FROM spotify_artist_candidates`;
 /** Subscriptions contribute only distinct stored artist keys and display names.
  * Customer, billing and status fields never enter this private source inventory;
- * candidate presence establishes neither a provider identity nor viewer access. */
+ * candidate presence establishes neither a provider identity nor viewer access.
+ * Verified nationality, social-account and YouTube Music identity registries
+ * can exist before coverage/catalog materialization. They add inspection leads
+ * only: no provider IDs, proposed aliases, source URLs or private evidence. */
 export const MONITORING_CANDIDATE_POPULATION_SQL = `
   SELECT artist_key, artist_name, spotify_id, 'kworb_coverage' source FROM kworb_coverage
   UNION ALL SELECT artist_key, artist_name, NULL, 'official_artists' FROM official_artists
@@ -49,6 +52,9 @@ export const MONITORING_CANDIDATE_POPULATION_SQL = `
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'deezer_track_covers' FROM deezer_track_covers
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'youtube_music_catalog_candidates' FROM youtube_music_catalog_candidates
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'monitoring_subscriptions' FROM monitoring_subscriptions
+  UNION ALL SELECT normalized_name AS artist_key, artist_name, NULL, 'mexican_artist_identity_candidates' FROM mexican_artist_identity_candidates WHERE status='verified'
+  UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'artist_social_account_candidates' FROM artist_social_account_candidates WHERE status='verified'
+  UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'youtube_music_artist_candidates' FROM youtube_music_artist_candidates WHERE status='verified'
 `;
 
 type AuditPool = Pick<PgPool, "connect">;
@@ -112,12 +118,16 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
     songstats_artist_extended_data: "spotify_artist_id", songstats_artist_daily_snapshots: "spotify_artist_id", spotify_kworb_daily_snapshots: "spotify_artist_id",
     songstats_history_provider_identities: "(CASE WHEN validation_status='verified' THEN spotify_artist_id END)" };
   const targeted = pieces.map(sql => {
-    const table = sql.match(/FROM ([a-z_]+)$/)?.[1] ?? "";
+    const table = sql.match(/FROM ([a-z_]+)(?: WHERE status='verified')?$/)?.[1] ?? "";
+    const verifiedLead = ["mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates"].includes(table);
+    const keyColumn = table === "mexican_artist_identity_candidates" ? "normalized_name" : "artist_key";
     const provider = providerColumns[table];
-    const boundedIdentity = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "youtube_channels", "monitoring_subscriptions"].includes(table);
-    const latinKey = "translate(lower(artist_key), 'áéíóúüñ', 'aeiouun')";
+    const boundedIdentity = verifiedLead || ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "youtube_channels", "monitoring_subscriptions"].includes(table);
+    const latinKey = `translate(lower(${keyColumn}), 'áéíóúüñ', 'aeiouun')`;
     const normalized = boundedIdentity ? ` OR (length(${latinKey})=octet_length(${latinKey}) AND regexp_replace(${latinKey}, '[^a-z0-9]', '', 'g')=ANY($3::text[]))` : "";
-    return `${sql} WHERE artist_key=ANY($1::text[])${provider ? ` OR ${provider}=ANY($2::text[])` : ""}${normalized}`;
+    // Keep the source's verified predicate outside all exact/normalized ORs.
+    // The nationality registry stores normalized_name, not an artist_key column.
+    return `${sql}${verifiedLead ? " AND" : " WHERE"} (${keyColumn}=ANY($1::text[])${provider ? ` OR ${provider}=ANY($2::text[])` : ""}${normalized})`;
   }).join(" UNION ALL ");
   const initial = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]);

@@ -5,6 +5,7 @@ import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service"
 
 export const MONITORING_AUDIT_SOURCE_TABLES = [
   "kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "musicbrainz_artists", "artist_candidates", "spotify_artist_candidates", "monitoring_subscriptions",
+  "mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates",
   "songstats_artist_extended_data", "songstats_artist_daily_snapshots", "monitoring_stream_items",
   "monitoring_stream_daily_snapshots", "monitoring_stream_daily_artist_summaries", "spotify_kworb_daily_snapshots",
   "youtube_channels", "youtube_videos", "youtube_channel_daily_snapshots", "youtube_artist_video_links", "youtube_kworb_daily_snapshots", "youtube_artist_video_daily_rollups",

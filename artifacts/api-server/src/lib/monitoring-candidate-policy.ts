@@ -56,7 +56,8 @@ const acceptedDiscoveryRow = (row: MonitoringCandidateSourceRow) => row.source =
 const declaredRowAliases = (row: MonitoringCandidateSourceRow) => acceptedRegistryRow(row) || acceptedDiscoveryRow(row)
   ? [...new Set([row.artist_name, ...(acceptedDiscoveryRow(row) ? [row.artist_key] : []), ...(Array.isArray(row.declared_aliases) ? row.declared_aliases : [])]
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map(value => value.trim()))] : [];
-const assertedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates"].includes(row.source) ? null : row.spotify_id?.trim() || null;
+const INSPECTION_SOURCE_PRIORITY = ["monitoring_subscriptions", "mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates"];
+const assertedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates", ...INSPECTION_SOURCE_PRIORITY].includes(row.source) ? null : row.spotify_id?.trim() || null;
 /** Provider IDs are opaque 22-character base62 values. Preserve malformed
  * assertions for review, but never use them as cross-artist identity edges. */
 export function isMonitoringSpotifyArtistId(value: unknown): value is string {
@@ -97,12 +98,14 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   const merged = new Map<number, MonitoringCandidateSourceRow[]>();
   groups.forEach((group, id) => merged.set(root(id), [...(merged.get(root(id)) ?? []), ...group]));
   return [...merged.values()].map(group => {
-    const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source); return source === "monitoring_subscriptions" ? 100 : index < 0 ? 99 : index; };
+    const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source), lead = INSPECTION_SOURCE_PRIORITY.indexOf(source); return lead >= 0 ? 100 + lead : index < 0 ? 99 : index; };
     const ordered = [...group].sort((a, b) => priority(a.source) - priority(b.source) || a.artist_key.localeCompare(b.artist_key));
-    // Subscription leads must not replace an existing source's canonical key or
+    // Inspection leads must not replace an existing source's canonical key or
     // display name, including its key fallback and accepted discovery target.
-    const existing = ordered.filter(row => row.source !== "monitoring_subscriptions");
-    const representatives = existing.length ? existing : ordered;
+    // The earlier subscription-only representation also keeps precedence over
+    // newly inventoried registries. Their verification is not a provider grant.
+    const existing = ordered.filter(row => !INSPECTION_SOURCE_PRIORITY.includes(row.source));
+    const representatives = existing.length ? existing : ordered.filter(row => priority(row.source) === priority(ordered[0]!.source));
     const first = representatives.find(row => row.source !== "artist_candidates") ?? representatives[0]!;
     // artist_candidates stores discovery names, not serving artist_key values.
     // Preserve those records separately; an accepted matched_artist_id is an
