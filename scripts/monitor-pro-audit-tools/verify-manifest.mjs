@@ -1,0 +1,34 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';
+import {prepareAuditQueries,applyAuditMissingSources} from './manifest-helper.mjs';
+import {buildJsonChunkSql} from './replay.mjs';
+import {outputArgument} from './paths.mjs';
+import {createPrivateAuditStorage} from './storage.mjs';
+import {pathToFileURL} from 'node:url';
+import {sep} from 'node:path';
+const output=outputArgument();
+const directory=pathToFileURL(output+sep);
+const storage=createPrivateAuditStorage(output);
+const {PGlite}=await import(process.env.MONITOR_HISTORY_PGLITE_MODULE);const db=new PGlite();
+try{
+  const manifest=JSON.parse(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory),'utf8'));
+  const inventory=await db.query(manifest.queries.schema);assert.equal(inventory.rows.length,32);assert.ok(inventory.rows.every(row=>row.present===false));
+  const prepared=prepareAuditQueries(manifest,{missingTables:manifest.sourceTables,now:'2026-08-10T12:00:00Z',clockMode:'run_fixed'});
+  for(const sql of [prepared.population,prepared.acceptedAliases,prepared.discovery])assert.equal((await db.query(sql)).rows.length,0);
+  assert.deepEqual((await db.query(prepared.sourceCounts)).rows,[{population:0,accepted_aliases:0,discovery:0}]);
+  const sql=prepared.evidence({artistKey:"quoted ' 東京",sourceKeys:["quoted ' 東京"]});
+  assert.ok(!/\bnow\(\)/.test(sql));assert.ok(!/\$[12]::/.test(sql));
+  const result=await db.query(sql);assert.equal(result.rows.length,1);assert.equal(result.rows[0].artist_key,"quoted ' 東京");
+  assert.equal(result.rows[0].source_evidence.youtubeHistory.rangeDays,90);
+  assert.equal(result.rows[0].source_evidence.youtubeHistory.rangeClock,'fixed_audit_now_America/New_York');
+  assert.equal(result.rows[0].source_evidence.youtubeHistory.allTime.points,0);
+  const transactionPrepared=prepareAuditQueries(manifest,{missingTables:manifest.sourceTables,now:'2026-08-10T12:00:00Z',clockMode:'evidence_transaction_timestamp'});
+  const captured=await db.query(transactionPrepared.evidence({artistKey:'transaction artist',sourceKeys:['transaction artist']}));
+  assert.ok(/^\d{4}-\d{2}-\d{2}T/.test(captured.rows[0].audit_captured_at));
+  assert.ok(Number.isFinite(new Date(captured.rows[0].audit_captured_at).getTime()));
+  assert.equal(captured.rows[0].source_evidence.youtubeHistory.rangeClock,'database_now_America/New_York');
+  const framed=await db.query(buildJsonChunkSql(sql));assert.equal(framed.rows[0].total_rows,1);
+  assert.equal(JSON.parse(framed.rows[0].chunk)[0].artist_key,"quoted ' 東京");
+  assert.throws(()=>applyAuditMissingSources(manifest,'SELECT 1',['unknown_source']));
+  const report={revision:manifest.revision,actualPostgreSql:true,sourceTables:32,allTypedMissingCtesExecuted:true,populationQueries:3,sourceCountsExecuted:true,fixedClockEvidenceExecuted:true,framedEvidenceExecuted:true,transactionClockEvidenceExecuted:true,quotedUnicodeIdentityPreserved:true,productionQueries:0};
+  await storage.persist('monitor-audit-manifest.verification.json',report);console.log(JSON.stringify(report));
+}finally{await db.close();}
