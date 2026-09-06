@@ -71,12 +71,14 @@ export const MONITORING_YOUTUBE_NATIVE_HISTORY_SQL = `
   )
   SELECT eligible.has_approved_link,eligible.relation_source,eligible.relation_status,
     eligible.sampling_status,eligible.relationship_sources,
-    bounds.as_of::text,bounds.start_date::text,bounds.end_date::text,
+    to_char(bounds.as_of AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as_of,
+    bounds.start_date::text,bounds.end_date::text,
     (SELECT count(*)::text FROM native) raw_observation_count,
-    (SELECT min(observed_at)::text FROM native) first_observed_at,
-    (SELECT max(observed_at)::text FROM native) last_observed_at,
+    (SELECT to_char(min(observed_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM native) first_observed_at,
+    (SELECT to_char(max(observed_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') FROM native) last_observed_at,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('date',observation_date::text,
-      'observedAt',observed_at::text,'observationId',id::text,'viewCount',view_count::text)
+      'observedAt',to_char(observed_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
+      'observationId',id::text,'viewCount',view_count::text)
       ORDER BY observation_date) FROM selected_points),'[]'::jsonb) points
   FROM eligible CROSS JOIN bounds
 `;
@@ -88,8 +90,11 @@ function safeCount(value: unknown): number {
 }
 
 function iso(value: unknown): string {
-  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) throw new Error("Invalid native history timestamp");
-  return new Date(value).toISOString();
+  // PostgreSQL retains microseconds. Reformatting through JavaScript Date
+  // would truncate the original source timestamp to milliseconds.
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(value)
+    || !Number.isFinite(Date.parse(value))) throw new Error("Invalid native history timestamp");
+  return value;
 }
 
 function requestedDates(startDate: string, endDate: string, days: number): string[] {

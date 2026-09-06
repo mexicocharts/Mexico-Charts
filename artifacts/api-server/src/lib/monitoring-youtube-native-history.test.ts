@@ -25,13 +25,13 @@ const schema = `
     ('canonical','Artist','paused00001',90,'verified','paused','youtube_music_innertube');
   INSERT INTO youtube_video_intraday_shadow_snapshots(id,video_id,observed_at,view_count,source_type) VALUES
     (1,'approved001','2026-10-27T03:59:59Z',99999,'youtube_api_shadow'),
-    (2,'approved001','2026-10-27T04:00:00Z',10,'youtube_api_shadow'),
+    (2,'approved001','2026-10-27T04:00:00.000001Z',10,'youtube_api_shadow'),
     (3,'approved001','2026-10-27T12:00:00Z',20,'youtube_api_shadow'),
     (4,'approved001','2026-11-01T05:30:00Z',100,'youtube_api_shadow'),
     (5,'approved001','2026-11-01T06:30:00Z',110,'youtube_api_shadow'),
-    (6,'approved001','2026-11-01T23:00:00Z',120,'youtube_api_shadow'),
-    (7,'approved001','2026-11-01T23:00:00Z',130,'youtube_api_shadow'),
-    (8,'approved001','2026-11-02T17:00:00Z',0,'youtube_api_shadow'),
+    (6,'approved001','2026-11-01T23:00:00.123456Z',120,'youtube_api_shadow'),
+    (7,'approved001','2026-11-01T23:00:00.123456Z',130,'youtube_api_shadow'),
+    (8,'approved001','2026-11-02T17:00:00.654321Z',0,'youtube_api_shadow'),
     (9,'approved001','2026-11-02T17:50:00Z',NULL,'youtube_api_shadow'),
     (10,'approved001','2026-11-02T17:59:00Z',99999,'unknown_source'),
     (11,'approved001','2026-11-02T18:01:00Z',99999,'youtube_api_shadow'),
@@ -40,7 +40,8 @@ const schema = `
     (14,'verify00001','2026-11-02T17:00:00Z',300,'youtube_api_shadow'),
     (15,'unrelated01','2026-11-02T17:00:00Z',99999,'youtube_api_shadow'),
     (16,'empty000001','2026-11-02T17:00:00Z',NULL,'youtube_api_shadow'),
-    (17,'empty000001','2026-11-02T17:00:00Z',99999,'unknown_source');
+    (17,'empty000001','2026-11-02T17:00:00Z',99999,'unknown_source'),
+    (18,'approved001','2026-11-01T23:00:00.123455Z',99999,'youtube_api_shadow');
   INSERT INTO youtube_video_intraday_shadow_snapshots(video_id,observed_at,view_count,source_type)
     SELECT 'complete001',(date '2026-10-27'+day+time '12:00') AT TIME ZONE 'America/New_York',0,'youtube_api_shadow'
     FROM generate_series(0,6) day;
@@ -68,16 +69,17 @@ test("native video history preserves exact observed cumulative samples, alias de
   assert.equal(result.sourceTable, "youtube_video_intraday_shadow_snapshots");
   assert.equal(result.timeZone, "America/New_York");
   assert.equal(result.startDate, "2026-10-27");assert.equal(result.endDate, "2026-11-02");
-  assert.equal(result.asOf, "2026-11-02T18:00:00.000Z");
+  assert.equal(result.asOf, "2026-11-02T18:00:00.000000Z");
   assert.equal(result.status, "partial");
   assert.deepEqual(result.points, [
-    { date: "2026-10-27", observedAt: "2026-10-27T12:00:00.000Z", observationId: "3", viewCount: 20 },
-    { date: "2026-11-01", observedAt: "2026-11-01T23:00:00.000Z", observationId: "7", viewCount: 130 },
-    { date: "2026-11-02", observedAt: "2026-11-02T17:00:00.000Z", observationId: "8", viewCount: 0 },
+    { date: "2026-10-27", observedAt: "2026-10-27T12:00:00.000000Z", observationId: "3", viewCount: 20 },
+    { date: "2026-11-01", observedAt: "2026-11-01T23:00:00.123456Z", observationId: "7", viewCount: 130 },
+    { date: "2026-11-02", observedAt: "2026-11-02T17:00:00.654321Z", observationId: "8", viewCount: 0 },
   ]);
-  assert.deepEqual(result.coverage, { requestedDays: 7, observedDays: 3, rawObservationCount: 7,
+  assert.deepEqual(result.coverage, { requestedDays: 7, observedDays: 3, rawObservationCount: 8,
     missingDates: ["2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31"],
-    firstObservedAt: "2026-10-27T04:00:00.000Z", lastObservedAt: "2026-11-02T17:00:00.000Z", meaning: "observed_dates_only" });
+    firstObservedAt: "2026-10-27T04:00:00.000001Z", lastObservedAt: "2026-11-02T17:00:00.654321Z", meaning: "observed_dates_only" });
+  assert.equal(result.points[1]?.observationId, "7", "a higher ID one microsecond earlier cannot defeat the actual latest timestamp; an exact timestamp tie uses ID");
   assert.equal(result.relationship.hasApprovedLink, true);
   assert.equal(result.relationship.visibilityScope, "approved_artist_link");
   assert.equal(result.relationship.relationStatus, "active");
@@ -129,7 +131,7 @@ test("empty, complete date coverage and requested range are explicit without inv
     assert.equal(result.coverage.requestedDays, range === "30d" ? 30 : 90);
     assert.equal(result.status, "partial");
     assert.equal(result.points.length, 4, "the older real October26 ET sample now falls inside the requested range");
-    assert.equal(result.coverage.rawObservationCount, 8);
+    assert.equal(result.coverage.rawObservationCount, 9);
   }
 }));
 
