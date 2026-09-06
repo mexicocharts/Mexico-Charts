@@ -8,7 +8,7 @@ import {
   spotifyKworbDailySnapshots,
   youtubeKworbDailySnapshots,
 } from "@workspace/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { SUPPLEMENTAL_ARTISTS } from "../lib/supplemental-artist-data";
 
 const router = Router();
@@ -1909,24 +1909,31 @@ router.get("/kworb/artist-stats", async (req, res) => {
   res.json({ ...stats, _status: hasCachedData ? "cached" : "pending" });
 });
 
-/* GET /api/kworb/batch-streams?names=A,B,C  — cache-first, single DB query */
+/* GET /api/kworb/batch-streams?names=A,B,C — requested cached scalar fields only */
 router.get("/kworb/batch-streams", async (req, res) => {
   const namesParam = (req.query.names as string | undefined)?.trim();
   if (!namesParam) { res.status(400).json({ error: "names query parameter required" }); return; }
 
   const names = namesParam.split(",").map(n => n.trim()).filter(Boolean).slice(0, 150);
   const details = req.query.details === "1" || req.query.details === "true";
+  const requestedKeys = [...new Set(names.map(toSlug))];
 
-  const spotifyRows = await db
-    .select({ artistKey: kworbSnapshots.artistKey, value: kworbSnapshots.value })
+  // JSON extraction preserves the stored value's type, including zero/null and
+  // malformed scalars. The composite primary key guarantees one row per source.
+  const spotifyRows = requestedKeys.length ? await db
+    .select({ artistKey: kworbSnapshots.artistKey, value: details
+      ? sql`jsonb_build_object('totalStreams', ${kworbSnapshots.value}->'totalStreams', 'dailyStreams', ${kworbSnapshots.value}->'dailyStreams')`
+      : sql`jsonb_build_object('totalStreams', ${kworbSnapshots.value}->'totalStreams')` })
     .from(kworbSnapshots)
-    .where(eq(kworbSnapshots.metricType, "spotify"));
+    .where(and(eq(kworbSnapshots.metricType, "spotify"), inArray(kworbSnapshots.artistKey, requestedKeys)))
+    : [];
 
-  const youtubeRows = details
+  const youtubeRows = details && requestedKeys.length
     ? await db
-      .select({ artistKey: kworbSnapshots.artistKey, value: kworbSnapshots.value })
+      .select({ artistKey: kworbSnapshots.artistKey,
+        value: sql`jsonb_build_object('totalViews', ${kworbSnapshots.value}->'totalViews', 'dailyAvg', ${kworbSnapshots.value}->'dailyAvg')` })
       .from(kworbSnapshots)
-      .where(eq(kworbSnapshots.metricType, "youtube"))
+      .where(and(eq(kworbSnapshots.metricType, "youtube"), inArray(kworbSnapshots.artistKey, requestedKeys)))
     : [];
 
   const spotifySnapMap = new Map(spotifyRows.map(r => [r.artistKey, r.value as { totalStreams?: number; dailyStreams?: number } | null]));
