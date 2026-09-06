@@ -30,6 +30,7 @@ import {
 } from "../lib/artist-pro-entitlement";
 import {
   authorizeMonitoringArtist,
+  monitoringAuthorizedSourceKeys,
   type MonitoringArtistGrant,
 } from "../lib/monitoring-authorization";
 import {
@@ -235,17 +236,7 @@ async function loadAuthorizedMonitoring(
   const authorization = await resolveMonitoringAccess(userId, requestedArtistKey);
   const active = authorization.grant;
   if (!authorization.allowed || !active) return null;
-  const lookupKeys = [...new Set([requestedArtistKey.trim().toLowerCase(), ...monitoringIdentityKeyCandidates(requestedArtistKey)].filter(Boolean))];
-
-  const activeKeys = active.identity_conflict ? [active.artist_key] : [
-    ...new Set([
-      active.artist_key,
-      ...(active.match_keys ?? []),
-      ...monitoringIdentityKeyCandidates(active.artist_key),
-      ...monitoringIdentityKeyCandidates(active.artist_name),
-      ...lookupKeys,
-    ]),
-  ];
+  const activeKeys = monitoringAuthorizedSourceKeys(active, monitoringIdentityKeyCandidates);
   const sectionStatus: Record<
     string,
     "loaded" | "failed" | "timeout" | "budget_exhausted"

@@ -31,11 +31,15 @@ test("paid video read includes the existing public catalog and deduplicates by v
   assert.doesNotMatch(videos, /LIMIT 10\b/);
 });
 
-test("paid reads retain both the requested route alias and authorized canonical alias", () => {
+test("dashboard reads expand only source keys supplied by the authorized identity", () => {
+  const start = source.indexOf("async function loadAuthorizedMonitoring(");
+  const end = source.indexOf("const sectionStatus", start);
+  const scope = source.slice(start, end);
   assert.match(
-    source,
-    /const activeKeys = active\.identity_conflict \? \[active\.artist_key\] : \[[\s\S]*monitoringIdentityKeyCandidates\(active\.artist_key\)[\s\S]*monitoringIdentityKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
+    scope,
+    /const activeKeys = monitoringAuthorizedSourceKeys\(active, monitoringIdentityKeyCandidates\)/,
   );
+  assert.doesNotMatch(scope, /active\.artist_name|lookupKeys/);
   assert.match(source, /aliases: monitoringIdentityKeyCandidates/);
 });
 
@@ -367,7 +371,7 @@ test("internal authorization targets indexed identities without running the popu
   assert.ok(identityStart >= 0 && identityEnd > identityStart);
   const identity = candidateSource.slice(identityStart, identityEnd);
   assert.doesNotMatch(identity, /await loadMonitoringCandidatePopulation\(/);
-  assert.match(identity, /WHERE artist_key=ANY/);
+  assert.match(identity, /\$\{keyColumn\}=ANY\(\$1::text\[\]\)/);
   assert.match(identity, /withUnavailableMonitoringSources\(targeted, missing\)/);
   assert.match(identity, /if \(!candidate\.identityConflict\) return candidate/);
   assert.doesNotMatch(identity, /getMonitoringCandidateDirectory|evaluateMonitoringCandidate|EVIDENCE_SQL/);

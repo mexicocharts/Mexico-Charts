@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES } from "./artist-pro-entitlement";
-import { authorizeMonitoringArtist, type MonitoringArtistGrant } from "./monitoring-authorization";
+import { authorizeMonitoringArtist, monitoringAuthorizedSourceKeys, type MonitoringArtistGrant } from "./monitoring-authorization";
 import { monitoringArtistAliasesMatch } from "./songstats-artist-key";
+import { monitoringIdentityKeyCandidates } from "./monitoring-candidate-policy";
 
 const luisMiguel: MonitoringArtistGrant = {
   artist_key: "luismiguel",
@@ -14,6 +15,20 @@ const luisMiguel: MonitoringArtistGrant = {
 const noSubscription = async () => null;
 const existingLuisMiguel = async (requestedArtistKey: string) =>
   monitoringArtistAliasesMatch("luismiguel", requestedArtistKey) ? luisMiguel : null;
+
+test("source scope preserves verified aliases without trusting the grant display name", () => {
+  const grant = { ...luisMiguel, artist_name: "Unrelated Artist", match_keys: ["luis miguel", "accepted-stage-name"] };
+  assert.deepEqual(monitoringAuthorizedSourceKeys(grant, monitoringIdentityKeyCandidates),
+    ["luismiguel", "luis miguel", "accepted-stage-name", "acceptedstagename"]);
+  assert.equal(grant.artist_name, "Unrelated Artist", "display and billing identity stay intact");
+  assert.deepEqual(monitoringAuthorizedSourceKeys({ ...grant, match_keys: undefined }, monitoringIdentityKeyCandidates), ["luismiguel"]);
+});
+
+test("conflicts preserve the exact granted key and never normalize aliases or names", () => {
+  const grant = { ...luisMiguel, artist_key: "Luis Miguel", identity_conflict: true, match_keys: ["unrelated artist"] };
+  assert.deepEqual(monitoringAuthorizedSourceKeys(grant, () => { throw new Error("Conflict must not expand"); }), ["Luis Miguel"]);
+  assert.deepEqual(monitoringAuthorizedSourceKeys({ ...grant, artist_key: "X東京", identity_conflict: false, match_keys: [] }, monitoringIdentityKeyCandidates), ["X東京", "x東京"]);
+});
 
 test("unauthenticated user is denied", async () => {
   const result = await authorizeMonitoringArtist({

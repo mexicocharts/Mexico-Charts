@@ -38,7 +38,7 @@ async function request(viewer: string | null, options: { paid?: boolean; missing
       findExistingArtist: async key => {
         if (options.paid) assert.equal(key, "canonical", "resolve the paid grant rather than the requested alias");
         return options.missing ? null : { artist_key: "canonical", artist_name: "Artist", status: "internal", created_at: null,
-          match_keys: ["approved-provider-source"], identity_conflict: options.conflict };
+          match_keys: ["approved-provider-source", "requested-alias"], identity_conflict: options.conflict };
       },
     }),
     read: async input => {

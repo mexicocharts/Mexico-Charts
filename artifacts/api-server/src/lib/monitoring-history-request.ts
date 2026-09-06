@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import type { MonitoringAuthorizationDecision } from "./monitoring-authorization";
+import { monitoringAuthorizedSourceKeys, type MonitoringAuthorizationDecision } from "./monitoring-authorization";
 import type { CompactHistoryRange } from "./songstats-history-serving";
 
 export function isMonitoringHistoryTimeout(error: unknown): boolean {
@@ -61,13 +61,7 @@ export function createMonitoringHistoryHandler(deps: {
         }
         const body = await deps.read({
           artistKey: access.grant.artist_key,
-          artistKeys: access.grant.identity_conflict ? [access.grant.artist_key] : [...new Set([
-            access.grant.artist_key,
-            ...(access.grant.match_keys ?? []),
-            ...deps.aliases(access.grant.artist_key),
-            ...deps.aliases(access.grant.artist_name),
-            ...deps.aliases(artistKey),
-          ])],
+          artistKeys: monitoringAuthorizedSourceKeys(access.grant, deps.aliases),
           metricKey, range, resolution, deadlineAt,
           startDate: String(req.query.startDate ?? "") || undefined,
           endDate: String(req.query.endDate ?? "") || undefined,

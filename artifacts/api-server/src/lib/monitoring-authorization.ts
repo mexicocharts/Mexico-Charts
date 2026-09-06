@@ -17,6 +17,18 @@ export type MonitoringAuthorizationDecision = {
   publicReadinessEvaluated: false;
 };
 
+/** A display name or requested route is not an identity relationship. Only the
+ * granted key and source keys returned by identity resolution may expand reads.
+ * Conflicting identities keep their exact granted key without normalization. */
+export function monitoringAuthorizedSourceKeys(
+  grant: MonitoringArtistGrant,
+  keyCandidates: (artistKey: string) => string[],
+): string[] {
+  if (grant.identity_conflict) return [grant.artist_key];
+  const trustedKeys = [grant.artist_key, ...(grant.match_keys ?? [])];
+  return [...new Set(trustedKeys.flatMap(key => [key, ...keyCandidates(key)]).filter(Boolean))];
+}
+
 type AuthorizeMonitoringArtistInput = {
   userId: string | null | undefined;
   requestedArtistKey: string;

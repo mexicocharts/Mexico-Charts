@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import type { MonitoringAuthorizationDecision } from "./monitoring-authorization";
+import { monitoringAuthorizedSourceKeys, type MonitoringAuthorizationDecision } from "./monitoring-authorization";
 import { MonitoringYoutubeVideoAccessError, validMonitoringYoutubeHistoryInput, type MonitoringYoutubeHistoryRange } from "./monitoring-youtube-native-history";
 
 export interface MonitoringYoutubeHistoryRequest {
@@ -47,9 +47,8 @@ export function createMonitoringYoutubeHistoryHandler(deps: {
           artistKey: grant.artist_key,
           // Source expansion starts only from the granted identity. A route
           // alias or arbitrary video ID never creates a second artist grant.
-          artistKeys: grant.identity_conflict ? [grant.artist_key] : [...new Set([
-            grant.artist_key, ...(grant.match_keys ?? []), ...deps.aliases(grant.artist_key), ...deps.aliases(grant.artist_name),
-          ])], videoId, range, includeCandidateOnly: access.source === "internal", deadlineAt,
+          artistKeys: monitoringAuthorizedSourceKeys(grant, deps.aliases),
+          videoId, range, includeCandidateOnly: access.source === "internal", deadlineAt,
         });
         return { status: 200, body };
       };
