@@ -68,10 +68,40 @@ const sourceRows=[
 ];
 assert.deepEqual(json(bundle.groupMonitoringCandidateIdentities(sourceRows)),json(direct.groupMonitoringCandidateIdentities(sourceRows)));
 assert.equal(bundle.groupMonitoringCandidateIdentities(sourceRows).length,5);
+const mixedRows=[...sourceRows,
+  {artist_key:'banda ejemplo',artist_name:'Banda Ejemplo',spotify_id:'0000000000000000000301',source:'kworb_coverage'},
+  {artist_key:'bandaejemplo',artist_name:'Banda Ejemplo Official',spotify_id:'0000000000000000000301',source:'spotify_artists'},
+  {artist_key:'bandaejemplodelnorte',artist_name:'Banda Ejemplo del Norte',spotify_id:null,source:'musicbrainz_artists',mbid:'fixture-example',verified:'auto_review_accepted',declared_aliases:['Banda Ejemplo','Ejemplo 😀']},
+  {artist_key:'ejemplo descubierto',artist_name:'Ejemplo Descubierto',spotify_id:null,source:'artist_candidates',source_record_id:'accepted-1',discovery_status:'linked_existing_artist',matched_artist_key:'bandaejemplodelnorte'},
+  {artist_key:'unrelated pending',artist_name:'Unrelated Pending',spotify_id:'0000000000000000000301',source:'artist_candidates',source_record_id:'pending-1',discovery_status:'pending',matched_artist_key:null},
+  {artist_key:'review proposal',artist_name:'Review Proposal',spotify_id:'0000000000000000000301',source:'spotify_artist_candidates',source_record_id:'review-1',discovery_status:'review'},
+  {artist_key:'conflicting example',artist_name:'Conflict Example',spotify_id:'0000000000000000000401',source:'kworb_coverage'},
+  {artist_key:'conflictingexample',artist_name:null,spotify_id:'0000000000000000000402',source:'songstats_artists'},
+];
+// Top-level diagnostic relation order is incidental. Preserve the arrays inside
+// each source/evidence row exactly, including declared alias order.
+const semanticGroups=rows=>json(rows).map(group=>({...group,matchKeys:group.matchKeys.slice().sort(),
+  identityAliasEvidence:group.identityAliasEvidence.slice().sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))),
+  candidateRecords:group.candidateRecords.slice().sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))}));
+const mixedBefore=JSON.stringify(mixedRows), expectedGroups=semanticGroups(direct.groupMonitoringCandidateIdentities(mixedRows));
+let seed=412;
+for(let permutation=0;permutation<40;permutation++){
+  const values=mixedRows.slice();
+  for(let index=values.length-1;index>0;index--){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const other=seed%(index+1);[values[index],values[other]]=[values[other],values[index]];}
+  assert.deepEqual(semanticGroups(direct.groupMonitoringCandidateIdentities(values)),expectedGroups);
+  assert.deepEqual(semanticGroups(bundle.groupMonitoringCandidateIdentities(values)),expectedGroups);
+}
+assert.equal(JSON.stringify(mixedRows),mixedBefore);
+const tiedNames=[
+  {artist_key:'same source key',artist_name:'First stored label',spotify_id:null,source:'youtube_artist_video_links'},
+  {artist_key:'same source key',artist_name:'Second stored label',spotify_id:null,source:'monitoring_stream_items'},
+];
+const tiedForward=direct.groupMonitoringCandidateIdentities(tiedNames)[0], tiedReverse=direct.groupMonitoringCandidateIdentities(tiedNames.slice().reverse())[0];
+assert.equal(tiedForward.artistKey,tiedReverse.artistKey);assert.notEqual(tiedForward.artistName,tiedReverse.artistName);
 const manifest=JSON.parse(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory),'utf8'));
 assert.equal(manifest.revision,revision);assert.equal(manifest.fixedClockAdaptation.replacedNowCalls,3);
 assert.ok(!/\bnow\(\)/.test(manifest.queries.fixedClockEvidence));
 assert.equal((manifest.queries.fixedClockEvidence.match(/\$2::timestamptz/g)||[]).length,3);
-const report={revision,bundleBytes:Buffer.byteLength(code),sha256:crypto.createHash('sha256').update(code).digest('hex'),exports:Object.keys(bundle).sort(),sourceInputs:Object.keys(meta.inputs),externalImports:0,isolatedVm:true,dynamicCodeGenerationDisabled:true,implicitDateConstructorForbidden:true,dateNowForbidden:true,nodeOrDatabaseOrNetworkGlobalsProvided:false,identityParity:true,evaluatorParityCases:cases.map(({name,expected})=>({name,classification:expected})),actualProductionRowsEvaluated:0,actualFunctionsV8Verified:false,sqlManifestSha256:crypto.createHash('sha256').update(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory))).digest('hex')};
+const report={revision,bundleBytes:Buffer.byteLength(code),sha256:crypto.createHash('sha256').update(code).digest('hex'),exports:Object.keys(bundle).sort(),sourceInputs:Object.keys(meta.inputs),externalImports:0,isolatedVm:true,dynamicCodeGenerationDisabled:true,implicitDateConstructorForbidden:true,dateNowForbidden:true,nodeOrDatabaseOrNetworkGlobalsProvided:false,identityParity:true,identityPermutationParity:{permutations:40,mixedSourceRows:mixedRows.length,sourceAndBundle:true,sourceArraysPreserved:true,tiedNameOrderingLimitationConfirmed:true},evaluatorParityCases:cases.map(({name,expected})=>({name,classification:expected})),actualProductionRowsEvaluated:0,actualFunctionsV8Verified:false,sqlManifestSha256:crypto.createHash('sha256').update(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory))).digest('hex')};
 await storage.persist('monitor-audit-evaluator.verification.json',report);
 console.log(JSON.stringify(report,null,2));

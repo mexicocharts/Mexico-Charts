@@ -27,6 +27,7 @@ test('offline CLI resolves the checkout from another cwd, isolates configuration
       {cwd:tmpdir(),env:offlineChildEnvironment(),encoding:'utf8'});
     const pure=JSON.parse(await readFile(resolve(output,'monitor-audit-evaluator.verification.json'),'utf8'));
     assert.equal(pure.evaluatorParityCases.length,14);assert.equal(pure.dateNowForbidden,true);assert.equal(pure.externalImports,0);
+    assert.equal(pure.identityPermutationParity.permutations,40);assert.equal(pure.identityPermutationParity.tiedNameOrderingLimitationConfirmed,true);
     if(process.env.MONITOR_HISTORY_PGLITE_MODULE){
       execFileSync(process.execPath,[resolve(toolDirectory,'verify-manifest.mjs'),'--output',output],{cwd:tmpdir(),encoding:'utf8'});
       const postgres=JSON.parse(await readFile(resolve(output,'monitor-audit-manifest.verification.json'),'utf8'));

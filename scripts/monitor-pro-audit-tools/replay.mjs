@@ -95,14 +95,15 @@ export function md5Utf8(text) {
   return [a0,b0,c0,d0].flatMap(value => [0,8,16,24].map(shift => (value >>> shift & 255).toString(16).padStart(2,'0'))).join('');
 }
 
-export function buildJsonChunkSql(reviewedSelect, start = 1, size = null) {
+export function buildJsonChunkSql(reviewedSelect, start = 1, size = null, {canonicalRowOrder = false} = {}) {
   requireValue(typeof reviewedSelect === 'string' && /^\s*(SELECT|WITH)\b/i.test(reviewedSelect), 'A reviewed read-only SELECT is required');
   requireValue(Number.isSafeInteger(start) && start >= 1 && (size === null ? start === 1 : Number.isSafeInteger(size) && size >= 1 && size <= 100000), 'Invalid bounded chunk range');
   const sql = reviewedSelect.trim().replace(/;\s*$/, '');
   const part = size === null ? 'payload' : `substring(payload FROM ${start} FOR ${size})`;
+  const order = canonicalRowOrder ? ' ORDER BY to_jsonb(monitor_replay_rows)::text COLLATE "C"' : '';
   // The caller supplies trusted, reviewed SQL. This wrapper is not a SQL parser or authorization boundary.
   return `SELECT * FROM (WITH monitor_replay_rows AS MATERIALIZED (${sql}), monitor_replay_payload AS (
-    SELECT count(*) AS total_rows, COALESCE(jsonb_agg(to_jsonb(monitor_replay_rows)), '[]'::jsonb)::text AS payload FROM monitor_replay_rows
+    SELECT count(*) AS total_rows, COALESCE(jsonb_agg(to_jsonb(monitor_replay_rows)${order}), '[]'::jsonb)::text AS payload FROM monitor_replay_rows
   ) SELECT '${PROTOCOL}' AS protocol, total_rows, length(payload) AS payload_chars, md5(payload) AS payload_md5,
     ${start} AS chunk_start, length(${part}) AS chunk_chars,
     ${part} AS chunk FROM monitor_replay_payload) AS monitor_audit_frame`;
@@ -138,19 +139,21 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     else await persist(prefix + 'manifest.json', metadata);
     manifestChecked = true;
   }
-  async function captureRows({ id, sql, expectedRows, chunked = false }) {
+  async function captureRows({ id, sql, expectedRows, chunked = false, canonicalRowOrder = false }) {
     await manifest(); safeId(id);
     requireValue(Number.isSafeInteger(expectedRows) && expectedRows >= 0, 'An independently established expected row count is required');
     const decodedKey = prefix + 'decoded/' + id + '.json';
     const prior = await read(decodedKey);
     if (prior != null) {
-      requireValue(prior.sql === sql && prior.expectedRows === expectedRows && Array.isArray(prior.rows) && prior.rows.length === expectedRows, 'Decoded checkpoint request mismatch');
+      requireValue(prior.sql === sql && prior.expectedRows === expectedRows &&
+        (prior.canonicalRowOrder ?? false) === canonicalRowOrder && (prior.captureMode ?? 'whole') === (chunked ? 'chunks' : 'whole') &&
+        Array.isArray(prior.rows) && prior.rows.length === expectedRows, 'Decoded checkpoint request mismatch');
       requireValue(md5Utf8(serialize(prior.rows)) === prior.normalizedRowsMd5, 'Decoded checkpoint checksum mismatch');
       return prior.rows;
     }
     const pieces = []; let start = 1, identity = null;
     while (true) {
-      const requestSql = buildJsonChunkSql(sql, start, chunked ? chunkSize : null);
+      const requestSql = buildJsonChunkSql(sql, start, chunked ? chunkSize : null, {canonicalRowOrder});
       const rawKey = prefix + 'raw/' + id + '/' + (chunked ? start : 'full') + '.json';
       let saved = await read(rawKey);
       if (saved == null) {
@@ -173,7 +176,11 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
         requireValue(Array.from(payload).length === chars && md5Utf8(payload) === frame.payload_md5, 'Payload checksum mismatch');
         let rows; try { rows = JSON.parse(payload); } catch { throw new Error('Invalid or truncated framed JSON payload'); }
         requireValue(Array.isArray(rows) && rows.length === expectedRows && rows.every(plain), 'Framed payload must contain the exact expected object rows');
-        await persist(decodedKey, { sql, expectedRows, rows, normalizedRowsMd5:md5Utf8(serialize(rows)), payloadMd5:frame.payload_md5, payloadCharacters:chars });
+        const transportProof = { method:chunked ? 'full_source_content_digest_chunks' : 'single_full_source_frame',
+          protocol:PROTOCOL, sourceSqlMd5:md5Utf8(sql), validated:true, totalRows, payloadMd5:frame.payload_md5, payloadCharacters:chars, chunkCount:pieces.length,
+          characterUnit:'postgresql_unicode_characters', rowOrder:canonicalRowOrder ? 'jsonb_text_C' : 'source_query' };
+        await persist(decodedKey, { sql, expectedRows, rows, canonicalRowOrder, captureMode:chunked ? 'chunks' : 'whole',
+          normalizedRowsMd5:md5Utf8(serialize(rows)), payloadMd5:frame.payload_md5, payloadCharacters:chars, transportProof });
         return rows;
       }
     }
@@ -184,11 +191,14 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     for (const source of sources) {
       safeId(source.id);
       requireValue(Number.isSafeInteger(source.totalRows) && source.totalRows >= 0 &&
-        (source.capture === 'whole' ? typeof source.selectAll === 'function' : typeof source.selectPage === 'function'), 'Each source needs its verified total and reviewed SELECT');
-      if (source.capture === 'whole') {
-        const id=source.id+'_whole';
-        const values=await captureRows({id,sql:source.selectAll(),expectedRows:source.totalRows});
-        rows.push(...values);pages.push({id,source:source.id,offset:0,rows:values.length,immutableSourceFrame:true});
+        (['whole','digest_chunks'].includes(source.capture) ? typeof source.selectAll === 'function' : typeof source.selectPage === 'function'), 'Each source needs its verified total and reviewed SELECT');
+      if (['whole','digest_chunks'].includes(source.capture)) {
+        const chunked=source.capture==='digest_chunks', id=source.id+(chunked?'_digest_chunks':'_whole');
+        const values=await captureRows({id,sql:source.selectAll(),expectedRows:source.totalRows,chunked,canonicalRowOrder:chunked});
+        const decoded=await read(prefix+'decoded/'+id+'.json');
+        requireValue(decoded?.transportProof?.validated === true && decoded.transportProof.totalRows === values.length &&
+          (!chunked || decoded.transportProof.rowOrder === 'jsonb_text_C'), 'Population requires validated full-source content proof');
+        rows.push(...values);pages.push({id,source:source.id,offset:0,rows:values.length,immutableSourceFrame:!chunked,consistentSourceContent:true,contentProof:decoded.transportProof});
         continue;
       }
       const size = source.pageSize ?? 250;
@@ -204,8 +214,8 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     const candidates = evaluator.groupMonitoringCandidateIdentities(rows);
     requireValue(new Set(candidates.map(value => value.artistKey)).size === candidates.length, 'Grouped candidate keys are not unique');
     const population = { metadata, sourcePlans:sources.map(({id,totalRows,pageSize,capture}) => ({id,totalRows,pageSize:pageSize ?? 250,capture:capture ?? 'paged'})), rawRows:rows.length,
-      missingSchemaTables, populationComplete:missingSchemaTables.length === 0 && sources.every(source=>source.capture==='whole'),
-      populationLimitations:sources.some(source=>source.capture!=='whole')?['paged_selects_without_shared_snapshot']:[], pages, candidates };
+      missingSchemaTables, sourceSnapshotScope:'independent_source_contents', populationComplete:missingSchemaTables.length === 0 && sources.every(source=>['whole','digest_chunks'].includes(source.capture)),
+      populationLimitations:sources.some(source=>!['whole','digest_chunks'].includes(source.capture))?['paged_selects_without_shared_snapshot']:[], pages, candidates };
     await persist(prefix + 'population.json', population);
     return population;
   }

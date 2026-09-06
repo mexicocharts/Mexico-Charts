@@ -206,6 +206,74 @@ test('one immutable whole-source frame proves population coverage; repeated OFFS
   assert.deepEqual(whole.candidates.map(row=>row.artistKey),['alpha','beta']);assert.equal(queries,3);
 });
 
+test('digest population capture preserves failed whole output, resumes raw chunks and records complete content proof',async()=>{
+  const storage=memory(), rows=[{artist_key:'alpha',declared_aliases:['東京 😀','Alpha']},{artist_key:'beta',declared_aliases:[]}];
+  let queries=0,interrupt=true;
+  const failed={id:'base_whole',sql:'failed prior full request',rawResult:{exitCode:1,exitReason:'signal',success:false,output:''}};
+  await storage.persist('test_run/raw/base_whole/full.json',failed);
+  const execute=async(sql,context)=>{queries++;assert.match(sql,/jsonb_agg\(to_jsonb\(monitor_replay_rows\) ORDER BY to_jsonb\(monitor_replay_rows\)::text COLLATE "C"\)/);return framed(rows,context);};
+  const persist=async(key,value)=>{await storage.persist(key,value);if(interrupt&&key.endsWith('/raw/base_digest_chunks/18.json')){interrupt=false;throw Error('interrupted after second raw chunk');}};
+  const plan={sources:[{id:'base',capture:'digest_chunks',totalRows:2,selectAll:()=> 'SELECT source'}]};
+  await assert.rejects(createAuditReplay({evaluator,metadata,...storage,persist,execute,chunkSize:17}).collectPopulation(plan),/interrupted/);
+  assert.equal(queries,2);assert.equal(await storage.read('test_run/population.json'),null);
+  const population=await createAuditReplay({evaluator,metadata,...storage,execute,chunkSize:17}).collectPopulation(plan);
+  const proof=population.pages[0].contentProof, chars=Array.from(JSON.stringify(rows)).length;
+  assert.equal(population.populationComplete,true);assert.deepEqual(population.populationLimitations,[]);
+  assert.equal(population.pages[0].immutableSourceFrame,false);assert.equal(population.pages[0].consistentSourceContent,true);
+  assert.equal(proof.method,'full_source_content_digest_chunks');assert.equal(proof.protocol,'monitor-audit-json-v1');
+  assert.equal(proof.payloadMd5,md5Utf8(JSON.stringify(rows)));assert.equal(proof.sourceSqlMd5,md5Utf8('SELECT source'));
+  assert.equal(proof.payloadCharacters,chars);assert.equal(proof.totalRows,2);assert.equal(proof.chunkCount,Math.ceil(chars/17));
+  assert.equal(queries,proof.chunkCount);assert.equal(proof.rowOrder,'jsonb_text_C');assert.equal(proof.validated,true);
+  assert.deepEqual(await storage.read('test_run/raw/base_whole/full.json'),failed);
+  assert.deepEqual((await storage.read('test_run/decoded/base_digest_chunks.json')).rows,rows);
+  const replay=createAuditReplay({evaluator,metadata,...storage,execute,chunkSize:17});
+  assert.deepEqual(await replay.collectPopulation(plan),population);assert.equal(queries,proof.chunkCount);
+  await assert.rejects(replay.captureRows({id:'base_digest_chunks',sql:'SELECT source',expectedRows:2}),/request mismatch/);
+});
+
+test('digest population never completes on same-size changed content, missing or truncated chunks',async()=>{
+  for(const failure of ['changed','missing','truncated','offset']){
+    const storage=memory();let calls=0;
+    const replay=createAuditReplay({evaluator,metadata,...storage,chunkSize:17,execute:async(sql,context)=>{
+      calls++;const result=framed([{artist_key:calls>1&&failure==='changed'?'bravo':'alpha',declared_aliases:['東京 😀']}],context);
+      if(calls!==2)return result;
+      if(failure==='missing')return raw('START TRANSACTION\nROLLBACK\n');
+      if(failure==='truncated')return {...result,output:result.output.slice(0,-5)};
+      if(failure==='offset')return framed([{artist_key:'alpha',declared_aliases:['東京 😀']}],{...context,chunkStart:context.chunkStart+1});
+      return result;
+    }});
+    await assert.rejects(replay.collectPopulation({sources:[{id:'bad',capture:'digest_chunks',totalRows:1,selectAll:()=> 'SELECT source'}]}));
+    assert.equal(calls,2);assert.equal(await storage.read('test_run/population.json'),null);
+    assert.equal(await storage.read('test_run/decoded/bad_digest_chunks.json'),null);
+    assert.ok(await storage.read('test_run/raw/bad_digest_chunks/18.json'));
+  }
+});
+
+test('PostgreSQL canonical population chunks are stable under reordered source plans and preserve nested arrays',{skip:!postgresModule},async()=>{
+  const {PGlite}=await import(postgresModule), db=new PGlite();
+  try{
+    const source=`SELECT * FROM (VALUES ('beta','["Z","東京 😀"]'::jsonb),('alpha','[]'::jsonb),('alpha','[]'::jsonb)) p(artist_key,declared_aliases)`;
+    const sqlAscending=source+' ORDER BY artist_key ASC', sqlDescending=source+' ORDER BY artist_key DESC';
+    const first=(await db.query(buildJsonChunkSql(sqlAscending,1,null,{canonicalRowOrder:true}))).rows[0];
+    const reversed=(await db.query(buildJsonChunkSql(sqlDescending,1,null,{canonicalRowOrder:true}))).rows[0];
+    assert.equal(first.payload_md5,reversed.payload_md5);assert.equal(first.chunk,reversed.chunk);
+    const storage=memory();let calls=0;
+    const execute=async(sql)=>{calls++;const changedOrder=calls%2?sql:sql.replace('ORDER BY artist_key ASC','ORDER BY artist_key DESC');
+      const result=await db.query(changedOrder),keys=Object.keys(result.rows[0]);return raw(csv([keys,...result.rows.map(row=>keys.map(key=>row[key]))]));};
+    const grouping={...evaluator,groupMonitoringCandidateIdentities:rows=>[...new Map(rows.map(row=>[row.artist_key,candidate(row.artist_key)])).values()]};
+    const replay=createAuditReplay({evaluator:grouping,metadata,...storage,execute,chunkSize:23});
+    const population=await replay.collectPopulation({sources:[{id:'ordered',capture:'digest_chunks',totalRows:3,selectAll:()=>sqlAscending}]});
+    assert.equal(population.populationComplete,true);assert.equal(population.rawRows,3);assert.equal(population.candidates.length,2);
+    const decoded=await storage.read('test_run/decoded/ordered_digest_chunks.json');
+    assert.deepEqual(decoded.rows.filter(row=>row.artist_key==='beta')[0].declared_aliases,['Z','東京 😀']);
+    assert.equal(decoded.transportProof.payloadMd5,first.payload_md5);assert.equal(calls,Math.ceil(first.payload_chars/23));
+    const finalRaw=await storage.read('test_run/raw/ordered_digest_chunks/'+(1+23*(calls-1))+'.json');
+    const [lastFrame]=decodeReplitCsv(finalRaw.rawResult);assert.ok(Number(lastFrame.chunk_chars)<23);
+    const empty=await replay.collectPopulation({sources:[{id:'empty',capture:'digest_chunks',totalRows:0,selectAll:()=> 'SELECT 1 marker WHERE false'}]});
+    assert.equal(empty.populationComplete,true);assert.equal(empty.rawRows,0);assert.equal(empty.pages[0].contentProof.chunkCount,1);
+  }finally{await db.close();}
+});
+
 test('replay requires an explicit clock mode rather than silently treating a transaction query as run-fixed',()=>{
   const {clockMode,...omitted}=metadata;
   assert.throws(()=>createAuditReplay({evaluator,metadata:omitted,...memory(),execute:async()=>{}}),/explicit audit clock/);
