@@ -24,7 +24,7 @@ const database=await import(pathToFileURL(resolve(repoRoot,'lib/db/src/index.ts'
 const sourceTables=[...schema.MONITORING_AUDIT_SOURCE_TABLES];
 const literal=value=>"'"+value.replaceAll("'","''")+"'";
 const nowCalls=(audit.MONITORING_CANDIDATE_EVIDENCE_SQL.match(/\bnow\(\)/g)||[]).length;
-if(nowCalls!==3)throw new Error('Unexpected evidence clock dependencies');
+if(nowCalls!==4)throw new Error('Unexpected evidence clock dependencies');
 const queries={
   identityClock:"SELECT current_database() database_name, current_timestamp::text audit_now, current_setting('transaction_read_only') read_only",
   schema:`SELECT name table_name, to_regclass('public.' || name) IS NOT NULL present FROM unnest(ARRAY[${sourceTables.map(literal).join(',')}]::text[]) name ORDER BY name`,

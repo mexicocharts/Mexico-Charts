@@ -356,7 +356,7 @@ export default function MonitoringFounder() {
                               <dt className="text-[10px] uppercase tracking-wide text-white/40">
                                 {label}
                               </dt>
-                              <dd className="mt-1 text-xs font-bold text-white/70">
+                              <dd className="mt-1 break-words text-xs font-bold text-white/70">
                                 {value}
                               </dd>
                             </div>
@@ -367,7 +367,7 @@ export default function MonitoringFounder() {
                         <ul className="mt-4 space-y-2 text-sm text-amber-100/80">
                           {artist.findings.map((finding, index) => (
                             <li key={`${finding.code}-${index}`}>
-                              <span className="font-mono text-xs">
+                              <span className="break-words font-mono text-xs">
                                 {finding.code}
                               </span>{" "}
                               · {finding.section} · {finding.status}

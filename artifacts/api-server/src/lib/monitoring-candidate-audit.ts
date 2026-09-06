@@ -162,6 +162,7 @@ WITH requested AS MATERIALIZED (
     AND EXISTS(SELECT 1 FROM songstats_artist_extended_data e WHERE e.artist_key=k.artist_key)
 )
 SELECT c.artist_key,
+  youtube_diagnostics.diagnostics->'nativeIntradayHistory'->>'captureClock' native_history_captured_at,
   to_jsonb(served_stream) served_summary,
   to_jsonb(compact_readiness) compact_history,
   (SELECT jsonb_agg(jsonb_build_object('item_type',i.item_type,'item_key',i.item_key,'title',i.title,'artwork_url',to_jsonb(i)->>'artwork_url')) FROM monitoring_stream_items i WHERE i.artist_key=ANY(c.source_keys)

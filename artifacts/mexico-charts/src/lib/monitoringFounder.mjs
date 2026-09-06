@@ -242,6 +242,153 @@ export function monitoringPopulationLimitations(data) {
   );
 }
 
+function nativeYoutubeHistorySummary(inspection) {
+  const label = "Archivo nativo YouTube · acumulativo";
+  const statuses = {
+    uninspected: "Sin inspeccionar",
+    unavailable: "Inspección no disponible",
+    invalid: "Evidencia de inspección inválida",
+  };
+  if (!inspection)
+    return [
+      [label, "Sin verificar en esta auditoría; no se infiere ausencia."],
+    ];
+  if (Object.hasOwn(statuses, inspection.status))
+    return [
+      [
+        label,
+        `${statuses[inspection.status]}${typeof inspection.reason === "string" && inspection.reason ? ` · ${inspection.reason}` : ""}. No se infiere ausencia.`,
+      ],
+    ];
+  const proof = inspection.proof;
+  const count = (value) => Number.isSafeInteger(value) && value >= 0;
+  const counts = [
+    "eligibleVideos",
+    "videosWithAnySamples",
+    "videosWithTrustedSamples",
+    "videosWithoutTrustedSamples",
+    "videosWithOneDate",
+    "videosWithMultipleDates",
+    "videosWithAllRequestedDates",
+    "renderableVideosWithMultipleDates",
+    "unrenderableVideos",
+    "rawObservationCount",
+    "selectedPointCount",
+    "missingVideoDates",
+    "invalidSelectedPointCount",
+    "missingTrackedVideos",
+  ];
+  const date = (value) =>
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value;
+  const timestamp = (value) =>
+    typeof value === "string" &&
+    date(value.slice(0, 10)) &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(value) &&
+    Number(value.slice(11, 13)) < 24 &&
+    Number(value.slice(14, 16)) < 60 &&
+    Number(value.slice(17, 19)) < 60 &&
+    Number.isFinite(Date.parse(value));
+  const buckets = proof?.buckets;
+  const validBuckets =
+    Array.isArray(buckets) &&
+    buckets.length === 2 &&
+    new Set(buckets.map((bucket) => bucket?.scope)).size === 2 &&
+    buckets.every(
+      (bucket) =>
+        bucket &&
+        ["approved", "candidate_only"].includes(bucket.scope) &&
+        counts.every((key) => count(bucket[key])) &&
+        bucket.videosWithAnySamples <= bucket.eligibleVideos &&
+        bucket.videosWithTrustedSamples <= bucket.videosWithAnySamples &&
+        bucket.videosWithTrustedSamples + bucket.videosWithoutTrustedSamples ===
+          bucket.eligibleVideos &&
+        bucket.videosWithOneDate + bucket.videosWithMultipleDates ===
+          bucket.videosWithTrustedSamples &&
+        bucket.renderableVideosWithMultipleDates <=
+          bucket.videosWithMultipleDates &&
+        bucket.videosWithAllRequestedDates <= bucket.videosWithMultipleDates &&
+        bucket.unrenderableVideos <= bucket.videosWithTrustedSamples &&
+        bucket.missingTrackedVideos <= bucket.eligibleVideos &&
+        bucket.rawObservationCount >= bucket.selectedPointCount &&
+        bucket.selectedPointCount >= bucket.videosWithTrustedSamples &&
+        bucket.invalidSelectedPointCount <= bucket.selectedPointCount &&
+        bucket.missingVideoDates ===
+          bucket.eligibleVideos * 90 - bucket.selectedPointCount &&
+        (bucket.eligibleVideos === 0
+          ? bucket.minimumObservedDates === null &&
+            bucket.maximumObservedDates === null
+          : count(bucket.minimumObservedDates) &&
+            count(bucket.maximumObservedDates) &&
+            bucket.minimumObservedDates <= bucket.maximumObservedDates &&
+            bucket.maximumObservedDates <= 90) &&
+        (bucket.videosWithTrustedSamples === 0
+          ? bucket.firstObservedAt === null && bucket.lastObservedAt === null
+          : timestamp(bucket.firstObservedAt) &&
+            timestamp(bucket.lastObservedAt)),
+    );
+  if (
+    inspection.status !== "complete" ||
+    ![
+      "no_approved_relationships",
+      "absent_in_range",
+      "present_one_date_only",
+      "present_partial",
+      "present_all_requested_dates",
+      "present_unrenderable",
+    ].includes(inspection.approvedOutcome) ||
+    !proof ||
+    proof.inspected !== true ||
+    proof.inspectionVersion !==
+      "monitoring_youtube_native_history_inspection_v1" ||
+    proof.allTimeCoverageInspected !== false ||
+    proof.kind !== "native_intraday_cumulative" ||
+    proof.sourceTable !== "youtube_video_intraday_shadow_snapshots" ||
+    proof.trustedSourceType !== "youtube_api_shadow" ||
+    proof.selection !== "last_observation_per_et_date" ||
+    proof.substitutesForApprovedDailySnapshots !== false ||
+    proof.rangeDays !== 90 ||
+    proof.timeZone !== "America/New_York" ||
+    !date(proof.startDate) ||
+    !date(proof.endDate) ||
+    !timestamp(proof.startsAt) ||
+    !timestamp(proof.captureClock) ||
+    !stringList(proof.sourceKeys) ||
+    proof.sourceKeys.length === 0 ||
+    !validBuckets
+  )
+    return [
+      [
+        label,
+        "Evidencia de inspección inválida; cobertura sin verificar. No se infiere ausencia.",
+      ],
+    ];
+  const describe = (bucket) =>
+    bucket.eligibleVideos === 0
+      ? "Sin relaciones seleccionadas en este grupo; no demuestra ausencia fuera de estas relaciones."
+      : `${bucket.videosWithMultipleDates} / ${bucket.eligibleVideos} videos con al menos 2 fechas; ${bucket.renderableVideosWithMultipleDates} graficables; ${bucket.videosWithAllRequestedDates} con las 90 fechas. ${bucket.videosWithOneDate} con una fecha; ${bucket.videosWithoutTrustedSamples} sin lecturas confiables en el rango. ${bucket.unrenderableVideos} con lecturas inválidas (${bucket.invalidSelectedPointCount} puntos); ${bucket.missingTrackedVideos} sin registro en el catálogo rastreado. ${bucket.selectedPointCount} puntos seleccionados de ${bucket.rawObservationCount} lecturas; ${bucket.missingVideoDates} fechas por video sin muestra. Primera / última lectura UTC: ${bucket.firstObservedAt ?? "sin lecturas confiables"} / ${bucket.lastObservedAt ?? "sin lecturas confiables"}.`;
+  return [
+    [
+      label,
+      "Consulta del archivo completada. Observaciones acumulativas; no sustituyen snapshots diarios ni demuestran elegibilidad.",
+    ],
+    [
+      "Archivo acumulativo · aprobados",
+      describe(buckets.find((bucket) => bucket.scope === "approved")),
+    ],
+    [
+      "Archivo acumulativo · candidatos",
+      `${describe(buckets.find((bucket) => bucket.scope === "candidate_only"))} Solo inspección interna; no aprobación.`,
+    ],
+    [
+      "Archivo acumulativo · procedencia",
+      `${proof.sourceTable} · ${proof.trustedSourceType}. Última observación real por fecha de America/New_York. ${proof.startDate} a ${proof.endDate} (${proof.rangeDays} días solicitados); inicio UTC ${proof.startsAt}; captura UTC ${proof.captureClock}. Claves: ${proof.sourceKeys.join(", ")}. No es cobertura de todo el historial.`,
+    ],
+  ];
+}
+
 export function monitoringSourceSummary(sourceEvidence) {
   const count = (value) =>
     Number.isFinite(Number(value)) && value != null
@@ -270,8 +417,11 @@ export function monitoringSourceSummary(sourceEvidence) {
       `${count(sourceEvidence.youtube?.observedVideos)} videos observados de ${count(sourceEvidence.youtube?.approvedVideos)} vinculados`,
     ],
     [
-      "Historial YouTube",
+      "Historial YouTube aprobado · diario",
       `${units(sourceEvidence.youtubeHistory?.days, "días")} · ${units(sourceEvidence.youtubeHistory?.points, "observaciones")}`,
     ],
+    ...nativeYoutubeHistorySummary(
+      sourceEvidence.youtubeNativeHistoryInspection,
+    ),
   ];
 }

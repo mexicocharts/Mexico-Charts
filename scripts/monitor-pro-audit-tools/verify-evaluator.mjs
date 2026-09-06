@@ -103,9 +103,9 @@ const tiedNames=[
 const tiedForward=direct.groupMonitoringCandidateIdentities(tiedNames)[0], tiedReverse=direct.groupMonitoringCandidateIdentities(tiedNames.slice().reverse())[0];
 assert.equal(tiedForward.artistKey,tiedReverse.artistKey);assert.notEqual(tiedForward.artistName,tiedReverse.artistName);
 const manifest=JSON.parse(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory),'utf8'));
-assert.equal(manifest.revision,revision);assert.equal(manifest.fixedClockAdaptation.replacedNowCalls,3);
+assert.equal(manifest.revision,revision);assert.equal(manifest.fixedClockAdaptation.replacedNowCalls,4);
 assert.ok(!/\bnow\(\)/.test(manifest.queries.fixedClockEvidence));
-assert.equal((manifest.queries.fixedClockEvidence.match(/\$2::timestamptz/g)||[]).length,3);
+assert.equal((manifest.queries.fixedClockEvidence.match(/\$2::timestamptz/g)||[]).length,4);
 const report={revision,bundleBytes:Buffer.byteLength(code),sha256:crypto.createHash('sha256').update(code).digest('hex'),exports:Object.keys(bundle).sort(),sourceInputs:Object.keys(meta.inputs),externalImports:0,isolatedVm:true,dynamicCodeGenerationDisabled:true,implicitDateConstructorForbidden:true,dateNowForbidden:true,nodeOrDatabaseOrNetworkGlobalsProvided:false,identityParity:true,identityPermutationParity:{permutations:40,mixedSourceRows:mixedRows.length,sourceAndBundle:true,sourceArraysPreserved:true,tiedNameOrderingLimitationConfirmed:true},evaluatorParityCases:cases.map(({name,expected})=>({name,classification:expected})),actualProductionRowsEvaluated:0,actualFunctionsV8Verified:false,sqlManifestSha256:crypto.createHash('sha256').update(fs.readFileSync(new URL('monitor-audit-sql-manifest.json',directory))).digest('hex')};
 await storage.persist('monitor-audit-evaluator.verification.json',report);
 console.log(JSON.stringify(report,null,2));

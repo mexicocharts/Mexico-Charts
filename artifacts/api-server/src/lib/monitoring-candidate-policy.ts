@@ -7,6 +7,7 @@ import { normalizedMonitoringReleaseTitle } from "./monitoring-artwork";
 import { youtubeCoverageFromLatestObservations } from "./youtube-latest-observation";
 import { compactGrowthAtTarget, type CompactHistoryPoint } from "./monitoring-history-compact";
 import { evaluateMonitoringYoutubeImportProof } from "./monitoring-youtube-policy";
+import { evaluateMonitoringYoutubeNativeInspection } from "./monitoring-youtube-native-diagnostics";
 
 /** Read-only inventory. No collector, licensing, identity-validation or provenance writes. */
 export const MONITORING_COMPLETE_CONTRACT_VERSION = "monitor_pro_complete_v1";
@@ -147,6 +148,8 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
 
 export interface MonitoringCandidateEvidenceRow {
   artist_key: string;
+  native_history_captured_at?: string | null;
+  audit_captured_at?: string | null;
   extended: Array<Record<string, unknown>> | null;
   snapshot: Record<string, unknown> | null;
   summary: Record<string, unknown> | null;
@@ -499,18 +502,32 @@ export function evaluateMonitoringCandidate(
     "missing_youtube_artwork", "youtube", `${count(youtube["videosWithArtwork"])}/${count(youtube["approvedVideos"])} approved videos have thumbnails.`, false, youtubeSourceNeedsReview);
   const youtubeDailyHistoryComplete = count(youtubeHistory["days"]) >= 2
     && count(youtubeHistory["videosWithHistory"]) === count(youtube["approvedVideos"]);
-  // The evidence query currently inventories native daily rows, not the native
-  // official-API intraday archive already used for current video observations.
-  // A daily serving gap cannot establish source absence before that distinct
-  // archive is inspected. No intraday count or candidate relationship passes
-  // this daily-history gate or establishes a reviewed serving repair.
-  if (!youtubeDailyHistoryComplete) findings.push({
+  const nativeInspection = evaluateMonitoringYoutubeNativeInspection(youtubeServing["nativeIntradayHistory"], {
+    sourceKeys: artist.sourceKeys, captureClocks: [row.native_history_captured_at, ...(row.audit_captured_at === undefined ? [] : [row.audit_captured_at])],
+    missingTables: row.missing_schema_tables, identityConflict: artist.identityConflict,
+    approvedTrackedVideos: youtube["approvedVideos"],
+  });
+  sourceEvidence["youtubeNativeHistoryInspection"] = nativeInspection;
+  const approvedNative = nativeInspection.proof?.buckets.find(bucket => bucket.scope === "approved");
+  const nativeInspected = nativeInspection.status === "complete";
+  const nativeContractNeedsReview = nativeInspected && count(approvedNative?.["rawObservationCount"]) > 0;
+  // Completing this investigation never changes the approved daily gate. The
+  // archive may be absent, partial or a different measured contract after a
+  // successful inspection; those are known outcomes, not uninspected sources.
+  if (!youtubeDailyHistoryComplete && !nativeInspected) findings.push({
     code: "youtube_native_intraday_fallback_uninvestigated", section: "youtube", status: "investigation_required",
-    evidence: "The approved-video history in youtube_video_daily_snapshots is incomplete in the served 90-day Eastern range. Historical coverage of official youtube_api_shadow observations in youtube_video_intraday_shadow_snapshots has not been established by this audit; empty daily storage does not prove those observations are absent.",
-    action: "Inspect exact approved-video identities, stored source types, observation timestamps, per-video Eastern dates and gaps in the native intraday archive. Review any proposed serving projection separately; candidate/channel histories and protected comparator records do not satisfy approved daily history.",
+    evidence: `The approved daily snapshot history is incomplete. Exact official native intraday investigation is ${nativeInspection.status}: ${nativeInspection.reason}. Empty daily storage does not establish absence of native cumulative observations.`,
+    action: "Capture complete exact-key native archive evidence with an independent statement clock and reconciled per-video Eastern-date coverage. Candidate/channel histories and protected comparator records never satisfy approved daily history.",
+  });
+  if (!youtubeDailyHistoryComplete && nativeContractNeedsReview) findings.push({
+    code: "youtube_native_history_contract_review_required", section: "youtube", status: "investigation_required",
+    evidence: `${count(approvedNative?.["rawObservationCount"])} official cumulative observations were inspected for approved video relationships. The existing native history endpoint serves their last real sample per ET date. A different or empty daily table does not establish that required historical data is absent.`,
+    action: "Review the exact per-video union of existing dated observations and the required serving contract. Preserve source timestamps, missing dates and relationship provenance; do not infer a daily delta, public eligibility or an applied repair from aggregate counts.",
   });
   addMissing(youtubeDailyHistoryComplete,
-    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have stored history across ${count(youtubeHistory["days"])} distinct dates in the dashboard's 90-day Eastern range. Older native history stays diagnostic; shadow and review links do not satisfy this check. The separate official native intraday archive remains uninvestigated.`, false, !youtubeDailyHistoryComplete);
+    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have daily snapshots across ${count(youtubeHistory["days"])} distinct dates in the dashboard's 90-day Eastern range. ${nativeInspected
+      ? `Native cumulative history was inspected: ${count(approvedNative?.["videosWithMultipleDates"])}/${count(approvedNative?.["eligibleVideos"])} approved video IDs have at least two observed ET dates (${nativeInspection.approvedOutcome}). The existing daily-table gate remains unmet.${nativeContractNeedsReview ? " Available native observations require a separate serving-contract review; this is not a claim that native historical data is absent." : " No trusted approved native observations were found in this exact range."}`
+      : "The separate official native intraday archive has no complete scoped inspection proof."} Shadow/review relationships and cumulative readings do not automatically replace this daily check.`, false, !nativeInspected || nativeContractNeedsReview || youtubeSourceNeedsReview);
   addMissing(freshComparisonPeers != null && freshComparisonPeers > 0, "missing_comparison_peer", "comparisons",
     `${freshComparisonPeers ?? "Unknown"} fresh peers out of ${count(sourceEvidence["comparisonPeers"])} stored peer artists; only each peer's latest positive snapshot within the existing 14-day freshness limit qualifies.`,
     false, comparisonDates == null && count(sourceEvidence["comparisonPeers"]) > 0);

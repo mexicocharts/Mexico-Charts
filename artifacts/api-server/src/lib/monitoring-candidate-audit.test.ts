@@ -516,6 +516,63 @@ test("native daily gaps remain under investigation without promoting unreviewed 
   assert.ok(!complete.findings.some(finding => /youtube.*history|youtube_native_intraday/.test(finding.code)));
 });
 
+test("complete native investigation reports known cumulative coverage without satisfying approved daily eligibility", () => {
+  const { artist, row, now } = fixture();
+  const clock = "2026-08-10T12:00:00.123456Z";
+  const bucket = (scope: string, videos: number, days: number) => ({ scope, eligibleVideos: videos,
+    videosWithAnySamples: days ? videos : 0, videosWithTrustedSamples: days ? videos : 0,
+    videosWithoutTrustedSamples: days ? 0 : videos, videosWithOneDate: days === 1 ? videos : 0,
+    videosWithMultipleDates: days >= 2 ? videos : 0, videosWithAllRequestedDates: days === 90 ? videos : 0,
+    renderableVideosWithMultipleDates: days >= 2 ? videos : 0, unrenderableVideos: 0, rawObservationCount: videos * days,
+    selectedPointCount: videos * days, missingVideoDates: videos * (90 - days), invalidSelectedPointCount: 0, missingTrackedVideos: 0,
+    minimumObservedDates: videos ? days : null, maximumObservedDates: videos ? days : null,
+    firstObservedAt: videos && days ? (days === 90 ? "2026-05-13T05:00:00.000000Z" : "2026-08-09T12:00:00.000001Z") : null,
+    lastObservedAt: videos && days ? "2026-08-10T11:00:00.000001Z" : null });
+  for (const [days, outcome] of [[0, "absent_in_range"], [1, "present_one_date_only"], [2, "present_partial"], [90, "present_all_requested_dates"]] as const) {
+    const approved = bucket("approved", 2, days);
+    const proof = { inspectionVersion: "monitoring_youtube_native_history_inspection_v1", inspected: true, sourceKeys: artist.sourceKeys,
+      sourceTable: "youtube_video_intraday_shadow_snapshots", trustedSourceType: "youtube_api_shadow", kind: "native_intraday_cumulative",
+      selection: "last_observation_per_et_date", substitutesForApprovedDailySnapshots: false, allTimeCoverageInspected: false,
+      timeZone: "America/New_York", rangeDays: 90, captureClock: clock, startDate: "2026-05-13", endDate: "2026-08-10",
+      startsAt: "2026-05-13T04:00:00.000000Z", buckets: [approved, bucket("candidate_only", 0, 0)],
+      sourceTypes: days ? [{ scope: "approved", sourceType: "youtube_api_shadow", rows: days * 2, nonNullViews: days * 2,
+        videos: 2, firstObservedAt: approved.firstObservedAt, lastObservedAt: approved.lastObservedAt }] : [] };
+    const input = { ...row, native_history_captured_at: clock, audit_captured_at: "2026-08-10T08:00:00.123456-04:00",
+      source_evidence: { ...row.source_evidence, youtubeHistory: { days: 0, videos: 0, videosWithHistory: 0 },
+        youtubeServing: { inspected: true, nativeIntradayHistory: proof } } };
+    const evaluated = evaluateMonitoringCandidate(artist, input, now);
+    const inspection = evaluated.sourceEvidence["youtubeNativeHistoryInspection"] as { status: string; approvedOutcome: string };
+    assert.equal(inspection.status, "complete");assert.equal(inspection.approvedOutcome, outcome);
+    assert.equal(evaluated.classification, days ? null : "C", "available native history needs contract review, while inspected absence is a known gap");
+    assert.equal(evaluated.auditStatus, days ? "incomplete" : "complete");assert.equal(evaluated.publicEligible, false);assert.equal(evaluated.legacyPublicEligible, true);
+    assert.ok(evaluated.findings.some(finding => finding.code === "missing_youtube_daily_history" && finding.status === (days ? "investigation_required" : "blocked")));
+    assert.equal(evaluated.findings.some(finding => finding.code === "youtube_native_history_contract_review_required"), days > 0);
+    assert.ok(!evaluated.findings.some(finding => finding.code === "youtube_native_intraday_fallback_uninvestigated"));
+    assert.ok(!evaluated.findings.some(finding => finding.status === "repairable"));
+    assert.deepEqual(evaluated.sourceEvidence["youtubeHistory"], input.source_evidence.youtubeHistory);
+    if (days) {
+      const partialDaily = evaluateMonitoringCandidate(artist, { ...input,
+        source_evidence: { ...input.source_evidence, youtubeHistory: { days: 2, videos: 2, videosWithHistory: 0 } } }, now);
+      assert.equal(partialDaily.classification, null, "daily and native aggregate counts cannot prove their per-video union is insufficient");
+      const independentBlocker = evaluateMonitoringCandidate(artist, { ...input,
+        source_evidence: { ...input.source_evidence, spotifyHistory: { days: 0 } } }, now);
+      assert.equal(independentBlocker.classification, "C");assert.equal(independentBlocker.auditStatus, "incomplete");
+      assert.ok(independentBlocker.findings.some(finding => finding.code === "missing_spotify_daily_history" && finding.status === "blocked"));
+    }
+    const dailyComplete = evaluateMonitoringCandidate(artist, { ...input,
+      source_evidence: { ...input.source_evidence, youtubeHistory: row.source_evidence.youtubeHistory } }, now);
+    assert.equal(dailyComplete.classification, "A", "the previously complete approved daily path is unchanged");
+
+    for (const patch of [{ native_history_captured_at: undefined }, { native_history_captured_at: null },
+      { audit_captured_at: "2026-08-10T12:00:00.123455Z" }]) {
+      const invalid = evaluateMonitoringCandidate(artist, { ...input, ...patch }, now);
+      assert.equal(invalid.classification, null);assert.equal(invalid.auditStatus, "incomplete");
+      assert.equal((invalid.sourceEvidence["youtubeNativeHistoryInspection"] as { status: string }).status, "invalid");
+      assert.ok(invalid.findings.some(finding => finding.code === "youtube_native_intraday_fallback_uninvestigated"));
+    }
+  }
+});
+
 test("subscription-only candidates are privately inspectable without billing data or new access grants", { skip: !postgresModule }, async () => {
   const { PGlite } = await import(postgresModule!);
   const db = new PGlite();
@@ -635,6 +692,13 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     const population = await db.query(MONITORING_CANDIDATE_POPULATION_SQL);
     assert.equal(groupMonitoringCandidateIdentities(population.rows).length, 3);
     const result = await db.query(MONITORING_CANDIDATE_EVIDENCE_SQL, [JSON.stringify([{ artist_key: "no spotify", source_keys: ["no spotify"] }])]);
+    assert.match(result.rows[0].native_history_captured_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/);
+    assert.equal(result.rows[0].native_history_captured_at, result.rows[0].source_evidence.youtubeServing.nativeIntradayHistory.captureClock);
+    const clockBound = await db.query(`SELECT to_char(transaction_timestamp() AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') audit_captured_at,evidence.* FROM (${MONITORING_CANDIDATE_EVIDENCE_SQL}) evidence`,
+      [JSON.stringify([{ artist_key: "no spotify", source_keys: ["no spotify"] }])]);
+    assert.equal(clockBound.rows[0].audit_captured_at, clockBound.rows[0].native_history_captured_at,
+      "the independently selected outer transaction clock exactly matches the native statement clock, including microseconds");
     assert.equal(result.rows.length, 1);
     assert.equal(result.rows[0].snapshot, null);
     await db.query("INSERT INTO songstats_artist_extended_data(artist_key,historic_stats) VALUES ($1,$2::jsonb)", ["no spotify", JSON.stringify({ fixture: "stored-once".repeat(2000) })]);

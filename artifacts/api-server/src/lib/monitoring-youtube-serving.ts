@@ -1,4 +1,5 @@
 import type { PoolClient } from "@workspace/db";
+import { buildMonitoringYoutubeNativeDiagnosticsSql } from "./monitoring-youtube-native-diagnostics";
 
 type Queryable = Pick<PoolClient, "query">;
 
@@ -83,7 +84,8 @@ export const MONITORING_YOUTUBE_LIVE_VIDEOS_SQL = `
 
 /** Native dated video snapshots only. The relation metadata explains why the
  * video is served; it does not reclassify the stored observation's provenance.
- * Channel history, intraday comparator data and inferred points are excluded.
+ * Channel history, native intraday samples, protected comparator records and
+ * inferred points remain separate from these native daily snapshots.
  */
 export function buildMonitoringYoutubeDailyHistorySql(
   artistKeysSql: string,
@@ -156,6 +158,7 @@ export function buildMonitoringYoutubeDiagnosticsSql(
         FROM eligible CROSS JOIN LATERAL jsonb_array_elements(eligible.relationship_sources) relation
         GROUP BY 1,2,3,4 ORDER BY 1,2,3,4
       ) relations),
+      'nativeIntradayHistory',(${buildMonitoringYoutubeNativeDiagnosticsSql(artistKeysSql, "SELECT video_id,has_approved_link FROM eligible")}),
       'nativeDailyHistory',(SELECT jsonb_build_object(
         'sourceTable','youtube_video_daily_snapshots','rangeDays',90,
         'candidateOnlyVisibility','founder_diagnostic',

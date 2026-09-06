@@ -374,3 +374,219 @@ test("export rejects changing roster scope but retains an observed database cove
     /faltan fuentes de la base de datos/,
   );
 });
+
+function nativeInspection() {
+  const approved = {
+    scope: "approved",
+    eligibleVideos: 3,
+    videosWithAnySamples: 3,
+    videosWithTrustedSamples: 2,
+    videosWithoutTrustedSamples: 1,
+    videosWithOneDate: 1,
+    videosWithMultipleDates: 1,
+    videosWithAllRequestedDates: 0,
+    renderableVideosWithMultipleDates: 1,
+    unrenderableVideos: 0,
+    rawObservationCount: 6,
+    selectedPointCount: 3,
+    missingVideoDates: 267,
+    invalidSelectedPointCount: 0,
+    missingTrackedVideos: 1,
+    minimumObservedDates: 0,
+    maximumObservedDates: 2,
+    firstObservedAt: "2026-09-01T08:00:00.123456Z",
+    lastObservedAt: "2026-09-02T08:00:00.654321Z",
+  };
+  return {
+    status: "complete",
+    reason: "native_archive_inspection_complete",
+    approvedOutcome: "present_partial",
+    proof: {
+      inspected: true,
+      inspectionVersion: "monitoring_youtube_native_history_inspection_v1",
+      allTimeCoverageInspected: false,
+      captureClock: "2026-09-06T08:51:36.871908Z",
+      startDate: "2026-06-09",
+      endDate: "2026-09-06",
+      startsAt: "2026-06-09T04:00:00.000000Z",
+      rangeDays: 90,
+      timeZone: "America/New_York",
+      sourceTable: "youtube_video_intraday_shadow_snapshots",
+      trustedSourceType: "youtube_api_shadow",
+      kind: "native_intraday_cumulative",
+      selection: "last_observation_per_et_date",
+      substitutesForApprovedDailySnapshots: false,
+      sourceKeys: ["synthetic-key", "Synthetic Key"],
+      buckets: [
+        approved,
+        {
+          ...approved,
+          scope: "candidate_only",
+          eligibleVideos: 2,
+          videosWithAnySamples: 1,
+          videosWithTrustedSamples: 1,
+          videosWithOneDate: 0,
+          renderableVideosWithMultipleDates: 0,
+          unrenderableVideos: 1,
+          rawObservationCount: 2,
+          selectedPointCount: 2,
+          missingVideoDates: 178,
+          invalidSelectedPointCount: 1,
+        },
+      ],
+    },
+  };
+}
+
+test("validated native archive remains separate from approved daily coverage and preserves scoped provenance", async () => {
+  const inspection = nativeInspection();
+  const evidence = {
+    youtubeHistory: { days: 0, points: 0 },
+    youtubeNativeHistoryInspection: inspection,
+  };
+  const summary = new Map(monitoringSourceSummary(evidence));
+  assert.equal(
+    summary.get("Historial YouTube aprobado · diario"),
+    "0 días · 0 observaciones",
+  );
+  assert.match(
+    summary.get("Archivo nativo YouTube · acumulativo"),
+    /no sustituyen snapshots diarios ni demuestran elegibilidad/,
+  );
+  const approved = summary.get("Archivo acumulativo · aprobados");
+  assert.match(approved, /1 \/ 3 videos con al menos 2 fechas; 1 graficables/);
+  assert.match(
+    approved,
+    /1 con una fecha; 1 sin lecturas confiables en el rango/,
+  );
+  assert.match(approved, /1 sin registro en el catálogo rastreado/);
+  assert.match(
+    approved,
+    /3 puntos seleccionados de 6 lecturas; 267 fechas por video sin muestra/,
+  );
+  assert.match(approved, /2026-09-01T08:00:00.123456Z/);
+  const candidateSummary = summary.get("Archivo acumulativo · candidatos");
+  assert.match(
+    candidateSummary,
+    /1 \/ 2 videos con al menos 2 fechas; 0 graficables/,
+  );
+  assert.match(candidateSummary, /1 con lecturas inválidas \(1 puntos\)/);
+  assert.match(candidateSummary, /Solo inspección interna; no aprobación/);
+  const provenance = summary.get("Archivo acumulativo · procedencia");
+  for (const exact of [
+    "youtube_video_intraday_shadow_snapshots",
+    "youtube_api_shadow",
+    "America/New_York",
+    "2026-06-09",
+    "2026-09-06T08:51:36.871908Z",
+    "synthetic-key, Synthetic Key",
+  ])
+    assert.ok(provenance.includes(exact));
+  assert.match(provenance, /No es cobertura de todo el historial/);
+  // Summarizing validated inspection evidence cannot promote an artist's decision.
+  const artist = { ...candidate("a", null), sourceEvidence: evidence };
+  const audit = await loadCompleteMonitoringAudit(async () =>
+    page([artist], 0, 1),
+  );
+  assert.equal(audit.artists[0].classification, null);
+  assert.equal(audit.artists[0].publicEligible, false);
+  assert.deepEqual(audit.artists[0].sourceEvidence, evidence);
+});
+
+test("completed native zero observations and no selected relationships do not become all-time absence", () => {
+  const inspection = nativeInspection();
+  inspection.approvedOutcome = "absent_in_range";
+  const empty = inspection.proof.buckets[0];
+  for (const key of Object.keys(empty))
+    if (typeof empty[key] === "number") empty[key] = 0;
+  Object.assign(empty, {
+    eligibleVideos: 2,
+    videosWithoutTrustedSamples: 2,
+    missingVideoDates: 180,
+    firstObservedAt: null,
+    lastObservedAt: null,
+  });
+  const summary = new Map(
+    monitoringSourceSummary({ youtubeNativeHistoryInspection: inspection }),
+  );
+  assert.match(summary.get("Archivo acumulativo · aprobados"), /0 \/ 2 videos/);
+  assert.match(
+    summary.get("Archivo acumulativo · aprobados"),
+    /2 sin lecturas confiables en el rango/,
+  );
+  assert.match(
+    summary.get("Archivo acumulativo · aprobados"),
+    /0 puntos seleccionados de 0 lecturas/,
+  );
+  const noRelations = structuredClone(inspection);
+  noRelations.approvedOutcome = "no_approved_relationships";
+  Object.assign(noRelations.proof.buckets[0], {
+    eligibleVideos: 0,
+    videosWithoutTrustedSamples: 0,
+    missingVideoDates: 0,
+    minimumObservedDates: null,
+    maximumObservedDates: null,
+  });
+  assert.match(
+    new Map(
+      monitoringSourceSummary({ youtubeNativeHistoryInspection: noRelations }),
+    ).get("Archivo acumulativo · aprobados"),
+    /Sin relaciones seleccionadas.*no demuestra ausencia fuera/,
+  );
+});
+
+test("uninspected, unavailable, invalid or inconsistent archive proof never appears as measured zero", () => {
+  for (const status of ["uninspected", "unavailable", "invalid"]) {
+    const summary = new Map(
+      monitoringSourceSummary({
+        youtubeNativeHistoryInspection: {
+          ...nativeInspection(),
+          status,
+          reason: "retained_reason",
+        },
+      }),
+    );
+    assert.equal(summary.has("Archivo acumulativo · aprobados"), false);
+    assert.match(
+      summary.get("Archivo nativo YouTube · acumulativo"),
+      /retained_reason/,
+    );
+    assert.match(
+      summary.get("Archivo nativo YouTube · acumulativo"),
+      /No se infiere ausencia/,
+    );
+  }
+  const rawOnly = new Map(
+    monitoringSourceSummary({
+      youtubeServing: { nativeIntradayHistory: nativeInspection().proof },
+    }),
+  );
+  assert.match(
+    rawOnly.get("Archivo nativo YouTube · acumulativo"),
+    /Sin verificar/,
+  );
+  for (const change of [
+    (i) => (i.proof.buckets[0].eligibleVideos = "3"),
+    (i) => (i.proof.buckets[0].videosWithoutTrustedSamples = 0),
+    (i) => (i.proof.buckets[0].missingVideoDates = 0),
+    (i) => (i.proof.buckets[0].invalidSelectedPointCount = NaN),
+    (i) => (i.proof.buckets[0].firstObservedAt = "2026-02-31T00:00:00Z"),
+    (i) => (i.proof.buckets[1].scope = "approved"),
+    (i) => (i.proof.trustedSourceType = "unapproved_source"),
+    (i) => (i.proof.allTimeCoverageInspected = true),
+    (i) => (i.proof.substitutesForApprovedDailySnapshots = true),
+    (i) => (i.proof.inspected = false),
+    (i) => (i.proof.sourceKeys = []),
+  ]) {
+    const malformed = nativeInspection();
+    change(malformed);
+    const summary = new Map(
+      monitoringSourceSummary({ youtubeNativeHistoryInspection: malformed }),
+    );
+    assert.equal(summary.has("Archivo acumulativo · aprobados"), false);
+    assert.match(
+      summary.get("Archivo nativo YouTube · acumulativo"),
+      /Evidencia de inspección inválida/,
+    );
+  }
+});
