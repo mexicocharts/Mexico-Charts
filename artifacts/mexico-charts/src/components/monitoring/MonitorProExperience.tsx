@@ -1381,6 +1381,44 @@ function SpotifyView() {
   );
 }
 
+function VideoThumbnail({
+  src,
+  title,
+  className,
+  imageClassName,
+  loading,
+  placeholderPlacement = "center",
+}: {
+  src: string | null;
+  title: string;
+  className: string;
+  imageClassName?: string;
+  loading?: "lazy";
+  placeholderPlacement?: "center" | "top";
+}) {
+  if (src?.trim())
+    return (
+      <img
+        src={src}
+        alt={`Miniatura de ${title}`}
+        loading={loading}
+        className={`${className} ${imageClassName ?? ""}`}
+      />
+    );
+  return (
+    <div
+      role="img"
+      aria-label={`Sin miniatura de ${title}`}
+      className={`grid bg-white/[.025] text-white/50 ${placeholderPlacement === "top" ? "items-start justify-items-center pt-6 sm:pt-8" : "place-items-center"} ${className}`}
+    >
+      <div className="flex flex-col items-center gap-2 p-4 text-center">
+        <Video className="h-8 w-8" aria-hidden="true" />
+        <span className="text-[10px] font-bold">Sin miniatura</span>
+      </div>
+    </div>
+  );
+}
+
 function VideosView() {
   const { data } = useMonitorPro();
   const videos = data.liveVideos
@@ -1501,10 +1539,12 @@ function VideosView() {
             </div>
           </div>
           <div className="relative min-h-[340px] overflow-hidden border-t border-white/[.07] lg:border-l lg:border-t-0">
-            <img
-              src={videos[0].image ?? undefined}
-              alt={`Miniatura de ${videos[0].title}`}
-              className="absolute inset-0 h-full w-full scale-105 object-cover blur-[1px]"
+            <VideoThumbnail
+              src={videos[0].image}
+              title={videos[0].title}
+              className="absolute inset-0 h-full w-full"
+              imageClassName="scale-105 object-cover blur-[1px]"
+              placeholderPlacement="top"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
@@ -1546,11 +1586,12 @@ function VideosView() {
               className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] transition hover:-translate-y-1 hover:border-red-400/30 hover:bg-red-500/[.035]"
             >
               <div className="relative overflow-hidden">
-                <img
-                  src={video.image ?? undefined}
-                  alt={`Miniatura de ${video.title}`}
+                <VideoThumbnail
+                  src={video.image}
+                  title={video.title}
                   loading="lazy"
-                  className="aspect-video w-full object-cover transition duration-500 group-hover:scale-[1.035]"
+                  className="aspect-video w-full"
+                  imageClassName="object-cover transition duration-500 group-hover:scale-[1.035]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                 <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/75 px-3 py-1.5 text-[8px] font-black backdrop-blur">
