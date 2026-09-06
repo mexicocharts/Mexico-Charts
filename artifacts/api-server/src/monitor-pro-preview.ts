@@ -22,7 +22,7 @@ export function previewReadOnlyUrl(raw: string): string {
 export function previewRequestAllowed(method: string, path: string): boolean {
   if (method !== "GET" && method !== "HEAD") return false;
   return (
-    /^\/api\/monitoring\/(config|internal\/artists|dashboard\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
+    /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
       path,
     ) ||
     path === "/api/image-proxy" ||

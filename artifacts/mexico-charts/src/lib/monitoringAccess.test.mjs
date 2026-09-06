@@ -3,31 +3,78 @@ import test from "node:test";
 import {
   MonitoringDashboardHttpError,
   internalMonitoringEntryPath,
+  canUseInternalMonitoringAccess,
   monitoringDashboardViewState,
   shouldLoadPublicMonitoringCatalog,
   shouldRetryMonitoringDashboard,
 } from "./monitoringAccess.mjs";
 
 test("founder monitoring entry does not depend on the public ready-only catalog", () => {
-  assert.equal(internalMonitoringEntryPath({ internalArtistProAccess: true }), "/monitoreo/luismiguel");
   assert.equal(
-    internalMonitoringEntryPath({ internalArtistProAccess: true, requestedArtistKey: "luis-miguel" }),
+    internalMonitoringEntryPath({ internalArtistProAccess: true }),
+    "/monitoreo/founder",
+  );
+  assert.equal(
+    internalMonitoringEntryPath({
+      internalArtistProAccess: true,
+      requestedArtistKey: "luis-miguel",
+    }),
     "/monitoreo/luis-miguel",
   );
-  assert.equal(internalMonitoringEntryPath({ internalArtistProAccess: false }), null);
+  assert.equal(
+    internalMonitoringEntryPath({ internalArtistProAccess: false }),
+    null,
+  );
 });
 
 test("signed-in founder never starts the public ready-only catalog audit", () => {
+  assert.equal(
+    shouldLoadPublicMonitoringCatalog({ isSignedIn: false, isLoaded: false }),
+    false,
+  );
   assert.equal(shouldLoadPublicMonitoringCatalog({ isSignedIn: true }), false);
-  assert.equal(shouldLoadPublicMonitoringCatalog({
-    isSignedIn: true,
-    accountAccess: { internalArtistProAccess: true },
-  }), false);
-  assert.equal(shouldLoadPublicMonitoringCatalog({
-    isSignedIn: true,
-    accountAccess: { internalArtistProAccess: false },
-  }), true);
+  assert.equal(
+    shouldLoadPublicMonitoringCatalog({
+      isSignedIn: true,
+      accountAccess: { internalArtistProAccess: true },
+    }),
+    false,
+  );
+  assert.equal(
+    shouldLoadPublicMonitoringCatalog({
+      isSignedIn: true,
+      accountAccess: { internalArtistProAccess: false },
+    }),
+    true,
+  );
   assert.equal(shouldLoadPublicMonitoringCatalog({ isSignedIn: false }), true);
+});
+
+test("internal navigation requires a current authenticated entitlement response", () => {
+  const access = {
+    isLoaded: true,
+    isSignedIn: true,
+    userId: "founder",
+    error: null,
+    accountAccess: {
+      requestedByUserId: "founder",
+      internalArtistProAccess: true,
+    },
+  };
+  assert.equal(canUseInternalMonitoringAccess(access), true);
+  for (const changed of [
+    { isLoaded: false },
+    { isSignedIn: false },
+    { userId: null },
+    { userId: "other-user" },
+    { accountAccess: undefined },
+    { error: new MonitoringDashboardHttpError(403, "Denied") },
+  ]) {
+    assert.equal(
+      canUseInternalMonitoringAccess({ ...access, ...changed }),
+      false,
+    );
+  }
 });
 
 for (const status of [401, 403]) {
@@ -39,7 +86,10 @@ for (const status of [401, 403]) {
 
   test(`dashboard HTTP ${status} stays in terminal error instead of loading`, () => {
     const error = new MonitoringDashboardHttpError(status, "Denied");
-    assert.equal(monitoringDashboardViewState({ isLoading: true, error, hasData: false }), "error");
+    assert.equal(
+      monitoringDashboardViewState({ isLoading: true, error, hasData: false }),
+      "error",
+    );
   });
 }
 
@@ -47,7 +97,10 @@ test("dashboard HTTP 503 is terminal and cannot return to loading", () => {
   const error = new MonitoringDashboardHttpError(503, "Unavailable");
   assert.equal(shouldRetryMonitoringDashboard(0, error), false);
   assert.equal(shouldRetryMonitoringDashboard(1, error), false);
-  assert.equal(monitoringDashboardViewState({ isLoading: true, error, hasData: false }), "error");
+  assert.equal(
+    monitoringDashboardViewState({ isLoading: true, error, hasData: false }),
+    "error",
+  );
 });
 
 test("a transport failure retains one retry", () => {

@@ -78,8 +78,13 @@ export function deterministicMinMaxDownsample(
   points: CompactHistoryPoint[],
   maximumPoints = 400,
 ): CompactHistoryPoint[] {
+  if (!Number.isFinite(maximumPoints) || maximumPoints < 2) {
+    throw new RangeError("History display requires a finite limit of at least two points");
+  }
+  maximumPoints = Math.floor(maximumPoints);
   const ordered = [...points].sort((left, right) => left.date.localeCompare(right.date));
-  if (ordered.length <= maximumPoints || maximumPoints < 4) return ordered;
+  if (ordered.length <= maximumPoints) return ordered;
+  if (maximumPoints < 4) return [ordered[0]!, ordered.at(-1)!];
   const interiorBucketCount = Math.max(1, Math.floor((maximumPoints - 2) / 2));
   const bucketWidth = Math.ceil(ordered.length / interiorBucketCount);
   const selectedIndexes = new Set<number>([0, ordered.length - 1]);
@@ -207,4 +212,3 @@ export function releaseImpactFromCompactHistory(input: {
     windows,
   };
 }
-

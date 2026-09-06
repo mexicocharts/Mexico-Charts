@@ -47,7 +47,26 @@ function shiftDate(date: string, days: number): string {
 }
 
 function validDate(value: string | undefined): value is string {
-  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+// Callers supply aliases from the already-authorized artist identity. Never
+// discover identities or broaden the entitlement while reading history.
+function historyArtistKeys(artistKey: string, artistKeys?: readonly string[]) {
+  return [...new Set([artistKey, ...(artistKeys ?? [])].map(key => key.trim()).filter(Boolean))];
+}
+
+export class MonitoringHistoryBudgetError extends Error {
+  constructor() {
+    super("Monitoring history read budget exhausted");
+    this.name = "MonitoringHistoryBudgetError";
+  }
+}
+
+function requireHistoryBudget(deadlineAt?: number) {
+  if (deadlineAt != null && Date.now() >= deadlineAt) throw new MonitoringHistoryBudgetError();
 }
 
 function numeric(value: string | number | null): number | null {
@@ -108,6 +127,7 @@ export async function loadCompactMonitoringHistoryOverview(
   artistKey: string,
   queryable: Queryable = pool,
   metricKey?: string,
+  artistKeys?: readonly string[],
 ) {
   const started = process.hrtime.bigint();
   const result = await queryable.query<OverviewRow>(`
@@ -116,22 +136,30 @@ export async function loadCompactMonitoringHistoryOverview(
       FROM songstats_history_metric_definitions
       WHERE ingestion_status='active'
         AND ($2::text IS NULL OR metric_key=$2)
-    ), ordered AS (
-      SELECT observation.metric_definition_id,
+    ), daily AS (
+      SELECT DISTINCT ON (observation.metric_definition_id, observation.provider_observation_date)
+             observation.metric_definition_id,
              observation.provider_observation_date,
-             observation.value,
-             lag(observation.provider_observation_date) OVER (
-               PARTITION BY observation.metric_definition_id
-               ORDER BY observation.provider_observation_date
-             ) previous_date
+             observation.value
       FROM songstats_historical_observations observation
       JOIN active_definitions selected_definition
         ON selected_definition.id=observation.metric_definition_id
       JOIN songstats_history_provider_identities identity
         ON identity.id=observation.provider_identity_id
        AND identity.validation_status='verified'
-      WHERE observation.artist_key=$1
+      JOIN songstats_history_import_chunks chunk ON chunk.id=observation.import_chunk_id
+      WHERE observation.artist_key=ANY($1::text[])
         AND observation.acquisition_mode='songstats_historical'
+      ORDER BY observation.metric_definition_id, observation.provider_observation_date,
+               array_position($1::text[], observation.artist_key),
+               observation.fetched_at DESC, observation.import_chunk_id DESC
+    ), ordered AS (
+      SELECT daily.*,
+             lag(provider_observation_date) OVER (
+               PARTITION BY metric_definition_id ORDER BY provider_observation_date
+             ) previous_date,
+             max(provider_observation_date) OVER (PARTITION BY metric_definition_id) latest_date
+      FROM daily
     ), coverage AS (
       SELECT metric_definition_id,
              min(provider_observation_date)::text earliest_date,
@@ -139,7 +167,19 @@ export async function loadCompactMonitoringHistoryOverview(
              count(*)::text observation_count,
              COALESCE(sum(GREATEST(provider_observation_date-previous_date-1, 0)), 0)::text missing_date_count,
              count(*) FILTER (WHERE provider_observation_date-previous_date > 1)::text gap_count,
-             max(value)::text peak_value
+             max(value)::text peak_value,
+             (array_agg(provider_observation_date ORDER BY value DESC, provider_observation_date))[1]::text peak_date,
+             (array_agg(value ORDER BY provider_observation_date DESC))[1]::text latest_value,
+             (array_agg(provider_observation_date ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-7))[1]::text baseline_7_date,
+             (array_agg(value ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-7))[1]::text baseline_7_value,
+             (array_agg(provider_observation_date ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-30))[1]::text baseline_30_date,
+             (array_agg(value ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-30))[1]::text baseline_30_value,
+             (array_agg(provider_observation_date ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-90))[1]::text baseline_90_date,
+             (array_agg(value ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-90))[1]::text baseline_90_value,
+             (array_agg(provider_observation_date ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-182))[1]::text baseline_182_date,
+             (array_agg(value ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-182))[1]::text baseline_182_value,
+             (array_agg(provider_observation_date ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-365))[1]::text baseline_365_date,
+             (array_agg(value ORDER BY provider_observation_date DESC) FILTER (WHERE provider_observation_date <= latest_date-365))[1]::text baseline_365_value
       FROM ordered GROUP BY metric_definition_id
     )
     SELECT definition.id metric_definition_id,
@@ -150,75 +190,21 @@ export async function loadCompactMonitoringHistoryOverview(
            COALESCE(coverage.observation_count, '0') observation_count,
            COALESCE(coverage.missing_date_count, '0') missing_date_count,
            COALESCE(coverage.gap_count, '0') gap_count,
-           latest.value::text latest_value,
-           coverage.peak_value,
-           peak.provider_observation_date::text peak_date,
-           baseline7.provider_observation_date::text baseline_7_date,
-           baseline7.value::text baseline_7_value,
-           baseline30.provider_observation_date::text baseline_30_date,
-           baseline30.value::text baseline_30_value,
-           baseline90.provider_observation_date::text baseline_90_date,
-           baseline90.value::text baseline_90_value,
-           baseline182.provider_observation_date::text baseline_182_date,
-           baseline182.value::text baseline_182_value,
-           baseline365.provider_observation_date::text baseline_365_date,
-           baseline365.value::text baseline_365_value
+           coverage.latest_value, coverage.peak_value, coverage.peak_date,
+           coverage.baseline_7_date,
+           coverage.baseline_7_value,
+           coverage.baseline_30_date,
+           coverage.baseline_30_value,
+           coverage.baseline_90_date,
+           coverage.baseline_90_value,
+           coverage.baseline_182_date,
+           coverage.baseline_182_value,
+           coverage.baseline_365_date,
+           coverage.baseline_365_value
     FROM active_definitions definition
     LEFT JOIN coverage ON coverage.metric_definition_id=definition.id
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value
-      FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1
-        AND observation.metric_definition_id=definition.id
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) latest ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date
-      FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1
-        AND observation.metric_definition_id=definition.id
-        AND observation.value=coverage.peak_value::numeric
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date LIMIT 1
-    ) peak ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1 AND observation.metric_definition_id=definition.id
-        AND observation.provider_observation_date <= latest.provider_observation_date-7
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) baseline7 ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1 AND observation.metric_definition_id=definition.id
-        AND observation.provider_observation_date <= latest.provider_observation_date-30
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) baseline30 ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1 AND observation.metric_definition_id=definition.id
-        AND observation.provider_observation_date <= latest.provider_observation_date-90
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) baseline90 ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1 AND observation.metric_definition_id=definition.id
-        AND observation.provider_observation_date <= latest.provider_observation_date-182
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) baseline182 ON true
-    LEFT JOIN LATERAL (
-      SELECT provider_observation_date, value FROM songstats_historical_observations observation
-      WHERE observation.artist_key=$1 AND observation.metric_definition_id=definition.id
-        AND observation.provider_observation_date <= latest.provider_observation_date-365
-        AND observation.acquisition_mode='songstats_historical'
-      ORDER BY provider_observation_date DESC LIMIT 1
-    ) baseline365 ON true
     ORDER BY definition.source, definition.metric_key
-  `, [artistKey, metricKey ?? null]);
+  `, [historyArtistKeys(artistKey, artistKeys), metricKey ?? null]);
   const metrics = result.rows.map(row => {
     const available = Number(row.observation_count) > 0;
     const spanDays = row.earliest_date && row.latest_date
@@ -302,6 +288,7 @@ interface StoredPointRow {
 
 export async function loadCompactMonitoringMetricHistory(input: {
   artistKey: string;
+  artistKeys?: readonly string[];
   metricKey: string;
   range?: CompactHistoryRange;
   startDate?: string;
@@ -310,24 +297,33 @@ export async function loadCompactMonitoringMetricHistory(input: {
   maximumDisplayPoints?: number;
   queryable?: Queryable;
   overview?: Awaited<ReturnType<typeof loadCompactMonitoringHistoryOverview>>;
+  deadlineAt?: number;
 }) {
+  if (input.range === "custom" &&
+      (!validDate(input.startDate) || !validDate(input.endDate) || input.startDate > input.endDate)) {
+    throw new Error("Custom history range requires valid startDate and endDate");
+  }
+  requireHistoryBudget(input.deadlineAt);
   const queryable = input.queryable ?? pool;
+  const artistKeys = historyArtistKeys(input.artistKey, input.artistKeys);
   const overview = input.overview ?? await loadCompactMonitoringHistoryOverview(
     input.artistKey,
     queryable,
     input.metricKey,
+    artistKeys,
   );
   const metric = overview.metrics.find(candidate => candidate.metricKey === input.metricKey);
   if (!metric) throw new Error("Unknown or quarantined historical metric");
   const snapshotColumn = SNAPSHOT_COLUMNS[input.metricKey];
+  requireHistoryBudget(input.deadlineAt);
   const snapshotBounds = snapshotColumn
     ? (await queryable.query<{ earliest_date: string | null; latest_date: string | null; observations: string }>(`
         SELECT min(snapshot_date)::text earliest_date,
                max(snapshot_date)::text latest_date,
                count(*) FILTER (WHERE ${snapshotColumn} IS NOT NULL)::text observations
         FROM songstats_artist_daily_snapshots
-        WHERE artist_key=$1 AND ${snapshotColumn} IS NOT NULL
-      `, [input.artistKey])).rows[0]
+        WHERE artist_key=ANY($1::text[]) AND ${snapshotColumn} IS NOT NULL
+      `, [artistKeys])).rows[0]
     : null;
   const earliestAvailableDate = [metric.earliestAvailableDate, snapshotBounds?.earliest_date]
     .filter((value): value is string => Boolean(value)).sort()[0] ?? null;
@@ -360,6 +356,7 @@ export async function loadCompactMonitoringMetricHistory(input: {
     if (startDate < earliestAvailableDate) startDate = earliestAvailableDate;
   }
   const queryStarted = process.hrtime.bigint();
+  requireHistoryBudget(input.deadlineAt);
   const stored = await queryable.query<StoredPointRow>(`
     SELECT observation.provider_observation_date::text date,
            observation.value::text,
@@ -382,12 +379,14 @@ export async function loadCompactMonitoringMetricHistory(input: {
       ON identity.id=observation.provider_identity_id
      AND identity.validation_status='verified'
     JOIN songstats_history_import_chunks chunk ON chunk.id=observation.import_chunk_id
-    WHERE observation.artist_key=$1
+    WHERE observation.artist_key=ANY($1::text[])
       AND definition.metric_key=$2
       AND observation.provider_observation_date BETWEEN $3::date AND $4::date
       AND observation.acquisition_mode='songstats_historical'
-    ORDER BY observation.provider_observation_date
-  `, [input.artistKey, input.metricKey, startDate, endDate]);
+    ORDER BY observation.provider_observation_date,
+             array_position($1::text[], observation.artist_key),
+             observation.fetched_at DESC, observation.import_chunk_id DESC
+  `, [artistKeys, input.metricKey, startDate, endDate]);
 
   const candidates: CompactHistoryPoint[] = stored.rows.map(row => ({
     date: row.date,
@@ -397,16 +396,17 @@ export async function loadCompactMonitoringMetricHistory(input: {
   }));
   const snapshotRefs: Array<Record<string, unknown>> = [];
   if (snapshotColumn) {
-    const snapshots = await queryable.query<{ date: string; value: string; fetched_at: string }>(`
-      SELECT snapshot_date::text date, ${snapshotColumn}::text value, fetched_at::text
+    requireHistoryBudget(input.deadlineAt);
+    const snapshots = await queryable.query<{ artist_key: string; date: string; value: string; fetched_at: string }>(`
+      SELECT artist_key, snapshot_date::text date, ${snapshotColumn}::text value, fetched_at::text
       FROM songstats_artist_daily_snapshots
-      WHERE artist_key=$1
+      WHERE artist_key=ANY($1::text[])
         AND snapshot_date::date BETWEEN $2::date AND $3::date
         AND ${snapshotColumn} IS NOT NULL
-      ORDER BY snapshot_date
-    `, [input.artistKey, startDate, endDate]);
+      ORDER BY snapshot_date, array_position($1::text[], artist_key), fetched_at DESC
+    `, [artistKeys, startDate, endDate]);
     for (const row of snapshots.rows) {
-      const ref = `snapshot:${input.metricKey}:${row.date}`;
+      const ref = `snapshot:${row.artist_key ?? input.artistKey}:${input.metricKey}:${row.date}`;
       candidates.push({
         date: row.date,
         value: Number(row.value),
@@ -456,10 +456,14 @@ export async function loadCompactMonitoringMetricHistory(input: {
     point.provenanceRef,
     point.alternatives?.length ? point.alternatives : undefined,
   ] as const);
+  const displayedReferences = new Set(displayed.flatMap(point => [
+    point.provenanceRef,
+    ...(point.alternatives?.map(alternative => alternative.provenanceRef) ?? []),
+  ]));
   return {
     artistKey: input.artistKey,
     metric,
-    status: "available" as const,
+    status: exact.length ? "available" as const : "unavailable" as const,
     availabilityBySource: {
       songstatsHistorical: metric.status,
       mexicoChartsScheduled: Number(snapshotBounds?.observations ?? 0) > 0
@@ -501,7 +505,8 @@ export async function loadCompactMonitoringMetricHistory(input: {
         songstatsArtistId: first.songstats_artist_id,
         validationStatus: first.validation_status,
       } : null,
-      references: [...chunkRefs, ...snapshotRefs],
+      references: [...chunkRefs, ...snapshotRefs].filter(reference =>
+        displayedReferences.has(String(reference["ref"]))),
     },
     rangeCoverage: {
       observationCount: exact.length,
@@ -536,33 +541,68 @@ function missingIntervals(dates: string[]) {
 
 export async function loadCompactReleaseImpact(input: {
   artistKey: string;
+  artistKeys?: readonly string[];
   releaseDate: string;
   queryable?: Queryable;
+  overview?: Awaited<ReturnType<typeof loadCompactMonitoringHistoryOverview>>;
+  deadlineAt?: number;
 }) {
   const queryable = input.queryable ?? pool;
-  const overview = await loadCompactMonitoringHistoryOverview(input.artistKey, queryable);
-  const results = await Promise.all(Object.keys(RELEASE_IMPACT_ELIGIBLE_METRICS).map(async metricKey => {
-    const history = await loadCompactMonitoringMetricHistory({
-      artistKey: input.artistKey,
-      metricKey,
-      range: "custom",
-      startDate: shiftDate(input.releaseDate, -7),
-      endDate: shiftDate(input.releaseDate, 92),
-      resolution: "daily",
-      queryable,
-      overview,
-    });
-    if (history.status !== "available") {
-      return { metricKey, status: "unavailable" as const, reason: "metric_unavailable" as const };
+  const deadlineAt = input.deadlineAt;
+  requireHistoryBudget(deadlineAt);
+  const overview = input.overview ?? await loadCompactMonitoringHistoryOverview(
+    input.artistKey, queryable, undefined, input.artistKeys,
+  );
+  const metricKeys = Object.keys(RELEASE_IMPACT_ELIGIBLE_METRICS);
+  const loadMetric = async (metricKey: string) => {
+    if (deadlineAt != null && Date.now() >= deadlineAt) {
+      return { metricKey, status: "budget_exhausted" as const, reason: "history_read_budget_exhausted" as const };
     }
-    const refs = new Map(history.provenance.references.map(reference => [String(reference["ref"]), reference]));
-    const points: CompactHistoryPoint[] = history.points.map(([date, value, provenanceRef]) => ({
-      date,
-      value,
-      provenanceRef,
-      acquisitionMode: String(refs.get(provenanceRef)?.["acquisitionMode"] ?? "songstats_historical") as CompactHistoryPoint["acquisitionMode"],
-    }));
-    return { metricKey, ...releaseImpactFromCompactHistory({ releaseDate: input.releaseDate, metricKey, points }) };
+    if (!overview.metrics.some(metric => metric.metricKey === metricKey)) {
+      return { metricKey, status: "unavailable" as const, reason: "metric_not_configured" as const };
+    }
+    try {
+      const history = await loadCompactMonitoringMetricHistory({
+        artistKey: input.artistKey,
+        artistKeys: input.artistKeys,
+        metricKey,
+        range: "custom",
+        startDate: shiftDate(input.releaseDate, -7),
+        endDate: shiftDate(input.releaseDate, 92),
+        resolution: "daily",
+        queryable,
+        overview,
+        deadlineAt,
+      });
+      if (history.status !== "available") {
+        return { metricKey, status: "unavailable" as const, reason: "metric_unavailable" as const };
+      }
+      const refs = new Map(history.provenance.references.map(reference => [String(reference["ref"]), reference]));
+      const points: CompactHistoryPoint[] = history.points.map(([date, value, provenanceRef]) => ({
+        date,
+        value,
+        provenanceRef,
+        acquisitionMode: String(refs.get(provenanceRef)?.["acquisitionMode"] ?? "songstats_historical") as CompactHistoryPoint["acquisitionMode"],
+      }));
+      return { metricKey, ...releaseImpactFromCompactHistory({ releaseDate: input.releaseDate, metricKey, points }) };
+    } catch (error) {
+      const errorCode = error instanceof Error ? (error as Error & { code?: string }).code : undefined;
+      return error instanceof MonitoringHistoryBudgetError
+        ? { metricKey, status: "budget_exhausted" as const, reason: "history_read_budget_exhausted" as const }
+        : errorCode === "42P01" || errorCode === "42703"
+          ? { metricKey, status: "failed" as const, reason: "history_schema_missing" as const }
+        : { metricKey, status: "failed" as const, reason: "history_read_failed" as const };
+    }
+  };
+  // Keep one of the three Monitor read connections available to foreground
+  // requests, and stop issuing optional reads after this section's budget.
+  const results: Awaited<ReturnType<typeof loadMetric>>[] = new Array(metricKeys.length);
+  let nextMetric = 0;
+  await Promise.all(Array.from({ length: Math.min(2, metricKeys.length) }, async () => {
+    while (nextMetric < metricKeys.length) {
+      const index = nextMetric++;
+      results[index] = await loadMetric(metricKeys[index]!);
+    }
   }));
   return {
     releaseDate: input.releaseDate,

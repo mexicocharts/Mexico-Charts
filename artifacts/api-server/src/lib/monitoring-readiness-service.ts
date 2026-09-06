@@ -1,18 +1,20 @@
-import { monitoringReadPool, publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
+import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import {
   evaluateMonitoringReadiness,
   MONITORING_READINESS_POLICY_VERSION,
   type MonitoringReadinessResult,
+  type MonitoringReadinessReason,
 } from "./monitoring-readiness-policy";
 import {
-  monitoringArtistAliasesMatch,
   songstatsArtistKeyCandidates,
 } from "./songstats-artist-key";
 import { isRequestDatabaseUnavailable } from "./request-database";
+import { buildLatestMonitoringStreamSummarySql } from "./monitoring-stream-serving";
+import { buildMonitoringCompactReadinessSql } from "./monitoring-compact-readiness";
 
 export { monitoringArtistAliasesMatch } from "./songstats-artist-key";
 
-interface ReadinessRow {
+export interface ReadinessRow {
   artist_key: string;
   artist_name: string | null;
   historic_stats: unknown;
@@ -36,6 +38,7 @@ interface ReadinessRow {
   track_daily_streams: string | number | null;
   track_total_streams: string | number | null;
   album_total_streams: string | number | null;
+  compact_history?: { licensed_endpoint: boolean; growth_metric_keys: string[]; trend_metric_keys: string[]; available_metric_keys?: string[]; metric_latest_dates?: Record<string, string> };
 }
 
 export interface MonitoringReadyArtist {
@@ -49,6 +52,7 @@ export interface ExistingMonitoringArtist {
   artistKey: string;
   artistName: string;
   matchKeys: string[];
+  identityConflict?: boolean;
 }
 
 const READINESS_CACHE_MS = 15 * 60 * 1000;
@@ -124,29 +128,13 @@ function numeric(value: string | number | null): number {
 }
 
 export async function getExistingMonitoringArtist(artistKey: string): Promise<ExistingMonitoringArtist | null> {
-  const candidates = songstatsArtistKeyCandidates(artistKey);
-  if (!candidates.length) return null;
-  const result = await monitoringReadPool.query<{ artist_key: string; artist_name: string | null }>(
-    `SELECT c.artist_key, c.artist_name
-     FROM kworb_coverage c
-     WHERE COALESCE(c.spotify_id, '') <> ''
-       AND c.artist_key = ANY($1::text[])
-     ORDER BY
-       array_position($1::text[], c.artist_key),
-       c.artist_key
-     LIMIT 1`,
-    [candidates],
-  );
-  const artist = result.rows[0];
-  if (!artist || !monitoringArtistAliasesMatch(artist.artist_key, artistKey)) return null;
-  return {
-    artistKey: artist.artist_key,
-    artistName: artist.artist_name?.trim() || artist.artist_key,
-    matchKeys: songstatsArtistKeyCandidates(artist.artist_key),
-  };
+  // Internal entitlement authorizes inspection of the complete stored catalog.
+  // Its identity lookup must not apply the public Spotify/readiness gate.
+  const { getMonitoringCandidateIdentity } = await import("./monitoring-candidate-audit");
+  return getMonitoringCandidateIdentity(artistKey);
 }
 
-function evaluateRow(row: ReadinessRow): MonitoringReadinessResult {
+export function evaluateMonitoringReadinessRow(row: ReadinessRow, now?: Date): MonitoringReadinessResult {
   return evaluateMonitoringReadiness({
     historicStats: row.historic_stats,
     audience: row.audience,
@@ -171,6 +159,12 @@ function evaluateRow(row: ReadinessRow): MonitoringReadinessResult {
     trackDailyStreams: numeric(row.track_daily_streams),
     trackTotalStreams: numeric(row.track_total_streams),
     albumTotalStreams: numeric(row.album_total_streams),
+    verifiedCompactHistory: row.compact_history ? {
+      licensedEndpoint: row.compact_history.licensed_endpoint,
+      growthMetricKeys: row.compact_history.growth_metric_keys,
+      trendMetricKeys: row.compact_history.trend_metric_keys,
+    } : undefined,
+    now,
   });
 }
 
@@ -219,6 +213,7 @@ async function runMonitoringReadinessAudit(options: MonitoringReadinessAuditOpti
        stream_summary.track_daily_streams,
        stream_summary.track_total_streams,
        stream_summary.album_total_streams
+       ,to_jsonb(compact_history) compact_history
      FROM kworb_coverage c
      JOIN songstats_artist_extended_data e ON e.artist_key = c.artist_key
      JOIN LATERAL (
@@ -229,12 +224,9 @@ async function runMonitoringReadinessAudit(options: MonitoringReadinessAuditOpti
        LIMIT 1
      ) current_snapshot ON true
      LEFT JOIN LATERAL (
-       SELECT *
-       FROM monitoring_stream_daily_artist_summaries summary
-       WHERE summary.artist_key = c.artist_key
-       ORDER BY summary.snapshot_date DESC
-       LIMIT 1
+       ${buildLatestMonitoringStreamSummarySql("ARRAY[c.artist_key]")}
      ) stream_summary ON true
+     LEFT JOIN LATERAL (${buildMonitoringCompactReadinessSql("ARRAY[c.artist_key]")}) compact_history ON true
      WHERE COALESCE(c.spotify_id, '') <> ''
        ${requestedFilter}
      ORDER BY c.artist_key`,
@@ -246,8 +238,30 @@ async function runMonitoringReadinessAudit(options: MonitoringReadinessAuditOpti
     artistKey: row.artist_key,
     artistName: row.artist_name?.trim() || row.artist_key,
     matchKeys: songstatsArtistKeyCandidates(row.artist_key),
-    readiness: evaluateRow(row),
+    readiness: evaluateMonitoringReadinessRow(row),
   }));
+  // The legacy policy remains the necessary first gate. The same complete
+  // source contract used by founder diagnostics is also required publicly.
+  // Batch only legacy-ready artists here; missing data never becomes eligible
+  // merely because the founder can render its profile.
+  const legacyReady = evaluated.filter(artist => artist.readiness.ready);
+  if (legacyReady.length) {
+    const { getMonitoringCandidateDirectory } = await import("./monitoring-candidate-audit");
+    for (let offset = 0; offset < legacyReady.length; offset += 200) {
+      const selected = legacyReady.slice(offset, offset + 200);
+      const audit = await getMonitoringCandidateDirectory({ artistKeys: selected.map(artist => artist.artistKey), limit: 200 }, { readPool: publicReadPool });
+      for (const artist of selected) {
+        const full = audit.artists.find(candidate => candidate.sourceKeys.includes(artist.artistKey));
+        if (!full?.publicEligible) {
+          artist.readiness = {
+            ...artist.readiness,
+            ready: false,
+            reasons: (full?.readinessReasons.length ? full.readinessReasons : ["source_audit_incomplete"]) as MonitoringReadinessReason[],
+          };
+        }
+      }
+    }
+  }
   const ready = evaluated.filter(artist => artist.readiness.ready);
   return {
     policyVersion: MONITORING_READINESS_POLICY_VERSION,

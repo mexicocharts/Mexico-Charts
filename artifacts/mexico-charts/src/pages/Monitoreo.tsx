@@ -28,8 +28,11 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
 import {
   internalMonitoringEntryPath,
+  canUseInternalMonitoringAccess,
+  MonitoringDashboardHttpError,
   shouldLoadPublicMonitoringCatalog,
 } from "@/lib/monitoringAccess.mjs";
+import { requestMonitorResource, shouldRetryMonitorRequest } from "@/lib/monitorRequest.mjs";
 
 const G = "#39FF14";
 
@@ -48,6 +51,7 @@ type MonitoringArtistAvailability = {
 
 type AccountAccess = {
   internalArtistProAccess: boolean;
+  requestedByUserId: string | null;
 };
 
 type MonitoringPlanId = "individual" | "seleccion" | "profesional" | "catalogo";
@@ -78,21 +82,56 @@ export default function Monitoreo() {
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
-  const { data: accountAccess } = useQuery<AccountAccess>({
-    queryKey: ["account-access", auth.userId],
-    enabled: auth.configured && auth.isSignedIn,
-    queryFn: async () => {
-      const response = await authenticatedFetch(auth.getToken, "/api/account/me");
-      if (!response.ok) throw new Error("Account access unavailable");
-      return response.json() as Promise<AccountAccess>;
-    },
+  const accessResult = useQuery<AccountAccess>({
+    queryKey: ["monitoring-access", auth.userId],
+    enabled:
+      auth.configured &&
+      auth.isLoaded &&
+      auth.isSignedIn &&
+      Boolean(auth.userId),
+    queryFn: ({ signal }) =>
+      requestMonitorResource({
+        getToken: auth.getToken,
+        input: "/api/monitoring/access",
+        signal,
+        readResponse: async (response) => {
+          const access = (await response.json()) as {
+            internalArtistProAccess?: boolean;
+          };
+          if (typeof access?.internalArtistProAccess !== "boolean")
+            throw new MonitoringDashboardHttpError(
+              502,
+              "No se pudo confirmar el acceso interno.",
+            );
+          return {
+            internalArtistProAccess: access.internalArtistProAccess,
+            requestedByUserId: auth.userId,
+          };
+        },
+      }),
     staleTime: 5 * 60 * 1000,
-    retry: 1,
+    gcTime: 0,
+    networkMode: "always",
+    retry: shouldRetryMonitorRequest,
+  });
+  const accountAccess =
+    auth.isLoaded &&
+    auth.isSignedIn &&
+    auth.userId &&
+    !accessResult.error &&
+    accessResult.data?.requestedByUserId === auth.userId
+      ? accessResult.data
+      : undefined;
+  const internalAccess = canUseInternalMonitoringAccess({
+    ...auth,
+    accountAccess,
+    error: accessResult.error,
   });
   const { data: availability, isLoading: availabilityLoading } = useQuery<MonitoringArtistAvailability>({
     queryKey: ["monitoringArtists"],
     enabled: shouldLoadPublicMonitoringCatalog({
       isSignedIn: auth.isSignedIn,
+      isLoaded: auth.isLoaded,
       accountAccess,
     }),
     queryFn: async () => {
@@ -128,11 +167,11 @@ export default function Monitoreo() {
 
   useEffect(() => {
     const path = internalMonitoringEntryPath({
-      internalArtistProAccess: accountAccess?.internalArtistProAccess === true,
+      internalArtistProAccess: internalAccess,
       requestedArtistKey: requestedArtist || null,
     });
     if (path) setLocation(path);
-  }, [accountAccess?.internalArtistProAccess, requestedArtist, setLocation]);
+  }, [internalAccess, requestedArtist, setLocation]);
 
   const plans = [
     {
@@ -211,7 +250,7 @@ export default function Monitoreo() {
 
   async function startCheckout() {
     if (selectedPlan.id !== "catalogo" && !selectedArtist) return;
-    if (accountAccess?.internalArtistProAccess && selectedArtist) {
+    if (internalAccess && selectedArtist) {
       setLocation(`/monitoreo/${encodeURIComponent(selectedArtist.artistKey)}`);
       return;
     }
@@ -289,6 +328,38 @@ export default function Monitoreo() {
       </div>
 
       <main>
+        {auth.isLoaded &&
+          auth.isSignedIn &&
+          auth.userId &&
+          (accessResult.isFetching || accessResult.error) && (
+            <div
+              role={accessResult.error ? "alert" : "status"}
+              className="border-b border-[#39FF14]/15 bg-[#39FF14]/[0.04] px-6 py-5 text-center text-sm text-white/70"
+            >
+              {accessResult.isFetching ? (
+                pick(
+                  "Verificando tu acceso al Monitor…",
+                  "Checking your Monitor access…",
+                )
+              ) : (
+                <>
+                  <p>
+                    {pick(
+                      "No se pudo verificar tu acceso al Monitor. Esto no significa que necesites una nueva suscripción.",
+                      "Your Monitor access could not be checked. This does not mean you need a new subscription.",
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void accessResult.refetch()}
+                    className="mt-3 font-bold text-[#39FF14] underline"
+                  >
+                    {pick("Reintentar acceso", "Retry access")}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         <section className="relative overflow-hidden border-b border-white/[0.06] px-6 py-20 text-center sm:py-24 lg:py-28">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_-10%,rgba(57,255,20,0.22),transparent_42%)]" />
           <div className="relative mx-auto max-w-4xl">

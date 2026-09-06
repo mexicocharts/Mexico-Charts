@@ -6,6 +6,7 @@ import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
 import { computePackagedSongstatsProductionPreflightFingerprint } from "./songstats-production-preflight-fingerprint.mjs";
 import { computePackagedSongstatsHistoryValidationFingerprint } from "./songstats-history-validation-fingerprint.mjs";
+import { computeMonitoringSourceFingerprint } from "./monitoring-source-fingerprint.mjs";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -19,6 +20,7 @@ async function buildAll() {
     await computePackagedSongstatsProductionPreflightFingerprint(artifactDir);
   const songstatsHistoryValidationFingerprint =
     await computePackagedSongstatsHistoryValidationFingerprint(artifactDir);
+  const monitoringSourceFingerprint = await computeMonitoringSourceFingerprint(artifactDir);
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -30,6 +32,7 @@ async function buildAll() {
     logLevel: "info",
     loader: { ".csv": "text" },
     define: {
+      __MONITORING_SOURCE_FINGERPRINT__: JSON.stringify(monitoringSourceFingerprint),
       __SONGSTATS_PRODUCTION_PREFLIGHT_FINGERPRINT__: JSON.stringify(
         songstatsProductionPreflightFingerprint,
       ),

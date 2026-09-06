@@ -19,7 +19,24 @@ export type MonitoringReadinessReason =
   | "missing_stream_catalog"
   | "stream_snapshot_stale"
   | "missing_daily_streams"
-  | "missing_lifetime_streams";
+  | "missing_lifetime_streams"
+  | "missing_artist_image"
+  | "missing_track_artwork"
+  | "missing_album_artwork"
+  | "missing_spotify_daily_history"
+  | "missing_approved_youtube_catalog"
+  | "missing_youtube_artwork"
+  | "missing_youtube_daily_history"
+  | "missing_comparison_peer"
+  | "legacy_source_join_mismatch"
+  | "conflicting_provider_identity"
+  | "source_schema_unavailable"
+  | "incomplete_youtube_catalog"
+  | "full_stream_catalog_unverified"
+  | "stale_or_missing_youtube_observations"
+  | "missing_youtube_observed_deltas"
+  | `missing_required_${"spotifyMonthlyListeners" | "instagramFollowers" | "tiktokFollowers"}${"" | "_growth"}`
+  | "source_audit_incomplete";
 
 export interface MonitoringReadinessInput {
   historicStats: unknown;
@@ -34,6 +51,11 @@ export interface MonitoringReadinessInput {
   trackDailyStreams: number;
   trackTotalStreams: number;
   albumTotalStreams: number;
+  verifiedCompactHistory?: {
+    licensedEndpoint: boolean;
+    growthMetricKeys: string[];
+    trendMetricKeys: string[];
+  };
   now?: Date;
 }
 
@@ -80,7 +102,7 @@ function dateValue(value: string | Date | null): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function fresh(value: string | Date | null, maximumAgeDays: number, now: Date): boolean {
+export function isMonitoringReadinessDateFresh(value: string | Date | null, maximumAgeDays: number, now: Date): boolean {
   const parsed = dateValue(value);
   if (!parsed) return false;
   const age = now.getTime() - parsed.getTime();
@@ -108,22 +130,26 @@ export function evaluateMonitoringReadiness(
   }, { access: "monitoring" });
   const current = mergedCurrent(insight, input.currentMetrics);
   const availablePlatformMetrics = PLATFORM_METRICS.filter(key => positive(current[key])).length;
-  const completeGrowthMetrics = Object.values(insight.growth).filter(growth => (
-    growth?.days7 != null && growth.days30 != null && growth.days90 != null
-  )).length;
-  const trendSeries = Object.values(insight.trends).filter(points => (points?.length ?? 0) >= 2).length;
+  const completeGrowthMetrics = new Set([
+    ...Object.entries(insight.growth).filter(([, growth]) => growth?.days7 != null && growth.days30 != null && growth.days90 != null).map(([key]) => key),
+    ...(input.verifiedCompactHistory?.growthMetricKeys ?? []).filter(key => PLATFORM_METRICS.includes(key as SongstatsPublicMetricKey)),
+  ]).size;
+  const trendSeries = new Set([
+    ...Object.entries(insight.trends).filter(([, points]) => (points?.length ?? 0) >= 2).map(([key]) => key),
+    ...(input.verifiedCompactHistory?.trendMetricKeys ?? []).filter(key => ["spotifyMonthlyListeners", "instagramFollowers", "tiktokFollowers", "youtubeSubscribers"].includes(key)),
+  ]).size;
   const mexicoCities = insight.topMexicoCities.length;
 
   const checks: Array<[boolean, MonitoringReadinessReason]> = [
     [
-      hasPayload(input.historicStats)
+      (hasPayload(input.historicStats) || input.verifiedCompactHistory?.licensedEndpoint === true)
         && hasPayload(input.audience)
         && hasPayload(input.audienceDetails)
         && hasPayload(input.catalog),
       "missing_licensed_endpoint",
     ],
     [input.currentSnapshotDate != null, "missing_current_snapshot"],
-    [fresh(input.currentSnapshotDate, 14, now), "current_snapshot_stale"],
+    [isMonitoringReadinessDateFresh(input.currentSnapshotDate, 14, now), "current_snapshot_stale"],
     [positive(current.spotifyMonthlyListeners), "missing_spotify_audience"],
     [positive(current.youtubeSubscribers), "missing_youtube_audience"],
     [availablePlatformMetrics >= 4, "insufficient_platform_breadth"],
@@ -131,7 +157,7 @@ export function evaluateMonitoringReadiness(
     [trendSeries >= 2, "insufficient_trend_history"],
     [mexicoCities >= 1, "missing_mexico_audience"],
     [input.trackCount > 0 && input.albumCount > 0, "missing_stream_catalog"],
-    [fresh(input.streamSnapshotDate, 14, now), "stream_snapshot_stale"],
+    [isMonitoringReadinessDateFresh(input.streamSnapshotDate, 14, now), "stream_snapshot_stale"],
     [positive(input.trackDailyStreams), "missing_daily_streams"],
     [
       positive(input.trackTotalStreams) && positive(input.albumTotalStreams),

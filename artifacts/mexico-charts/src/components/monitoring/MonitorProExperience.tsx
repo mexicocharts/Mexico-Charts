@@ -37,7 +37,15 @@ import {
 import SiteNav from "@/components/SiteNav";
 import PageSEO from "@/components/PageSEO";
 import { useQuery } from "@tanstack/react-query";
-import { authenticatedFetch, useMexicoAuth } from "@/auth/AuthProvider";
+import { Link } from "wouter";
+import { useMexicoAuth } from "@/auth/AuthProvider";
+import {
+  monitorRequestState,
+  requestMonitorResource,
+  shouldRetryMonitorRequest,
+  validateMonitorHistory,
+  type MonitorHistoryResponse,
+} from "@/lib/monitorRequest.mjs";
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
@@ -64,6 +72,7 @@ export type MonitorSnapshot = Record<MonitorMetricKey, number | null> & {
 };
 
 export type MonitorDashboardData = {
+  identityDiagnostics?: { canonicalArtistKey: string; sourceKeys: string[]; conflict: boolean; warnings: string[] };
   sectionStatus?: Record<
     string,
     "loaded" | "failed" | "timeout" | "budget_exhausted"
@@ -235,6 +244,8 @@ type MonitorProContextValue = {
   onDownloadReport: (month: string) => Promise<void>;
   reportLoading: boolean;
   reportError: string;
+  onReload?: () => void;
+  refreshing?: boolean;
 };
 
 const MonitorProContext = createContext<MonitorProContextValue | null>(null);
@@ -416,28 +427,29 @@ function TrendChart({
     tiktok: "tiktokFollowers",
   }[metric] as MonitorMetricKey;
   const auth = useMexicoAuth();
-  const metricHistory = useQuery<{
-    points: Array<[string, number, ...unknown[]]>;
-  }>({
+  const metricHistory = useQuery<MonitorHistoryResponse>({
     queryKey: [
       "monitor-history",
       auth.userId,
       data.subscription.artistKey,
       metricKey,
     ],
-    enabled: auth.isSignedIn,
+    enabled:
+      auth.configured &&
+      auth.isLoaded &&
+      auth.isSignedIn &&
+      Boolean(auth.userId),
     staleTime: 5 * 60 * 1000,
-    retry: 1,
-    queryFn: async ({ signal }) => {
-      const response = await authenticatedFetch(
-        auth.getToken,
-        `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=all&resolution=auto`,
-        { signal },
-      );
-      if (!response.ok)
-        throw new Error("No se pudo cargar el historial completo");
-      return response.json();
-    },
+    networkMode: "always",
+    retry: shouldRetryMonitorRequest,
+    queryFn: ({ signal }) =>
+      requestMonitorResource<MonitorHistoryResponse>({
+        getToken: auth.getToken,
+        input: `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=all&resolution=auto`,
+        signal,
+        readResponse: async (response) =>
+          validateMonitorHistory(await response.json()),
+      }),
   });
   const allAvailable = useMemo(() => {
     const base = data.history.flatMap((point) =>
@@ -511,14 +523,75 @@ function TrendChart({
     (values.length ? Math.min(...values) : 0) - padding,
     (values.length ? Math.max(...values) : 1) + padding,
   ];
+  // Daily points can describe the selected chart window exactly. A min/max
+  // transport series is sampled, so only server coverage can establish gaps.
+  const visibleMissingDays =
+    rangeDays != null && metricHistory.data?.resolution?.returned === "daily"
+      ? Math.max(0, rangeDays - chart.length)
+      : (metricHistory.data?.rangeCoverage?.missingDateCount ?? 0);
+  const partialHistory = allAvailable.length === 1 || visibleMissingDays > 0;
+  const historyState = monitorRequestState({
+    isFetching: metricHistory.isFetching,
+    error: metricHistory.error,
+    succeeded: metricHistory.isSuccess,
+    observationCount: chart.length,
+    partial: partialHistory,
+  });
+  const historyStatusText = {
+    loading: "Cargando historial: la consulta está en curso.",
+    loaded: "Historial cargado con observaciones reales.",
+    empty:
+      "Consulta completada: no hay observaciones para esta métrica en el rango solicitado.",
+    authorization_failure:
+      "La sesión no autoriza consultar este historial. Revisa tu cuenta antes de reintentar.",
+    backend_failure:
+      "No se pudo consultar el historial. El error no confirma ausencia de datos.",
+    timeout:
+      "La consulta del historial agotó su tiempo de respuesta. Puedes reintentar.",
+    partial:
+      "Historial parcial: las observaciones recibidas no cubren todos los días de esta ventana.",
+  }[historyState];
+  const historyFailed = [
+    "authorization_failure",
+    "backend_failure",
+    "timeout",
+  ].includes(historyState);
+  const canShowHistory = historyState !== "authorization_failure";
   return (
     <Panel className="p-5 sm:p-7">
-      {metricHistory.isError && (
-        <p role="alert" className="mb-4 text-xs text-amber-300">
-          No se pudo cargar el historial completo. La gráfica muestra sólo las
-          lecturas ya recibidas; no confirma ausencia de historia anterior.
-        </p>
-      )}
+      <div
+        role={historyFailed ? "alert" : "status"}
+        data-history-state={historyState}
+        className={`mb-4 text-xs ${historyFailed || historyState === "partial" ? "text-amber-300" : "text-white/45"}`}
+      >
+        <p>{historyStatusText}</p>
+        {historyFailed && canShowHistory && allAvailable.length > 0 && (
+          <p className="mt-2">
+            La gráfica conserva las lecturas ya recibidas; no confirma ausencia
+            de historia anterior.
+          </p>
+        )}
+        {historyState === "partial" && visibleMissingDays > 0 && (
+          <p className="mt-2">
+            {visibleMissingDays} días sin observación en la ventana consultada.
+          </p>
+        )}
+        {data.subscription.accessSource === "internal" && historyFailed && (
+          <p className="mt-2 text-[10px]">
+            {metricHistory.error?.message} · {data.subscription.artistKey} ·{" "}
+            {metricKey}
+          </p>
+        )}
+        {historyFailed && (
+          <button
+            type="button"
+            onClick={() => void metricHistory.refetch()}
+            className="mt-3 rounded-full border border-white/15 px-4 py-2 text-[9px] font-black uppercase tracking-[.13em] text-white"
+          >
+            Reintentar historial
+          </button>
+        )}
+      </div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <Kicker>
@@ -533,7 +606,7 @@ function TrendChart({
           >
             {growth30
               ? `${signed(growth30.absolute)} · ${growth30.percentage == null ? "—" : `${growth30.percentage >= 0 ? "+" : ""}${growth30.percentage.toFixed(2)}%`} en 30 días`
-              : "Recopilando ventana de 30 días"}
+              : "Ventana de 30 días no disponible en esta respuesta"}
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -558,14 +631,18 @@ function TrendChart({
         </div>
       </div>
       <p className="mt-4 text-[9px] leading-5 text-white/35">
-        {allAvailable.length
+        {canShowHistory && allAvailable.length
           ? `${allAvailable.length} observaciones realmente entregadas · ${dateLabel(allAvailable[0]?.date)}–${dateLabel(allAvailable.at(-1)?.date)}`
-          : "No se entregó historial para esta métrica."}
+          : historyState === "empty"
+            ? "No se entregó historial para esta métrica."
+            : "La disponibilidad del historial no está confirmada."}
         {historyAvailability?.status !== "available" &&
           " El historial licenciado anterior todavía no está integrado a esta respuesta."}
+        {metricHistory.data?.resolution?.returned === "minmax" &&
+          ` Representación reducida de ${metricHistory.data.resolution.exactSourcePoints} observaciones reales; los datos de origen se conservan.`}
       </p>
       <div className="mt-6 h-72">
-        {chart.length > 1 ? (
+        {canShowHistory && chart.length > 1 ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chart}>
               <defs>
@@ -614,7 +691,11 @@ function TrendChart({
           </ResponsiveContainer>
         ) : (
           <div className="grid h-full place-items-center rounded-2xl border border-white/[.06] text-xs font-bold text-white/25">
-            Recopilando historial suficiente para esta gráfica…
+            {historyState === "loading"
+              ? "Cargando historial…"
+              : historyState === "partial"
+                ? "Una observación disponible; se necesitan al menos dos para dibujar la tendencia."
+                : historyStatusText}
           </div>
         )}
       </div>
@@ -628,7 +709,9 @@ function SummaryView({ open }: { open: (view: View) => void }) {
   const growth = (key: MonitorMetricKey) => data.growth[key]?.days30 ?? null;
   const changeLabel = (key: MonitorMetricKey) => {
     const value = growth(key);
-    return value ? `${signed(value.absolute)} · 30d` : "Recopilando · 30d";
+    return value
+      ? `${signed(value.absolute)} · 30d`
+      : "Sin ventana de 30d en la respuesta";
   };
   const strongestSignals = data.dailyPulse.signals
     .filter((signal) => signal.delta != null)
@@ -853,8 +936,8 @@ function TrendsView({
     if (!value)
       return [
         label,
-        "Recopilando historial",
-        "Todavía no existe una ventana real de 30 días para calcular esta tendencia.",
+        "Ventana no disponible",
+        "La respuesta no incluye una ventana válida de 30 días para calcular esta tendencia.",
       ];
     const direction = value.absolute >= 0 ? "crecimiento" : "descenso";
     return [
@@ -1899,6 +1982,7 @@ function ReadFailureNotice({
   view: View;
   data: MonitorDashboardData;
 }) {
+  const { onReload, refreshing } = useMonitorPro();
   if (!hasReadFailure(view, data)) return null;
   return (
     <Panel className="p-6">
@@ -1913,9 +1997,10 @@ function ReadFailureNotice({
         <button
           type="button"
           className="mt-4 rounded-xl bg-[#39FF14] px-4 py-3 text-sm font-black text-black"
-          onClick={() => window.location.reload()}
+          disabled={refreshing}
+          onClick={onReload}
         >
-          Volver a cargar
+          {refreshing ? "Consultando…" : "Volver a cargar"}
         </button>
       </div>
     </Panel>
@@ -1942,7 +2027,7 @@ function ReportsView() {
         <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <Kicker>
-              Reporte semanal · corte {month || "historial en recopilación"}
+              Reporte semanal · corte {month || "historial no disponible"}
             </Kicker>
             <h2 className="mt-3 max-w-2xl text-4xl font-black tracking-[-.045em]">
               Reporte semanal de rendimiento
@@ -2118,6 +2203,11 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
           noindex
         />
         <SiteNav />
+        {data.subscription.accessSource === "internal" && data.identityDiagnostics?.conflict && (
+          <div role="alert" className="mx-auto max-w-[1500px] border border-amber-400/30 bg-amber-400/5 px-5 py-4 text-sm text-amber-100">
+            Conflicto de identidad: este perfil muestra únicamente datos bajo su ID exacto. Revisa los identificadores en el directorio antes de combinar fuentes o habilitar el acceso público.
+          </div>
+        )}
         <div className="border-b border-white/[.07] bg-[#080808]">
           <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-3 sm:px-8">
             <div className="flex items-center gap-3">
@@ -2169,6 +2259,14 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
                 </p>
               </div>
             </div>
+            {data.subscription.accessSource === "internal" && (
+              <Link
+                href="/monitoreo/founder"
+                className="mt-3 flex items-center gap-2 rounded-xl border border-[#39FF14]/20 px-3 py-3 text-[9px] font-black uppercase tracking-[.12em] text-[#39FF14]"
+              >
+                <Users className="h-4 w-4" /> Directorio del fundador
+              </Link>
+            )}
             {data.subscription.accessSource === "internal" &&
             internalArtistCatalog?.artists.length ? (
               <label className="mt-3 block rounded-xl border border-white/[.07] bg-black/30 p-3">
@@ -2250,8 +2348,13 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
                 )}
               </div>
             </header>
+            {props.refreshing && (
+              <p role="status" className="mb-4 text-xs text-white/45">
+                Actualizando los datos del Monitor…
+              </p>
+            )}
             <ReadFailureNotice view={view} data={data} />
-            {!hasReadFailure(view, data) && (
+            {
               <>
                 {view === "resumen" && <SummaryView open={setView} />}{" "}
                 {view === "tendencias" && (
@@ -2264,7 +2367,7 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
                 {view === "alertas" && <AlertsView />}{" "}
                 {view === "reportes" && <ReportsView />}
               </>
-            )}
+            }
             <footer className="mt-6 flex flex-col gap-2 border-t border-white/[.07] pt-5 text-[8px] leading-5 text-white/25 sm:flex-row sm:justify-between">
               <span>
                 Datos de Songstats y YouTube · {dateLabel(data.current?.date)}

@@ -56,4 +56,5 @@ Thumbs.db
 
 # Local/generated data exports
 scripts/*.csv
+monitor-pro-audit*.json
 generate-tavus-video.js

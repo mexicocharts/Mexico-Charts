@@ -96,3 +96,16 @@ test("Release Impact is available only for explicitly eligible metrics with dens
   assert.equal(result.status, "available");
   assert.ok(result.windows?.some(window => window.status === "available"));
 });
+
+test("small display limits still bound the transport while preserving endpoints", () => {
+  const points = daily("2020-01-01", 1_000);
+  for (const limit of [2, 3, 4, 5, 400.9]) {
+    const sampled = deterministicMinMaxDownsample(points, limit);
+    assert.ok(sampled.length <= Math.floor(limit));
+    assert.equal(sampled[0]?.date, points[0]?.date);
+    assert.equal(sampled.at(-1)?.date, points.at(-1)?.date);
+  }
+  for (const limit of [0, 1, NaN, Infinity]) {
+    assert.throws(() => deterministicMinMaxDownsample(points, limit), RangeError);
+  }
+});

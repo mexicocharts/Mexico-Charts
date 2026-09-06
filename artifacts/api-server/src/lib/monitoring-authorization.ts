@@ -5,6 +5,8 @@ export type MonitoringArtistGrant = {
   artist_name: string;
   status: string;
   created_at: Date | null;
+  match_keys?: readonly string[];
+  identity_conflict?: boolean;
 };
 
 export type MonitoringAuthorizationDecision = {

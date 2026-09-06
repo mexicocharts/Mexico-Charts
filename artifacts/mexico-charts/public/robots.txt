@@ -1,4 +1,5 @@
 User-agent: *
+Disallow: /monitoreo/founder
 Disallow: /admin
 Disallow: /internal
 Disallow: /social-templates

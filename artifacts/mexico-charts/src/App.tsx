@@ -32,6 +32,7 @@ const CommunityContribute = lazy(() => import("@/pages/CommunityContributePrevie
 const Monitoreo = lazy(() => import("@/pages/Monitoreo"));
 const MonitoringSuccess = lazy(() => import("@/pages/MonitoringSuccess"));
 const MonitoringDashboard = lazy(() => import("@/pages/MonitoringDashboard"));
+const MonitoringFounder = lazy(() => import("@/pages/MonitoringFounder"));
 const EnrichmentReview = lazy(() => import("@/pages/EnrichmentReview"));
 const ApiCoverage = lazy(() => import("@/pages/ApiCoverage"));
 const AdminHub = lazy(() => import("@/pages/AdminHub"));
@@ -144,6 +145,7 @@ function Router() {
           <Route path="/contribuir" component={CommunityContribute} />
           <Route path="/cuenta" component={Cuenta} />
           <Route path="/monitoreo/exito" component={MonitoringSuccess} />
+          <Route path="/monitoreo/founder" component={MonitoringFounder} />
           <Route path="/monitoreo/:artistKey" component={MonitoringDashboard} />
           <Route path="/monitoreo" component={Monitoreo} />
           <Route path="/admin/social-templates" component={SocialTemplates} />

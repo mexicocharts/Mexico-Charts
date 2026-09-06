@@ -1,5 +1,3 @@
-export const INTERNAL_ARTIST_PRO_DEFAULT_ARTIST_KEY: string;
-
 export function internalMonitoringEntryPath(input: {
   internalArtistProAccess: boolean;
   requestedArtistKey?: string | null;
@@ -7,7 +5,19 @@ export function internalMonitoringEntryPath(input: {
 
 export function shouldLoadPublicMonitoringCatalog(input: {
   isSignedIn: boolean;
+  isLoaded?: boolean;
   accountAccess?: { internalArtistProAccess: boolean };
+}): boolean;
+
+export function canUseInternalMonitoringAccess(input: {
+  isLoaded: boolean;
+  isSignedIn: boolean;
+  userId: string | null;
+  accountAccess?: {
+    requestedByUserId: string | null;
+    internalArtistProAccess: boolean;
+  };
+  error: unknown;
 }): boolean;
 
 export class MonitoringDashboardHttpError extends Error {
@@ -15,7 +25,10 @@ export class MonitoringDashboardHttpError extends Error {
   constructor(status: number, message: string);
 }
 
-export function shouldRetryMonitoringDashboard(failureCount: number, error: Error): boolean;
+export function shouldRetryMonitoringDashboard(
+  failureCount: number,
+  error: Error,
+): boolean;
 
 export function monitoringDashboardViewState(input: {
   isLoading: boolean;

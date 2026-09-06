@@ -22,7 +22,6 @@ import {
   loadCompactMonitoringHistoryOverview,
   loadCompactMonitoringMetricHistory,
   loadCompactReleaseImpact,
-  type CompactHistoryRange,
 } from "../lib/songstats-history-serving";
 import {
   ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
@@ -38,6 +37,11 @@ import {
   safeDatabaseDiagnostic,
 } from "../lib/request-database";
 import { createMonitoringWeeklyReport } from "../lib/monitoring-weekly-report";
+import { getMonitoringCandidateDirectory, getMonitoringCandidateList } from "../lib/monitoring-candidate-audit";
+import { loadLatestMonitoringStreamSummary, loadMonitoringSpotifyHistory, type MonitoringStreamSummaryRow } from "../lib/monitoring-stream-serving";
+import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
+import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../lib/monitoring-history-request";
+import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
 
 const router = Router();
@@ -45,6 +49,7 @@ const PRICE_USD_CENTS = 600;
 const DASHBOARD_LOAD_BUDGET_MS = 12_000;
 
 const requireMonitoringClerkUser: RequestHandler = (req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
   let identityResolved = false;
   requireClerkUser(req, res, (error) => {
     if (error) {
@@ -312,7 +317,7 @@ function buildDailyPulse(
   };
 }
 
-async function loadAuthorizedMonitoring(
+async function resolveMonitoringAccess(
   userId: string,
   requestedArtistKey: string,
 ) {
@@ -352,6 +357,8 @@ async function loadAuthorizedMonitoring(
             artist_name: artist.artistName,
             status: "internal",
             created_at: null,
+            match_keys: artist.matchKeys,
+            identity_conflict: artist.identityConflict,
           }
         : null;
     },
@@ -373,16 +380,28 @@ async function loadAuthorizedMonitoring(
     },
     "Artist Pro monitoring authorization evaluated",
   );
-  if (!authorization.allowed || !active) return null;
+  return authorization;
+}
 
-  const activeKeys = [
+async function loadAuthorizedMonitoring(
+  userId: string,
+  requestedArtistKey: string,
+) {
+  const dashboardLoadStartedAt = performance.now();
+  const authorization = await resolveMonitoringAccess(userId, requestedArtistKey);
+  const active = authorization.grant;
+  if (!authorization.allowed || !active) return null;
+  const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
+
+  const activeKeys = active.identity_conflict ? [active.artist_key] : [
     ...new Set([
+      active.artist_key,
+      ...(active.match_keys ?? []),
       ...songstatsArtistKeyCandidates(active.artist_key),
       ...songstatsArtistKeyCandidates(active.artist_name),
       ...lookupKeys,
     ]),
   ];
-  const dashboardLoadStartedAt = performance.now();
   const sectionStatus: Record<
     string,
     "loaded" | "failed" | "timeout" | "budget_exhausted"
@@ -510,29 +529,9 @@ async function loadAuthorizedMonitoring(
   );
   const priorityStreamSummary = dashboardStage(
     "priority_stream_summary",
-    () =>
-      monitoringReadPool
-        .query<{
-          snapshot_date: string;
-          track_count: number;
-          album_count: number;
-          track_daily_streams: string | number;
-          album_daily_streams: string | number;
-          track_total_streams: string | number;
-          album_total_streams: string | number;
-        }>(
-          `
-    SELECT snapshot_date, track_count, album_count,
-           track_daily_streams, album_daily_streams,
-           track_total_streams, album_total_streams
-    FROM monitoring_stream_daily_artist_summaries
-    WHERE lower(artist_key) = ANY($1::text[])
-    ORDER BY snapshot_date DESC
-    LIMIT 1
-  `,
-          [activeKeys],
-        )
-        .then((result) => result.rows),
+    () => loadLatestMonitoringStreamSummary(monitoringReadPool, activeKeys, {
+      deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
+    }),
     [],
   );
   const priorityStreamItems = dashboardStage(
@@ -576,22 +575,7 @@ async function loadAuthorizedMonitoring(
   );
   const prioritySpotifyHistory = dashboardStage(
     "priority_spotify_history",
-    () =>
-      monitoringReadPool
-        .query<{
-          snapshot_date: string;
-          total_streams: string | number | null;
-          daily_streams: string | number | null;
-        }>(
-          `
-    SELECT snapshot_date, total_streams, daily_streams
-    FROM spotify_kworb_daily_snapshots
-    WHERE lower(artist_key) = ANY($1::text[])
-    ORDER BY snapshot_date
-  `,
-          [activeKeys],
-        )
-        .then((result) => result.rows),
+    () => loadMonitoringSpotifyHistory(monitoringReadPool, activeKeys),
     [],
   );
   const prioritySpotifySnapshot = dashboardStage(
@@ -749,7 +733,7 @@ async function loadAuthorizedMonitoring(
   ]);
 
   let resolvedStreamItems = prioritizedStreamItems;
-  let resolvedStreamSummary = prioritizedStreamSummary;
+  let resolvedStreamSummary: Array<Omit<MonitoringStreamSummaryRow, "source_table" | "derivation"> & { source_table: string; derivation: string }> = prioritizedStreamSummary;
   let spotifyCatalogSource:
     | "archive"
     | "kworb_live_complete_catalog"
@@ -795,6 +779,11 @@ async function loadAuthorizedMonitoring(
           album_daily_streams: sum(albums, "dailyStreams"),
           track_total_streams: sum(tracks, "totalStreams"),
           album_total_streams: sum(albums, "totalStreams"),
+          fetched_at: completeCatalog.fetchedAt,
+          source_table: "kworb_live_complete_catalog",
+          source_artist_keys: [active.artist_key],
+          derivation: "sum_catalog_items",
+          recovery_reason: null,
         },
       ];
     }
@@ -972,6 +961,8 @@ async function loadAuthorizedMonitoring(
         loadCompactMonitoringHistoryOverview(
           active.artist_key,
           monitoringReadPool,
+          undefined,
+          activeKeys,
         ),
       {
         artistKey: active.artist_key,
@@ -1013,29 +1004,20 @@ async function loadAuthorizedMonitoring(
     releases: [],
   };
   const latestStreamSummary = resolvedStreamSummary[0] ?? null;
-  const normalizedReleaseTitle = (value: string) =>
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .replace(/\s+-\s+(single|ep)$/i, "")
-      .replace(/\([^)]*(deluxe|version|remaster)[^)]*\)/gi, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
   const releaseArtwork = new Map(
     catalog.releases
       .filter((release) => release.artworkUrl)
       .map((release) => [
-        normalizedReleaseTitle(release.title),
+        normalizedMonitoringReleaseTitle(release.title),
         release.artworkUrl,
       ]),
   );
   for (const track of kworbTrackArtwork(spotifySnapshots[0]?.value)) {
-    const key = normalizedReleaseTitle(track.title);
+    const key = normalizedMonitoringReleaseTitle(track.title);
     if (!releaseArtwork.has(key)) releaseArtwork.set(key, track.artworkUrl);
   }
   for (const track of storedTrackArtwork) {
-    const key = normalizedReleaseTitle(track.song_title);
+    const key = normalizedMonitoringReleaseTitle(track.song_title);
     if (key && !releaseArtwork.has(key))
       releaseArtwork.set(key, track.cover_url);
   }
@@ -1051,8 +1033,11 @@ async function loadAuthorizedMonitoring(
       catalog.newestReleaseDate
         ? loadCompactReleaseImpact({
             artistKey: active.artist_key,
+            artistKeys: activeKeys,
             releaseDate: catalog.newestReleaseDate,
             queryable: monitoringReadPool,
+            overview: availableHistory,
+            deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
           })
         : Promise.resolve(null),
     null,
@@ -1083,6 +1068,12 @@ async function loadAuthorizedMonitoring(
   });
   return {
     sectionStatus,
+    identityDiagnostics: authorization.source === "internal" ? {
+      canonicalArtistKey: active.artist_key,
+      sourceKeys: activeKeys,
+      conflict: active.identity_conflict === true,
+      warnings: active.identity_conflict ? ["conflicting_provider_identity"] : [],
+    } : undefined,
     subscription: {
       artistKey: active.artist_key,
       artistName: insight?.name ?? active.artist_name,
@@ -1131,6 +1122,13 @@ async function loadAuthorizedMonitoring(
     },
     spotifyCatalog: {
       source: spotifyCatalogSource,
+      summaryProvenance: latestStreamSummary ? {
+        source: latestStreamSummary.source_table,
+        derivation: latestStreamSummary.derivation,
+        recoveryReason: latestStreamSummary.recovery_reason,
+        fetchedAt: latestStreamSummary.fetched_at,
+        sourceArtistKeys: latestStreamSummary.source_artist_keys,
+      } : null,
       snapshotDate: latestStreamSummary?.snapshot_date ?? null,
       trackCount: latestStreamSummary?.track_count ?? 0,
       albumCount: latestStreamSummary?.album_count ?? 0,
@@ -1150,6 +1148,9 @@ async function loadAuthorizedMonitoring(
         date: point.snapshot_date,
         totalStreams: nullableNumber(point.total_streams),
         dailyStreams: nullableNumber(point.daily_streams),
+        source: point.source_type,
+        sourceArtistKey: point.source_artist_key,
+        fetchedAt: point.fetched_at,
       })),
       items: resolvedStreamItems.map((item) => ({
         type: item.item_type,
@@ -1158,7 +1159,7 @@ async function loadAuthorizedMonitoring(
         spotifyUrl: item.spotify_url,
         artworkUrl:
           item.artwork_url ??
-          releaseArtwork.get(normalizedReleaseTitle(item.title)) ??
+          releaseArtwork.get(normalizedMonitoringReleaseTitle(item.title)) ??
           null,
         compilation: item.compilation,
         totalStreams: nullableNumber(item.total_streams),
@@ -1197,6 +1198,13 @@ router.get("/monitoring/config", (_req, res) => {
     priceUsdCents: PRICE_USD_CENTS,
     delivery: "daily_dashboard",
   });
+});
+
+// Resolve the existing founder entitlement without account upserts or billing
+// reads. /monitoreo navigation must not wait for a collector's database pool.
+router.get("/monitoring/access", requireMonitoringClerkUser, (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ internalArtistProAccess: hasInternalArtistProEntitlement(clerkUserId(res)) });
 });
 
 router.get("/monitoring/artists", async (_req, res) => {
@@ -1241,74 +1249,48 @@ router.get("/monitoring/artists", async (_req, res) => {
   }
 });
 
+const requireMonitoringFounder: RequestHandler = (_req, res, next) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  if (!hasInternalArtistProEntitlement(clerkUserId(res))) {
+    res.status(403).json({ error: "Founder inspection access is required", code: "founder_access_required" });
+    return;
+  }
+  next();
+};
+
+router.get("/monitoring/internal/build", requireMonitoringClerkUser, requireMonitoringFounder, (_req, res) => {
+  res.json(monitoringBuildIdentity());
+});
+
 router.get(
   "/monitoring/internal/artists",
   requireMonitoringClerkUser,
+  requireMonitoringFounder,
+  async (_req, res) => {
+    try { res.json(await getMonitoringCandidateList()); }
+    catch (error) {
+      logger.warn({ event: "monitoring_candidate_list_failure", database: safeDatabaseDiagnostic(error) }, "Monitoring candidate directory failed");
+      res.status(requestDatabaseHttpStatus(error)).json({ error: "The artist directory is temporarily unavailable", code: "candidate_directory_failed" });
+    }
+  },
+);
+
+router.get(
+  "/monitoring/internal/directory",
+  requireMonitoringClerkUser,
+  requireMonitoringFounder,
   async (req, res) => {
-    const userId = clerkUserId(res);
-    if (!hasInternalArtistProEntitlement(userId)) {
-      res.status(403).json({ error: "Internal Artist Pro access is required" });
+    const limit = Number(req.query.limit ?? 25);
+    const offset = Number(req.query.offset ?? 0);
+    const search = String(req.query.search ?? "").trim();
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !Number.isInteger(offset) || offset < 0 || search.length > 160) {
+      res.status(400).json({ error: "Invalid directory page or search", code: "invalid_directory_request" });
       return;
     }
-    try {
-      const result = await monitoringReadPool.query<{
-        artist_key: string;
-        artist_name: string | null;
-        last_snapshot_date: string | null;
-        spotify_item_count: string | number;
-        youtube_video_count: string | number;
-      }>(`
-      WITH latest_snapshots AS (
-        SELECT artist_key, max(snapshot_date)::text last_snapshot_date
-        FROM songstats_artist_daily_snapshots
-        GROUP BY artist_key
-      ), stream_counts AS (
-        SELECT artist_key, count(*)::int spotify_item_count
-        FROM monitoring_stream_items
-        GROUP BY artist_key
-      ), video_counts AS (
-        SELECT artist_key, count(DISTINCT video_id)::int youtube_video_count
-        FROM youtube_artist_video_links
-        WHERE active=true AND confidence_score >= 80
-        GROUP BY artist_key
-      )
-      SELECT
-        coverage.artist_key,
-        coverage.artist_name,
-        snapshot.last_snapshot_date,
-        COALESCE(streams.spotify_item_count, 0) spotify_item_count,
-        COALESCE(videos.youtube_video_count, 0) youtube_video_count
-      FROM kworb_coverage coverage
-      JOIN latest_snapshots snapshot
-        ON snapshot.artist_key=coverage.artist_key
-      LEFT JOIN stream_counts streams ON streams.artist_key=coverage.artist_key
-      LEFT JOIN video_counts videos ON videos.artist_key=coverage.artist_key
-      WHERE COALESCE(coverage.spotify_id, '') <> ''
-      ORDER BY COALESCE(NULLIF(coverage.artist_name, ''), coverage.artist_key)
-    `);
-      res.setHeader("cache-control", "private, max-age=300");
-      res.json({
-        count: result.rows.length,
-        artists: result.rows.map((artist) => ({
-          artistKey: artist.artist_key,
-          artistName: artist.artist_name?.trim() || artist.artist_key,
-          lastSnapshotDate: artist.last_snapshot_date,
-          spotifyItemCount: Number(artist.spotify_item_count ?? 0),
-          youtubeVideoCount: Number(artist.youtube_video_count ?? 0),
-        })),
-      });
-    } catch (error) {
-      logger.warn(
-        {
-          event: "internal_monitoring_artist_list_failure",
-          identityHash: safeClerkIdentityHash(userId),
-          database: safeDatabaseDiagnostic(error),
-        },
-        "Internal monitoring artist list failed",
-      );
-      res
-        .status(requestDatabaseHttpStatus(error))
-        .json({ error: "Monitoring artist list is temporarily unavailable" });
+    try { res.json(await getMonitoringCandidateDirectory({ limit, offset, search })); }
+    catch (error) {
+      logger.warn({ event: "monitoring_founder_audit_failure", database: safeDatabaseDiagnostic(error) }, "Founder evidence audit failed");
+      res.status(requestDatabaseHttpStatus(error)).json({ error: "The evidence audit could not complete. Source absence has not been established.", code: "candidate_audit_failed" });
     }
   },
 );
@@ -1317,6 +1299,7 @@ router.get(
   "/monitoring/dashboard/:artistKey",
   requireMonitoringClerkUser,
   async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const artistKey = String(req.params.artistKey ?? "")
       .trim()
       .toLowerCase();
@@ -1359,90 +1342,26 @@ router.get(
 router.get(
   "/monitoring/history/:artistKey/:metricKey",
   requireMonitoringClerkUser,
-  async (req, res) => {
-    const artistKey = String(req.params.artistKey ?? "")
-      .trim()
-      .toLowerCase();
-    const metricKey = String(req.params.metricKey ?? "").trim();
-    const range = String(req.query.range ?? "all") as CompactHistoryRange;
-    const resolution = String(req.query.resolution ?? "auto") as
-      | "auto"
-      | "daily"
-      | "minmax";
-    if (
-      !artistKey ||
-      artistKey.length > 160 ||
-      !/^[A-Za-z][A-Za-z0-9]{1,79}$/.test(metricKey)
-    ) {
-      res
-        .status(400)
-        .json({ error: "A valid artist and historical metric are required" });
-      return;
-    }
-    if (
-      !["7d", "30d", "90d", "6m", "1y", "all", "custom"].includes(range) ||
-      !["auto", "daily", "minmax"].includes(resolution)
-    ) {
-      res
-        .status(400)
-        .json({ error: "Unsupported history range or resolution" });
-      return;
-    }
-    try {
-      const subscription = await loadAuthorizedMonitoring(
-        clerkUserId(res),
-        artistKey,
-      );
-      if (!subscription) {
-        res.status(403).json({
-          error: "An active subscription is required for this artist",
-        });
-        return;
-      }
-      const history = await loadCompactMonitoringMetricHistory({
-        artistKey: subscription.subscription.artistKey,
-        metricKey,
-        range,
-        startDate: String(req.query.startDate ?? "") || undefined,
-        endDate: String(req.query.endDate ?? "") || undefined,
-        resolution,
-        queryable: monitoringReadPool,
-      });
-      res.setHeader("Cache-Control", "private, max-age=60");
-      res.json(history);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to load metric history";
-      if (/Unknown|Custom history range/.test(message)) {
-        res.status(400).json({ error: message });
-        return;
-      }
-      const status = requestDatabaseHttpStatus(error);
-      const unavailable = status === 503;
-      logger[unavailable ? "warn" : "error"](
-        {
-          event: "monitoring_history_failure",
-          artistKey,
-          metricKey,
-          database: safeDatabaseDiagnostic(error),
-        },
-        "Compact monitoring history failed",
-      );
-      res.status(status).json({
-        error: unavailable
-          ? "Monitoring is temporarily unavailable"
-          : "Unable to load metric history",
-      });
-    }
-  },
+  createMonitoringHistoryHandler({
+    userId: clerkUserId,
+    authorize: resolveMonitoringAccess,
+    aliases: songstatsArtistKeyCandidates,
+    read: (input) => loadCompactMonitoringMetricHistory({ ...input, queryable: monitoringReadPool }),
+    failure: (error) => {
+      const detail = safeDatabaseDiagnostic(error);
+      const timeout = isMonitoringHistoryTimeout(error);
+      return timeout ? { status: 504, code: "monitoring_timeout" }
+        : { status: requestDatabaseHttpStatus(error), code: detail.unavailable ? "monitoring_unavailable" : "monitoring_backend_failure" };
+    },
+    diagnostic: (event) => logger.info({ event: "monitoring_history_request", ...event }, "Monitoring history request completed"),
+  }),
 );
 
 router.get(
   "/monitoring/report/:artistKey",
   requireMonitoringClerkUser,
   async (req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
     const artistKey = String(req.params.artistKey ?? "")
       .trim()
       .toLowerCase();

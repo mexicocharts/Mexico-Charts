@@ -37,7 +37,7 @@ test("paid video read includes the existing public catalog and deduplicates by v
 test("paid reads retain both the requested route alias and authorized canonical alias", () => {
   assert.match(
     source,
-    /const activeKeys = \[[\s\S]*songstatsArtistKeyCandidates\(active\.artist_key\)[\s\S]*songstatsArtistKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
+    /const activeKeys = active\.identity_conflict \? \[active\.artist_key\] : \[[\s\S]*songstatsArtistKeyCandidates\(active\.artist_key\)[\s\S]*songstatsArtistKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
   );
 });
 
@@ -98,7 +98,7 @@ test("Spotify catalog and stored YouTube counters are prioritized before optiona
   const priority = source.indexOf("priority_daily_snapshots");
   const youtube = source.indexOf("priority_youtube_live_videos");
   assert.ok(priority >= 0 && youtube > priority);
-  assert.match(source, /let resolvedStreamSummary = prioritizedStreamSummary/);
+  assert.match(source, /let resolvedStreamSummary[^\n]*= prioritizedStreamSummary/);
   assert.match(source, /let resolvedStreamItems = prioritizedStreamItems/);
   assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
   assert.match(
@@ -146,44 +146,65 @@ test("complete Spotify catalog reuses the existing stored artwork layer", () => 
   assert.match(source, /for \(const track of storedTrackArtwork\)/);
 });
 
-test("internal artist picker lists existing monitored artists without public readiness", () => {
+test("internal artist picker requires founder authentication and lists the broad shared directory privately", () => {
   const routeStart = source.indexOf('"/monitoring/internal/artists"');
-  const dashboardStart = source.indexOf('"/monitoring/dashboard/:artistKey"');
-  assert.ok(routeStart >= 0 && dashboardStart > routeStart);
-  const route = source.slice(routeStart, dashboardStart);
-  assert.match(route, /requireMonitoringClerkUser/);
-  assert.match(route, /hasInternalArtistProEntitlement\(userId\)/);
-  assert.match(route, /FROM songstats_artist_daily_snapshots/);
-  assert.match(route, /JOIN latest_snapshots snapshot/);
-  assert.doesNotMatch(
-    route,
-    /SELECT count\(\*\)[\s\S]*WHERE stream_item\.artist_key=coverage\.artist_key/,
-  );
-  assert.doesNotMatch(
-    route,
-    /auditMonitoringReadiness|getMonitoringReadyArtist/,
-  );
+  const directoryStart = source.indexOf('"/monitoring/internal/directory"');
+  const gateStart = source.indexOf("const requireMonitoringFounder");
+  assert.ok(gateStart >= 0 && routeStart > gateStart && directoryStart > routeStart);
+  const gate = source.slice(gateStart, routeStart);
+  const route = source.slice(routeStart, directoryStart);
+  assert.match(gate, /hasInternalArtistProEntitlement\(clerkUserId\(res\)\)/);
+  assert.match(gate, /Cache-Control", "private, no-store"/);
+  assert.match(gate, /res\.status\(403\)/);
+  assert.match(route, /requireMonitoringClerkUser,\s*requireMonitoringFounder,/);
+  assert.match(route, /await getMonitoringCandidateList\(\)/);
+  assert.doesNotMatch(route, /auditMonitoringReadiness|getMonitoringReadyArtist|evaluateMonitoringCandidate/);
+  assert.doesNotMatch(route, /getMonitoringCandidateDirectory|JOIN latest_snapshots|FROM songstats_artist_daily_snapshots/);
+  assert.match(route, /candidate_directory_failed/);
+  assert.doesNotMatch(route, /res\.json\(\{[^}]*artists: \[\]/);
 });
 
-test("internal authorization uses canonical candidates without a public-readiness scan", () => {
-  const readinessSource = readFileSync(
-    new URL("../lib/monitoring-readiness-service.ts", import.meta.url),
-    "utf8",
+test("founder evidence reads remain separately authenticated and bounded by page size", () => {
+  const route = source.slice(
+    source.indexOf('"/monitoring/internal/directory"'),
+    source.indexOf('"/monitoring/dashboard/:artistKey"'),
   );
-  const lookupStart = readinessSource.indexOf(
-    "export async function getExistingMonitoringArtist",
-  );
-  const lookupEnd = readinessSource.indexOf(
-    "function evaluateRow",
-    lookupStart,
-  );
-  const lookup = readinessSource.slice(lookupStart, lookupEnd);
+  assert.match(route, /requireMonitoringClerkUser,\s*requireMonitoringFounder,/);
+  assert.match(route, /limit > 200/);
+  assert.match(route, /offset < 0/);
+  assert.match(route, /search\.length > 160/);
+  assert.match(route, /await getMonitoringCandidateDirectory\(\{ limit, offset, search \}\)/);
+  assert.match(route, /candidate_audit_failed/);
+});
 
-  assert.match(lookup, /c\.artist_key = ANY\(\$1::text\[\]\)/);
-  assert.doesNotMatch(
-    lookup,
-    /regexp_replace|songstats_artist_daily_snapshots/,
-  );
+test("internal authorization targets indexed identities without running the population or detailed evidence audit", () => {
+  const readinessSource = readFileSync(new URL("../lib/monitoring-readiness-service.ts", import.meta.url), "utf8");
+  const lookupStart = readinessSource.indexOf("export async function getExistingMonitoringArtist");
+  const lookupEnd = readinessSource.indexOf("export function evaluateMonitoringReadinessRow", lookupStart);
+  assert.ok(lookupStart >= 0 && lookupEnd > lookupStart);
+  const lookup = readinessSource.slice(lookupStart, lookupEnd);
+  assert.match(lookup, /return getMonitoringCandidateIdentity\(artistKey\)/);
+  assert.doesNotMatch(lookup, /getMonitoringReadyArtist|auditMonitoringReadiness|evaluateMonitoringReadiness\(/);
+
+  const candidateSource = readFileSync(new URL("../lib/monitoring-candidate-audit.ts", import.meta.url), "utf8");
+  const identityStart = candidateSource.indexOf("export async function getMonitoringCandidateIdentity");
+  const identityEnd = candidateSource.indexOf("export interface MonitoringCandidateEvidenceRow", identityStart);
+  const identity = candidateSource.slice(identityStart, identityEnd);
+  assert.doesNotMatch(identity, /await loadMonitoringCandidatePopulation\(/);
+  assert.match(identity, /WHERE artist_key=ANY/);
+  assert.match(identity, /withUnavailableMonitoringSources\(targeted, missing\)/);
+  assert.match(identity, /if \(!candidate\.identityConflict\) return candidate/);
+  assert.doesNotMatch(identity, /getMonitoringCandidateDirectory|evaluateMonitoringCandidate|EVIDENCE_SQL/);
+  const populationLoader = candidateSource.slice(candidateSource.indexOf("export async function loadMonitoringCandidatePopulation"), identityStart);
+  assert.match(populationLoader, /populationCache && populationCache\.expiresAt > Date\.now\(\)/);
+  assert.match(populationLoader, /if \(populationPending\) return populationPending/);
+  assert.match(populationLoader, /finally\(\(\) => \{ populationPending = null;/);
+  assert.doesNotMatch(populationLoader, /EVIDENCE_SQL|evaluateMonitoringCandidate/);
+  const populationSql = candidateSource.slice(candidateSource.indexOf("export const MONITORING_CANDIDATE_POPULATION_SQL"), candidateSource.indexOf("export function groupMonitoringCandidateIdentities"));
+  for (const table of ["official_artists", "songstats_artists", "youtube_channels", "songstats_historical_observations"]) {
+    assert.match(populationSql, new RegExp(`FROM ${table}`));
+  }
+  assert.doesNotMatch(populationSql, /WHERE.*spotify_id|JOIN latest_snapshots/);
 });
 
 test("monitor report endpoint returns a private PDF instead of CSV", () => {

@@ -1,16 +1,38 @@
-export const INTERNAL_ARTIST_PRO_DEFAULT_ARTIST_KEY = "luismiguel";
-
 export function internalMonitoringEntryPath({
   internalArtistProAccess,
   requestedArtistKey,
 }) {
   if (!internalArtistProAccess) return null;
-  const artistKey = String(requestedArtistKey || INTERNAL_ARTIST_PRO_DEFAULT_ARTIST_KEY).trim();
-  return artistKey ? `/monitoreo/${encodeURIComponent(artistKey)}` : null;
+  const artistKey = String(requestedArtistKey || "").trim();
+  return artistKey
+    ? `/monitoreo/${encodeURIComponent(artistKey)}`
+    : "/monitoreo/founder";
 }
 
-export function shouldLoadPublicMonitoringCatalog({ isSignedIn, accountAccess }) {
+export function shouldLoadPublicMonitoringCatalog({
+  isSignedIn,
+  isLoaded = true,
+  accountAccess,
+}) {
+  if (!isLoaded) return false;
   return !isSignedIn || accountAccess?.internalArtistProAccess === false;
+}
+
+export function canUseInternalMonitoringAccess({
+  isLoaded,
+  isSignedIn,
+  userId,
+  accountAccess,
+  error,
+}) {
+  return Boolean(
+    isLoaded &&
+    isSignedIn &&
+    userId &&
+    !error &&
+    accountAccess?.requestedByUserId === userId &&
+    accountAccess.internalArtistProAccess === true,
+  );
 }
 
 export class MonitoringDashboardHttpError extends Error {
