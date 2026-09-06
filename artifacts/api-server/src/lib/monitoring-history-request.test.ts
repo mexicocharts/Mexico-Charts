@@ -14,7 +14,7 @@ test("database and between-query budget exhaustion classify as timeout without h
   assert.equal(isMonitoringHistoryTimeout(new Error("invalid history payload")), false);
 });
 
-async function request(viewer: string | null, options: { paid?: boolean; missing?: boolean; failure?: boolean } = {}) {
+async function request(viewer: string | null, options: { paid?: boolean; missing?: boolean; failure?: boolean; conflict?: boolean } = {}) {
   let reads = 0;
   let subscriptions = 0;
   let status = 200;
@@ -34,12 +34,20 @@ async function request(viewer: string | null, options: { paid?: boolean; missing
         subscriptions++;
         return options.paid ? { artist_key: "canonical", artist_name: "Artist", status: "active", created_at: null } : null;
       },
-      findExistingArtist: async () => options.missing ? null : { artist_key: "canonical", artist_name: "Artist", status: "internal", created_at: null },
+      findExistingArtist: async key => {
+        if (options.paid) assert.equal(key, "canonical", "resolve the paid grant rather than the requested alias");
+        return options.missing ? null : { artist_key: "canonical", artist_name: "Artist", status: "internal", created_at: null,
+          match_keys: ["approved-provider-source"], identity_conflict: options.conflict };
+      },
     }),
     read: async input => {
       reads++;
       assert.equal(input.artistKey, "canonical");
-      assert.ok(input.artistKeys.includes("requested-alias"));
+      if (options.conflict) assert.deepEqual(input.artistKeys, ["canonical"]);
+      else {
+        assert.ok(input.artistKeys.includes("requested-alias"));
+        assert.ok(input.artistKeys.includes("approved-provider-source"));
+      }
       if (options.failure) throw new Error("statement timeout");
       return { status: "unavailable", points: [], reason: "no_observations_in_range" };
     },
@@ -60,6 +68,12 @@ test("founder history directly authorizes an incomplete artist without subscript
 
 test("ordinary artist subscription can read history", async () => {
   const result = await request("customer", { paid: true });
+  assert.equal(result.status, 200);
+  assert.equal(result.reads, 1);
+});
+
+test("paid history preserves exact source isolation when the approved mapping conflicts", async () => {
+  const result = await request("customer", { paid: true, conflict: true });
   assert.equal(result.status, 200);
   assert.equal(result.reads, 1);
 });

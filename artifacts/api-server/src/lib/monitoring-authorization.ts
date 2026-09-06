@@ -25,6 +25,25 @@ type AuthorizeMonitoringArtistInput = {
   findExistingArtist: (artistKey: string) => Promise<MonitoringArtistGrant | null>;
 };
 
+async function resolveSubscriptionSourceIdentity(
+  grant: MonitoringArtistGrant,
+  findExistingArtist: AuthorizeMonitoringArtistInput["findExistingArtist"],
+): Promise<MonitoringArtistGrant> {
+  // Resolve only the artist already authorized by the paid subscription. The
+  // identity record contributes source keys, never a new billing/access grant.
+  const identity = await findExistingArtist(grant.artist_key);
+  if (!identity) return grant;
+  const conflict = grant.identity_conflict === true || identity.identity_conflict === true;
+  return {
+    ...grant,
+    match_keys: conflict ? [grant.artist_key] : [...new Set([
+      grant.artist_key,
+      ...(identity.match_keys ?? [identity.artist_key]),
+    ])],
+    identity_conflict: conflict,
+  };
+}
+
 /**
  * User entitlement and public artist readiness are intentionally separate.
  * Paid customers retain their existing, artist-specific subscription grant.
@@ -59,11 +78,14 @@ export async function authorizeMonitoringArtist({
   }
 
   if (entitlement.source === "subscription") {
+    const grant = activeSubscription
+      ? await resolveSubscriptionSourceIdentity(activeSubscription, findExistingArtist)
+      : null;
     return {
-      allowed: Boolean(activeSubscription),
+      allowed: Boolean(grant),
       source: "subscription",
-      grant: activeSubscription,
-      outcome: activeSubscription ? "allowed" : "entitlement_denied",
+      grant,
+      outcome: grant ? "allowed" : "entitlement_denied",
       publicReadinessEvaluated: false,
     };
   }

@@ -43,21 +43,84 @@ test("active or trialing subscriber keeps the existing artist-specific grant", a
   assert.deepEqual([...ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES], ["active", "trialing"]);
   for (const status of ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES) {
     const subscription = { ...luisMiguel, status };
-    let existingLookupCalled = false;
+    const existingLookups: string[] = [];
     const result = await authorizeMonitoringArtist({
       userId: `user_${status}`,
       requestedArtistKey: "luis-miguel",
       internalUserIds: "user_founder",
       findActiveSubscription: async () => subscription,
-      findExistingArtist: async () => {
-        existingLookupCalled = true;
+      findExistingArtist: async artistKey => {
+        existingLookups.push(artistKey);
         return luisMiguel;
       },
     });
     assert.equal(result.allowed, true);
     assert.equal(result.source, "subscription");
     assert.equal(result.grant?.status, status);
-    assert.equal(existingLookupCalled, false);
+    assert.deepEqual(existingLookups, [subscription.artist_key]);
+    assert.equal(result.grant?.artist_key, subscription.artist_key);
+    assert.equal(result.grant?.artist_name, subscription.artist_name);
+    assert.equal(result.publicReadinessEvaluated, false);
+  }
+});
+
+test("paid source aliases resolve from the authorized grant without replacing its billing identity", async () => {
+  const subscription = { ...luisMiguel, status: "active", created_at: new Date("2026-08-01T00:00:00Z") };
+  const calls: string[] = [];
+  const result = await authorizeMonitoringArtist({
+    userId: "paid-user", requestedArtistKey: "untrusted-requested-artist", internalUserIds: "founder",
+    findActiveSubscription: async () => subscription,
+    findExistingArtist: async key => {
+      calls.push(key);
+      return { ...luisMiguel, artist_key: "luis-miguel-approved", artist_name: "Registry display name",
+        match_keys: ["luismiguel", "luis-miguel-approved", "luis miguel"] };
+    },
+  });
+  assert.deepEqual(calls, [subscription.artist_key]);
+  assert.equal(result.allowed, true);
+  assert.equal(result.source, "subscription");
+  assert.deepEqual(result.grant, { ...subscription,
+    match_keys: ["luismiguel", "luis-miguel-approved", "luis miguel"], identity_conflict: false });
+  assert.equal(result.publicReadinessEvaluated, false);
+});
+
+test("conflicting identity aliases remain isolated to the paid artist key", async () => {
+  const subscription = { ...luisMiguel, status: "trialing" };
+  const result = await authorizeMonitoringArtist({
+    userId: "paid-user", requestedArtistKey: "luis-miguel", internalUserIds: "founder",
+    findActiveSubscription: async () => subscription,
+    findExistingArtist: async () => ({ ...luisMiguel, artist_key: "conflicting-canonical",
+      match_keys: ["conflicting-canonical", "unrelated-artist"], identity_conflict: true }),
+  });
+  assert.deepEqual(result.grant, { ...subscription, match_keys: [subscription.artist_key], identity_conflict: true });
+  assert.equal(result.source, "subscription");
+});
+
+test("missing source identity retains the paid grant, while a failed lookup remains a failure", async () => {
+  const subscription = { ...luisMiguel, status: "active" };
+  const input = {
+    userId: "paid-user", requestedArtistKey: "luis-miguel", internalUserIds: "founder",
+    findActiveSubscription: async () => subscription,
+  };
+  const result = await authorizeMonitoringArtist({ ...input, findExistingArtist: async () => null });
+  assert.equal(result.allowed, true);
+  assert.equal(result.grant, subscription);
+  assert.equal(result.source, "subscription");
+  const failure = new Error("Source identity read failed");
+  await assert.rejects(authorizeMonitoringArtist({ ...input, findExistingArtist: async () => { throw failure; } }),
+    error => error === failure);
+});
+
+test("denied users never trigger source identity lookups", async () => {
+  for (const userId of [null, "free-user"]) {
+    let lookups = 0;
+    const result = await authorizeMonitoringArtist({
+      userId, requestedArtistKey: "private-artist", internalUserIds: "founder",
+      findActiveSubscription: async () => null,
+      findExistingArtist: async () => { lookups++; return luisMiguel; },
+    });
+    assert.equal(result.allowed, false);
+    assert.equal(lookups, 0);
   }
 });
 

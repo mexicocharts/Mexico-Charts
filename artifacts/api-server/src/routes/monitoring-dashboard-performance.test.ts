@@ -180,7 +180,7 @@ test("founder evidence reads remain separately authenticated and bounded by page
 test("internal authorization targets indexed identities without running the population or detailed evidence audit", () => {
   const readinessSource = readFileSync(new URL("../lib/monitoring-readiness-service.ts", import.meta.url), "utf8");
   const lookupStart = readinessSource.indexOf("export async function getExistingMonitoringArtist");
-  const lookupEnd = readinessSource.indexOf("export function evaluateMonitoringReadinessRow", lookupStart);
+  const lookupEnd = readinessSource.indexOf("async function runMonitoringReadinessAudit", lookupStart);
   assert.ok(lookupStart >= 0 && lookupEnd > lookupStart);
   const lookup = readinessSource.slice(lookupStart, lookupEnd);
   assert.match(lookup, /return getMonitoringCandidateIdentity\(artistKey\)/);
@@ -188,7 +188,8 @@ test("internal authorization targets indexed identities without running the popu
 
   const candidateSource = readFileSync(new URL("../lib/monitoring-candidate-audit.ts", import.meta.url), "utf8");
   const identityStart = candidateSource.indexOf("export async function getMonitoringCandidateIdentity");
-  const identityEnd = candidateSource.indexOf("export interface MonitoringCandidateEvidenceRow", identityStart);
+  const identityEnd = candidateSource.indexOf("// The requested page is materialized first.", identityStart);
+  assert.ok(identityStart >= 0 && identityEnd > identityStart);
   const identity = candidateSource.slice(identityStart, identityEnd);
   assert.doesNotMatch(identity, /await loadMonitoringCandidatePopulation\(/);
   assert.match(identity, /WHERE artist_key=ANY/);
@@ -200,7 +201,7 @@ test("internal authorization targets indexed identities without running the popu
   assert.match(populationLoader, /if \(populationPending\) return populationPending/);
   assert.match(populationLoader, /finally\(\(\) => \{ populationPending = null;/);
   assert.doesNotMatch(populationLoader, /EVIDENCE_SQL|evaluateMonitoringCandidate/);
-  const populationSql = candidateSource.slice(candidateSource.indexOf("export const MONITORING_CANDIDATE_POPULATION_SQL"), candidateSource.indexOf("export function groupMonitoringCandidateIdentities"));
+  const populationSql = candidateSource.slice(candidateSource.indexOf("export const MONITORING_CANDIDATE_POPULATION_SQL"), candidateSource.indexOf("type AuditPool"));
   for (const table of ["official_artists", "songstats_artists", "youtube_channels", "songstats_historical_observations"]) {
     assert.match(populationSql, new RegExp(`FROM ${table}`));
   }

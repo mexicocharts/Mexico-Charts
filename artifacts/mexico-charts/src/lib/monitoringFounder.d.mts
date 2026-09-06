@@ -18,6 +18,9 @@ export type MonitoringCandidate = {
   sourceEvidence: Record<string, unknown>;
   candidateSources: string[];
   sourceKeys: string[];
+  declaredAliases?: string[];
+  identityMappingStatus?: "provider_id" | "accepted_registry" | "unverified" | "conflict";
+  identityAliasEvidence?: Array<{ source: string; artistKey: string; mbid: string; verification: string; aliases: string[] }>;
 };
 export type MonitoringDirectory = {
   policyVersion: number;

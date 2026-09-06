@@ -375,6 +375,9 @@ export default function MonitoringFounder() {
                           {JSON.stringify(
                             {
                               sourceKeys: artist.sourceKeys,
+                              declaredAliases: artist.declaredAliases,
+                              identityMappingStatus: artist.identityMappingStatus,
+                              identityAliasEvidence: artist.identityAliasEvidence,
                               candidateSources: artist.candidateSources,
                               readinessReasons: artist.readinessReasons,
                               findings: artist.findings,
