@@ -260,8 +260,29 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
       }
     }
   }
-  async function collectPopulation({ sources, missingSchemaTables = [] }) {
+  function checkedBundledPopulation(value) {
+    requireValue(plain(value) && value.protocol==='monitor-audit-bundled-population-v1' && value.revision===metadata.revision &&
+      value.rowsHashVersion===CHECKPOINT_HASH_VERSION && Array.isArray(value.rows) && checkpointMd5(value.rows)===value.rowsMd5,
+      'Bundled population revision or exact row checksum mismatch');
+    const sourceNames=['artist_profile_routes','supplemental_artist_data'];
+    requireValue(value.rows.every(row=>plain(row) && serialize(Object.keys(row).sort())===serialize(['artist_key','artist_name','source','spotify_id']) &&
+      typeof row.artist_key==='string' && row.artist_key.trim() && typeof row.artist_name==='string' && row.artist_name.trim() &&
+      row.spotify_id===null && sourceNames.includes(row.source)), 'Bundled population may contain identity leads only');
+    requireValue(Array.isArray(value.sourceFiles) && value.sourceFiles.length>0 && new Set(value.sourceFiles.map(file=>file.path)).size===value.sourceFiles.length &&
+      value.sourceFiles.every(file=>plain(file) && typeof file.path==='string' && !file.path.startsWith('/') && !file.path.split('/').includes('..') &&
+        /^[0-9a-f]{64}$/.test(file.sha256??'') && /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(file.gitBlob??'') && Number.isSafeInteger(file.bytes) && file.bytes>0),
+      'Bundled population requires verified source-file provenance');
+    requireValue(Array.isArray(value.sourceInventory) && serialize(value.sourceInventory.map(source=>source.source).sort())===serialize(sourceNames) &&
+      value.sourceInventory.every(source=>source.rowCount===value.rows.filter(row=>row.source===source.source).length &&
+        source.freshness==='bundled_source_revision' && Array.isArray(source.sourcePaths) && source.sourcePaths.length>0 &&
+        source.sourcePaths.every(path=>value.sourceFiles.some(file=>file.path===path))), 'Bundled population source inventory mismatch');
+    requireValue(value.populationScope==='database_and_bundled_rosters' && serialize(value.populationLimitations)===
+      serialize(['external_artist_metadata_active_uninspected','external_mexican_artist_master_uninspected']), 'Bundled population must retain external-source limitations');
+    return value;
+  }
+  async function collectPopulation({ sources, missingSchemaTables = [], bundledPopulation }) {
     requireValue(Array.isArray(sources) && sources.length > 0 && new Set(sources.map(source => source.id)).size === sources.length, 'Unique complete population source plans are required');
+    const bundled=bundledPopulation===undefined?null:checkedBundledPopulation(bundledPopulation);
     const priorPopulation=await read(prefix+'population.json');
     const rows = [], pages = [];
     for (const source of sources) {
@@ -287,11 +308,27 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
         if (!source.totalRows) break;
       }
     }
+    const databaseRawRows=rows.length;
+    let bundledSourceProof;
+    if(bundled){
+      const artifact=prefix+'bundled/population.json',checkpoint={sourceHash:metadata.sourceHash,...bundled};
+      const existing=await read(artifact);
+      if(existing!=null)requireValue(serialize(existing)===serialize(checkpoint),'Bundled population checkpoint mismatch');
+      else await persist(artifact,checkpoint);
+      rows.push(...bundled.rows);
+      bundledSourceProof={artifact,sourceHash:metadata.sourceHash,revision:bundled.revision,rows:bundled.rows.length,rowsMd5:bundled.rowsMd5,
+        rowsHashVersion:bundled.rowsHashVersion,sourceFiles:bundled.sourceFiles,sourceInventory:bundled.sourceInventory};
+    }
     const candidates = evaluator.groupMonitoringCandidateIdentities(rows);
     requireValue(new Set(candidates.map(value => value.artistKey)).size === candidates.length, 'Grouped candidate keys are not unique');
     const population = { metadata, sourcePlans:sources.map(({id,totalRows,pageSize,capture}) => ({id,totalRows,pageSize:pageSize ?? 250,capture:capture ?? 'paged'})), rawRows:rows.length,
       missingSchemaTables, sourceSnapshotScope:'independent_source_contents', populationComplete:missingSchemaTables.length === 0 && sources.every(source=>['whole','digest_chunks'].includes(source.capture)),
       populationLimitations:sources.some(source=>!['whole','digest_chunks'].includes(source.capture))?['paged_selects_without_shared_snapshot']:[], pages, candidates };
+    if(bundled){
+      population.databaseRawRows=databaseRawRows;population.databasePopulationComplete=population.populationComplete;
+      population.populationComplete=false;population.populationScope=bundled.populationScope;
+      population.populationLimitations.push(...bundled.populationLimitations);population.bundledSourceProof=bundledSourceProof;
+    }
     if(priorPopulation!=null){
       requireValue(serialize(priorPopulation)===serialize(population),'Existing population checkpoint differs from reconstructed source contents; use a new run');
       return priorPopulation;
@@ -392,6 +429,8 @@ export function createAuditReplay({ evaluator, metadata, execute, persist, read,
     const report = { metadata, populationHashVersion:CHECKPOINT_HASH_VERSION,populationMd5,checkpointArtifact:reportKey,
       ...(legacyReport?{legacyRecovery:{sourceArtifact:prefix+'report.json',sourceCheckpointMd5:checkpointMd5(priorReport)}}:migratedReport?.legacyRecovery?{legacyRecovery:migratedReport.legacyRecovery}:{}),
       totalCandidates:population.candidates.length, populationComplete:population.populationComplete,
+      ...(population.bundledSourceProof?{databasePopulationComplete:population.databasePopulationComplete,populationScope:population.populationScope,
+        populationLimitations:population.populationLimitations,bundledSourceProof:population.bundledSourceProof}:{}),
       counts:{A:0,B:0,C:0,unclassified:0,incompleteEvidence:0}, candidatesAudited:0, auditComplete:false, status:'in_progress', artists:priorReport?.artists.slice() ?? [] };
     const previousCount = report.artists.length;
     for (let index = previousCount; index < population.candidates.length && index < previousCount + maximumArtists; index++) {

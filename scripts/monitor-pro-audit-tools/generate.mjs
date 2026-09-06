@@ -3,7 +3,7 @@ import { chmod, readFile, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { repoRoot, toolDirectory, tsxLoader, esbuildExecutable, outputArgument, offlineChildEnvironment, verifyAuditCheckout } from './paths.mjs';
+import { repoRoot, toolDirectory, tsxLoader, esbuildExecutable, outputArgument, offlineChildEnvironment, verifyAuditCheckout, bundledRosterFrontendSources } from './paths.mjs';
 import { createPrivateAuditStorage } from './storage.mjs';
 
 const output = outputArgument();
@@ -14,7 +14,7 @@ const bundles = [
   ['scripts/monitor-pro-audit-tools/manifest-helper.mjs', 'monitor-audit-manifest-helper', 'MonitorAuditManifest'],
 ];
 // No output creation, chmod, compiler, or source import is allowed before this.
-const checkout=verifyAuditCheckout({requiredSources:bundles.map(([source])=>source)});
+const checkout=verifyAuditCheckout({requiredSources:[...bundles.map(([source])=>source),...bundledRosterFrontendSources]});
 const esbuild = esbuildExecutable();
 const storage = createPrivateAuditStorage(output);
 await storage.persist('generation-status.json',{status:'generating'});
@@ -39,6 +39,8 @@ for (const [source, name, global] of bundles) {
 const manifest = JSON.parse(execFileSync(process.execPath,
   ['--import',tsxLoader,resolve(toolDirectory,'extract-manifest.mjs')],
   { cwd:repoRoot, env:offlineChildEnvironment(), encoding:'utf8', maxBuffer:4*1024*1024 }));
+const bundledSourceFiles=checkout.verifySources(manifest.bundledPopulation.sourceFiles.map(file=>file.path));
+if(JSON.stringify(bundledSourceFiles)!==JSON.stringify(manifest.bundledPopulation.sourceFiles))throw new Error('Bundled roster source bytes differ from verified HEAD inputs');
 await storage.persist('monitor-audit-sql-manifest.json',manifest);
 await storage.persist('monitor-audit-evidence-fixed-clock.sql',manifest.queries.fixedClockEvidence+'\n');
 await storage.persist('monitor-audit-replay-storage.mjs',await readFile(resolve(toolDirectory,'storage.mjs'),'utf8'));
@@ -52,7 +54,7 @@ for (const file of names) {
 const metadata = {revision:manifest.revision,readOnly:true,networkAttemptsDuringExtraction:manifest.networkAttemptsDuringExtraction,
   databaseQueryAttemptsDuringExtraction:manifest.databaseQueryAttemptsDuringExtraction,
   sourceCheckout:{root:checkout.root,gitTopLevel:checkout.topLevel,revision:checkout.revision,verifiedSourceCount:checkout.sources.length,
-    compiledInputs:checkout.verifySources([...compiledInputs].sort())},
+    compiledInputs:checkout.verifySources([...compiledInputs].sort()),bundledSourceFiles},
   recommendedClock:manifest.recommendedClock,artifacts};
 checkout.verifyUnchanged();
 if(manifest.revision!==checkout.revision)throw new Error('Extracted manifest revision differs from verified source checkout');

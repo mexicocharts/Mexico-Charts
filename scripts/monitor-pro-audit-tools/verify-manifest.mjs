@@ -1,6 +1,7 @@
 import fs from 'node:fs';import assert from 'node:assert/strict';
 import {prepareAuditQueries,applyAuditMissingSources} from './manifest-helper.mjs';
-import {buildJsonChunkSql} from './replay.mjs';
+import {buildJsonChunkSql,createAuditReplay,canonicalCheckpointJson,md5Utf8} from './replay.mjs';
+import vm from 'node:vm';
 import {outputArgument} from './paths.mjs';
 import {createPrivateAuditStorage} from './storage.mjs';
 import {pathToFileURL} from 'node:url';
@@ -29,6 +30,22 @@ try{
   const framed=await db.query(buildJsonChunkSql(sql));assert.equal(framed.rows[0].total_rows,1);
   assert.equal(JSON.parse(framed.rows[0].chunk)[0].artist_key,"quoted ' 東京");
   assert.throws(()=>applyAuditMissingSources(manifest,'SELECT 1',['unknown_source']));
-  const report={revision:manifest.revision,actualPostgreSql:true,sourceTables:manifest.sourceTables.length,allTypedMissingCtesExecuted:true,populationQueries:3,sourceCountsExecuted:true,fixedClockEvidenceExecuted:true,framedEvidenceExecuted:true,transactionClockEvidenceExecuted:true,quotedUnicodeIdentityPreserved:true,productionQueries:0};
+  const context=vm.createContext({});vm.runInContext(fs.readFileSync(new URL('monitor-audit-evaluator.js',directory),'utf8'),context);
+  const values=new Map();let bundledQueries=0;
+  const replay=createAuditReplay({evaluator:context.MonitorAudit,
+    metadata:{runId:'bundled_fixture',revision:manifest.revision,sourceHash:'fixture',evaluatorHash:'fixture',now:'2026-08-10T12:00:00Z',clockMode:'run_fixed'},
+    read:async key=>values.get(key)??null,persist:async(key,value)=>{values.set(key,value);},execute:async sql=>{
+      bundledQueries++;const result=await db.query(sql),quote=value=>'"'+String(value).replaceAll('"','""')+'"';
+      const fields=result.fields.map(field=>field.name);
+      return {success:true,exitCode:0,exitReason:null,output:[fields,...result.rows.map(row=>fields.map(field=>row[field]))].map(row=>row.map(quote).join(',')).join('\r\n')+'\r\n'};
+    }});
+  const population=await replay.collectPopulation({sources:[{id:'empty_database',capture:'whole',totalRows:0,selectAll:()=>prepared.population}],
+    missingSchemaTables:manifest.sourceTables,bundledPopulation:prepared.bundledPopulation});
+  assert.equal(bundledQueries,1);assert.equal(population.databaseRawRows,0);assert.equal(population.populationComplete,false);
+  assert.equal(population.databasePopulationComplete,false);assert.equal(population.rawRows,manifest.bundledPopulation.rows.length);
+  assert.equal(canonicalCheckpointJson(population.candidates),canonicalCheckpointJson(context.MonitorAudit.groupMonitoringCandidateIdentities(manifest.bundledPopulation.rows)));
+  assert.equal(manifest.bundledPopulation.rowsMd5,md5Utf8(canonicalCheckpointJson(manifest.bundledPopulation.rows)));
+  const report={revision:manifest.revision,actualPostgreSql:true,sourceTables:manifest.sourceTables.length,allTypedMissingCtesExecuted:true,populationQueries:3,sourceCountsExecuted:true,fixedClockEvidenceExecuted:true,framedEvidenceExecuted:true,transactionClockEvidenceExecuted:true,quotedUnicodeIdentityPreserved:true,productionQueries:0,
+    bundledPopulationVerified:true,bundledRows:population.rawRows,bundledCandidates:population.candidates.length,populationComplete:false};
   await storage.persist('monitor-audit-manifest.verification.json',report);console.log(JSON.stringify(report));
 }finally{await db.close();}

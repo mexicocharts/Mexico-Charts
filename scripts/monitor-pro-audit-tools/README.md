@@ -42,6 +42,7 @@ Capture and validate the schema inventory first, then exact source counts. For c
 ```javascript
 const population = await replay.collectPopulation({
   missingSchemaTables:missingTables,
+  bundledPopulation:queries.bundledPopulation,
   sources:[
     {id:'population',capture:'whole',totalRows:counts.population,selectAll:()=>queries.population},
     {id:'accepted_aliases',capture:'whole',totalRows:counts.accepted_aliases,selectAll:()=>queries.acceptedAliases},
@@ -50,6 +51,10 @@ const population = await replay.collectPopulation({
 });
 const report = await replay.auditNext({population,evidenceSql:queries.evidence,maximumArtists:25});
 ```
+
+Current manifests also contain `bundledPopulation`: exact identity-only rows from the repository's public profile routes and supplemental artist data. The generator verifies those imported source files against its own Git HEAD before extraction and records file hashes, revision, inventory counts and a canonical row checksum. Pass this object explicitly as shown. Replay saves it separately under `bundled/population.json`, verifies its checksum/provenance and groups it with the captured database rows without another SQL query. It never asserts provider identities from a bundled lead. Its rows are part of the new manifest/source version; never inject them into a historical run.
+
+For this scope, `databasePopulationComplete` records coverage of the reviewed database sources; overall `populationComplete` remains false, with `populationScope:'database_and_bundled_rosters'` and the two external roster limitations. Bundled revision proves source identity, not current external sheet/cache freshness. Reports retain those limits even after every captured candidate is evaluated. Historical manifests without bundled inputs keep their prior source scope unchanged.
 
 If a full population response fails but a bounded frame succeeds, start a fresh run using the current generated revision/hashes and use `capture:'digest_chunks'` for that source, with the same `selectAll` and independently checked total. Keep the failed full raw artifact in its original run. The default chunk size is24,000 PostgreSQL Unicode characters. Each request still reads and hashes the **entire source SELECT**; only its returned payload substring is bounded. This performs more database work than a single response, so use it only for a demonstrated transport limit.
 

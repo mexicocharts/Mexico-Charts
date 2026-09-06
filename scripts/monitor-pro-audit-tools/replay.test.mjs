@@ -51,6 +51,53 @@ function legacyCheckpoints(storage,population) {
   }
 }
 
+function bundledFixture() {
+  const rows=[{artist_key:'alpha',artist_name:'Alpha route',source:'artist_profile_routes',spotify_id:null},
+    {artist_key:'bravo',artist_name:'Bravo',source:'artist_profile_routes',spotify_id:null},
+    {artist_key:'bravo',artist_name:'Bravo supplemental',source:'supplemental_artist_data',spotify_id:null}];
+  return {protocol:'monitor-audit-bundled-population-v1',revision:metadata.revision,rows,
+    rowsHashVersion:CHECKPOINT_HASH_VERSION,rowsMd5:md5Utf8(canonicalCheckpointJson(rows)),
+    sourceFiles:[{path:'roster/routes.mjs',bytes:42,gitBlob:'a'.repeat(40),sha256:'b'.repeat(64)}],
+    sourceInventory:[{source:'artist_profile_routes',rowCount:2,sourcePaths:['roster/routes.mjs'],freshness:'bundled_source_revision'},
+      {source:'supplemental_artist_data',rowCount:1,sourcePaths:['roster/routes.mjs'],freshness:'bundled_source_revision'}],
+    populationScope:'database_and_bundled_rosters',populationLimitations:['external_artist_metadata_active_uninspected','external_mexican_artist_master_uninspected']};
+}
+
+test('bundled manifest rows are explicit durable non-SQL inputs with scoped completeness and immutable resumes',async()=>{
+  const storage=memory();let queries=0;
+  const grouped={...evaluator,groupMonitoringCandidateIdentities:rows=>[...new Set(rows.map(row=>row.artist_key))].map(candidate)};
+  const args={evaluator:grouped,metadata,...storage,execute:async(sql,context)=>{queries++;return framed([{artist_key:'alpha'}],context);}};
+  const plan={sources:[{id:'base',capture:'whole',totalRows:1,selectAll:()=> 'SELECT source'}],bundledPopulation:bundledFixture()};
+  const population=await createAuditReplay(args).collectPopulation(plan);
+  assert.equal(queries,1);assert.equal(population.rawRows,4);assert.equal(population.databaseRawRows,1);
+  assert.equal(population.databasePopulationComplete,true);assert.equal(population.populationComplete,false);
+  assert.deepEqual(population.candidates.map(row=>row.artistKey),['alpha','bravo']);
+  assert.equal(population.bundledSourceProof.rows,3);assert.equal(population.pages.length,1);
+  assert.deepEqual(await storage.read('test_run/bundled/population.json'),{sourceHash:metadata.sourceHash,...plan.bundledPopulation});
+  const writes=storage.writes.length;
+  assert.deepEqual(await createAuditReplay(args).collectPopulation({...plan,bundledPopulation:reordered(plan.bundledPopulation)}),population);
+  assert.equal(queries,1);assert.equal(storage.writes.length,writes);
+  const report=await createAuditReplay({...args,execute:async(sql,context)=>framed([{artist_key:context.id==='evidence_0'?'alpha':'bravo'}],context)})
+    .auditNext({population,evidenceSql:()=> 'SELECT evidence',maximumArtists:2});
+  assert.equal(report.candidatesAudited,2);assert.equal(report.databasePopulationComplete,true);assert.equal(report.auditComplete,false);
+  assert.deepEqual(report.populationLimitations,plan.bundledPopulation.populationLimitations);
+  const changed=structuredClone(plan.bundledPopulation);changed.rows[0].artist_name='Changed';changed.rowsMd5=md5Utf8(canonicalCheckpointJson(changed.rows));
+  await assert.rejects(createAuditReplay(args).collectPopulation({...plan,bundledPopulation:changed}),/Bundled population checkpoint mismatch/);
+});
+
+test('bundled provenance, row checksums, source counts and untrusted relationship fields fail before SQL',async()=>{
+  for(const mutate of [value=>{value.revision='different';},value=>{value.rows[0].artist_name='Changed';},
+    value=>{value.rows[0].spotify_id='a'.repeat(22);value.rowsMd5=md5Utf8(canonicalCheckpointJson(value.rows));},
+    value=>{value.rows[0].declared_aliases=['unrelated'];value.rowsMd5=md5Utf8(canonicalCheckpointJson(value.rows));},
+    value=>{value.sourceFiles[0].sha256='';},value=>{value.sourceFiles[0].path='../outside';},
+    value=>{value.sourceInventory[0].rowCount=1;},value=>{value.populationLimitations=[];}]){
+    const storage=memory(),bundledPopulation=bundledFixture();mutate(bundledPopulation);let queries=0;
+    await assert.rejects(createAuditReplay({evaluator,metadata,...storage,execute:async()=>{queries++;throw Error('must not query');}})
+      .collectPopulation({sources:[{id:'base',capture:'whole',totalRows:0,selectAll:()=> 'SELECT source'}],bundledPopulation}));
+    assert.equal(queries,0);assert.equal(storage.writes.length,0);
+  }
+});
+
 test('canonical internal JSON sorts object keys only and retains every JSON value boundary',()=>{
   const value={z:[{b:null,a:'東京 😀'},['b','a']],a:{n:1,s:'1',flag:false}};
   assert.equal(canonicalCheckpointJson(value),canonicalCheckpointJson(reordered(value)));

@@ -17,6 +17,7 @@ export function prepareAuditQueries(manifest,{missingTables,now,clockMode}){
   check((fixed.match(/\$1::jsonb/g)||[]).length===1&&(fixed.match(/\$2::timestamptz/g)||[]).length===(clockMode==='run_fixed'?manifest.fixedClockAdaptation.replacedNowCalls:0),'Unexpected evidence parameters');
   const sourceCounts=`SELECT (SELECT count(*) FROM (${population}) p) population, (SELECT count(*) FROM (${acceptedAliases}) a) accepted_aliases, (SELECT count(*) FROM (${discovery}) d) discovery`;
   return {population,acceptedAliases,discovery,sourceCounts,
+    ...(manifest.bundledPopulation===undefined?{}:{bundledPopulation:manifest.bundledPopulation}),
     evidence:candidate=>{
       check(typeof candidate.artistKey==='string'&&Array.isArray(candidate.sourceKeys)&&candidate.sourceKeys.every(value=>typeof value==='string'),'Exact candidate source keys required');
       const requested=JSON.stringify([{artist_key:candidate.artistKey,source_keys:candidate.sourceKeys}]);

@@ -7,6 +7,12 @@ import { createHash } from 'node:crypto';
 export const toolDirectory = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(toolDirectory, '../..');
 export const tsxLoader = resolve(repoRoot, 'scripts/node_modules/tsx/dist/loader.mjs');
+// These imported frontend data files must be verified before SQL extraction
+// imports the bundled-roster adapter. The API source roots cover its TS inputs.
+export const bundledRosterFrontendSources = [
+  'artifacts/mexico-charts/scripts/artist-profile-routes.mjs',
+  'artifacts/mexico-charts/scripts/supplemental-artist-routes.mjs',
+];
 
 function checkedGit(root) {
   const locationOverrides=new Set(['GIT_DIR','GIT_WORK_TREE','GIT_COMMON_DIR','GIT_INDEX_FILE','GIT_OBJECT_DIRECTORY',

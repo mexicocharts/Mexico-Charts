@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {resolve,relative,dirname} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {repoRoot,toolDirectory,offlineChildEnvironment,verifyAuditCheckout} from './paths.mjs';
+import {repoRoot,toolDirectory,offlineChildEnvironment,verifyAuditCheckout,bundledRosterFrontendSources} from './paths.mjs';
 
 const git=(root,...args)=>execFileSync('git',['-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-C',root,...args],
   {encoding:'utf8',env:{...process.env,GIT_OPTIONAL_LOCKS:'0'},stdio:['ignore','pipe','pipe']}).trim();
@@ -34,9 +34,13 @@ async function dependencyOverlay(target) {
 async function committedToolWorktree(base) {
   const seed=resolve(base,'seed'),worktree=resolve(base,'worktree');await mkdir(seed);
   const configs=git(repoRoot,'ls-tree','-r','--name-only','HEAD').split('\n').filter(path=>/(?:^|\/)(?:package|tsconfig[^/]*)\.json$/.test(path));
-  const archive=execFileSync('git',['-C',repoRoot,'archive','HEAD','artifacts/api-server/src/lib','lib','scripts/monitor-pro-audit-tools','.gitignore','pnpm-workspace.yaml',...configs],{maxBuffer:32*1024*1024});
+  const archive=execFileSync('git',['-C',repoRoot,'archive','HEAD','artifacts/api-server/src/lib','lib','scripts/monitor-pro-audit-tools','.gitignore','pnpm-workspace.yaml',...bundledRosterFrontendSources,...configs],{maxBuffer:32*1024*1024});
   execFileSync('tar',['-x','-C',seed],{input:archive});
-  for(const file of ['generate.mjs','paths.mjs','generate.test.mjs'])await copyFile(resolve(toolDirectory,file),resolve(seed,'scripts/monitor-pro-audit-tools',file));
+  // Commit current tool inputs in this synthetic fixture; never label its bytes
+  // as the production checkout revision when reviewing uncommitted changes.
+  for(const file of await readdir(toolDirectory))if(file.endsWith('.mjs')||file==='README.md')await copyFile(resolve(toolDirectory,file),resolve(seed,'scripts/monitor-pro-audit-tools',file));
+  for(const file of ['monitoring-bundled-roster.ts','monitoring-candidate-policy.ts','monitoring-candidate-audit.ts'])
+    await copyFile(resolve(repoRoot,'artifacts/api-server/src/lib',file),resolve(seed,'artifacts/api-server/src/lib',file));
   git(seed,'init','-q');git(seed,'add','.');git(seed,'-c','user.name=Audit Fixture','-c','user.email=audit-fixture@example.invalid','commit','-qm','committed audit fixture');
   git(seed,'worktree','add','--detach',worktree,'HEAD');await dependencyOverlay(worktree);
   return {seed,worktree};
@@ -55,6 +59,10 @@ test('offline CLI verifies a real linked worktree from another cwd and generates
     assert.equal(metadata.revision,git(worktree,'rev-parse','HEAD'));
     assert.equal(metadata.sourceCheckout.gitTopLevel,await realpath(worktree));assert.ok(metadata.sourceCheckout.verifiedSourceCount>3);
     assert.ok(metadata.sourceCheckout.compiledInputs.some(input=>input.path.endsWith('/replay.mjs')&&input.sha256));
+    assert.deepEqual(metadata.sourceCheckout.bundledSourceFiles.map(file=>file.path),[...bundledRosterFrontendSources,'artifacts/api-server/src/lib/supplemental-artist-data.ts']);
+    const manifest=JSON.parse(await readFile(resolve(output,'monitor-audit-sql-manifest.json'),'utf8'));
+    assert.equal(manifest.bundledPopulation.revision,metadata.revision);
+    assert.ok(manifest.bundledPopulation.rows.length>0);assert.deepEqual(manifest.bundledPopulation.sourceFiles,metadata.sourceCheckout.bundledSourceFiles);
     assert.equal(metadata.networkAttemptsDuringExtraction,0);assert.equal(metadata.databaseQueryAttemptsDuringExtraction,0);
     assert.equal((await stat(output)).mode&0o777,0o700);
     for(const artifact of metadata.artifacts){
@@ -71,6 +79,7 @@ test('offline CLI verifies a real linked worktree from another cwd and generates
       execFileSync(process.execPath,[resolve(tools,'verify-manifest.mjs'),'--output',output],{cwd:tmpdir(),encoding:'utf8'});
       const postgres=JSON.parse(await readFile(resolve(output,'monitor-audit-manifest.verification.json'),'utf8'));
       assert.equal(postgres.transactionClockEvidenceExecuted,true);assert.equal(postgres.allTypedMissingCtesExecuted,true);
+      assert.equal(postgres.bundledPopulationVerified,true);assert.equal(postgres.populationComplete,false);
     }
     await writeFile(outside,'{"outside":true}',{mode:0o600});
     await unlink(resolve(output,'monitor-audit-evaluator.verification.json'));
