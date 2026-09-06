@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  requestMonitorResource,
+  shouldRetryMonitorRequest,
+  monitorRequestState,
+} from "../lib/monitorRequest.mjs";
 
 const page = readFileSync(
   new URL("./MonitoringDashboard.tsx", import.meta.url),
@@ -8,10 +13,6 @@ const page = readFileSync(
 );
 const experience = readFileSync(
   new URL("../components/monitoring/MonitorProExperience.tsx", import.meta.url),
-  "utf8",
-);
-const accessSource = readFileSync(
-  new URL("../lib/monitoringAccess.mjs", import.meta.url),
   "utf8",
 );
 
@@ -63,11 +64,33 @@ test("report download remains a server-generated PDF", () => {
   assert.doesNotMatch(page, /Descargar CSV/);
 });
 
-test("dashboard keeps terminal authentication failures stable", () => {
-  assert.match(page, /retry:\s*shouldRetryMonitoringDashboard/);
-  assert.match(page, /MonitoringDashboardHttpError/);
-  assert.match(accessSource, /error instanceof MonitoringDashboardHttpError/);
-  assert.match(accessSource, /return false/);
+test("dashboard keeps terminal authentication failures stable", async () => {
+  for (const status of [401, 403]) {
+    let calls = 0;
+    await assert.rejects(
+      requestMonitorResource({
+        getToken: async () => null,
+        input: "/api/monitoring/dashboard/synthetic-artist",
+        fetchAuthenticated: async () => {
+          calls++;
+          return new Response(
+            JSON.stringify({ error: "Synthetic authorization failure" }),
+            { status },
+          );
+        },
+      }),
+      (error) => {
+        assert.equal(error.status, status);
+        assert.equal(shouldRetryMonitorRequest(0, error), false);
+        assert.equal(
+          monitorRequestState({ isFetching: false, error, succeeded: false }),
+          "authorization_failure",
+        );
+        return true;
+      },
+    );
+    assert.equal(calls, 1);
+  }
 });
 
 test("internal founder can switch among existing monitored artists without changing presentation", () => {

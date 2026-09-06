@@ -47,6 +47,8 @@ import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
 import { loadMonitoringPriorityArtistIdentity } from "../lib/monitoring-priority-identity";
 import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory } from "../lib/monitoring-youtube-serving";
+import { loadMonitoringYoutubeNativeHistory } from "../lib/monitoring-youtube-native-history";
+import { createMonitoringYoutubeHistoryHandler } from "../lib/monitoring-youtube-history-request";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -1020,6 +1022,23 @@ router.get(
       });
     }
   },
+);
+
+router.get(
+  "/monitoring/videos/:artistKey/:videoId/history",
+  requireMonitoringClerkUser,
+  createMonitoringYoutubeHistoryHandler({
+    userId: clerkUserId,
+    authorize: resolveMonitoringAccess,
+    aliases: monitoringIdentityKeyCandidates,
+    read: (input) => loadMonitoringYoutubeNativeHistory({ ...input, queryable: monitoringReadPool }),
+    failure: (error) => {
+      const detail = safeDatabaseDiagnostic(error);
+      return isMonitoringHistoryTimeout(error) ? { status: 504, code: "monitoring_timeout" }
+        : { status: requestDatabaseHttpStatus(error), code: detail.unavailable ? "monitoring_unavailable" : "monitoring_backend_failure" };
+    },
+    diagnostic: (event) => logger.info({ event: "monitoring_youtube_history_request", ...event }, "Monitoring video history request completed"),
+  }),
 );
 
 router.get(

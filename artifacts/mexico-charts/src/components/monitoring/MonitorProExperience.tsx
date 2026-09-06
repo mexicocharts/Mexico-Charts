@@ -49,6 +49,7 @@ import {
   type MonitorHistoryResponse,
 } from "@/lib/monitorRequest.mjs";
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
+import MonitorVideoHistory from "./MonitorVideoHistory";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1578,13 +1579,11 @@ function VideosView() {
         </div>
         <div className="grid gap-4 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
           {videos.map((video, index) => (
-            <a
+            <article
               key={video.id}
-              href={video.url}
-              target="_blank"
-              rel="noreferrer"
               className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] transition hover:-translate-y-1 hover:border-red-400/30 hover:bg-red-500/[.035]"
             >
+              <a href={video.url} target="_blank" rel="noreferrer" className="block">
               <div className="relative overflow-hidden">
                 <VideoThumbnail
                   src={video.image}
@@ -1649,7 +1648,9 @@ function VideosView() {
                   />
                 </div>
               </div>
-            </a>
+              </a>
+              <MonitorVideoHistory artistKey={data.subscription.artistKey} videoId={video.id} title={video.title} accessSource={data.subscription.accessSource} />
+            </article>
           ))}
         </div>
       </Panel>
