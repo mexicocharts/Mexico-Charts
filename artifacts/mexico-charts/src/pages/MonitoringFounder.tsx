@@ -371,10 +371,25 @@ export default function MonitoringFounder() {
                         <summary className="cursor-pointer text-xs font-bold text-white/70">
                           Cobertura, mapeos, frescura y evidencia por fuente
                         </summary>
+                        {artist.identityConflict && (
+                          <div className="mt-3 text-xs text-amber-100/80">
+                            <p>Inspeccionar cada ID de origen por separado:</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {artist.sourceKeys.map((key) => (
+                                <Link key={key} href={`/monitoreo/${encodeURIComponent(key)}`}
+                                  className="break-all rounded border border-white/20 px-3 py-2 font-mono underline">
+                                  {key}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/40 p-4 text-xs leading-5 text-white/55">
                           {JSON.stringify(
                             {
                               sourceKeys: artist.sourceKeys,
+                              spotifyIds: artist.spotifyIds,
+                              invalidSpotifyIds: artist.invalidSpotifyIds,
                               declaredAliases: artist.declaredAliases,
                               identityMappingStatus: artist.identityMappingStatus,
                               identityAliasEvidence: artist.identityAliasEvidence,

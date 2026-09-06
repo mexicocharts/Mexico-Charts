@@ -38,6 +38,7 @@ export function validateMonitoringDirectory(data) {
       !Array.isArray(artist.findings) ||
       !Array.isArray(artist.readinessReasons) ||
       !Array.isArray(artist.sourceKeys) ||
+      !artist.sourceKeys.every((key) => typeof key === "string" && key.trim()) ||
       !Array.isArray(artist.candidateSources) ||
       !artist.sourceEvidence ||
       typeof artist.sourceEvidence !== "object"

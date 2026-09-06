@@ -24,9 +24,13 @@ test("actual shared monitoring routes render the canonical real-data experience"
 test("canonical experience exposes bounded and all-available real history windows", () => {
   assert.match(experience, /"7d" \| "30d" \| "90d" \| "6m" \| "1y" \| "all"/);
   assert.match(experience, /availableSpanDays >= days/);
-  assert.match(experience, /range=all&resolution=auto/);
+  assert.match(experience, /monitorHistoryRequest/);
+  assert.match(experience, /range:\s*"all"/);
   assert.match(experience, /observaciones realmente entregadas/);
-  assert.match(experience, /historial licenciado anterior todavía no está integrado/);
+  assert.match(
+    experience,
+    /historial licenciado anterior todavía no está integrado/,
+  );
   assert.doesNotMatch(experience, /todo el historial disponible/);
   assert.match(experience, /data\.spotifyCatalog\.history/);
 });
@@ -43,4 +47,13 @@ test("unimplemented report and alert promises are identified honestly", () => {
     /envío por correo y exportación CSV\s+pendientes de implementación/,
   );
   assert.match(experience, /Configuración persistente aún no disponible/);
+});
+
+test("pulse UI preserves missing-measurement diagnostics instead of inventing no-change", () => {
+  assert.doesNotMatch(
+    experience,
+    /Sin cambios materiales en la lectura más reciente|Recopilando cambios entre observaciones/,
+  );
+  assert.match(experience, /metricsChanged == null\s*\? "—"/);
+  assert.match(experience, /\.join\(" · "\) \|\| data\.dailyPulse\.summary/);
 });

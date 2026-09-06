@@ -1,10 +1,12 @@
+import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
 import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service";
 import { MONITORING_READINESS_POLICY_VERSION } from "./monitoring-readiness-policy";
 import { loadMonitoringAuditSchema, withUnavailableMonitoringSources } from "./monitoring-audit-schema";
 import { buildLatestMonitoringStreamSummarySql } from "./monitoring-stream-serving";
 import { buildMonitoringCompactReadinessSql } from "./monitoring-compact-readiness";
-import { MONITORING_COMPLETE_CONTRACT_VERSION, MONITORING_COMPLETE_CONTRACT, groupMonitoringCandidateIdentities, evaluateMonitoringCandidate, monitoringIdentityKeyCandidates,
+import { buildMonitoringYoutubeDiagnosticsSql } from "./monitoring-youtube-serving";
+import { MONITORING_COMPLETE_CONTRACT_VERSION, MONITORING_COMPLETE_CONTRACT, groupMonitoringCandidateIdentities, evaluateMonitoringCandidate, monitoringIdentityKeyCandidates, isMonitoringSpotifyArtistId,
   type MonitoringCandidateSourceRow, type MonitoringCandidateIdentity, type MonitoringCandidateEvidenceRow, type MonitoringCandidateAuditArtist } from "./monitoring-candidate-policy";
 export * from "./monitoring-candidate-policy";
 
@@ -33,6 +35,7 @@ export const MONITORING_CANDIDATE_POPULATION_SQL = `
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'monitoring_stream_daily_artist_summaries' FROM monitoring_stream_daily_artist_summaries
   UNION ALL SELECT DISTINCT artist_key, NULL, spotify_artist_id, 'spotify_kworb_daily_snapshots' FROM spotify_kworb_daily_snapshots
   UNION ALL SELECT artist_key, title, NULL, 'youtube_channels' FROM youtube_channels
+  UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'youtube_channel_daily_snapshots' FROM youtube_channel_daily_snapshots
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'youtube_artist_video_links' FROM youtube_artist_video_links
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'youtube_kworb_daily_snapshots' FROM youtube_kworb_daily_snapshots
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'youtube_artist_video_daily_rollups' FROM youtube_artist_video_daily_rollups
@@ -115,7 +118,7 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
   const initial = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]);
   const sourceKeys = expandAliases([...new Set([...requested, ...initial.flatMap(row => [row.artist_key, ...monitoringIdentityKeyCandidates(row.artist_key)])])]);
-  const spotifyIds = [...new Set(initial.flatMap(row => row.spotify_id ? [row.spotify_id] : []))];
+  const spotifyIds = [...new Set(initial.map(row => row.spotify_id?.trim()).filter(isMonitoringSpotifyArtistId))];
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, compactSqlKeys(sourceKeys)]);
   const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases]).find(candidate => candidate.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => keys.has(key)));
@@ -130,6 +133,13 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
 export const MONITORING_CANDIDATE_EVIDENCE_SQL = `
 WITH requested AS MATERIALIZED (
   SELECT * FROM jsonb_to_recordset($1::jsonb) AS item(artist_key text, source_keys text[])
+), comparison_snapshots AS MATERIALIZED (
+  SELECT k.artist_key, s.snapshot_date
+  FROM kworb_coverage k
+  JOIN LATERAL (SELECT snapshot_date, spotify_monthly_listeners FROM songstats_artist_daily_snapshots
+    WHERE artist_key=k.artist_key ORDER BY snapshot_date DESC LIMIT 1) s ON true
+  WHERE k.status='active' AND s.spotify_monthly_listeners>0
+    AND EXISTS(SELECT 1 FROM songstats_artist_extended_data e WHERE e.artist_key=k.artist_key)
 )
 SELECT c.artist_key,
   to_jsonb(served_stream) served_summary,
@@ -158,8 +168,7 @@ SELECT c.artist_key,
     LEFT JOIN LATERAL (SELECT * FROM monitoring_stream_daily_artist_summaries WHERE artist_key=k.artist_key ORDER BY snapshot_date DESC LIMIT 1) a ON true
     WHERE k.artist_key=ANY(c.source_keys)) legacy,
   jsonb_build_object(
-    'currentHistory', (SELECT jsonb_build_object('days',count(DISTINCT snapshot_date),'firstDate',min(snapshot_date),'lastDate',max(snapshot_date),
-      'previousDate',(array_agg(DISTINCT snapshot_date ORDER BY snapshot_date DESC))[2], 'lastFetchedAt',max(fetched_at)) FROM songstats_artist_daily_snapshots WHERE artist_key=ANY(c.source_keys)),
+    'currentHistory',pulse_evidence.history,
     'spotifyHistory', (SELECT jsonb_build_object('days',count(DISTINCT snapshot_date),'firstDate',min(snapshot_date),'lastDate',max(snapshot_date),'lastFetchedAt',max(fetched_at)) FROM spotify_kworb_daily_snapshots WHERE artist_key=ANY(c.source_keys) AND (total_streams IS NOT NULL OR daily_streams IS NOT NULL)),
     'streamHistory', (SELECT jsonb_build_object('days',count(DISTINCT snapshot_date),'firstDate',min(snapshot_date)::text,'lastDate',max(snapshot_date)::text) FROM monitoring_stream_daily_snapshots WHERE artist_key=ANY(c.source_keys)),
     'catalog', (SELECT jsonb_build_object('tracks',count(*) FILTER(WHERE item_type='track'),'albums',count(*) FILTER(WHERE item_type='album'),
@@ -170,7 +179,7 @@ SELECT c.artist_key,
         FROM monitoring_stream_items i WHERE i.artist_key=ANY(c.source_keys) ORDER BY i.item_type,i.item_key,(NULLIF(to_jsonb(i)->>'artwork_url','') IS NOT NULL) DESC) items),
     'artistImage', (EXISTS(SELECT 1 FROM artist_images WHERE artist_key=ANY(c.source_keys) AND NULLIF(image_url,'') IS NOT NULL)
       OR EXISTS(SELECT 1 FROM songstats_artists WHERE artist_key=ANY(c.source_keys) AND NULLIF(avatar_url,'') IS NOT NULL)
-      OR EXISTS(SELECT 1 FROM spotify_artists WHERE artist_key=ANY(c.source_keys) AND NULLIF(spotify_image_url,'') IS NOT NULL)),
+      OR EXISTS(SELECT 1 FROM spotify_artists WHERE artist_key=ANY(c.source_keys) AND verified IS TRUE AND NULLIF(spotify_image_url,'') IS NOT NULL)),
     'youtube', (SELECT jsonb_build_object('approvedVideos',count(DISTINCT link.video_id),
       'observedVideos',count(DISTINCT link.video_id) FILTER(WHERE COALESCE(latest.view_count,video.view_count) IS NOT NULL),
       'videosWithArtwork',count(DISTINCT link.video_id) FILTER(WHERE NULLIF(video.thumbnail_url,'') IS NOT NULL))
@@ -178,17 +187,37 @@ SELECT c.artist_key,
       LEFT JOIN youtube_video_intraday_latest_observations pointer ON pointer.video_id=link.video_id
       LEFT JOIN youtube_video_intraday_shadow_snapshots latest ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
       WHERE link.artist_key=ANY(c.source_keys) AND link.active=true AND link.confidence_score>=80),
-    'youtubeImport', (SELECT jsonb_agg(jsonb_build_object('status',status,'completedAt',completed_at,'nextPageTokenPresent',next_page_token IS NOT NULL,
-      'videosImported',videos_imported,'expectedVideos',expected_total_videos)) FROM youtube_channel_upload_import_state WHERE artist_key=ANY(c.source_keys)),
+    'youtubeServing',youtube_diagnostics.diagnostics,
+    'youtubeImport', (SELECT jsonb_agg(jsonb_build_object(
+      'artistKey',state.artist_key,'channelId',state.channel_id,
+      'currentChannelMatched',EXISTS(SELECT 1 FROM youtube_channels channel WHERE channel.artist_key=ANY(c.source_keys) AND channel.channel_id=state.channel_id),
+      'status',state.status,'completedAt',state.completed_at,'nextPageTokenPresent',state.next_page_token IS NOT NULL,
+      'videosImported',state.videos_imported,'expectedVideos',state.expected_total_videos,
+      'observedApprovedVideos',(SELECT count(DISTINCT link.video_id) FROM youtube_artist_video_links link
+        JOIN youtube_tracked_videos video ON video.video_id=link.video_id AND video.channel_id=state.channel_id
+        LEFT JOIN youtube_video_intraday_latest_observations pointer ON pointer.video_id=link.video_id
+        LEFT JOIN youtube_video_intraday_shadow_snapshots latest ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
+        WHERE link.artist_key=ANY(c.source_keys) AND link.active=true AND link.confidence_score>=80
+          AND COALESCE(latest.view_count,video.view_count) IS NOT NULL)
+      )) FROM youtube_channel_upload_import_state state WHERE state.artist_key=ANY(c.source_keys)),
     'youtubeObservations', (SELECT jsonb_agg(jsonb_build_object('videoId',link.video_id,'observedAt',latest.observed_at,
       'delta',latest.view_delta,'secondsSincePrevious',latest.seconds_since_previous))
       FROM youtube_artist_video_links link JOIN youtube_video_intraday_latest_observations pointer ON pointer.video_id=link.video_id
       JOIN youtube_video_intraday_shadow_snapshots latest ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
       WHERE link.artist_key=ANY(c.source_keys) AND link.active=true AND link.confidence_score>=80),
-    'youtubeHistory', (SELECT jsonb_build_object('days',count(DISTINCT s.snapshot_date),'points',count(*),'videos',count(DISTINCT s.video_id),
-      'videosWithHistory',count(DISTINCT s.video_id) FILTER(WHERE s.video_days>=2),
-      'firstDate',min(s.snapshot_date),'lastDate',max(s.snapshot_date)) FROM (
-      SELECT s.*,count(*) OVER(PARTITION BY s.video_id) video_days FROM youtube_video_daily_snapshots s
+    'youtubeHistory', (SELECT jsonb_build_object('sourceTable','youtube_video_daily_snapshots','rangeDays',90,
+      'rangeClock','database_now_America/New_York',
+      'days',count(DISTINCT s.snapshot_date) FILTER(WHERE s.in_serving_range),'points',count(*) FILTER(WHERE s.in_serving_range),
+      'videos',count(DISTINCT s.video_id) FILTER(WHERE s.in_serving_range),
+      'videosWithHistory',count(DISTINCT s.video_id) FILTER(WHERE s.in_serving_range AND s.video_days>=2),
+      'firstDate',min(s.snapshot_date) FILTER(WHERE s.in_serving_range),'lastDate',max(s.snapshot_date) FILTER(WHERE s.in_serving_range),
+      'allTime',jsonb_build_object('days',count(DISTINCT s.snapshot_date),'points',count(*),'videos',count(DISTINCT s.video_id),
+        'videosWithHistory',count(DISTINCT s.video_id) FILTER(WHERE s.all_time_video_days>=2),
+        'firstDate',min(s.snapshot_date),'lastDate',max(s.snapshot_date))) FROM (
+      SELECT s.*,s.snapshot_date>=to_char((now() AT TIME ZONE 'America/New_York')::date - 89,'YYYY-MM-DD') in_serving_range,
+        count(*) FILTER(WHERE s.snapshot_date>=to_char((now() AT TIME ZONE 'America/New_York')::date - 89,'YYYY-MM-DD')) OVER(PARTITION BY s.video_id) video_days,
+        count(*) OVER(PARTITION BY s.video_id) all_time_video_days
+      FROM youtube_video_daily_snapshots s
       WHERE s.view_count IS NOT NULL AND EXISTS(SELECT 1 FROM youtube_artist_video_links link WHERE link.artist_key=ANY(c.source_keys)
         AND link.video_id=s.video_id AND link.active=true AND link.confidence_score>=80)) s),
     'compactHistory', (SELECT jsonb_build_object('points',count(*),'metrics',count(DISTINCT d.metric_key),
@@ -203,13 +232,16 @@ SELECT c.artist_key,
     'providerIdentities', jsonb_build_object(
       'songstatsIds',(SELECT array_agg(DISTINCT songstats_artist_id) FILTER(WHERE songstats_artist_id IS NOT NULL) FROM songstats_artists WHERE artist_key=ANY(c.source_keys)),
       'youtubeChannelIds',(SELECT array_agg(DISTINCT channel_id) FROM youtube_channels WHERE artist_key=ANY(c.source_keys))),
-    'comparisonPeers', (SELECT count(DISTINCT k.artist_key) FROM kworb_coverage k WHERE NOT k.artist_key=ANY(c.source_keys)
-      AND k.status='active' AND EXISTS(SELECT 1 FROM songstats_artist_extended_data e WHERE e.artist_key=k.artist_key)
-      AND EXISTS(SELECT 1 FROM songstats_artist_daily_snapshots s WHERE s.artist_key=k.artist_key AND s.spotify_monthly_listeners>0))
+    'comparisonPeers', (SELECT count(*) FROM comparison_snapshots p WHERE NOT p.artist_key=ANY(c.source_keys)),
+    'comparisonPeerDates', (SELECT jsonb_agg(jsonb_build_object('date',snapshot_date,'peers',peers))
+      FROM (SELECT snapshot_date,count(*) peers FROM comparison_snapshots p
+        WHERE NOT p.artist_key=ANY(c.source_keys) GROUP BY snapshot_date) dates)
   ) source_evidence
 FROM requested c
 LEFT JOIN LATERAL (${buildLatestMonitoringStreamSummarySql("(ARRAY[c.artist_key] || c.source_keys)")}) served_stream ON true
 LEFT JOIN LATERAL (${buildMonitoringCompactReadinessSql("c.source_keys")}) compact_readiness ON true
+LEFT JOIN LATERAL (${buildMonitoringPulseEvidenceSql("(ARRAY[c.artist_key] || c.source_keys)")}) pulse_evidence ON true
+LEFT JOIN LATERAL (${buildMonitoringYoutubeDiagnosticsSql("c.source_keys")}) youtube_diagnostics ON true
 ORDER BY c.artist_key
 `;
 

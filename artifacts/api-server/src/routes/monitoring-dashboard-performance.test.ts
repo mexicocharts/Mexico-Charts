@@ -6,30 +6,27 @@ const source = readFileSync(
   new URL("./monitoring.ts", import.meta.url),
   "utf8",
 );
+const youtubeServingSource = readFileSync(new URL("../lib/monitoring-youtube-serving.ts", import.meta.url), "utf8");
 
-test("Spotify identity orders by the timestamp actually declared on songstats_artists", () => {
-  const identity = source.slice(
-    source.indexOf('"priority_artist_identity"'),
-    source.indexOf("const priorityStreamSummary"),
-  );
-  assert.match(
-    identity,
-    /FROM songstats_artists[\s\S]*ORDER BY last_synced_at DESC/,
-  );
-  assert.doesNotMatch(identity, /ORDER BY updated_at/);
+test("priority identity uses the exact-source helper and the declared Songstats timestamp", () => {
+  const identity = readFileSync(new URL("../lib/monitoring-priority-identity.ts", import.meta.url), "utf8");
+  assert.match(source, /loadMonitoringPriorityArtistIdentity\(monitoringReadPool, activeKeys/);
+  assert.match(identity, /songstats_artists[\s\S]*last_synced_at/);
+  assert.doesNotMatch(identity, /songstats_artists[^;]*ORDER BY updated_at/);
 });
 
 test("paid video read includes the existing public catalog and deduplicates by video ID", () => {
-  const videos = source.slice(
-    source.indexOf('"priority_youtube_live_videos"'),
-    source.indexOf("const extended ="),
-  );
+  const videos = youtubeServingSource.slice(0, youtubeServingSource.indexOf("export const MONITORING_YOUTUBE_LIVE_VIDEOS_SQL"));
+  assert.match(source, /loadMonitoringYoutubeLiveVideos\(monitoringReadPool, activeKeys/);
   assert.match(videos, /FROM youtube_artist_video_links/);
   assert.match(videos, /UNION ALL[\s\S]*FROM youtube_music_catalog_candidates/);
   assert.match(videos, /candidate.status IN \('review','verified'\)/);
   assert.match(videos, /candidate.sampling_status='shadow'/);
-  assert.match(videos, /SELECT DISTINCT ON \(link.video_id\)/);
-  assert.match(videos, /link\.artist_key = ANY\(\$1::text\[\]\)/);
+  assert.match(videos, /SELECT DISTINCT ON \(video_id\)/);
+  assert.match(videos, /link\.artist_key=ANY\(\$\{artistKeysSql\}\)/);
+  assert.match(videos, /candidate\.artist_key=ANY\(\$\{artistKeysSql\}\)/);
+  assert.match(videos, /relationship_sources/);
+  assert.match(videos, /has_approved_link/);
   assert.doesNotMatch(videos, /regexp_replace/);
   assert.doesNotMatch(videos, /LIMIT 10\b/);
 });
@@ -138,14 +135,24 @@ test("actual subscription lookup isolates mixed-script keys and returns only the
 
 test("monitoring dashboard latest-video reads use compact observation state", () => {
   assert.match(
-    source,
+    youtubeServingSource,
     /LEFT JOIN youtube_video_intraday_latest_observations pointer/,
   );
-  assert.match(source, /latest\.observed_at=pointer\.latest_observed_at/);
+  assert.match(youtubeServingSource, /latest\.observed_at=pointer\.latest_observed_at/);
   assert.doesNotMatch(
-    source,
+    youtubeServingSource,
     /JOIN LATERAL \(\s*SELECT s\.view_count, s\.view_delta, s\.seconds_since_previous, s\.observed_at\s*FROM youtube_video_intraday_shadow_snapshots/s,
   );
+});
+
+test("candidate-only native daily video history is founder-only and does not substitute shadow or channel observations", () => {
+  const native = youtubeServingSource.slice(youtubeServingSource.indexOf("export function buildMonitoringYoutubeDailyHistorySql"),
+    youtubeServingSource.indexOf("export const MONITORING_YOUTUBE_DAILY_HISTORY_SQL"));
+  assert.match(source, /loadMonitoringYoutubeDailyHistory\(monitoringReadPool, activeKeys,[\s\S]*?includeCandidateOnly: authorization\.source === "internal"/);
+  assert.match(native, /FROM youtube_video_daily_snapshots/);
+  assert.match(native, /AND eligible\.has_approved_link=true/);
+  assert.match(native, /founder_candidate_diagnostic/);
+  assert.doesNotMatch(native, /FROM youtube_video_intraday_shadow_snapshots|FROM youtube_channel_daily_snapshots|youtube_discovery_validation_/);
 });
 
 test("monitoring coverage counts compact latest rows instead of scanning history", () => {
@@ -198,7 +205,7 @@ test("Spotify catalog and stored YouTube counters are prioritized before optiona
   assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
   assert.match(
     source,
-    /priority_youtube_live_videos[\s\S]*\[activeKeys\][\s\S]*?result\.rows[\s\S]*?1_500/,
+    /priority_youtube_live_videos[\s\S]*loadMonitoringYoutubeLiveVideos\(monitoringReadPool, activeKeys,[\s\S]*?1_500/,
   );
 });
 
@@ -224,11 +231,10 @@ test("dashboard returns safe empty sections when individual data sources are una
 });
 
 test("canonical Monitor Pro receives the stored artist identity image without substituting catalog art", () => {
-  assert.match(
-    source,
-    /SELECT COALESCE\(songstats\.avatar_url, image\.image_url\) avatar_url/s,
-  );
-  assert.match(source, /FROM artist_images/);
+  const identity = readFileSync(new URL("../lib/monitoring-priority-identity.ts", import.meta.url), "utf8");
+  assert.match(identity, /SELECT image\.avatar_url, image\.source avatar_source/);
+  assert.match(identity, /FROM artist_images/);
+  assert.doesNotMatch(identity, /spotify_tracks|spotify_albums|deezer_track_covers/);
   assert.match(
     source,
     /artistImageUrl:[\s\S]*?prioritizedArtistIdentity\[0\]\?\.avatar_url \?\?[\s\S]*?insight\?\.avatarUrl \?\? null/,

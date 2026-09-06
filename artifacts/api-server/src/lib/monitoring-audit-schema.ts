@@ -7,7 +7,7 @@ export const MONITORING_AUDIT_SOURCE_TABLES = [
   "kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "musicbrainz_artists", "artist_candidates", "spotify_artist_candidates",
   "songstats_artist_extended_data", "songstats_artist_daily_snapshots", "monitoring_stream_items",
   "monitoring_stream_daily_snapshots", "monitoring_stream_daily_artist_summaries", "spotify_kworb_daily_snapshots",
-  "youtube_channels", "youtube_artist_video_links", "youtube_kworb_daily_snapshots", "youtube_artist_video_daily_rollups",
+  "youtube_channels", "youtube_videos", "youtube_channel_daily_snapshots", "youtube_artist_video_links", "youtube_kworb_daily_snapshots", "youtube_artist_video_daily_rollups",
   "songstats_history_provider_identities", "songstats_historical_observations", "artist_images", "deezer_track_covers",
   "youtube_tracked_videos", "youtube_video_daily_snapshots", "songstats_history_metric_definitions", "songstats_history_import_chunks",
   "kworb_snapshots",
@@ -28,7 +28,7 @@ export function withUnavailableMonitoringSources(sql: string, missingTables: str
     if (!(MONITORING_AUDIT_SOURCE_TABLES as readonly string[]).includes(name)) throw new Error("Unknown monitoring audit source");
     // This runtime-created table has not yet been declared in Drizzle. These
     // types mirror its existing scheduler DDL; this audit never runs that DDL.
-    if (name === "youtube_channel_upload_import_state") return `${name} AS (SELECT NULL::text artist_key, NULL::text status, NULL::timestamptz completed_at, NULL::text next_page_token, NULL::integer videos_imported, NULL::integer expected_total_videos WHERE false)`;
+    if (name === "youtube_channel_upload_import_state") return `${name} AS (SELECT NULL::text artist_key, NULL::text channel_id, NULL::text status, NULL::timestamptz completed_at, NULL::text next_page_token, NULL::integer videos_imported, NULL::integer expected_total_videos WHERE false)`;
     const config = definitions.get(name);
     if (!config) throw new Error(`Missing declared monitoring source schema: ${name}`);
     const columns = config.columns.map(column => {

@@ -8,7 +8,7 @@ const { MONITORING_AUDIT_SOURCE_TABLES, withUnavailableMonitoringSources } = awa
 const { buildMonitoringCompactReadinessSql } = await import("./monitoring-compact-readiness");
 
 function fixture() {
-  const artist = groupMonitoringCandidateIdentities([{ artist_key: "example artist", artist_name: "Example Artist", spotify_id: "spotify-1", source: "kworb_coverage" }])[0]!;
+  const artist = groupMonitoringCandidateIdentities([{ artist_key: "example artist", artist_name: "Example Artist", spotify_id: "0000000000000000000101", source: "kworb_coverage" }])[0]!;
   const points = (field: string) => Array.from({ length: 101 }, (_, day) => ({ date: new Date(Date.UTC(2026, 4, 1 + day)).toISOString().slice(0, 10), [field]: 100_000 + 100 * day }));
   const extended = {
     historic_stats: { stats: [{ source: "spotify", data: { history: points("monthly_listeners_current") } }, { source: "youtube", data: { history: points("subscribers_total") } },
@@ -21,16 +21,22 @@ function fixture() {
   const summary = { snapshot_date: "2026-08-10", track_count: 1, album_count: 1, track_daily_streams: 100, track_total_streams: 10_000, album_total_streams: 20_000 };
   const row = {
     artist_key: artist.artistKey, extended: [extended], snapshot, summary, raw_summary: summary,
-    legacy: [{ coverage: { spotify_id: "spotify-1" }, extended, snapshot, summary }],
+    legacy: [{ coverage: { spotify_id: "0000000000000000000101" }, extended, snapshot, summary }],
     source_evidence: { artistImage: true, catalog: { tracks: 1, albums: 1, tracksWithArtwork: 1, albumsWithArtwork: 1 },
       liveCatalogInvestigation: { status: "reviewed", source: "kworb_live_complete_catalog", reference: "fixture:reviewed-live-catalog",
-        observedAt: "2026-08-10T11:00:00Z", spotifyArtistId: "spotify-1", catalogEvidenceApplied: true, artworkEvidenceApplied: true },
-      currentHistory: { days: 20, previousDate: "2026-08-09", lastDate: "2026-08-10" },
+        observedAt: "2026-08-10T11:00:00Z", spotifyArtistId: "0000000000000000000101", catalogEvidenceApplied: true, artworkEvidenceApplied: true },
+      currentHistory: { days: 20, previousDate: "2026-08-09", lastDate: "2026-08-10", latestSnapshots: [
+        { date: "2026-08-09", spotifyMonthlyListeners: 199_000 },
+        { date: "2026-08-10", spotifyMonthlyListeners: 200_000 },
+      ] },
       catalogCompleteness: { verified: true, reference: "fixture:full-provider-catalog", expectedTracks: 1, expectedAlbums: 1 },
       spotifyHistory: { days: 20 }, streamHistory: { days: 20 }, youtube: { approvedVideos: 2, observedVideos: 2, videosWithArtwork: 2 },
-      youtubeImport: [{ status: "complete", completedAt: "2026-08-10", nextPageTokenPresent: false, expectedVideos: 2 }],
+      providerIdentities: { youtubeChannelIds: ["fixture-channel"] },
+      youtubeImport: [{ channelId: "fixture-channel", currentChannelMatched: true, observedApprovedVideos: 2,
+        status: "complete", completedAt: "2026-08-10", nextPageTokenPresent: false, expectedVideos: 2 }],
       youtubeObservations: [{ videoId: "one", observedAt: "2026-08-10T11:00:00Z", delta: 0, secondsSincePrevious: 300 }, { videoId: "two", observedAt: "2026-08-10T11:00:00Z", delta: 1, secondsSincePrevious: 300 }],
-      youtubeHistory: { days: 20, videos: 2, videosWithHistory: 2 }, comparisonPeers: 1 },
+      youtubeHistory: { days: 20, videos: 2, videosWithHistory: 2 }, comparisonPeers: 1,
+      comparisonPeerDates: [{ date: "2026-08-10", peers: 1 }] },
   };
   return { artist, row, now: new Date("2026-08-10T12:00:00Z") };
 }
@@ -38,8 +44,8 @@ function fixture() {
 test("population includes source-only and no-Spotify artists while aliases and provider IDs are deterministic", () => {
   const rows = [
     { artist_key: "Banda El Recodo de Cruz Lizárraga", artist_name: "Banda El Recodo", spotify_id: null, source: "official_artists" },
-    { artist_key: "bandaelrecodo", artist_name: null, spotify_id: "one", source: "songstats_artist_daily_snapshots" },
-    { artist_key: "recodo-provider-key", artist_name: null, spotify_id: "one", source: "songstats_artist_extended_data" },
+    { artist_key: "bandaelrecodo", artist_name: null, spotify_id: "0000000000000000000109", source: "songstats_artist_daily_snapshots" },
+    { artist_key: "recodo-provider-key", artist_name: null, spotify_id: "0000000000000000000109", source: "songstats_artist_extended_data" },
     { artist_key: "only raw streams", artist_name: null, spotify_id: null, source: "monitoring_stream_daily_snapshots" },
   ];
   const result = groupMonitoringCandidateIdentities(rows);
@@ -48,10 +54,31 @@ test("population includes source-only and no-Spotify artists while aliases and p
   assert.ok(result.some(row => row.artistKey === "only raw streams"));
 });
 
+test("complete readiness requires a dated fresh peer and adjacent daily pulse observations", () => {
+  const { artist, row, now } = fixture();
+  for (const currentHistory of [
+    { days: 20, previousDate: "2026-01-01", lastDate: "2026-08-10" },
+    { days: 20, previousDate: "2026-01-01", lastDate: "2026-01-02" },
+  ]) {
+    const result = evaluateMonitoringCandidate(artist, { ...row, source_evidence: { ...row.source_evidence, currentHistory } }, now);
+    assert.equal(result.publicEligible, false);
+    assert.ok(result.readinessReasons.includes("missing_daily_pulse_history"));
+    assert.equal((result.sourceEvidence["dailyPulse"] as { complete: boolean }).complete, false);
+  }
+  const stalePeer = evaluateMonitoringCandidate(artist, { ...row, source_evidence: { ...row.source_evidence,
+    comparisonPeerDates: [{ date: "2026-01-01", peers: 100 }] } }, now);
+  assert.equal(stalePeer.publicEligible, false);
+  assert.ok(stalePeer.readinessReasons.includes("missing_comparison_peer"));
+  const { comparisonPeerDates: _omitted, ...undatedEvidence } = row.source_evidence;
+  const undated = evaluateMonitoringCandidate(artist, { ...row, source_evidence: undatedEvidence }, now);
+  assert.equal(undated.classification, null);
+  assert.ok(undated.findings.some(finding => finding.code === "missing_comparison_peer" && finding.status === "investigation_required"));
+});
+
 test("accepted entity aliases connect short names to existing histories without fuzzy prefix joins", () => {
   const rows = [
     { artist_key: "banda ms", artist_name: "Banda MS", spotify_id: null, source: "official_artists" },
-    { artist_key: "bandamsdesergiolizarraga", artist_name: null, spotify_id: "fixture-ms-provider", source: "songstats_history_provider_identities" },
+    { artist_key: "bandamsdesergiolizarraga", artist_name: null, spotify_id: "0000000000000000000102", source: "songstats_history_provider_identities" },
     { artist_key: "banda ms", artist_name: "Banda MS de Sergio Lizárraga", spotify_id: null, source: "musicbrainz_artists",
       declared_aliases: ["Banda MS", "MS accepted alias only"], mbid: "fixture-ms-mbid", verified: "manual_review_accepted" },
     { artist_key: "banda m", artist_name: "Banda M", spotify_id: null, source: "official_artists" },
@@ -98,12 +125,12 @@ test("distinct non-Latin and mixed-script aliases never merge through stripped c
 test("accepted discovery relationships connect stored sources while pending proposals remain separate", () => {
   const sources = [
     { artist_key: "banda ms", artist_name: "Banda MS", spotify_id: null, source: "official_artists" },
-    { artist_key: "bandamsdesergiolizarraga", artist_name: null, spotify_id: "ms-provider", source: "songstats_history_provider_identities" },
+    { artist_key: "bandamsdesergiolizarraga", artist_name: null, spotify_id: "0000000000000000000103", source: "songstats_history_provider_identities" },
     { artist_key: "bandamsdiscovered", artist_name: "Banda MS", spotify_id: null, source: "artist_candidates", source_record_id: "100",
       discovery_status: "linked_existing_artist", matched_artist_key: "banda ms de sergio lizarraga" },
-    { artist_key: "unrelated pending", artist_name: "Unrelated Pending", spotify_id: "ms-provider", source: "artist_candidates", source_record_id: "101",
+    { artist_key: "unrelated pending", artist_name: "Unrelated Pending", spotify_id: "0000000000000000000103", source: "artist_candidates", source_record_id: "101",
       discovery_status: "pending", matched_artist_key: "banda ms de sergio lizarraga" },
-    { artist_key: "unrelated spotify proposal", artist_name: "Other", spotify_id: "ms-provider", source: "spotify_artist_candidates", discovery_status: "review" },
+    { artist_key: "unrelated spotify proposal", artist_name: "Other", spotify_id: "0000000000000000000103", source: "spotify_artist_candidates", discovery_status: "review" },
   ];
   const groups = groupMonitoringCandidateIdentities(sources);
   assert.equal(groups.length, 3);
@@ -209,9 +236,35 @@ test("B requires positive raw-source proof of every failing check", () => {
   assert.equal(evaluateMonitoringCandidate(artist, row, now).classification, "C");
 });
 
+test("malformed provider assertions stay diagnostic without joining unrelated source keys", () => {
+  const invalidId = "not-a-provider-id";
+  const sources = [
+    { artist_key: "unrelated alpha", artist_name: "Alpha", spotify_id: invalidId, source: "kworb_coverage" },
+    { artist_key: "unrelated beta", artist_name: "Beta", spotify_id: invalidId, source: "songstats_artists" },
+  ];
+  const groups = groupMonitoringCandidateIdentities(sources);
+  assert.equal(groups.length, 2);
+  for (const group of groups) {
+    assert.equal(group.sourceKeys.length, 1);
+    assert.deepEqual(group.spotifyIds, [invalidId]);
+    assert.deepEqual(group.invalidSpotifyIds, [invalidId]);
+    assert.equal(group.identityMappingStatus, "unverified");
+  }
+  const { artist, row, now } = fixture();
+  const invalid = evaluateMonitoringCandidate({ ...artist, spotifyIds: [invalidId] }, row, now);
+  assert.equal(invalid.classification, null);
+  assert.equal(invalid.publicEligible, false);
+  assert.deepEqual(invalid.invalidSpotifyIds, [invalidId]);
+  assert.ok(invalid.findings.some(value => value.code === "invalid_artist_mapping" && value.status === "investigation_required"));
+  const [sameKey] = groupMonitoringCandidateIdentities([...sources.slice(0, 1),
+    { ...sources[0]!, spotify_id: artist.spotifyIds[0]!, source: "spotify_artists" }]);
+  assert.equal(sameKey?.identityConflict, true, "a valid assertion cannot erase a contradictory invalid assertion on the same exact key");
+  assert.deepEqual(sameKey?.spotifyIds, [artist.spotifyIds[0], invalidId]);
+});
+
 test("provider conflicts and unavailable source schemas remain unclassified, never false C", () => {
   const { artist, row, now } = fixture();
-  const conflict = evaluateMonitoringCandidate({ ...artist, identityConflict: true, spotifyIds: ["one", "two"] }, row, now);
+  const conflict = evaluateMonitoringCandidate({ ...artist, identityConflict: true, spotifyIds: ["0000000000000000000109", "0000000000000000000110"] }, row, now);
   assert.equal(conflict.classification, null);
   const missing = evaluateMonitoringCandidate(artist, { ...row, missing_schema_tables: ["songstats_historical_observations"] }, now);
   assert.equal(missing.auditStatus, "incomplete");
@@ -273,6 +326,128 @@ test("artwork coverage recovers full Songstats catalog, Kworb payload, stored co
   assert.equal((result.sourceEvidence.catalog as { tracksWithArtwork: number }).tracksWithArtwork, 3);
 });
 
+function endpointFixture(missing: Array<"audience" | "catalog">) {
+  const { artist, row, now } = fixture();
+  const extended: Record<string, unknown> = { ...row.extended[0], artist_key: artist.artistKey,
+    audience_details_fetched_at: "2026-08-08T10:00:00Z" };
+  for (const endpoint of missing) extended[endpoint] = null;
+  return { artist, now, row: { ...row, extended: [extended], legacy: [{ ...row.legacy[0]!, extended }] } };
+}
+
+test("real scoped licensed Mexico details make the redundant audience endpoint a contract repair, preserving legacy failure", () => {
+  const { artist, row, now } = endpointFixture(["audience"]);
+  const result = evaluateMonitoringCandidate(artist, row, now);
+  assert.equal(result.legacyPublicEligible, false);
+  assert.equal(result.readiness.ready, false);
+  assert.deepEqual(result.readiness.reasons, ["missing_licensed_endpoint"]);
+  assert.equal(result.classification, "B");
+  assert.equal(result.publicEligible, false);
+  assert.ok(result.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "repairable"));
+  assert.ok(result.findings.some(finding => finding.code === "missing_licensed_endpoint" && finding.status === "repairable"));
+  assert.equal((result.sourceEvidence["licensedEndpoints"] as { audience: boolean }).audience, false);
+  const proof = result.sourceEvidence["endpointPresenceContractMismatch"] as { endpoints: Array<Record<string, unknown>> };
+  assert.equal(proof.endpoints[0]?.fetchedAt, "2026-08-08T10:00:00Z");
+  assert.equal(proof.endpoints[0]?.parsedMexicoCities, 1);
+  for (const source of [{ ...row.extended[0], artist_key: "unrelated" }, { ...row.extended[0], audience_details_fetched_at: null }]) {
+    const unproven = evaluateMonitoringCandidate(artist, { ...row, extended: [source] }, now);
+    assert.equal(unproven.classification, null);
+    assert.ok(unproven.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "investigation_required"));
+  }
+});
+
+test("an audience payload without actual Mexico detail still fails the market requirement", () => {
+  const { artist, row, now } = endpointFixture(["audience"]);
+  const result = evaluateMonitoringCandidate(artist, { ...row, extended: [{ ...row.extended[0],
+    audience_details: { sources: { spotify: { audience: [{ source: "spotify", data: { monthly_listeners: [] } }] } } },
+  }] }, now);
+  assert.equal(result.classification, "C");
+  assert.ok(result.findings.some(finding => finding.code === "missing_mexico_audience" && finding.status === "blocked"));
+  assert.ok(!result.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch"));
+});
+
+test("missing Songstats catalog alone does not establish absence of the canonical catalog fallback", () => {
+  const { artist, row, now } = endpointFixture(["catalog"]);
+  const result = evaluateMonitoringCandidate(artist, { ...row,
+    source_evidence: { ...row.source_evidence, liveCatalogInvestigation: null },
+  }, now);
+  assert.equal(result.legacyPublicEligible, false);
+  assert.equal(result.readiness.ready, false);
+  assert.deepEqual(result.readiness.reasons, ["missing_licensed_endpoint"]);
+  assert.equal(result.classification, null);
+  assert.equal(result.publicEligible, false);
+  assert.ok(result.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "investigation_required"));
+  assert.ok(result.findings.every(finding => finding.status !== "blocked"));
+});
+
+test("catalog endpoint repair requires applied complete item and artwork proof bound to the reviewed artist capture", () => {
+  const { artist, row, now } = endpointFixture(["audience", "catalog"]);
+  const capture = row.source_evidence.liveCatalogInvestigation;
+  const catalogCompleteness = { ...row.source_evidence.catalogCompleteness, source: capture.source,
+    reference: capture.reference, spotifyArtistId: capture.spotifyArtistId };
+  const inspected = { ...row, stream_items: [
+    { item_type: "track", item_key: "track-one", title: "Track One", artwork_url: "https://example.com/track.jpg" },
+    { item_type: "album", item_key: "album-one", title: "Album One", artwork_url: "https://example.com/album.jpg" },
+  ], source_evidence: { ...row.source_evidence, catalogCompleteness } };
+  const complete = evaluateMonitoringCandidate(artist, inspected, now);
+  assert.equal(complete.classification, "B");
+  assert.equal(complete.legacyPublicEligible, false);
+  assert.equal(complete.publicEligible, false);
+  assert.ok(complete.readiness.reasons.includes("missing_licensed_endpoint"));
+  assert.ok(complete.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "repairable"));
+  const incompleteCases = [
+    { ...inspected, stream_items: undefined },
+    { ...inspected, stream_items: inspected.stream_items.map(item => ({ ...item, artwork_url: null })) },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, catalogCompleteness: { ...catalogCompleteness, expectedTracks: 100 } } },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, catalogCompleteness: { ...catalogCompleteness, reference: "unrelated-capture" } } },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, catalogCompleteness: { ...catalogCompleteness, spotifyArtistId: "0000000000000000000999" } } },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, liveCatalogInvestigation: { ...capture, artworkEvidenceApplied: false } } },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, liveCatalogInvestigation: { ...capture, observedAt: "2020-01-01T00:00:00Z" } } },
+    { ...inspected, source_evidence: { ...inspected.source_evidence, liveCatalogInvestigation: { ...capture, observedAt: "2026-08-09T00:00:00Z" } } },
+  ];
+  for (const incomplete of incompleteCases) {
+    const result = evaluateMonitoringCandidate(artist, incomplete, now);
+    assert.equal(result.publicEligible, false);
+    assert.ok(result.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "investigation_required"));
+  }
+  const archiveProof = { ...catalogCompleteness, source: "monitoring_stream_daily_snapshots", artistKey: artist.artistKey,
+    sourceKeys: [artist.artistKey], evidenceApplied: true };
+  const archive = { ...inspected, served_summary: { ...row.summary, source_table: "monitoring_stream_daily_snapshots" },
+    source_evidence: { ...inspected.source_evidence, liveCatalogInvestigation: null, catalogCompleteness: archiveProof } };
+  assert.equal(evaluateMonitoringCandidate(artist, archive, now).classification, "B");
+  for (const proof of [{ ...archiveProof, sourceKeys: ["unrelated artist"] }, { ...archiveProof, evidenceApplied: false }]) {
+    const result = evaluateMonitoringCandidate(artist, { ...archive, source_evidence: { ...archive.source_evidence, catalogCompleteness: proof } }, now);
+    assert.ok(result.findings.some(finding => finding.code === "endpoint_presence_contract_mismatch" && finding.status === "investigation_required"));
+  }
+});
+
+test("candidate, native and legacy YouTube diagnostics keep absent approved coverage under investigation", () => {
+  const { artist, row, now } = fixture();
+  const noApprovedSources = { ...row.source_evidence,
+    youtube: { approvedVideos: 0, observedVideos: 0, videosWithArtwork: 0 },
+    youtubeObservations: [], youtubeHistory: { days: 0, videos: 0, videosWithHistory: 0 }, youtubeImport: [],
+  };
+  for (const youtubeServing of [
+    undefined,
+    { inspected: true, catalog: { videos: 2, candidateOnlyVideos: 2 }, relationships: [{ status: "review", sampling_status: "shadow" }] },
+    { inspected: true, nativeDailyHistory: { points: 20, candidateOnlyVideosWithHistory: 2 } },
+    { inspected: true, legacyVideos: { videos: 2 } },
+    { inspected: true, channelDailyHistory: { points: 20 } },
+  ]) {
+    const result = evaluateMonitoringCandidate(artist, { ...row, source_evidence: { ...noApprovedSources, youtubeServing } }, now);
+    assert.equal(result.classification, null);
+    assert.equal(result.auditStatus, "incomplete");
+    assert.equal(result.publicEligible, false);
+    assert.ok(result.findings.some(finding => finding.code === "youtube_serving_source_requires_investigation"));
+    assert.ok(result.findings.filter(finding => finding.section === "youtube").every(finding => finding.status === "investigation_required"));
+    assert.equal((result.sourceEvidence["youtube"] as { approvedVideos: number }).approvedVideos, 0);
+  }
+  const knownAbsent = evaluateMonitoringCandidate(artist, { ...row, source_evidence: { ...noApprovedSources,
+    youtubeServing: { inspected: true, catalog: { videos: 0 }, legacyVideos: { videos: 0 }, channelDailyHistory: { points: 0 }, nativeDailyHistory: { points: 0 } },
+  } }, now);
+  assert.equal(knownAbsent.classification, "C", "an inspected absence remains a known approved-source gap");
+  assert.ok(knownAbsent.findings.some(finding => finding.code === "missing_approved_youtube_catalog" && finding.status === "blocked"));
+});
+
 const postgresModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
 test("read-only source audit SQL executes on PostgreSQL and keeps artists omitted by old joins", { skip: !postgresModule }, async () => {
   const { PGlite } = await import(postgresModule!);
@@ -288,7 +463,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
       const columns = config.columns.map(column => `"${column.name}" ${column.getSQLType().replace(/^serial$/, "integer").replace(/^bigserial$/, "bigint")}`);
       await db.exec(`CREATE TABLE "${config.name}" (${columns.join(", ")})`);
     }
-    await db.exec("CREATE TABLE youtube_channel_upload_import_state (artist_key text, status text, completed_at timestamptz, next_page_token text, videos_imported integer, expected_total_videos integer)");
+    await db.exec("CREATE TABLE youtube_channel_upload_import_state (artist_key text, channel_id text, status text, completed_at timestamptz, next_page_token text, videos_imported integer, expected_total_videos integer)");
     await db.exec("INSERT INTO kworb_coverage(artist_key,artist_name) VALUES ('no spotify','No Spotify'); INSERT INTO official_artists(artist_key,artist_name) VALUES ('no snapshots','No Snapshots'); INSERT INTO monitoring_stream_items(artist_key,item_type,item_key,title) VALUES ('raw only','track','one','One')");
     const population = await db.query(MONITORING_CANDIDATE_POPULATION_SQL);
     assert.equal(groupMonitoringCandidateIdentities(population.rows).length, 3);
@@ -300,6 +475,14 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     assert.equal(referenceResult.rows[0].legacy[0].extended_artist_key, "no spotify");
     assert.equal(Object.hasOwn(referenceResult.rows[0].legacy[0], "extended"), false);
     assert.equal(referenceResult.rows[0].extended[0].historic_stats.fixture.length, 22000);
+    await db.exec(`INSERT INTO kworb_coverage(artist_key,status) VALUES ('stale peer','active'),('fresh peer','active'),('zero latest peer','active');
+      INSERT INTO songstats_artist_extended_data(artist_key) VALUES ('stale peer'),('fresh peer'),('zero latest peer');
+      INSERT INTO songstats_artist_daily_snapshots(artist_key,snapshot_date,spotify_monthly_listeners) VALUES
+        ('stale peer','2026-01-01',100),('fresh peer','2026-08-10',200),
+        ('zero latest peer','2026-08-09',300),('zero latest peer','2026-08-10',0)`);
+    const peers = await db.query(MONITORING_CANDIDATE_EVIDENCE_SQL, [JSON.stringify([{ artist_key: "fresh peer", source_keys: ["fresh peer"] }])]);
+    assert.equal(peers.rows[0].source_evidence.comparisonPeers, 1);
+    assert.deepEqual(peers.rows[0].source_evidence.comparisonPeerDates, [{ date: "2026-01-01", peers: 1 }]);
     await db.exec(`INSERT INTO songstats_history_provider_identities(id,artist_key,validation_status) VALUES(1,'compact artist','verified');
       INSERT INTO songstats_history_metric_definitions(id,metric_key,ingestion_status,commercial_endpoint) VALUES
         (1,'spotifyMonthlyListeners','active','artist_historical_stats'),(2,'tiktokFollowers','quarantined','artist_historical_stats');
@@ -320,21 +503,21 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     const targeted = await getMonitoringCandidateIdentity("no spotify", readPool as never);
     assert.equal(targeted?.artistKey, "no spotify");
     assert.equal(targeted?.spotifyIds.length, 0);
-    await db.exec("INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('luis miguel','Luis Miguel','luis-id')");
+    await db.exec("INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('luis miguel','Luis Miguel','0000000000000000000104')");
     assert.equal((await getMonitoringCandidateIdentity("luis-miguel", readPool as never))?.artistKey, "luis miguel");
     assert.equal((await getMonitoringCandidateIdentity("luismiguel", readPool as never))?.artistKey, "luis miguel");
-    await db.exec("INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('Luis Miguel','conflicting-id',true)");
+    await db.exec("INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('Luis Miguel','0000000000000000000105',true)");
     const conflicted = await getMonitoringCandidateIdentity("luis miguel", readPool as never);
     assert.equal(conflicted?.identityConflict, true);
     assert.deepEqual(conflicted?.matchKeys, ["luis miguel"]);
     const page = await getMonitoringCandidateDirectory({ limit: 2 }, { readPool: readPool as never, now: new Date("2026-08-10") });
-    assert.equal(page.total, 5);
+    assert.equal(page.total, 8);
     assert.equal(page.artists.length, 2);
     assert.equal(page.hasMore, true);
     assert.equal(page.populationComplete, false);
     assert.equal(page.counts.incomplete, 2);
     await db.exec(`INSERT INTO official_artists(artist_key,artist_name) VALUES ('banda ms','Banda MS'),('banda m','Banda M');
-      INSERT INTO songstats_history_provider_identities(id,artist_key,spotify_artist_id,validation_status) VALUES (2,'bandamsdesergiolizarraga','fixture-ms-provider','verified');
+      INSERT INTO songstats_history_provider_identities(id,artist_key,spotify_artist_id,validation_status) VALUES (2,'bandamsdesergiolizarraga','0000000000000000000102','verified');
       INSERT INTO musicbrainz_artists(artist_key,mbid,name,aliases,verified) VALUES
         ('banda ms','fixture-ms-mbid','Banda MS de Sergio Lizárraga','["Banda MS", "MS accepted alias only"]','manual_review_accepted'),
         ('unreviewed group','fixture-unreviewed-mbid','Unreviewed Group','["Banda MS"]','needs_review')`);
@@ -368,7 +551,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
       INSERT INTO musicbrainz_artists(artist_key,mbid,name,aliases,verified) VALUES
         ('artist alpha','alpha-mbid','Artist Alpha','["阿尔法", "X東京"]','auto'),
         ('artist beta','beta-mbid','Artist Beta','["ベータ", "X大阪"]','auto');
-      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('x','x-provider',true),('x東京','tokyo-provider',true);
+      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('x','0000000000000000000106',true),('x東京','0000000000000000000107',true);
       INSERT INTO monitoring_stream_items(artist_key,item_type,item_key,title) VALUES ('阿尔法','track','alpha-track','Alpha Track')`);
     for (const [alias, expected] of [["阿尔法", "artist alpha"], ["X東京", "artist alpha"], ["ベータ", "artist beta"], ["X大阪", "artist beta"]]) {
       const identity = await getMonitoringCandidateIdentity(alias!, readPool as never);
@@ -379,7 +562,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     assert.equal(await getMonitoringCandidateIdentity("!!!", readPool as never), null);
     const asciiIdentity = await getMonitoringCandidateIdentity("x", readPool as never);
     assert.deepEqual(asciiIdentity?.sourceKeys, ["x"]);
-    assert.deepEqual(asciiIdentity?.spotifyIds, ["x-provider"]);
+    assert.deepEqual(asciiIdentity?.spotifyIds, ["0000000000000000000106"]);
     const unicodePage = await getMonitoringCandidateDirectory({ artistKeys: ["阿尔法"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(unicodePage.total, 1);
     assert.deepEqual(unicodePage.artists[0]?.sourceKeys, ["artist alpha", "x東京", "阿尔法"]);
@@ -388,12 +571,12 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     const unicodeSearch = await getMonitoringCandidateDirectory({ search: "ベータ" }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(unicodeSearch.total, 1);
     assert.equal(unicodeSearch.artists[0]?.artistKey, "artist beta");
-    await db.exec(`INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('paid artist','Paid Artist','paid-provider');
+    await db.exec(`INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('paid artist','Paid Artist','0000000000000000000108');
       INSERT INTO songstats_history_provider_identities(id,artist_key,spotify_artist_id,validation_status) VALUES
-        (10,'verified paid source','paid-provider','verified'),
-        (11,'review other artist','paid-provider','review'),
-        (12,'rejected other artist','paid-provider','rejected');
-      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('unverified spotify artist','paid-provider',false);
+        (10,'verified paid source','0000000000000000000108','verified'),
+        (11,'review other artist','0000000000000000000108','review'),
+        (12,'rejected other artist','0000000000000000000108','rejected');
+      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('unverified spotify artist','0000000000000000000108',false);
       INSERT INTO monitoring_stream_items(artist_key,item_type,item_key,title) VALUES
         ('review other artist','track','review-track','Review Track'),
         ('rejected other artist','track','rejected-track','Rejected Track')`);
@@ -431,7 +614,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
       (101,'Pending Discovery','pendingdiscovery','pending','paid artist'),
       (102,'Rejected Discovery','rejecteddiscovery','rejected','paid artist');
       INSERT INTO spotify_artist_candidates(artist_key,artist_name,status,candidates) VALUES
-      ('only spotify proposal','Only Spotify Proposal','review','[{"spotifyArtistId":"paid-provider"}]')`);
+      ('only spotify proposal','Only Spotify Proposal','review','[{"spotifyArtistId":"0000000000000000000108"}]')`);
     const linkedMs = await getMonitoringCandidateIdentity("banda-ms", readPool as never);
     assert.deepEqual(linkedMs?.sourceKeys, ["banda ms", "banda ms de sergio lizarraga", "bandamsdesergiolizarraga"]);
     assert.equal(linkedMs?.identityConflict, false);
@@ -449,5 +632,106 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     assert.ok(discoveryPage.artists.every(row => row.classification === null && row.candidateRecords.length === 1));
     const paidAfterDiscovery = await getMonitoringCandidateIdentity("paid artist", readPool as never);
     for (const key of ["pendingdiscovery", "rejecteddiscovery", "only spotify proposal"]) assert.ok(!paidAfterDiscovery?.matchKeys.includes(key));
+    await db.exec(`INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES
+      ('malformed alpha','Malformed Alpha','invalid-shared-provider'),
+      ('malformed beta','Malformed Beta','invalid-shared-provider'),
+      ('malformed conflict','Malformed Conflict','invalid-shared-provider');
+      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES
+      ('malformed conflict','0000000000000000000200',true)`);
+    const providerLookups: unknown[][] = [];
+    const capturedPool = { connect: async () => ({
+      query: async (input: { text: string; values: unknown[] }) => {
+        if (Array.isArray(input.values?.[1])) providerLookups.push(input.values[1]);
+        return db.query(input.text, input.values);
+      }, release() {},
+    }) };
+    for (const key of ["malformed alpha", "malformed beta"]) {
+      const identity = await getMonitoringCandidateIdentity(key, capturedPool as never);
+      assert.deepEqual(identity?.sourceKeys, [key], "a shared malformed ID cannot expand a targeted lookup");
+      assert.deepEqual(identity?.spotifyIds, ["invalid-shared-provider"]);
+      assert.deepEqual(identity?.invalidSpotifyIds, ["invalid-shared-provider"]);
+    }
+    const invalidConflict = await getMonitoringCandidateIdentity("malformed conflict", capturedPool as never);
+    assert.equal(invalidConflict?.identityConflict, true);
+    assert.deepEqual(invalidConflict?.spotifyIds, ["0000000000000000000200", "invalid-shared-provider"]);
+    assert.deepEqual(invalidConflict?.matchKeys, ["malformed conflict"]);
+    assert.ok(providerLookups.length >= 6);
+    assert.ok(providerLookups.flat().every(value => typeof value === "string" && /^[A-Za-z0-9]{22}$/.test(value)),
+      "only valid provider IDs may appear in the second targeted provider query");
+    const finalPopulation = groupMonitoringCandidateIdentities((await db.query(withUnavailableMonitoringSources(
+      MONITORING_CANDIDATE_POPULATION_SQL, ["songstats_historical_observations"],
+    ))).rows);
+    assert.equal(finalPopulation.filter(group => group.sourceKeys.some(key => key.startsWith("malformed "))).length, 3,
+      "the directory preserves every unrelated malformed source candidate");
+    await db.exec(`INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified,spotify_image_url)
+      VALUES ('unverified image','0000000000000000000201',false,'https://example.com/unverified.jpg')`);
+    const imageQuery = withUnavailableMonitoringSources(MONITORING_CANDIDATE_EVIDENCE_SQL, ["songstats_historical_observations"]);
+    const imageKeys = JSON.stringify([{ artist_key: "unverified image", source_keys: ["unverified image"] }]);
+    assert.equal((await db.query(imageQuery, [imageKeys])).rows[0].source_evidence.artistImage, false);
+    await db.exec("UPDATE spotify_artists SET verified=true WHERE artist_key='unverified image'");
+    assert.equal((await db.query(imageQuery, [imageKeys])).rows[0].source_evidence.artistImage, true);
+    await db.exec(`INSERT INTO youtube_channels(artist_key,channel_id) VALUES ('youtube fixture','channel-one'),('youtube fixture alias','channel-two'),('youtube unrelated','channel-other');
+      INSERT INTO youtube_channel_upload_import_state(artist_key,channel_id,status,completed_at,next_page_token,videos_imported,expected_total_videos) VALUES
+        ('youtube fixture','channel-one','complete','2026-08-10',null,2,2),
+        ('youtube fixture alias','channel-two','complete','2026-08-10',null,2,2);
+      INSERT INTO youtube_artist_video_links(id,artist_key,video_id,active,confidence_score) VALUES
+        (201,'youtube fixture','one-a',true,90),(202,'youtube fixture','one-b',true,90),
+        (203,'youtube fixture alias','one-a',true,90),(204,'youtube fixture','two-missing',true,90),
+        (205,'youtube unrelated','other-video',true,90);
+      INSERT INTO youtube_tracked_videos(video_id,channel_id,view_count) VALUES
+        ('one-a','channel-one',0),('one-b','channel-one',100),('two-missing','channel-two',null),('other-video','channel-other',999);
+      INSERT INTO youtube_music_catalog_candidates(id,artist_key,artist_name,video_id,confidence_score,status,sampling_status,evidence_source) VALUES
+        (206,'youtube fixture','YouTube Fixture','candidate-only',95,'verified','shadow','youtube_music_innertube');
+      INSERT INTO youtube_tracked_videos(video_id,channel_id,view_count) VALUES ('candidate-only','channel-two',100);
+      INSERT INTO youtube_video_daily_snapshots(video_id,snapshot_date,view_count,fetched_at) VALUES
+        ('one-a','2020-01-01',1,'2020-01-01'),('one-a','2020-01-02',2,'2020-01-02'),
+        ('candidate-only',to_char(current_date - 1,'YYYY-MM-DD'),0,now()-interval '1 day'),
+        ('candidate-only',to_char(current_date,'YYYY-MM-DD'),100,now())`);
+    const youtubeKeys = JSON.stringify([{ artist_key: "youtube fixture", source_keys: ["youtube fixture", "youtube fixture alias"] }]);
+    const youtubeEvidence = (await db.query(imageQuery, [youtubeKeys])).rows[0].source_evidence;
+    const channelImports = [...youtubeEvidence.youtubeImport].sort((a: any,b: any) => a.channelId.localeCompare(b.channelId));
+    assert.deepEqual(channelImports.map((row: any) => [row.channelId,row.observedApprovedVideos,row.currentChannelMatched]),
+      [["channel-one",2,true],["channel-two",0,true]], "approved observed videos deduplicate aliases and reconcile on their actual channel; zero is observed");
+    assert.equal(youtubeEvidence.youtube.approvedVideos, 3);
+    assert.equal(youtubeEvidence.youtube.observedVideos, 2);
+    assert.equal(youtubeEvidence.youtubeHistory.videos, 0, "candidate-only daily history never enters approved completeness");
+    assert.equal(youtubeEvidence.youtubeHistory.days, 0, "stale 2020 native dates cannot satisfy the served 90-day history");
+    assert.equal(youtubeEvidence.youtubeHistory.videosWithHistory, 0);
+    assert.equal(youtubeEvidence.youtubeHistory.rangeDays, 90);
+    assert.equal(youtubeEvidence.youtubeHistory.rangeClock, "database_now_America/New_York");
+    assert.equal(youtubeEvidence.youtubeHistory.sourceTable, "youtube_video_daily_snapshots");
+    assert.equal(youtubeEvidence.youtubeHistory.allTime.days, 2, "the older actual archive remains inventoried separately");
+    assert.equal(youtubeEvidence.youtubeHistory.allTime.videosWithHistory, 1);
+    assert.equal(youtubeEvidence.youtubeServing.nativeDailyHistory.candidateOnlyVideosWithHistory, 1);
+    const { evaluateMonitoringYoutubeImportProof } = await import("./monitoring-youtube-policy");
+    assert.equal(evaluateMonitoringYoutubeImportProof(youtubeEvidence).complete, false);
+    assert.equal(evaluateMonitoringYoutubeImportProof(youtubeEvidence).knownMissing, true);
   } finally { await db.close(); }
+});
+
+
+test("pulse contract evaluates finite pairs from the same merged serving history and keeps uninspected sources unknown", () => {
+  const { artist, row, now } = fixture();
+  const nativePair = [{ date: "2026-08-09", spotifyFollowers: 0 }, { date: "2026-08-10", spotifyFollowers: 0 }];
+  const noTrends = row.extended.map(value => ({ ...value, historic_stats: {} }));
+  const measured = evaluateMonitoringCandidate(artist, { ...row, extended: noTrends, source_evidence: { ...row.source_evidence,
+    currentHistory: { ...row.source_evidence.currentHistory, latestSnapshots: nativePair } } }, now);
+  assert.equal((measured.sourceEvidence["dailyPulse"] as { complete: boolean }).complete, true);
+  assert.ok(!measured.findings.some(finding => finding.code === "missing_daily_pulse_history"));
+  const missingPair = { ...row, extended: noTrends, source_evidence: { ...row.source_evidence,
+    currentHistory: { ...row.source_evidence.currentHistory, latestSnapshots: [nativePair[0], { date: "2026-08-10", instagramFollowers: 1 }] } } };
+  const incomplete = evaluateMonitoringCandidate(artist, missingPair, now);
+  assert.equal(incomplete.publicEligible, false);
+  assert.equal((incomplete.sourceEvidence["dailyPulse"] as { reason: string }).reason, "no_paired_metrics");
+  assert.ok(incomplete.findings.some(finding => finding.code === "missing_daily_pulse_history" && finding.status === "blocked"));
+  const uninspectedCompact = evaluateMonitoringCandidate(artist, { ...missingPair, source_evidence: { ...missingPair.source_evidence,
+    compactHistory: { points: 10 } } }, now);
+  assert.ok(uninspectedCompact.findings.some(finding => finding.code === "missing_daily_pulse_history" && finding.status === "investigation_required"));
+  const latestLicensed = noTrends.map(value => ({ ...value, historic_stats: { stats: [
+    { source: "instagram", data: { history: [{ date: "2026-08-08", followers_total: 90 }, { date: "2026-08-11", followers_total: 100 }] } },
+  ] } }));
+  const newerUnpaired = evaluateMonitoringCandidate(artist, { ...row, extended: latestLicensed, source_evidence: { ...row.source_evidence,
+    currentHistory: { ...row.source_evidence.currentHistory, latestSnapshots: nativePair } } }, now);
+  assert.equal((newerUnpaired.sourceEvidence["dailyPulse"] as { complete: boolean }).complete, false);
+  assert.ok(newerUnpaired.findings.some(finding => finding.code === "missing_daily_pulse_history" && finding.status === "investigation_required"));
 });

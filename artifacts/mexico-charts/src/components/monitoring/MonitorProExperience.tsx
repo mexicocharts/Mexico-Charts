@@ -41,6 +41,8 @@ import { Link } from "wouter";
 import { useMexicoAuth } from "@/auth/AuthProvider";
 import {
   monitorRequestState,
+  monitorHistoryRequest,
+  monitorHistoryWindowData,
   requestMonitorResource,
   shouldRetryMonitorRequest,
   validateMonitorHistory,
@@ -72,7 +74,12 @@ export type MonitorSnapshot = Record<MonitorMetricKey, number | null> & {
 };
 
 export type MonitorDashboardData = {
-  identityDiagnostics?: { canonicalArtistKey: string; sourceKeys: string[]; conflict: boolean; warnings: string[] };
+  identityDiagnostics?: {
+    canonicalArtistKey: string;
+    sourceKeys: string[];
+    conflict: boolean;
+    warnings: string[];
+  };
   sectionStatus?: Record<
     string,
     "loaded" | "failed" | "timeout" | "budget_exhausted"
@@ -88,12 +95,12 @@ export type MonitorDashboardData = {
   current: MonitorSnapshot | null;
   history: MonitorSnapshot[];
   dailyPulse: {
-    status: "ready" | "collecting";
+    status: "ready" | "collecting" | "partial" | "stale" | "unavailable";
     currentDate: string | null;
     previousDate: string | null;
     headline: string;
     summary: string;
-    metricsChanged: number;
+    metricsChanged: number | null;
     signals: Array<{
       kind: "gain" | "decline" | "milestone" | "release";
       platform: string;
@@ -427,41 +434,42 @@ function TrendChart({
     tiktok: "tiktokFollowers",
   }[metric] as MonitorMetricKey;
   const auth = useMexicoAuth();
-  const metricHistory = useQuery<MonitorHistoryResponse>({
-    queryKey: [
-      "monitor-history",
-      auth.userId,
-      data.subscription.artistKey,
-      metricKey,
-    ],
-    enabled:
-      auth.configured &&
-      auth.isLoaded &&
-      auth.isSignedIn &&
-      Boolean(auth.userId),
+  const historyEnabled =
+    auth.configured && auth.isLoaded && auth.isSignedIn && Boolean(auth.userId);
+  const allHistoryRequest = monitorHistoryRequest({
+    userId: auth.userId,
+    artistKey: data.subscription.artistKey,
+    metricKey,
+    range: "all",
+  });
+  const allHistory = useQuery<MonitorHistoryResponse>({
+    queryKey: allHistoryRequest.queryKey,
+    enabled: historyEnabled,
     staleTime: 5 * 60 * 1000,
     networkMode: "always",
     retry: shouldRetryMonitorRequest,
     queryFn: ({ signal }) =>
       requestMonitorResource<MonitorHistoryResponse>({
         getToken: auth.getToken,
-        input: `/api/monitoring/history/${encodeURIComponent(data.subscription.artistKey)}/${metricKey}?range=all&resolution=auto`,
+        input: allHistoryRequest.input,
         signal,
         readResponse: async (response) =>
           validateMonitorHistory(await response.json()),
       }),
   });
-  const allAvailable = useMemo(() => {
+  const allWindow = useMemo(() => {
     const base = data.history.flatMap((point) =>
       point[metricKey] == null
         ? []
         : [{ date: point.date, value: point[metricKey] as number }],
     );
-    const merged = new Map(base.map((point) => [point.date, point]));
-    for (const [date, value] of metricHistory.data?.points ?? [])
-      merged.set(date, { date, value });
-    return [...merged.values()].sort((a, b) => a.date.localeCompare(b.date));
-  }, [data.history, metricKey, metricHistory.data]);
+    return monitorHistoryWindowData({
+      range: "all",
+      allPoints: base,
+      allResponse: allHistory.data,
+    });
+  }, [data.history, metricKey, allHistory.data]);
+  const allAvailable = allWindow.points;
   const availableSpanDays = useMemo(() => {
     const earliest = allAvailable[0]?.date;
     const latest = allAvailable.at(-1)?.date;
@@ -490,14 +498,36 @@ function TrendChart({
       ? requestedRangeDays
       : null;
   const effectiveRange = rangeDays == null ? "all" : range;
-  const chart = useMemo(() => {
-    const latest = allAvailable.at(-1)?.date;
-    if (!latest || rangeDays == null) return allAvailable;
-    const cutoff = new Date(`${latest}T12:00:00Z`);
-    cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays + 1);
-    const cutoffDate = cutoff.toISOString().slice(0, 10);
-    return allAvailable.filter((point) => point.date >= cutoffDate);
-  }, [allAvailable, rangeDays]);
+  const selectedHistoryRequest = monitorHistoryRequest({
+    userId: auth.userId,
+    artistKey: data.subscription.artistKey,
+    metricKey,
+    range: effectiveRange,
+  });
+  const selectedHistory = useQuery<MonitorHistoryResponse>({
+    queryKey: selectedHistoryRequest.queryKey,
+    enabled: historyEnabled && effectiveRange !== "all",
+    staleTime: 5 * 60 * 1000,
+    networkMode: "always",
+    retry: shouldRetryMonitorRequest,
+    queryFn: ({ signal }) =>
+      requestMonitorResource<MonitorHistoryResponse>({
+        getToken: auth.getToken,
+        input: selectedHistoryRequest.input,
+        signal,
+        readResponse: async (response) =>
+          validateMonitorHistory(await response.json(), effectiveRange),
+      }),
+  });
+  const metricHistory = effectiveRange === "all" ? allHistory : selectedHistory;
+  const visibleWindow =
+    effectiveRange === "all"
+      ? allWindow
+      : monitorHistoryWindowData({
+          range: effectiveRange,
+          selectedResponse: selectedHistory.data,
+        });
+  const chart = visibleWindow.points;
   const historyAvailability = data.availableHistory.metrics.find(
     (candidate) => candidate.metricKey === metricKey,
   );
@@ -523,19 +553,15 @@ function TrendChart({
     (values.length ? Math.min(...values) : 0) - padding,
     (values.length ? Math.max(...values) : 1) + padding,
   ];
-  // Daily points can describe the selected chart window exactly. A min/max
-  // transport series is sampled, so only server coverage can establish gaps.
-  const visibleMissingDays =
-    rangeDays != null && metricHistory.data?.resolution?.returned === "daily"
-      ? Math.max(0, rangeDays - chart.length)
-      : (metricHistory.data?.rangeCoverage?.missingDateCount ?? 0);
-  const partialHistory = allAvailable.length === 1 || visibleMissingDays > 0;
+  // Coverage belongs to the exact selected request. Old gaps in the all-history
+  // min/max response cannot describe a recent daily window.
+  const visibleMissingDays = visibleWindow.missingDateCount;
   const historyState = monitorRequestState({
     isFetching: metricHistory.isFetching,
     error: metricHistory.error,
     succeeded: metricHistory.isSuccess,
     observationCount: chart.length,
-    partial: partialHistory,
+    partial: visibleWindow.partial,
   });
   const historyStatusText = {
     loading: "Cargando historial: la consulta está en curso.",
@@ -565,7 +591,7 @@ function TrendChart({
         className={`mb-4 text-xs ${historyFailed || historyState === "partial" ? "text-amber-300" : "text-white/45"}`}
       >
         <p>{historyStatusText}</p>
-        {historyFailed && canShowHistory && allAvailable.length > 0 && (
+        {historyFailed && canShowHistory && chart.length > 0 && (
           <p className="mt-2">
             La gráfica conserva las lecturas ya recibidas; no confirma ausencia
             de historia anterior.
@@ -631,8 +657,8 @@ function TrendChart({
         </div>
       </div>
       <p className="mt-4 text-[9px] leading-5 text-white/35">
-        {canShowHistory && allAvailable.length
-          ? `${allAvailable.length} observaciones realmente entregadas · ${dateLabel(allAvailable[0]?.date)}–${dateLabel(allAvailable.at(-1)?.date)}`
+        {canShowHistory && chart.length
+          ? `${chart.length} observaciones realmente entregadas · ${dateLabel(chart[0]?.date)}–${dateLabel(chart.at(-1)?.date)}`
           : historyState === "empty"
             ? "No se entregó historial para esta métrica."
             : "La disponibilidad del historial no está confirmada."}
@@ -765,7 +791,12 @@ function SummaryView({ open }: { open: (view: View) => void }) {
           </p>
           <div className="mt-6 grid gap-2 sm:grid-cols-3">
             {[
-              ["Cambios detectados", String(data.dailyPulse.metricsChanged)],
+              [
+                "Cambios detectados",
+                data.dailyPulse.metricsChanged == null
+                  ? "—"
+                  : String(data.dailyPulse.metricsChanged),
+              ],
               ["Última lectura", dateLabel(data.dailyPulse.currentDate)],
               [
                 "Mercado principal",
@@ -863,7 +894,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
                   signed(signal.delta),
                   signal.title,
                 ])
-              : [["Lecturas", "—", "Recopilando cambios entre observaciones"]]
+              : [["Lecturas", "—", data.dailyPulse.summary]]
             ).map(([a, b, c]) => (
               <div
                 key={a}
@@ -1924,7 +1955,7 @@ function AlertsView() {
               : [
                   [
                     dateLabel(data.dailyPulse.currentDate),
-                    "Sin cambios materiales en la lectura más reciente",
+                    data.dailyPulse.summary,
                   ],
                 ]
             ).map(([time, event]) => (
@@ -2020,7 +2051,7 @@ function ReportsView() {
     data.dailyPulse.signals
       .slice(0, 2)
       .map((signal) => signal.title)
-      .join(" · ") || "Sin cambios materiales en la lectura más reciente";
+      .join(" · ") || data.dailyPulse.summary;
   return (
     <div className="space-y-4">
       <Panel className="overflow-hidden border-[#39FF14]/20 bg-[radial-gradient(circle_at_80%_20%,rgba(57,255,20,.13),transparent_36%)] p-6 sm:p-9">
@@ -2203,11 +2234,17 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
           noindex
         />
         <SiteNav />
-        {data.subscription.accessSource === "internal" && data.identityDiagnostics?.conflict && (
-          <div role="alert" className="mx-auto max-w-[1500px] border border-amber-400/30 bg-amber-400/5 px-5 py-4 text-sm text-amber-100">
-            Conflicto de identidad: este perfil muestra únicamente datos bajo su ID exacto. Revisa los identificadores en el directorio antes de combinar fuentes o habilitar el acceso público.
-          </div>
-        )}
+        {data.subscription.accessSource === "internal" &&
+          data.identityDiagnostics?.conflict && (
+            <div
+              role="alert"
+              className="mx-auto max-w-[1500px] border border-amber-400/30 bg-amber-400/5 px-5 py-4 text-sm text-amber-100"
+            >
+              Conflicto de identidad: este perfil muestra únicamente datos bajo
+              su ID exacto. Revisa los identificadores en el directorio antes de
+              combinar fuentes o habilitar el acceso público.
+            </div>
+          )}
         <div className="border-b border-white/[.07] bg-[#080808]">
           <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-4 px-5 py-3 sm:px-8">
             <div className="flex items-center gap-3">

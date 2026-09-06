@@ -1,8 +1,10 @@
+import { MONITORING_COMPARISONS_SQL } from "../lib/monitoring-comparisons";
 import { Router, type RequestHandler } from "express";
 import { monitoringReadPool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
 } from "../lib/songstats-snapshot-service";
+import { buildMonitoringDailyPulse, buildMonitoringNativeSnapshotsSql, mergeMonitoringPlatformHistory } from "../lib/monitoring-daily-pulse";
 import { buildSongstatsPublicInsight } from "../lib/songstats-public-service";
 import {
   auditMonitoringReadiness,
@@ -43,6 +45,8 @@ import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
 import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../lib/monitoring-history-request";
 import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
+import { loadMonitoringPriorityArtistIdentity } from "../lib/monitoring-priority-identity";
+import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory } from "../lib/monitoring-youtube-serving";
 
 const router = Router();
 const PRICE_USD_CENTS = 600;
@@ -137,185 +141,6 @@ function normalizedSnapshot(row: MonitoringSnapshotRow) {
   };
 }
 
-function mergePlatformHistory(
-  snapshots: ReturnType<typeof normalizedSnapshot>[],
-  trends: ReturnType<typeof buildSongstatsPublicInsight>["trends"],
-) {
-  const byDate = new Map(snapshots.map((point) => [point.date, { ...point }]));
-  const trendFields = [
-    "spotifyMonthlyListeners",
-    "instagramFollowers",
-    "tiktokFollowers",
-    "youtubeSubscribers",
-  ] as const;
-  for (const field of trendFields) {
-    for (const point of trends[field] ?? []) {
-      const existing = byDate.get(point.date) ?? {
-        date: point.date,
-        spotifyFollowers: null,
-        spotifyMonthlyListeners: null,
-        spotifyPopularity: null,
-        youtubeSubscribers: null,
-        youtubeChannelViews: null,
-        instagramFollowers: null,
-        tiktokFollowers: null,
-        facebookFollowers: null,
-        twitterFollowers: null,
-        soundcloudFollowers: null,
-        deezerFollowers: null,
-      };
-      existing[field] = point.value;
-      byDate.set(point.date, existing);
-    }
-  }
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
-type NormalizedMonitoringSnapshot = ReturnType<typeof normalizedSnapshot>;
-type PulseMetricKey = Exclude<
-  keyof NormalizedMonitoringSnapshot,
-  "date" | "spotifyPopularity"
->;
-
-const PULSE_METRICS: Array<{
-  key: PulseMetricKey;
-  label: string;
-  platform: string;
-}> = [
-  {
-    key: "spotifyMonthlyListeners",
-    label: "Oyentes mensuales",
-    platform: "Spotify",
-  },
-  { key: "spotifyFollowers", label: "Seguidores", platform: "Spotify" },
-  { key: "youtubeSubscribers", label: "Suscriptores", platform: "YouTube" },
-  {
-    key: "youtubeChannelViews",
-    label: "Vistas del canal",
-    platform: "YouTube",
-  },
-  { key: "instagramFollowers", label: "Seguidores", platform: "Instagram" },
-  { key: "tiktokFollowers", label: "Seguidores", platform: "TikTok" },
-  { key: "facebookFollowers", label: "Seguidores", platform: "Facebook" },
-  { key: "twitterFollowers", label: "Seguidores", platform: "X" },
-  { key: "soundcloudFollowers", label: "Seguidores", platform: "SoundCloud" },
-  { key: "deezerFollowers", label: "Fans", platform: "Deezer" },
-];
-
-function milestoneStep(value: number): number {
-  if (value < 100_000) return 10_000;
-  if (value < 1_000_000) return 100_000;
-  if (value < 10_000_000) return 1_000_000;
-  if (value < 100_000_000) return 5_000_000;
-  return 10_000_000;
-}
-
-function buildDailyPulse(
-  history: NormalizedMonitoringSnapshot[],
-  catalog: {
-    newestReleaseDate: string | null;
-    releases: Array<{ title: string; releaseDate: string | null }>;
-  },
-) {
-  const current = history.at(-1);
-  const previous = history.at(-2);
-  if (!current || !previous) {
-    return {
-      status: "collecting" as const,
-      currentDate: current?.date ?? null,
-      previousDate: null,
-      headline: "Preparando tu primer Pulso diario",
-      summary:
-        "Se necesitan dos lecturas guardadas para calcular cambios reales.",
-      metricsChanged: 0,
-      signals: [],
-    };
-  }
-
-  const movements = PULSE_METRICS.flatMap((metric) => {
-    const currentValue = current[metric.key];
-    const previousValue = previous[metric.key];
-    if (currentValue == null || previousValue == null) return [];
-    const delta = currentValue - previousValue;
-    const percentage =
-      previousValue === 0 ? null : (delta / previousValue) * 100;
-    return [{ ...metric, currentValue, previousValue, delta, percentage }];
-  });
-  const changed = movements.filter((movement) => movement.delta !== 0);
-  const strongest =
-    [...changed].sort(
-      (a, b) => Math.abs(b.percentage ?? 0) - Math.abs(a.percentage ?? 0),
-    )[0] ?? null;
-  const signals: Array<Record<string, unknown>> = [];
-
-  for (const movement of [...changed]
-    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-    .slice(0, 4)) {
-    signals.push({
-      kind: movement.delta > 0 ? "gain" : "decline",
-      platform: movement.platform,
-      metric: movement.label,
-      currentValue: movement.currentValue,
-      delta: movement.delta,
-      percentage: movement.percentage,
-      title: `${movement.platform}: ${movement.delta > 0 ? "subió" : "bajó"} ${movement.label.toLowerCase()}`,
-    });
-    const step = milestoneStep(movement.currentValue);
-    const crossed =
-      Math.floor(movement.currentValue / step) >
-      Math.floor(movement.previousValue / step);
-    if (movement.delta > 0 && crossed) {
-      signals.push({
-        kind: "milestone",
-        platform: movement.platform,
-        metric: movement.label,
-        currentValue: movement.currentValue,
-        delta: movement.delta,
-        percentage: movement.percentage,
-        title: `${movement.platform}: nuevo hito alcanzado`,
-      });
-    }
-  }
-
-  const recentRelease = catalog.releases.find(
-    (release) =>
-      release.releaseDate &&
-      release.releaseDate <= current.date &&
-      release.releaseDate > previous.date,
-  );
-  if (recentRelease) {
-    signals.unshift({
-      kind: "release",
-      platform: "Catálogo",
-      metric: "Nuevo lanzamiento",
-      currentValue: null,
-      delta: null,
-      percentage: null,
-      title: `Nuevo lanzamiento detectado: ${recentRelease.title}`,
-      releaseDate: recentRelease.releaseDate,
-    });
-  }
-
-  const direction =
-    strongest?.delta === 0 || !strongest
-      ? "sin cambios materiales"
-      : strongest.delta > 0
-        ? "en crecimiento"
-        : "a la baja";
-  return {
-    status: "ready" as const,
-    currentDate: current.date,
-    previousDate: previous.date,
-    headline: strongest
-      ? `${strongest.platform} lideró el movimiento diario`
-      : "Día estable en las métricas observadas",
-    summary: strongest
-      ? `${strongest.label} está ${direction}; revisa las señales para ver la variación exacta.`
-      : "No se detectaron cambios entre las dos lecturas más recientes.",
-    metricsChanged: changed.length,
-    signals: signals.slice(0, 6),
-  };
-}
 
 async function resolveMonitoringAccess(
   userId: string,
@@ -501,38 +326,10 @@ async function loadAuthorizedMonitoring(
   // leaving an already-populated stream archive invisible to subscribers.
   const priorityArtistIdentity = dashboardStage(
     "priority_artist_identity",
-    () =>
-      monitoringReadPool
-        .query<{
-          avatar_url: string | null;
-          spotify_artist_id: string | null;
-        }>(
-          `
-    SELECT COALESCE(songstats.avatar_url, image.image_url) avatar_url,
-           coverage.spotify_id spotify_artist_id
-    FROM kworb_coverage coverage
-    LEFT JOIN LATERAL (
-      SELECT avatar_url
-      FROM songstats_artists
-      WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY last_synced_at DESC
-      LIMIT 1
-    ) songstats ON true
-    LEFT JOIN LATERAL (
-      SELECT image_url
-      FROM artist_images
-      WHERE regexp_replace(
-        translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
-        '[^a-z0-9]', '', 'g'
-      ) = ANY($1::text[])
-      LIMIT 1
-    ) image ON true
-    WHERE lower(coverage.artist_key) = ANY($1::text[])
-    LIMIT 1
-  `,
-          [activeKeys],
-        )
-        .then((result) => result.rows),
+    () => loadMonitoringPriorityArtistIdentity(monitoringReadPool, activeKeys, {
+      identityConflict: active.identity_conflict === true,
+      canonicalArtistKey: active.artist_key,
+    }),
     [],
   );
   const priorityStreamSummary = dashboardStage(
@@ -642,47 +439,8 @@ async function loadAuthorizedMonitoring(
           youtube_channel_views: string | number | null;
           instagram_followers: string | number | null;
         }>(
-          `
-    WITH selected AS MATERIALIZED (
-    SELECT coverage.artist_key,
-           COALESCE(NULLIF(coverage.artist_name, ''), coverage.artist_key) artist_name,
-           extended.historic_stats,
-           latest.snapshot_date,
-           latest.spotify_monthly_listeners,
-           latest.youtube_channel_views,
-           latest.instagram_followers
-    FROM kworb_coverage coverage
-    JOIN songstats_artist_extended_data extended ON extended.artist_key=coverage.artist_key
-    JOIN LATERAL (
-      SELECT snapshot_date, spotify_monthly_listeners, youtube_channel_views, instagram_followers
-      FROM songstats_artist_daily_snapshots snapshot
-      WHERE snapshot.artist_key=coverage.artist_key
-      ORDER BY snapshot.snapshot_date DESC
-      LIMIT 1
-    ) latest ON true
-    WHERE coverage.status='active'
-      AND NOT (lower(coverage.artist_key)=ANY($1::text[]))
-      AND latest.spotify_monthly_listeners IS NOT NULL
-    ORDER BY latest.spotify_monthly_listeners DESC, coverage.artist_key
-    LIMIT 4
-    )
-    SELECT selected.*, image.image_url avatar_url
-    FROM selected
-    LEFT JOIN LATERAL (
-      SELECT image_url
-      FROM artist_images
-      WHERE regexp_replace(
-        translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
-        '[^a-z0-9]', '', 'g'
-      )=regexp_replace(
-        translate(lower(selected.artist_name), 'áéíóúüñ', 'aeiouun'),
-        '[^a-z0-9]', '', 'g'
-      )
-      LIMIT 1
-    ) image ON true
-    ORDER BY selected.spotify_monthly_listeners DESC, selected.artist_key
-  `,
-          [activeKeys],
+          MONITORING_COMPARISONS_SQL,
+          [activeKeys, new Date().toISOString()],
         )
         .then((result) => result.rows),
     [],
@@ -693,24 +451,7 @@ async function loadAuthorizedMonitoring(
     () =>
       monitoringReadPool
         .query<MonitoringSnapshotRow>(
-          `
-      SELECT
-        snapshot_date,
-        spotify_followers,
-        spotify_monthly_listeners,
-        spotify_popularity,
-        youtube_subscribers,
-        youtube_channel_views,
-        instagram_followers,
-        tiktok_followers,
-        facebook_followers,
-        twitter_followers,
-        soundcloud_followers,
-        deezer_followers
-      FROM songstats_artist_daily_snapshots
-      WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY snapshot_date ASC
-    `,
+          buildMonitoringNativeSnapshotsSql("$1::text[]"),
           [activeKeys],
         )
         .then((result) => result.rows),
@@ -799,62 +540,9 @@ async function loadAuthorizedMonitoring(
 
   const prioritizedLiveVideos = await dashboardStage(
     "priority_youtube_live_videos",
-    () =>
-      monitoringReadPool
-        .query(
-          `
-    WITH eligible_sources AS (
-      SELECT link.artist_name, link.video_id, link.confidence_score,
-             link.priority, link.id
-      FROM youtube_artist_video_links link
-      WHERE link.active=true
-        AND link.confidence_score >= 80
-        AND link.artist_key = ANY($1::text[])
-      UNION ALL
-      SELECT candidate.artist_name, candidate.video_id, candidate.confidence_score,
-             0 AS priority, candidate.id
-      FROM youtube_music_catalog_candidates candidate
-      WHERE candidate.status IN ('review','verified')
-        AND candidate.sampling_status='shadow'
-        AND candidate.artist_key = ANY($1::text[])
-    ), matched_links AS (
-      SELECT DISTINCT ON (link.video_id)
-        link.artist_name,
-        link.video_id,
-        link.confidence_score,
-        link.priority
-      FROM eligible_sources link
-      ORDER BY link.video_id, link.confidence_score DESC, link.priority DESC, link.id
-    )
-    SELECT
-      links.artist_name,
-      links.video_id,
-      tracked.title,
-      tracked.thumbnail_url,
-      'https://www.youtube.com/watch?v=' || links.video_id canonical_url,
-      COALESCE(latest.view_count, tracked.view_count) view_count,
-      latest.view_delta,
-      latest.seconds_since_previous,
-      latest.observed_at::text monitor_observed_at,
-      COALESCE(latest.observed_at, tracked.last_snapshot_at, tracked.updated_at)::text observed_at,
-      NULL::bigint views_24h,
-      NULL::text views_24h_started_at,
-      NULL::text views_24h_ended_at,
-      NULL::bigint views_today_et,
-      NULL::text views_today_et_started_at,
-      NULL::text views_today_et_ended_at
-    FROM matched_links links
-    JOIN youtube_tracked_videos tracked ON tracked.video_id=links.video_id
-    LEFT JOIN youtube_video_intraday_latest_observations pointer ON pointer.video_id=links.video_id
-    LEFT JOIN youtube_video_intraday_shadow_snapshots latest
-      ON latest.video_id=pointer.video_id
-     AND latest.observed_at=pointer.latest_observed_at
-    WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
-    ORDER BY COALESCE(latest.view_count, tracked.view_count) DESC, tracked.title
-  `,
-          [activeKeys],
-        )
-        .then((result) => result.rows),
+    () => loadMonitoringYoutubeLiveVideos(monitoringReadPool, activeKeys, {
+      deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
+    }),
     [],
     1_500,
   );
@@ -884,33 +572,10 @@ async function loadAuthorizedMonitoring(
   );
   const liveVideoHistory = await dashboardStage(
     "youtube_live_history",
-    () =>
-      monitoringReadPool
-        .query(
-          `
-      SELECT
-        s.video_id,
-        s.snapshot_date,
-        s.view_count,
-        s.daily_view_delta
-      FROM youtube_video_daily_snapshots s
-      WHERE s.snapshot_date >= to_char(
-          (now() AT TIME ZONE 'America/New_York')::date - 89,
-          'YYYY-MM-DD'
-        )
-        AND EXISTS (
-          SELECT 1
-          FROM youtube_artist_video_links link
-          WHERE link.video_id=s.video_id
-            AND link.active=true
-            AND link.confidence_score >= 80
-            AND link.artist_key = ANY($1::text[])
-        )
-      ORDER BY s.video_id, s.snapshot_date
-    `,
-          [activeKeys],
-        )
-        .then((result) => result.rows),
+    () => loadMonitoringYoutubeDailyHistory(monitoringReadPool, activeKeys, {
+      includeCandidateOnly: authorization.source === "internal",
+      deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
+    }),
     [],
   );
   const [youtubeCoverage, availableHistory] = await Promise.all([
@@ -1050,7 +715,7 @@ async function loadAuthorizedMonitoring(
         : Promise.resolve(null),
     null,
   );
-  const completeHistory = mergePlatformHistory(history, insight?.trends ?? {});
+  const completeHistory = mergeMonitoringPlatformHistory(history, insight?.trends ?? {});
   const comparisonArtists = comparisonRows.map((row) => {
     const comparisonInsight = buildSongstatsPublicInsight(
       {
@@ -1079,8 +744,9 @@ async function loadAuthorizedMonitoring(
     identityDiagnostics: authorization.source === "internal" ? {
       canonicalArtistKey: active.artist_key,
       sourceKeys: activeKeys,
-      conflict: active.identity_conflict === true,
-      warnings: active.identity_conflict ? ["conflicting_provider_identity"] : [],
+      conflict: active.identity_conflict === true || prioritizedArtistIdentity[0]?.identity_conflict === true,
+      warnings: active.identity_conflict || prioritizedArtistIdentity[0]?.identity_conflict ? ["conflicting_provider_identity"] : [],
+      priorityIdentity: prioritizedArtistIdentity[0] ?? null,
     } : undefined,
     subscription: {
       artistKey: active.artist_key,
@@ -1093,7 +759,7 @@ async function loadAuthorizedMonitoring(
     },
     current: completeHistory.at(-1) ?? null,
     history: completeHistory,
-    dailyPulse: buildDailyPulse(completeHistory, catalog),
+    dailyPulse: buildMonitoringDailyPulse(completeHistory, catalog),
     growth: insight?.growth ?? {},
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,

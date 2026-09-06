@@ -89,7 +89,59 @@ export function monitorRequestState({
   return partial ? "partial" : "loaded";
 }
 
-export function validateMonitorHistory(payload) {
+const validHistoryDate = (date) =>
+  typeof date === "string" &&
+  /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+  Number.isFinite(Date.parse(`${date}T12:00:00Z`)) &&
+  new Date(`${date}T12:00:00Z`).toISOString().slice(0, 10) === date;
+
+export function monitorHistoryRequest({
+  userId,
+  artistKey,
+  metricKey,
+  range = "all",
+}) {
+  if (!["7d", "30d", "90d", "6m", "1y", "all"].includes(range))
+    throw new RangeError("Unsupported history range");
+  const resolution = range === "all" ? "auto" : "daily";
+  return {
+    queryKey: [
+      "monitor-history",
+      userId,
+      artistKey,
+      metricKey,
+      range,
+      resolution,
+    ],
+    input: `/api/monitoring/history/${encodeURIComponent(artistKey)}/${encodeURIComponent(metricKey)}?range=${range}&resolution=${resolution}`,
+  };
+}
+
+/** Bounded windows use only their exact response, never a filtered min/max series. */
+export function monitorHistoryWindowData({
+  range,
+  allPoints = [],
+  allResponse,
+  selectedResponse,
+}) {
+  const response = range === "all" ? allResponse : selectedResponse;
+  const pointsByDate = new Map(
+    (range === "all" ? allPoints : []).map((point) => [point.date, point]),
+  );
+  for (const [date, value] of response?.points ?? [])
+    pointsByDate.set(date, { date, value });
+  const points = [...pointsByDate.values()].sort((a, b) =>
+    a.date.localeCompare(b.date),
+  );
+  const missingDateCount = response?.rangeCoverage?.missingDateCount ?? 0;
+  return {
+    points,
+    missingDateCount,
+    partial: points.length === 1 || missingDateCount > 0,
+  };
+}
+
+export function validateMonitorHistory(payload, expectedRange) {
   if (
     !payload ||
     !Array.isArray(payload.points) ||
@@ -98,10 +150,7 @@ export function validateMonitorHistory(payload) {
     payload.points.some(
       (point) =>
         !Array.isArray(point) ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(point[0]) ||
-        !Number.isFinite(Date.parse(`${point[0]}T12:00:00Z`)) ||
-        new Date(`${point[0]}T12:00:00Z`).toISOString().slice(0, 10) !==
-          point[0] ||
+        !validHistoryDate(point[0]) ||
         !Number.isFinite(point[1]),
     )
   ) {
@@ -109,6 +158,43 @@ export function validateMonitorHistory(payload) {
       502,
       "La respuesta del historial no contiene observaciones válidas.",
     );
+  }
+  if (
+    expectedRange &&
+    expectedRange !== "all" &&
+    (payload.points.length > 0 || payload.requestedRange)
+  ) {
+    const range = payload.requestedRange;
+    const days =
+      range &&
+      validHistoryDate(range.startDate) &&
+      validHistoryDate(range.endDate)
+        ? Math.round(
+            (Date.parse(`${range.endDate}T12:00:00Z`) -
+              Date.parse(`${range.startDate}T12:00:00Z`)) /
+              86_400_000,
+          ) + 1
+        : 0;
+    if (
+      !range ||
+      range.preset !== expectedRange ||
+      days < 1 ||
+      days > ({ "7d": 7, "30d": 30, "90d": 90, "6m": 182, "1y": 365 }[expectedRange] ?? 0) + 1 ||
+      payload.resolution?.returned !== "daily" ||
+      payload.rangeCoverage?.observationCount !== payload.points.length ||
+      new Set(payload.points.map((point) => point[0])).size !==
+        payload.points.length ||
+      payload.rangeCoverage?.missingDateCount !==
+        days - payload.points.length ||
+      payload.points.some(
+        (point) => point[0] < range.startDate || point[0] > range.endDate,
+      )
+    ) {
+      throw new MonitoringDashboardHttpError(
+        502,
+        "El historial recibido no corresponde a la ventana diaria solicitada.",
+      );
+    }
   }
   return payload;
 }

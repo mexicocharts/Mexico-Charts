@@ -1,3 +1,4 @@
+import { evaluateMonitoringDailyPulse, mergeMonitoringPlatformHistory, type MonitoringPulseSnapshot } from "./monitoring-daily-pulse";
 import { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
 import { MONITORING_READINESS_POLICY_VERSION, isMonitoringReadinessDateFresh } from "./monitoring-readiness-policy";
 import { normalizeArtistKey, songstatsArtistKeyCandidates } from "./songstats-artist-key";
@@ -5,12 +6,13 @@ import { buildSongstatsPublicInsight } from "./songstats-public-service";
 import { normalizedMonitoringReleaseTitle } from "./monitoring-artwork";
 import { youtubeCoverageFromLatestObservations } from "./youtube-latest-observation";
 import { compactGrowthAtTarget, type CompactHistoryPoint } from "./monitoring-history-compact";
+import { evaluateMonitoringYoutubeImportProof } from "./monitoring-youtube-policy";
 
 /** Read-only inventory. No collector, licensing, identity-validation or provenance writes. */
 export const MONITORING_COMPLETE_CONTRACT_VERSION = "monitor_pro_complete_v1";
 export const MONITORING_COMPLETE_CONTRACT = Object.freeze({
   legacyPolicyVersion: MONITORING_READINESS_POLICY_VERSION,
-  required: ["licensed_audience_and_growth", "spotify_instagram_tiktok_current_and_7_30_90_growth", "current_snapshot", "spotify_track_and_album_catalog",
+  required: ["licensed_audience_and_growth", "spotify_instagram_tiktok_current_and_7_30_90_growth", "current_snapshot", "daily_pulse_measured_adjacent_observations", "spotify_track_and_album_catalog",
     "spotify_daily_history", "artist_image", "track_and_album_artwork", "approved_youtube_catalog",
     "youtube_daily_history", "comparison_peer"],
   optional: ["release_impact_when_valid_comparison_windows_exist", "remaining_social_platforms",
@@ -39,6 +41,7 @@ export interface MonitoringCandidateIdentity {
   sourceKeys: string[];
   candidateSources: string[];
   spotifyIds: string[];
+  invalidSpotifyIds: string[];
   identityConflict: boolean;
   declaredAliases: string[];
   identityAliasEvidence: Array<{ source: "musicbrainz_artists" | "artist_candidates"; artistKey: string; mbid?: string; candidateId?: string; matchedArtistKey?: string; verification: string; aliases: string[] }>;
@@ -53,7 +56,12 @@ const acceptedDiscoveryRow = (row: MonitoringCandidateSourceRow) => row.source =
 const declaredRowAliases = (row: MonitoringCandidateSourceRow) => acceptedRegistryRow(row) || acceptedDiscoveryRow(row)
   ? [...new Set([row.artist_name, ...(acceptedDiscoveryRow(row) ? [row.artist_key] : []), ...(Array.isArray(row.declared_aliases) ? row.declared_aliases : [])]
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map(value => value.trim()))] : [];
-const trustedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates"].includes(row.source) ? null : row.spotify_id?.trim() || null;
+const assertedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates"].includes(row.source) ? null : row.spotify_id?.trim() || null;
+/** Provider IDs are opaque 22-character base62 values. Preserve malformed
+ * assertions for review, but never use them as cross-artist identity edges. */
+export function isMonitoringSpotifyArtistId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9]{22}$/.test(value);
+}
 
 const SOURCE_PRIORITY = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists"];
 /** Keep Unicode identity names exact. Removing their characters can produce an
@@ -75,8 +83,9 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   const parents: number[] = [];
   const root = (id: number): number => parents[id] === id ? id : (parents[id] = root(parents[id]!));
   for (const row of rows.filter(row => row.artist_key?.trim())) {
+    const spotifyId = assertedSpotifyId(row);
     const keys = [...[row.artist_key, ...declaredRowAliases(row), ...(acceptedDiscoveryRow(row) ? [row.matched_artist_key!] : [])].flatMap(monitoringIdentityKeyCandidates).map(key => `key:${key}`),
-      ...(trustedSpotifyId(row) ? [`spotify:${trustedSpotifyId(row)}`] : []),
+      ...(isMonitoringSpotifyArtistId(spotifyId) ? [`spotify:${spotifyId}`] : []),
       ...(acceptedRegistryRow(row) ? [`musicbrainz:${row.mbid}`] : [])];
     const previous = keys.flatMap(key => index.has(key) ? [root(index.get(key)!)] : []);
     const id = previous.length ? Math.min(...previous) : groups.length;
@@ -95,7 +104,8 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
     // Preserve those records separately; an accepted matched_artist_id is an
     // explicit relationship, never a fabricated source-data row.
     const sourceKeys = [...new Set(ordered.filter(row => row.source !== "artist_candidates").map(row => row.artist_key))].sort();
-    const spotifyIds = [...new Set(ordered.flatMap(row => trustedSpotifyId(row) ? [trustedSpotifyId(row)!] : []))].sort();
+    const spotifyIds = [...new Set(ordered.flatMap(row => assertedSpotifyId(row) ? [assertedSpotifyId(row)!] : []))].sort();
+    const invalidSpotifyIds = spotifyIds.filter(value => !isMonitoringSpotifyArtistId(value));
     const declaredAliases = [...new Set(group.flatMap(declaredRowAliases))].sort();
     const identityAliasEvidence: MonitoringCandidateIdentity["identityAliasEvidence"] = [
       ...group.filter(acceptedRegistryRow).map(row => ({ source: "musicbrainz_artists" as const,
@@ -118,11 +128,12 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
         .flatMap(key => [key, key.toLowerCase(), ...monitoringIdentityKeyCandidates(key)]))],
       candidateSources: [...new Set(group.map(row => row.source))].sort(),
       spotifyIds,
+      invalidSpotifyIds,
       identityConflict,
       declaredAliases,
       identityAliasEvidence,
       candidateRecords,
-      identityMappingStatus: identityConflict ? "conflict" as const : spotifyIds.length ? "provider_id" as const : identityAliasEvidence.length ? "accepted_registry" as const : "unverified" as const,
+      identityMappingStatus: identityConflict ? "conflict" as const : spotifyIds.some(isMonitoringSpotifyArtistId) ? "provider_id" as const : identityAliasEvidence.length ? "accepted_registry" as const : "unverified" as const,
     };
   }).sort((a, b) => a.artistKey.localeCompare(b.artistKey));
 }
@@ -245,11 +256,26 @@ export function evaluateMonitoringCandidate(
   sourceEvidence["audienceHistoryCoverage"] = row.compact_history ?? null;
   sourceEvidence["streamSummary"] = servedSummary;
   sourceEvidence["mexicoAudience"] = { cities: readiness.mexicoCities, citiesWithPeakListeners: recoveredInsight.topMexicoCities.filter(city => city.peakListeners != null).length };
-  sourceEvidence["dailyPulse"] = { currentDate: object(sourceEvidence["currentHistory"])["lastDate"] ?? null,
-    previousDate: object(sourceEvidence["currentHistory"])["previousDate"] ?? null, source: "songstats_artist_daily_snapshots" };
+  const pulseHistory = object(sourceEvidence["currentHistory"]);
+  const pulseSnapshots = Array.isArray(pulseHistory["latestSnapshots"])
+    ? pulseHistory["latestSnapshots"].map(object) as MonitoringPulseSnapshot[] : [];
+  const pulse = evaluateMonitoringDailyPulse(mergeMonitoringPlatformHistory(pulseSnapshots, recoveredInsight.trends), now);
+  const pulseEvidenceInspected = Array.isArray(pulseHistory["latestSnapshots"]);
+  const pulseComplete = pulseEvidenceInspected && pulse.complete;
+  sourceEvidence["dailyPulse"] = { currentDate: pulse.currentDate, previousDate: pulse.previousDate,
+    gapDays: pulse.gapDays, fresh: pulse.fresh, complete: pulseComplete, reason: pulse.reason,
+    measuredMetricCount: pulse.pairedMetricKeys.length, pairedMetricKeys: pulse.pairedMetricKeys,
+    source: "songstats_artist_daily_snapshots_and_licensed_trends", evidenceInspected: pulseEvidenceInspected,
+    rawLicensedRecoveryUninvestigated: !pulseComplete && payload(recoveredExtended["historic_stats"]),
+    compactRecoveryUninvestigated: !pulseComplete && count(object(sourceEvidence["compactHistory"])["points"]) > 0 };
+  const comparisonDates = Array.isArray(sourceEvidence["comparisonPeerDates"]) ? sourceEvidence["comparisonPeerDates"].map(object) : null;
+  const freshComparisonPeers = comparisonDates?.reduce((total, bucket) => total +
+    (typeof bucket["date"] === "string" && isMonitoringReadinessDateFresh(bucket["date"], 14, now) ? count(bucket["peers"]) : 0), 0) ?? null;
+  sourceEvidence["comparisonCoverage"] = { storedPeers: count(sourceEvidence["comparisonPeers"]), freshPeers: freshComparisonPeers,
+    maximumAgeDays: 14, source: "latest_songstats_artist_daily_snapshots" };
   sourceEvidence["reportPrerequisites"] = { period: "weekly", layout: "eight_page_weekly", currentSnapshot: Boolean(row.snapshot),
-    previousSnapshot: count(object(sourceEvidence["currentHistory"])["days"]) >= 2,
-    mexicoCities: readiness.mexicoCities, comparisonPeers: count(sourceEvidence["comparisonPeers"]), generationVerified: false,
+    previousSnapshot: Boolean(pulse.previous), dailyPulseComplete: pulseComplete,
+    mexicoCities: readiness.mexicoCities, comparisonPeers: freshComparisonPeers, generationVerified: false,
     verification: "Actual authenticated PDF generation and visual review are separate runtime acceptance checks." };
   const findings: MonitoringCandidateFinding[] = [];
   // The dashboard already serves a live Kworb catalog and Spotify artwork
@@ -278,8 +304,68 @@ export function evaluateMonitoringCandidate(
   });
   const missingEndpoints = ["historic_stats", "audience", "audience_details", "catalog"].filter(key => !payload(recoveredExtended[key]));
   const failedEndpoints = [...new Set(extendedRows.flatMap(value => Object.keys(object(value["sync_errors"]))))].sort();
+  // Inspect the datasets already used by the canonical renderer independently.
+  // Never fabricate endpoint payloads or change the exact legacy readiness call.
+  const detailsRow = extendedRows.find(value => payload(value["audience_details"]));
+  const detailCities = buildSongstatsPublicInsight({ historicStats: null, audience: null, audienceDetails: detailsRow?.["audience_details"] }, { access: "monitoring" }).topMexicoCities;
+  const detailsDate = detailsRow?.["audience_details_fetched_at"];
+  const detailsSourceKey = detailsRow?.["artist_key"];
+  const detailsProven = detailCities.length > 0 && typeof detailsSourceKey === "string" && artist.sourceKeys.includes(detailsSourceKey)
+    && typeof detailsDate === "string" && Number.isFinite(Date.parse(detailsDate));
+  const endpointCatalog = object(sourceEvidence["catalog"]);
+  const endpointCatalogProof = object(sourceEvidence["catalogCompleteness"]);
+  const inspectedCatalogItems = row.stream_items ?? [];
+  const inspectedTracks = new Set(inspectedCatalogItems.filter(item => item.item_type === "track" && item.item_key && item.title).map(item => item.item_key)).size;
+  const inspectedAlbums = new Set(inspectedCatalogItems.filter(item => item.item_type === "album" && item.item_key && item.title).map(item => item.item_key)).size;
+  const catalogDatasetComplete = inspectedTracks > 0 && inspectedAlbums > 0
+    && endpointCatalogProof["verified"] === true
+    && typeof endpointCatalogProof["reference"] === "string" && Boolean(endpointCatalogProof["reference"].trim())
+    && count(endpointCatalogProof["expectedTracks"]) === inspectedTracks && count(endpointCatalogProof["expectedAlbums"]) === inspectedAlbums
+    && count(endpointCatalog["tracks"]) === inspectedTracks && count(endpointCatalog["albums"]) === inspectedAlbums
+    && count(endpointCatalog["tracksWithArtwork"]) === inspectedTracks && count(endpointCatalog["albumsWithArtwork"]) === inspectedAlbums
+    && count(servedSummary["track_count"]) === inspectedTracks && count(servedSummary["album_count"]) === inspectedAlbums
+    && isMonitoringReadinessDateFresh(typeof servedSummary["snapshot_date"] === "string" ? servedSummary["snapshot_date"] : null, 14, now)
+    && count(servedSummary["track_daily_streams"]) > 0 && count(servedSummary["track_total_streams"]) > 0 && count(servedSummary["album_total_streams"]) > 0;
+  const liveCatalogProofBound = liveCatalogApplied && liveArtworkApplied && !artist.identityConflict
+    && artist.spotifyIds.length === 1 && isMonitoringSpotifyArtistId(liveInvestigation["spotifyArtistId"])
+    && isMonitoringReadinessDateFresh(typeof liveInvestigation["observedAt"] === "string" ? liveInvestigation["observedAt"] : null, 14, now)
+    && servedSummary["snapshot_date"] === String(liveInvestigation["observedAt"]).slice(0, 10)
+    && endpointCatalogProof["source"] === "kworb_live_complete_catalog"
+    && endpointCatalogProof["reference"] === liveInvestigation["reference"]
+    && endpointCatalogProof["spotifyArtistId"] === liveInvestigation["spotifyArtistId"];
+  const archiveProofKeys = endpointCatalogProof["sourceKeys"];
+  const archiveCatalogProofBound = !artist.identityConflict && ["monitoring_stream_items", "monitoring_stream_daily_snapshots"].includes(String(endpointCatalogProof["source"]))
+    && endpointCatalogProof["artistKey"] === artist.artistKey && endpointCatalogProof["evidenceApplied"] === true
+    && Array.isArray(archiveProofKeys) && archiveProofKeys.length > 0
+    && archiveProofKeys.every(key => typeof key === "string" && artist.sourceKeys.includes(key))
+    && String(servedSummary["source_table"] ?? "").startsWith("monitoring_stream_");
+  const catalogAlternateProven = catalogDatasetComplete && (liveCatalogProofBound || archiveCatalogProofBound);
+  const endpointMismatches = [
+    ...(missingEndpoints.includes("audience") && detailCities.length > 0 ? [{ endpoint: "audience", complete: detailsProven,
+      alternateSource: "songstats_artist_extended_data.audience_details", sourceArtistKey: detailsSourceKey ?? null,
+      fetchedAt: detailsDate ?? null, parsedMexicoCities: detailCities.length }] : []),
+    ...(missingEndpoints.includes("catalog") ? [{ endpoint: "catalog", complete: catalogAlternateProven,
+      alternateSource: catalogAlternateProven ? endpointCatalogProof["source"] : "canonical_archive_or_live_kworb_catalog",
+      reference: endpointCatalogProof["reference"] ?? null, inspectedTracks, inspectedAlbums,
+      datasetComplete: catalogDatasetComplete, identityAndCaptureBound: liveCatalogProofBound || archiveCatalogProofBound,
+      spotifyArtistId: endpointCatalogProof["spotifyArtistId"] ?? null, sourceKeys: archiveProofKeys ?? null,
+      summarySnapshotDate: servedSummary["snapshot_date"] ?? null }] : []),
+  ];
+  const endpointOnlyContractMismatch = missingEndpoints.length > 0 && missingEndpoints.every(endpoint =>
+    endpointMismatches.some(mismatch => mismatch.endpoint === endpoint)
+      || endpoint === "historic_stats" && row.compact_history?.licensed_endpoint === true);
+  const endpointAlternatesComplete = endpointOnlyContractMismatch && endpointMismatches.every(mismatch => mismatch.complete);
+  if (endpointMismatches.length) {
+    sourceEvidence["endpointPresenceContractMismatch"] = { legacyReadinessPreserved: true, complete: endpointAlternatesComplete, endpoints: endpointMismatches };
+    findings.push({ code: "endpoint_presence_contract_mismatch", section: "source_inventory",
+      status: endpointAlternatesComplete ? "repairable" : "investigation_required",
+      evidence: `The legacy v${MONITORING_READINESS_POLICY_VERSION} gate requires endpoint payloads for ${endpointMismatches.map(value => value.endpoint).join(", ")}; the canonical renderer has an existing alternate dataset path. ${endpointAlternatesComplete ? "The corresponding actual datasets, identity, capture provenance and catalog coverage have been inspected and applied." : "The complete corresponding dataset and provenance proof have not all been established."}`,
+      action: endpointAlternatesComplete ? "Review and align the endpoint-presence contract with the proven canonical datasets. Legacy eligibility stays unchanged until that contract correction is made."
+        : "Inspect the existing licensed audience detail or canonical catalog items, identity, timestamps and artwork; apply complete scoped evidence before treating the endpoint mismatch as repairable." });
+  }
   for (const reason of readiness.reasons) {
     const repairable = !repairedReadiness.reasons.includes(reason);
+    const endpointMismatch = reason === "missing_licensed_endpoint" && endpointOnlyContractMismatch;
     const endpointFailure = reason === "missing_licensed_endpoint" && missingEndpoints.some(endpoint => failedEndpoints.includes(endpoint));
     const compactNeedsEvaluation = (["insufficient_growth_history", "insufficient_trend_history", "missing_licensed_endpoint"].includes(reason)
       && count(object(sourceEvidence["compactHistory"])["points"]) > 0)
@@ -290,14 +376,16 @@ export function evaluateMonitoringCandidate(
     findings.push({
       code: reason,
       section: /stream/.test(reason) ? "spotify" : /mexico/.test(reason) ? "markets" : "audience_and_growth",
-      status: repairable ? "repairable" : endpointFailure || compactNeedsEvaluation || liveSourceUninvestigated ? "investigation_required" : "blocked",
+      status: endpointMismatch ? endpointAlternatesComplete ? "repairable" : "investigation_required"
+        : repairable ? "repairable" : endpointFailure || compactNeedsEvaluation || liveSourceUninvestigated ? "investigation_required" : "blocked",
       evidence: reason === "missing_licensed_endpoint"
         ? `Missing stored licensed payloads: ${missingEndpoints.join(", ")}. Failed endpoint keys: ${failedEndpoints.join(", ") || "none"}.`
         : liveSourceUninvestigated ? "The stored catalog fails this check; the dashboard's approved live Kworb catalog has not been reviewed and applied to this audit. Stored absence does not establish source absence."
           : compactNeedsEvaluation ? "Verified compact historical observations exist; the legacy payload parser cannot prove their growth/trend coverage."
           : repairable ? "Existing exact raw stream rows satisfy this check; the serving summary does not."
           : `The existing v${MONITORING_READINESS_POLICY_VERSION} check fails across the resolved stored source keys.`,
-      action: repairable ? "Serve or rebuild the artist summary from the existing exact dated track and album rows."
+      action: endpointMismatch ? "See endpoint_presence_contract_mismatch; preserve the failed legacy endpoint gate without claiming the rendered dataset is absent."
+        : repairable ? "Serve or rebuild the artist summary from the existing exact dated track and album rows."
         : liveSourceUninvestigated ? "Investigate the existing live catalog and apply its actual items, timestamps and exact summary before classifying this gap."
           : compactNeedsEvaluation ? "Evaluate the existing verified compact metric dates and baselines before assigning a source classification."
           : endpointFailure ? "Investigate the recorded endpoint failure before assigning a complete source classification."
@@ -314,6 +402,19 @@ export function evaluateMonitoringCandidate(
   const streamHistory = object(sourceEvidence["streamHistory"]);
   const youtube = object(sourceEvidence["youtube"]);
   const youtubeHistory = object(sourceEvidence["youtubeHistory"]);
+  const youtubeServing = object(sourceEvidence["youtubeServing"]);
+  const youtubeServedCatalog = object(youtubeServing["catalog"]);
+  const youtubeLegacyVideos = object(youtubeServing["legacyVideos"]);
+  const youtubeChannelHistory = object(youtubeServing["channelDailyHistory"]);
+  const youtubeServedNativeHistory = object(youtubeServing["nativeDailyHistory"]);
+  const youtubeSourceNeedsReview = count(youtube["approvedVideos"]) === 0 && (youtubeServing["inspected"] !== true
+    || count(youtubeServedCatalog["videos"]) > 0 || count(youtubeLegacyVideos["videos"]) > 0
+    || count(youtubeChannelHistory["points"]) > 0 || count(youtubeServedNativeHistory["points"]) > 0);
+  if (youtubeSourceNeedsReview) findings.push({
+    code: "youtube_serving_source_requires_investigation", section: "youtube", status: "investigation_required",
+    evidence: `${count(youtubeServedCatalog["videos"])} existing served videos, ${count(youtubeServedNativeHistory["points"])} native per-video snapshots, ${count(youtubeLegacyVideos["videos"])} linked-channel cached videos, and ${count(youtubeChannelHistory["points"])} exact channel snapshots are recorded outside approved-link coverage. ${youtubeServing["inspected"] === true ? "Their relationship and measurement provenance remain separate." : "Those serving sources have not been inventoried in this evidence."}`,
+    action: "Inspect the existing serving relationships and dated sources. Review/shadow relationships never become approved links, and channel history never substitutes for per-video completeness.",
+  });
   // These three platforms and their 7/30/90 windows are explicit in the
   // approved Tendencias experience; the old breadth count alone is insufficient.
   for (const [metric, column] of [["spotifyMonthlyListeners", "spotify_monthly_listeners"], ["instagramFollowers", "instagram_followers"], ["tiktokFollowers", "tiktok_followers"]] as const) {
@@ -338,7 +439,9 @@ export function evaluateMonitoringCandidate(
     const date = native > 0 ? String(row.snapshot?.["snapshot_date"] ?? "") : latest?.date ?? null;
     addMissing(value > 0 && isMonitoringReadinessDateFresh(date, 14, now), `missing_or_stale_${metric}`, "audience_and_growth", `Required ${metric}: value ${value || "missing"}, actual observation date ${date ?? "unknown"}.`, false, row.compact_history?.available_metric_keys?.includes(metric) === true);
   }
-  addMissing(count(object(sourceEvidence["currentHistory"])["days"]) >= 2, "missing_daily_pulse_history", "pulse", "The observed daily pulse requires both a current and previous stored daily snapshot.");
+  addMissing(pulseComplete, "missing_daily_pulse_history", "pulse",
+    `Daily pulse dates are ${pulse.previousDate ?? "missing"} and ${pulse.currentDate ?? "missing"}, with ${pulse.pairedMetricKeys.length} paired finite metrics. Adjacent fresh dates and at least one measured pair are required; an unmeasured change is not zero.`,
+    false, !pulseEvidenceInspected || count(object(sourceEvidence["compactHistory"])["points"]) > 0 || payload(recoveredExtended["historic_stats"]));
   const catalogProof = object(sourceEvidence["catalogCompleteness"]);
   const catalogProven = catalogProof["verified"] === true && typeof catalogProof["reference"] === "string"
     && count(catalogProof["expectedTracks"]) === count(catalog["tracks"]) && count(catalogProof["expectedAlbums"]) === count(catalog["albums"]);
@@ -358,16 +461,15 @@ export function evaluateMonitoringCandidate(
   const observationCoverage = youtubeCoverageFromLatestObservations([...latest.keys()].map(videoId => ({ artistKey: artist.artistKey, videoId })), latest, now);
   sourceEvidence["youtubeObservationCoverage"] = { ...observationCoverage, videosWithObservedDelta: validDeltas.size, policy: "youtubeCoverageFromLatestObservations_default_6h" };
   addMissing(observationCoverage.freshVideos === count(youtube["approvedVideos"]) && observationCoverage.freshVideos > 0,
-    "stale_or_missing_youtube_observations", "youtube", `${observationCoverage.freshVideos}/${count(youtube["approvedVideos"])} approved videos satisfy the existing six-hour observation freshness policy.`);
+    "stale_or_missing_youtube_observations", "youtube", `${observationCoverage.freshVideos}/${count(youtube["approvedVideos"])} approved videos satisfy the existing six-hour observation freshness policy.`, false, youtubeSourceNeedsReview);
   addMissing(validDeltas.size === count(youtube["approvedVideos"]) && validDeltas.size > 0,
-    "missing_youtube_observed_deltas", "youtube", `${validDeltas.size}/${count(youtube["approvedVideos"])} approved videos have an observed delta and positive elapsed interval; missing deltas are never replaced with zero.`);
-  const importStates = Array.isArray(sourceEvidence["youtubeImport"]) ? sourceEvidence["youtubeImport"].map(object) : [];
-  const expected = Math.max(0, ...importStates.map(state => Math.max(count(state["expectedVideos"]), count(state["videosImported"]))));
-  if (!importStates.length || expected > count(youtube["observedVideos"]) || importStates.some(state => state["status"] !== "complete" || !state["completedAt"] || state["nextPageTokenPresent"] === true)) {
-    const knownMissing = expected > count(youtube["observedVideos"]);
-    findings.push({ code: "incomplete_youtube_catalog", section: "youtube", status: knownMissing ? "blocked" : "investigation_required",
-      evidence: `${importStates.length} stored channel import states; ${count(youtube["observedVideos"])} observed approved videos; ${expected || "unknown"} expected videos. No complete import proof is available.`,
-      action: "Verify the existing channel import evidence and remaining pages before claiming a complete YouTube catalog." });
+    "missing_youtube_observed_deltas", "youtube", `${validDeltas.size}/${count(youtube["approvedVideos"])} approved videos have an observed delta and positive elapsed interval; missing deltas are never replaced with zero.`, false, youtubeSourceNeedsReview);
+  const importProof = evaluateMonitoringYoutubeImportProof(sourceEvidence);
+  sourceEvidence["youtubeImportProof"] = importProof;
+  if (!importProof.complete) {
+    findings.push({ code: "incomplete_youtube_catalog", section: "youtube", status: importProof.knownMissing && !youtubeSourceNeedsReview ? "blocked" : "investigation_required",
+      evidence: `${importProof.channels.length} channel import states for ${importProof.linkedChannelCount} linked channels; each expected/imported count must reconcile with observed approved videos on that exact channel. Unaccounted channels: ${importProof.unaccountedChannelIds.join(", ") || "none"}.`,
+      action: "Verify every linked channel's import identity, completion, remaining pages and observed approved-video coverage before claiming a complete YouTube catalog." });
   }
   addMissing(sourceEvidence["artistImage"] === true, "missing_artist_image", "identity", "No stored artist image is available in the artist, Spotify or Songstats image sources.");
   for (const [kind, countKey, artworkKey] of [["track", "tracks", "tracksWithArtwork"], ["album", "albums", "albumsWithArtwork"]] as const) {
@@ -385,16 +487,24 @@ export function evaluateMonitoringCandidate(
   addMissing(count(spotifyHistory["days"]) >= 2, "missing_spotify_daily_history", "spotify",
     `${count(spotifyHistory["days"])} stored Spotify aggregate dates; ${count(streamHistory["days"])} exact stream catalog dates. Raw track sums are a distinct measure and do not replace the original Spotify aggregate series.`);
   addMissing(count(youtube["approvedVideos"]) > 0 && count(youtube["observedVideos"]) === count(youtube["approvedVideos"]),
-    "missing_approved_youtube_catalog", "youtube", `${count(youtube["observedVideos"])}/${count(youtube["approvedVideos"])} active approved video links have observed views.`);
+    "missing_approved_youtube_catalog", "youtube", `${count(youtube["observedVideos"])}/${count(youtube["approvedVideos"])} active approved video links have observed views.`, false, youtubeSourceNeedsReview);
   addMissing(count(youtube["approvedVideos"]) > 0 && count(youtube["videosWithArtwork"]) === count(youtube["approvedVideos"]),
-    "missing_youtube_artwork", "youtube", `${count(youtube["videosWithArtwork"])}/${count(youtube["approvedVideos"])} approved videos have thumbnails.`);
+    "missing_youtube_artwork", "youtube", `${count(youtube["videosWithArtwork"])}/${count(youtube["approvedVideos"])} approved videos have thumbnails.`, false, youtubeSourceNeedsReview);
   addMissing(count(youtubeHistory["days"]) >= 2 && count(youtubeHistory["videosWithHistory"]) === count(youtube["approvedVideos"]),
-    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have stored history across ${count(youtubeHistory["days"])} distinct dates. Shadow and review links do not satisfy this check.`);
-  addMissing(count(sourceEvidence["comparisonPeers"]) > 0, "missing_comparison_peer", "comparisons", `${count(sourceEvidence["comparisonPeers"])} stored peer artists have usable comparison snapshots.`);
+    "missing_youtube_daily_history", "youtube", `${count(youtubeHistory["videos"])}/${count(youtube["approvedVideos"])} approved videos have stored history across ${count(youtubeHistory["days"])} distinct dates in the dashboard's 90-day Eastern range. Older native history stays diagnostic; shadow and review links do not satisfy this check.`, false, youtubeSourceNeedsReview);
+  addMissing(freshComparisonPeers != null && freshComparisonPeers > 0, "missing_comparison_peer", "comparisons",
+    `${freshComparisonPeers ?? "Unknown"} fresh peers out of ${count(sourceEvidence["comparisonPeers"])} stored peer artists; only each peer's latest positive snapshot within the existing 14-day freshness limit qualifies.`,
+    false, comparisonDates == null && count(sourceEvidence["comparisonPeers"]) > 0);
   if (artist.identityConflict) findings.push({
     code: "conflicting_provider_identity", section: "identity", status: "investigation_required",
     evidence: `${artist.spotifyIds.length} Spotify identities, ${new Set(artist.identityAliasEvidence.flatMap(value => value.mbid ? [value.mbid] : [])).size} accepted MusicBrainz identities, and ${new Set(artist.identityAliasEvidence.flatMap(value => value.matchedArtistKey ? [value.matchedArtistKey] : [])).size} accepted discovery targets share the resolved artist aliases.`,
     action: "Resolve the identity conflict before making any commercial eligibility decision.",
+  });
+  const invalidSpotifyIds = artist.spotifyIds.filter(value => !isMonitoringSpotifyArtistId(value));
+  if (invalidSpotifyIds.length) findings.push({
+    code: "invalid_artist_mapping", section: "identity", status: "investigation_required",
+    evidence: `Stored Spotify identity assertions have an invalid provider format: ${invalidSpotifyIds.join(", ")}. They remain diagnostic and cannot join source keys or start provider lookups.`,
+    action: "Review the source identity assertions before making any commercial eligibility decision; do not infer a replacement ID.",
   });
   const identityMappingUnverified = artist.identityMappingStatus === "unverified";
   if (identityMappingUnverified) findings.push({
@@ -404,10 +514,11 @@ export function evaluateMonitoringCandidate(
   });
   const incomplete = findings.some(finding => finding.status === "investigation_required");
   const blocked = findings.some(finding => finding.status === "blocked");
-  const sourceIntegrityUnknown = artist.identityConflict || identityMappingUnverified || Boolean(row.missing_schema_tables?.length);
+  const sourceIntegrityUnknown = artist.identityConflict || invalidSpotifyIds.length > 0 || identityMappingUnverified || Boolean(row.missing_schema_tables?.length);
   const classification = sourceIntegrityUnknown ? null : blocked ? "C" as const : incomplete ? null : findings.length ? "B" as const : "A" as const;
   return {
     ...artist,
+    invalidSpotifyIds,
     auditedAt: now.toISOString(),
     legacyPublicEligible,
     publicEligible: classification === "A",
