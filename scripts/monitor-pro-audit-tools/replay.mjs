@@ -101,11 +101,11 @@ export function buildJsonChunkSql(reviewedSelect, start = 1, size = null) {
   const sql = reviewedSelect.trim().replace(/;\s*$/, '');
   const part = size === null ? 'payload' : `substring(payload FROM ${start} FOR ${size})`;
   // The caller supplies trusted, reviewed SQL. This wrapper is not a SQL parser or authorization boundary.
-  return `WITH monitor_replay_rows AS MATERIALIZED (${sql}), monitor_replay_payload AS (
+  return `SELECT * FROM (WITH monitor_replay_rows AS MATERIALIZED (${sql}), monitor_replay_payload AS (
     SELECT count(*) AS total_rows, COALESCE(jsonb_agg(to_jsonb(monitor_replay_rows)), '[]'::jsonb)::text AS payload FROM monitor_replay_rows
   ) SELECT '${PROTOCOL}' AS protocol, total_rows, length(payload) AS payload_chars, md5(payload) AS payload_md5,
     ${start} AS chunk_start, length(${part}) AS chunk_chars,
-    ${part} AS chunk FROM monitor_replay_payload`;
+    ${part} AS chunk FROM monitor_replay_payload) AS monitor_audit_frame`;
 }
 function integer(value, name) {
   requireValue(typeof value === 'string' && /^\d+$/.test(value) && Number.isSafeInteger(Number(value)), `Invalid frame ${name}`);

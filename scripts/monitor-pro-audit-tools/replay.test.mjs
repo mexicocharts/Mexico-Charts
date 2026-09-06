@@ -54,7 +54,8 @@ test('framing rejects silent truncation, corruption, incorrect artist counts and
   for(const mutate of [
     value=>({...value,output:value.output.slice(0,-5)}),
     value=>({...value,output:value.output.replace('artist','artisx')}),
-    value=>({...value,output:value.output.replace('monitor-audit-json-v1','wrong-version')})
+    value=>({...value,output:value.output.replace('monitor-audit-json-v1','wrong-version')}),
+    value=>({...value,output:'START TRANSACTION\nROLLBACK\n'})
   ]){
     const storage=memory();const replay=createAuditReplay({evaluator,metadata,...storage,execute:async(sql,context)=>mutate(framed([{artist_key:'artist'}],context))});
     await assert.rejects(replay.captureRows({id:'bad',sql:'SELECT source',expectedRows:1}));
@@ -118,6 +119,15 @@ test('actual PostgreSQL framed whole and chunked SELECT replay nested evidence w
     const chunked=await replay.captureRows({id:'chunks',sql,expectedRows:1,chunked:true});
     assert.deepEqual(whole,chunked);assert.deepEqual(whole[0].declared_aliases,[]);assert.ok(queries>2);
     assert.ok(buildJsonChunkSql(sql).includes('payload AS chunk'));
+    assert.match(buildJsonChunkSql(sql),/^SELECT \* FROM \(WITH monitor_replay_rows AS MATERIALIZED/);
+    const withSource=await replay.captureRows({id:'with_source',sql:`WITH source AS (${sql}) SELECT * FROM source`,expectedRows:1});
+    assert.deepEqual(withSource,whole);
+    const empty=await replay.captureRows({id:'empty_source',sql:'WITH source AS (SELECT 1 marker WHERE false) SELECT * FROM source',expectedRows:0});
+    assert.deepEqual(empty,[]);
+    const emptyFrame=(await db.query(buildJsonChunkSql('SELECT 1 marker WHERE false'))).rows[0];
+    assert.deepEqual(Object.keys(emptyFrame),columns);assert.equal(emptyFrame.total_rows,0);assert.equal(emptyFrame.chunk,'[]');
+    const clockFrame=(await db.query(buildJsonChunkSql("WITH capture AS (SELECT transaction_timestamp() captured_at) SELECT captured_at=now() same_clock FROM capture"))).rows[0];
+    assert.deepEqual(JSON.parse(clockFrame.chunk),[{same_clock:true}]);
   }finally{await db.close();}
 });
 
