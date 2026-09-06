@@ -378,6 +378,7 @@ export default function MonitoringFounder() {
                               declaredAliases: artist.declaredAliases,
                               identityMappingStatus: artist.identityMappingStatus,
                               identityAliasEvidence: artist.identityAliasEvidence,
+                              candidateRecords: artist.candidateRecords,
                               candidateSources: artist.candidateSources,
                               readinessReasons: artist.readinessReasons,
                               findings: artist.findings,

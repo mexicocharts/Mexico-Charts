@@ -3,6 +3,7 @@ import test from "node:test";
 import type { Request, Response } from "express";
 import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "./monitoring-history-request";
 import { authorizeMonitoringArtist } from "./monitoring-authorization";
+import { monitoringIdentityKeyCandidates } from "./monitoring-candidate-policy";
 
 test("database and between-query budget exhaustion classify as timeout without hiding other failures", () => {
   const exhausted = new Error("Monitoring history read budget exhausted");
@@ -142,6 +143,32 @@ function handlerHarness(overrides: Partial<Parameters<typeof createMonitoringHis
 async function flushMicrotasks() {
   for (let turn = 0; turn < 5; turn += 1) await Promise.resolve();
 }
+
+test("paid history keeps exact mixed-script aliases without adding an unrelated ASCII artist", async () => {
+  for (const artist of ["X東京", "阿尔法", "ベータ"]) {
+    let requestedKeys: string[] | undefined;
+    const harness = handlerHarness({
+      userId: () => "paid-customer",
+      aliases: monitoringIdentityKeyCandidates,
+      authorize: (userId, requestedArtistKey) => authorizeMonitoringArtist({
+        userId, requestedArtistKey, internalUserIds: "fixture-founder",
+        findActiveSubscription: async () => ({ artist_key: artist, artist_name: artist, status: "active", created_at: null }),
+        findExistingArtist: async () => null,
+      }),
+      read: async input => {
+        assert.equal(input.artistKey, artist);
+        requestedKeys = input.artistKeys;
+        return { status: "unavailable", points: [] };
+      },
+    });
+    harness.req.params.artistKey = artist;
+    await harness.handler(harness.req, harness.res, () => {});
+    assert.equal(harness.status(), 200);
+    assert.deepEqual(requestedKeys, [...new Set([artist, ...monitoringIdentityKeyCandidates(artist)])]);
+    assert.ok(!requestedKeys?.includes("x"));
+    assert.ok(!requestedKeys?.includes(""));
+  }
+});
 
 test("authorization is inside the request deadline and a late grant never starts history", async context => {
   context.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 100_000 });

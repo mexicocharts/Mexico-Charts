@@ -1,11 +1,10 @@
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
 import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service";
 import { MONITORING_READINESS_POLICY_VERSION } from "./monitoring-readiness-policy";
-import { compactArtistKey, songstatsArtistKeyCandidates } from "./songstats-artist-key";
 import { loadMonitoringAuditSchema, withUnavailableMonitoringSources } from "./monitoring-audit-schema";
 import { buildLatestMonitoringStreamSummarySql } from "./monitoring-stream-serving";
 import { buildMonitoringCompactReadinessSql } from "./monitoring-compact-readiness";
-import { MONITORING_COMPLETE_CONTRACT_VERSION, MONITORING_COMPLETE_CONTRACT, groupMonitoringCandidateIdentities, evaluateMonitoringCandidate,
+import { MONITORING_COMPLETE_CONTRACT_VERSION, MONITORING_COMPLETE_CONTRACT, groupMonitoringCandidateIdentities, evaluateMonitoringCandidate, monitoringIdentityKeyCandidates,
   type MonitoringCandidateSourceRow, type MonitoringCandidateIdentity, type MonitoringCandidateEvidenceRow, type MonitoringCandidateAuditArtist } from "./monitoring-candidate-policy";
 export * from "./monitoring-candidate-policy";
 
@@ -15,10 +14,17 @@ export * from "./monitoring-candidate-policy";
 export const MONITORING_ACCEPTED_ALIAS_SQL = `SELECT artist_key, name artist_name, NULL::text spotify_id,
   'musicbrainz_artists' source, aliases declared_aliases, mbid, verified FROM musicbrainz_artists
   WHERE verified IN ('auto', 'auto_review_accepted', 'manual_review_accepted') AND NULLIF(trim(mbid), '') IS NOT NULL`;
+/** Discovery queue rows are inspection candidates. Only an already accepted
+ * matched_artist_id establishes an alias; provider proposals remain untrusted. */
+export const MONITORING_DISCOVERY_CANDIDATES_SQL = `SELECT normalized_name artist_key, artist_name, NULL::text spotify_id,
+  'artist_candidates' source, id::text source_record_id, status discovery_status, matched_artist_id matched_artist_key
+  FROM artist_candidates
+  UNION ALL SELECT artist_key, artist_name, NULL::text, 'spotify_artist_candidates', artist_key, status, NULL::text
+  FROM spotify_artist_candidates`;
 export const MONITORING_CANDIDATE_POPULATION_SQL = `
   SELECT artist_key, artist_name, spotify_id, 'kworb_coverage' source FROM kworb_coverage
   UNION ALL SELECT artist_key, artist_name, NULL, 'official_artists' FROM official_artists
-  UNION ALL SELECT artist_key, spotify_name, spotify_artist_id, 'spotify_artists' FROM spotify_artists
+  UNION ALL SELECT artist_key, spotify_name, CASE WHEN verified IS TRUE THEN spotify_artist_id END, 'spotify_artists' FROM spotify_artists
   UNION ALL SELECT artist_key, songstats_name, spotify_artist_id, 'songstats_artists' FROM songstats_artists
   UNION ALL SELECT artist_key, NULL, spotify_artist_id, 'songstats_artist_extended_data' FROM songstats_artist_extended_data
   UNION ALL SELECT DISTINCT artist_key, NULL, spotify_artist_id, 'songstats_artist_daily_snapshots' FROM songstats_artist_daily_snapshots
@@ -30,7 +36,7 @@ export const MONITORING_CANDIDATE_POPULATION_SQL = `
   UNION ALL SELECT DISTINCT artist_key, artist_name, NULL, 'youtube_artist_video_links' FROM youtube_artist_video_links
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'youtube_kworb_daily_snapshots' FROM youtube_kworb_daily_snapshots
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'youtube_artist_video_daily_rollups' FROM youtube_artist_video_daily_rollups
-  UNION ALL SELECT artist_key, NULL, spotify_artist_id, 'songstats_history_provider_identities' FROM songstats_history_provider_identities
+  UNION ALL SELECT artist_key, NULL, CASE WHEN validation_status='verified' THEN spotify_artist_id END, 'songstats_history_provider_identities' FROM songstats_history_provider_identities
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'songstats_historical_observations' FROM songstats_historical_observations
   UNION ALL SELECT DISTINCT artist_key, NULL, NULL, 'kworb_snapshots' FROM kworb_snapshots
   UNION ALL SELECT artist_key, NULL, NULL, 'artist_images' FROM artist_images
@@ -44,11 +50,14 @@ const POPULATION_CACHE_MS = 60_000;
 let populationCache: { expiresAt: number; value: MonitoringCandidateIdentity[] } | null = null;
 let populationPending: Promise<MonitoringCandidateIdentity[]> | null = null;
 let aliasCache: { expiresAt: number; value: MonitoringCandidateSourceRow[] } | null = null;
-async function loadAcceptedMonitoringAliases(readPool: AuditPool, missing: string[]) {
+async function loadMonitoringIdentityCatalog(readPool: AuditPool, missing: string[]) {
   const cacheable = readPool === monitoringReadPool || readPool === publicReadPool;
   if (cacheable && aliasCache && aliasCache.expiresAt > Date.now()) return aliasCache.value;
-  const value = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
+  const accepted = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(MONITORING_ACCEPTED_ALIAS_SQL, missing), []);
+  const discovery = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
+    withUnavailableMonitoringSources(MONITORING_DISCOVERY_CANDIDATES_SQL, missing), []);
+  const value = [...accepted, ...discovery];
   if (cacheable) aliasCache = { expiresAt: Date.now() + POPULATION_CACHE_MS, value };
   return value;
 }
@@ -56,7 +65,7 @@ async function loadAcceptedMonitoringAliases(readPool: AuditPool, missing: strin
 async function loadCandidateRows(readPool: AuditPool, missing: string[]) {
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
     withUnavailableMonitoringSources(MONITORING_CANDIDATE_POPULATION_SQL, missing), []);
-  return [...rows, ...await loadAcceptedMonitoringAliases(readPool, missing)];
+  return [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing)];
 }
 
 export async function loadMonitoringCandidatePopulation(readPool: AuditPool = monitoringReadPool) {
@@ -77,33 +86,39 @@ export async function loadMonitoringCandidatePopulation(readPool: AuditPool = mo
 }
 
 export async function getMonitoringCandidateIdentity(artistKey: string, readPool: AuditPool = monitoringReadPool) {
-  const keys = new Set(songstatsArtistKeyCandidates(artistKey).map(compactArtistKey));
+  const keys = new Set(monitoringIdentityKeyCandidates(artistKey));
   if (!keys.size) return null;
   const missing = await loadMonitoringAuditSchema(readPool);
-  const acceptedAliases = await loadAcceptedMonitoringAliases(readPool, missing);
+  const acceptedAliases = await loadMonitoringIdentityCatalog(readPool, missing);
   const aliasGroups = groupMonitoringCandidateIdentities(acceptedAliases);
   const expandAliases = (values: string[]) => {
-    const tokens = new Set(values.map(compactArtistKey));
-    return [...new Set([...values, ...aliasGroups.filter(group => group.matchKeys.some(key => tokens.has(compactArtistKey(key)))).flatMap(group => group.matchKeys)])];
+    const tokens = new Set(values.flatMap(monitoringIdentityKeyCandidates));
+    return [...new Set([...values, ...aliasGroups.filter(group => group.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => tokens.has(key))).flatMap(group => group.matchKeys)])];
   };
-  const requested = expandAliases([...new Set([artistKey, artistKey.trim(), ...songstatsArtistKeyCandidates(artistKey)])]);
+  const requested = expandAliases([...new Set([artistKey, artistKey.trim(), ...monitoringIdentityKeyCandidates(artistKey)])]);
+  const compactSqlKeys = (values: string[]) => [...new Set(values.flatMap(monitoringIdentityKeyCandidates).filter(key => /^[a-z0-9]+$/.test(key)))];
   const pieces = MONITORING_CANDIDATE_POPULATION_SQL.trim().split(/\s+UNION ALL\s+/i);
-  const providerColumns: Record<string, string> = { kworb_coverage: "spotify_id", spotify_artists: "spotify_artist_id", songstats_artists: "spotify_artist_id",
-    songstats_artist_extended_data: "spotify_artist_id", songstats_artist_daily_snapshots: "spotify_artist_id", spotify_kworb_daily_snapshots: "spotify_artist_id", songstats_history_provider_identities: "spotify_artist_id" };
+  // Unaccepted mappings stay visible as source-key inventory rows, but never
+  // establish a provider-ID bridge to another artist or paid grant.
+  const providerColumns: Record<string, string> = { kworb_coverage: "spotify_id",
+    spotify_artists: "(CASE WHEN verified IS TRUE THEN spotify_artist_id END)", songstats_artists: "spotify_artist_id",
+    songstats_artist_extended_data: "spotify_artist_id", songstats_artist_daily_snapshots: "spotify_artist_id", spotify_kworb_daily_snapshots: "spotify_artist_id",
+    songstats_history_provider_identities: "(CASE WHEN validation_status='verified' THEN spotify_artist_id END)" };
   const targeted = pieces.map(sql => {
     const table = sql.match(/FROM ([a-z_]+)$/)?.[1] ?? "";
     const provider = providerColumns[table];
     const boundedIdentity = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists", "youtube_channels"].includes(table);
-    const normalized = boundedIdentity ? " OR regexp_replace(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'), '[^a-z0-9]', '', 'g')=ANY($3::text[])" : "";
+    const latinKey = "translate(lower(artist_key), 'áéíóúüñ', 'aeiouun')";
+    const normalized = boundedIdentity ? ` OR (length(${latinKey})=octet_length(${latinKey}) AND regexp_replace(${latinKey}, '[^a-z0-9]', '', 'g')=ANY($3::text[]))` : "";
     return `${sql} WHERE artist_key=ANY($1::text[])${provider ? ` OR ${provider}=ANY($2::text[])` : ""}${normalized}`;
   }).join(" UNION ALL ");
   const initial = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(targeted, missing), [requested, [], requested.map(compactArtistKey)]);
-  const sourceKeys = expandAliases([...new Set([...requested, ...initial.flatMap(row => [row.artist_key, ...songstatsArtistKeyCandidates(row.artist_key)])])]);
+    withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]);
+  const sourceKeys = expandAliases([...new Set([...requested, ...initial.flatMap(row => [row.artist_key, ...monitoringIdentityKeyCandidates(row.artist_key)])])]);
   const spotifyIds = [...new Set(initial.flatMap(row => row.spotify_id ? [row.spotify_id] : []))];
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, sourceKeys.map(compactArtistKey)]);
-  const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases]).find(candidate => candidate.matchKeys.some(key => keys.has(compactArtistKey(key))));
+    withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, compactSqlKeys(sourceKeys)]);
+  const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases]).find(candidate => candidate.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => keys.has(key)));
   if (!candidate) return null;
   if (!candidate.identityConflict) return candidate;
   const exactKey = candidate.sourceKeys.find(key => key === artistKey) ?? candidate.artistKey;
@@ -213,15 +228,15 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
   const now = dependencies.now ?? new Date();
   const limit = Math.max(1, Math.min(200, Math.trunc(options.limit ?? 50) || 50));
   const offset = Math.max(0, Math.trunc(options.offset ?? 0) || 0);
-  const search = compactArtistKey(options.search ?? "");
-  const requestedKeys = new Set((options.artistKeys ?? []).flatMap(songstatsArtistKeyCandidates).map(compactArtistKey));
+  const searchKeys = monitoringIdentityKeyCandidates(options.search ?? "");
+  const requestedKeys = new Set((options.artistKeys ?? []).flatMap(monitoringIdentityKeyCandidates));
   const missingSchemaTables = await loadMonitoringAuditSchema(readPool);
   const population = (await loadMonitoringCandidatePopulation(readPool)).filter(artist =>
-    (!search || compactArtistKey(artist.artistName).includes(search) || artist.matchKeys.some(key => compactArtistKey(key).includes(search))) &&
-    (!requestedKeys.size || artist.matchKeys.some(key => requestedKeys.has(compactArtistKey(key)))));
+    (!searchKeys.length || [artist.artistName, ...artist.matchKeys].flatMap(monitoringIdentityKeyCandidates).some(key => searchKeys.some(search => key.includes(search)))) &&
+    (!requestedKeys.size || artist.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => requestedKeys.has(key))));
   const page = population.slice(offset, offset + limit);
   const cacheable = (readPool === monitoringReadPool || readPool === publicReadPool) && !dependencies.now;
-  const cacheKey = (artist: MonitoringCandidateIdentity) => JSON.stringify([artist.artistKey, artist.sourceKeys, artist.spotifyIds, artist.identityAliasEvidence, missingSchemaTables]);
+  const cacheKey = (artist: MonitoringCandidateIdentity) => JSON.stringify([artist.artistKey, artist.sourceKeys, artist.spotifyIds, artist.identityAliasEvidence, artist.candidateRecords, missingSchemaTables]);
   const uncached = page.filter(artist => !cacheable || (evidenceCache.get(cacheKey(artist))?.expiresAt ?? 0) <= Date.now());
   const fresh = new Map<string, MonitoringCandidateAuditArtist>();
   if (uncached.length) {

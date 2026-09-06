@@ -37,8 +37,103 @@ test("paid video read includes the existing public catalog and deduplicates by v
 test("paid reads retain both the requested route alias and authorized canonical alias", () => {
   assert.match(
     source,
-    /const activeKeys = active\.identity_conflict \? \[active\.artist_key\] : \[[\s\S]*songstatsArtistKeyCandidates\(active\.artist_key\)[\s\S]*songstatsArtistKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
+    /const activeKeys = active\.identity_conflict \? \[active\.artist_key\] : \[[\s\S]*monitoringIdentityKeyCandidates\(active\.artist_key\)[\s\S]*monitoringIdentityKeyCandidates\(active\.artist_name\)[\s\S]*\.\.\.lookupKeys[\s\S]*\];/,
   );
+  assert.match(source, /aliases: monitoringIdentityKeyCandidates/);
+});
+
+const postgresModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
+test("actual subscription lookup isolates mixed-script keys and returns only the signed user's Latin or Unicode grant", { skip: !postgresModule }, async () => {
+  const { PGlite } = await import(postgresModule!);
+  const { transpileModule, ScriptTarget } = await import("typescript");
+  const { monitoringIdentityKeyCandidates } = await import("../lib/monitoring-candidate-policy");
+  const { authorizeMonitoringArtist } = await import("../lib/monitoring-authorization");
+  const { ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES } = await import("../lib/artist-pro-entitlement");
+  const start = source.indexOf("async function resolveMonitoringAccess(");
+  const end = source.indexOf("async function loadAuthorizedMonitoring(", start);
+  assert.ok(start >= 0 && end > start);
+  // Execute the route's actual bounded authorization function with a local
+  // PostgreSQL fixture. This exercises its real SQL and parameter generation,
+  // without importing the route's collectors, server, or configured pools.
+  const authorizationSource = transpileModule(source.slice(start, end), {
+    compilerOptions: { target: ScriptTarget.ES2022 },
+  }).outputText;
+  const db = new PGlite();
+  const statements: Array<{ sql: string; values: unknown[] }> = [];
+  try {
+    await db.exec(`CREATE TABLE monitoring_subscriptions (
+      clerk_user_id text, artist_key text, artist_name text, status text,
+      created_at timestamptz, updated_at timestamptz
+    )`);
+    const subscriptions = [
+      ["ascii-user", "x", "X", "active", "2026-09-01"],
+      ["unicode-user", "X東京", "X東京", "active", "2026-09-03"],
+      ["both-user", "x", "X", "active", "2026-09-01"],
+      ["both-user", "X東京", "X東京", "trialing", "2026-09-03"],
+      ["both-user", "阿尔法", "阿尔法", "active", "2026-09-04"],
+      ["both-user", "ベータ", "ベータ", "active", "2026-09-05"],
+      ["latin-user", "Luis Miguel", "Luis Miguel", "active", "2026-09-01"],
+      ["latin-user", "José José", "José José", "trialing", "2026-09-01"],
+      ["latin-user", "Banda El Recodo de Cruz Lizárraga", "Banda El Recodo", "active", "2026-09-01"],
+      ["inactive-user", "X東京", "X東京", "canceled", "2026-09-06"],
+      ["registry-user", "verified canonical", "Canonical", "active", "2026-09-06"],
+    ];
+    for (const row of subscriptions) {
+      await db.query("INSERT INTO monitoring_subscriptions VALUES ($1,$2,$3,$4,$5::timestamptz,$5::timestamptz)", row);
+    }
+    const resolve = new Function(
+      "monitoringIdentityKeyCandidates", "authorizeMonitoringArtist", "monitoringReadPool",
+      "getExistingMonitoringArtist", "ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES", "logger", "safeClerkIdentityHash",
+      `${authorizationSource}\nreturn resolveMonitoringAccess;`,
+    )(
+      monitoringIdentityKeyCandidates,
+      (input: Parameters<typeof authorizeMonitoringArtist>[0]) => authorizeMonitoringArtist({ ...input, internalUserIds: "fixture-founder" }),
+      { query: async (sql: string, values: unknown[]) => { statements.push({ sql, values }); return db.query(sql, values); } },
+      async (key: string) => {
+        if (["bandaelrecodo", "Banda El Recodo de Cruz Lizárraga"].includes(key)) return {
+          artistKey: "Banda El Recodo de Cruz Lizárraga", artistName: "Banda El Recodo",
+          matchKeys: ["Banda El Recodo de Cruz Lizárraga", "bandaelrecodo"], identityConflict: false,
+        };
+        if (["approved-alias", "verified canonical"].includes(key)) return {
+          artistKey: "verified canonical", artistName: "Canonical",
+          matchKeys: ["verified canonical", "approved-alias"], identityConflict: false,
+        };
+        if (key === "conflicted-alias") return {
+          artistKey: "conflicted-alias", artistName: "Ambiguous",
+          matchKeys: ["conflicted-alias", "verified canonical"], identityConflict: true,
+        };
+        return null;
+      },
+      ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES,
+      { info() {} },
+      () => "fixture-hash",
+    ) as (userId: string, requestedArtistKey: string) => ReturnType<typeof authorizeMonitoringArtist>;
+    for (const [userId, requested, expected] of [
+      ["ascii-user", "x", "x"], ["ascii-user", "X東京", null],
+      ["unicode-user", "x", null], ["unicode-user", "X東京", "X東京"],
+      ["both-user", "x", "x"], ["both-user", "x東京", "X東京"],
+      ["both-user", " 阿尔法 ", "阿尔法"], ["both-user", "ベータ", "ベータ"],
+      ["both-user", "未知", null], ["both-user", "!!!", null],
+      ["latin-user", "luis-miguel", "Luis Miguel"], ["latin-user", "luismiguel", "Luis Miguel"],
+      ["latin-user", "josejose", "José José"], ["latin-user", "banda el recodo", "Banda El Recodo de Cruz Lizárraga"],
+      ["latin-user", "bandaelrecodo", "Banda El Recodo de Cruz Lizárraga"],
+      ["registry-user", "approved-alias", "verified canonical"],
+      ["registry-user", "pending-alias", null], ["registry-user", "conflicted-alias", null],
+      ["different-user", "approved-alias", null],
+      ["inactive-user", "X東京", null], ["different-user", "x", null],
+    ] as const) {
+      const access = await resolve(userId, requested);
+      assert.equal(access.allowed, expected !== null, `${userId}: ${requested}`);
+      assert.equal(access.grant?.artist_key ?? null, expected, "return the signed user's exact subscription identity");
+      if (expected) assert.equal(access.source, "subscription");
+      const statement = statements.at(-1)!;
+      assert.match(statement.sql, /FROM monitoring_subscriptions/);
+      assert.equal(statement.values[0], userId);
+      const compactKeys = statement.values[3] as string[];
+      assert.ok(compactKeys.every(key => /^[a-z0-9]+$/.test(key)));
+      if (/[^\x00-\x7f]/.test(requested) || requested === "!!!") assert.deepEqual(compactKeys, []);
+    }
+  } finally { await db.close(); }
 });
 
 test("monitoring dashboard latest-video reads use compact observation state", () => {

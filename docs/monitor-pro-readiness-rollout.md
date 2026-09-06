@@ -10,6 +10,8 @@ The founder directory is `/monitoreo/founder`. Its data, inventory, and packaged
 
 Artist URLs authorize directly. Identity resolution includes source-only artists and aliases, with provider conflicts isolated to the requested source identity. There is no redirect-based authorization or artist-specific page fork.
 
+Paid grants resolve source aliases only after their artist-specific entitlement is established, using the granted key. Pending/rejected provider proposals never establish an identity bridge. Non-Latin aliases keep their exact normalized names; stripping them to empty keys or ASCII fragments would join unrelated artists.
+
 ## History
 
 Metric history authorizes an artist grant and reads that metric; it no longer assembles the complete dashboard to authorize the request. Verified compact history is joined through actual source keys, with canonical-first daily deduplication and preserved source alternatives. Unverified identities and quarantined metrics do not contribute.
@@ -31,6 +33,10 @@ The audit does not verify that a report has actually rendered, that the founder 
 Run `pnpm --filter @workspace/api-server audit:monitor-pro --output <private-json-path>` only in an authorized production-serving read environment with its existing database configuration. The runner imports no application startup, forces PostgreSQL read-only sessions, uses one audit connection, makes no provider calls, verifies the database name and read-only state, and saves incremental evidence. The private output includes every discovered candidate, counts, unknown findings, source evidence, repairs, revision, and query timing. Its default filename is ignored by Git and its file mode is restricted.
 
 Where the platform exposes production only through a SELECT-only query interface, do not export production credentials. Execute the same schema inventory, candidate inventory, and bounded evidence SELECTs through that interface, preserving raw results and query timing. Apply the reviewed grouping and evaluator locally to those actual results. Document this execution mode separately; it is not a run of the one-connection CLI.
+
+`src/lib/monitoring-candidate-policy.ts` is a database-free entrypoint for grouping and evaluation. It can be bundled as a browser IIFE for the query interface's orchestration runtime; it initializes no database or provider client. Run all inventory queries, including accepted alias relations, before grouping. Preserve one consistent audit timestamp and the complete schema findings. A query error or truncated result is unfinished evidence, never an empty source. Save results privately and verify each requested identity appears exactly once.
+
+Large licensed payloads can exceed a query tool's output limit even when the SQL executes successfully. Start with one evidence row, evaluate it immediately, then use bounded batches appropriate to the measured response size. The evidence query references each exact legacy extended-data row rather than repeating its full JSON. If lossless chunking is necessary, check the complete length and a stable digest across all chunks before parsing. Do not truncate histories or catalog items to make an audit pass.
 
 Before publishing:
 

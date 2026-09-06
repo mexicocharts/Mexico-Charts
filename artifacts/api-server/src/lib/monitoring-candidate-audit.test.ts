@@ -73,6 +73,54 @@ test("accepted entity aliases connect short names to existing histories without 
   assert.equal(conflict.identityMappingStatus, "conflict");
 });
 
+test("distinct non-Latin and mixed-script aliases never merge through stripped characters", () => {
+  const rows = [
+    { artist_key: "artist alpha", artist_name: "Artist Alpha", spotify_id: null, source: "musicbrainz_artists",
+      mbid: "alpha-mbid", verified: "auto", declared_aliases: ["阿尔法", "X東京"] },
+    { artist_key: "artist beta", artist_name: "Artist Beta", spotify_id: null, source: "musicbrainz_artists",
+      mbid: "beta-mbid", verified: "auto", declared_aliases: ["ベータ", "X大阪"] },
+    { artist_key: "阿尔法", artist_name: null, spotify_id: null, source: "monitoring_stream_items" },
+    { artist_key: "x", artist_name: "X", spotify_id: null, source: "official_artists" },
+    { artist_key: "unrelated", artist_name: null, spotify_id: null, source: "musicbrainz_artists",
+      mbid: "unrelated-mbid", verified: "auto", declared_aliases: ["???"] },
+  ];
+  const groups = groupMonitoringCandidateIdentities(rows);
+  assert.equal(groups.length, 4);
+  assert.ok(groups.every(group => !group.identityConflict));
+  assert.deepEqual(groups.find(group => group.artistKey === "artist alpha")?.sourceKeys, ["artist alpha", "阿尔法"]);
+  assert.deepEqual(groups.find(group => group.artistKey === "artist beta")?.sourceKeys, ["artist beta"]);
+  assert.deepEqual(groups.find(group => group.artistKey === "x")?.sourceKeys, ["x"]);
+  assert.ok(groups.every(group => !group.matchKeys.includes("")));
+});
+
+test("accepted discovery relationships connect stored sources while pending proposals remain separate", () => {
+  const sources = [
+    { artist_key: "banda ms", artist_name: "Banda MS", spotify_id: null, source: "official_artists" },
+    { artist_key: "bandamsdesergiolizarraga", artist_name: null, spotify_id: "ms-provider", source: "songstats_history_provider_identities" },
+    { artist_key: "bandamsdiscovered", artist_name: "Banda MS", spotify_id: null, source: "artist_candidates", source_record_id: "100",
+      discovery_status: "linked_existing_artist", matched_artist_key: "banda ms de sergio lizarraga" },
+    { artist_key: "unrelated pending", artist_name: "Unrelated Pending", spotify_id: "ms-provider", source: "artist_candidates", source_record_id: "101",
+      discovery_status: "pending", matched_artist_key: "banda ms de sergio lizarraga" },
+    { artist_key: "unrelated spotify proposal", artist_name: "Other", spotify_id: "ms-provider", source: "spotify_artist_candidates", discovery_status: "review" },
+  ];
+  const groups = groupMonitoringCandidateIdentities(sources);
+  assert.equal(groups.length, 3);
+  const ms = groups.find(group => group.artistKey === "banda ms")!;
+  assert.deepEqual(ms.sourceKeys, ["banda ms", "bandamsdesergiolizarraga"]);
+  assert.ok(ms.declaredAliases.includes("bandamsdiscovered"));
+  assert.equal(ms.identityAliasEvidence.find(row => row.source === "artist_candidates")?.candidateId, "100");
+  assert.equal(ms.candidateRecords[0]?.status, "linked_existing_artist");
+  assert.equal(ms.identityConflict, false);
+  const pending = groups.find(group => group.artistKey === "unrelated pending")!;
+  assert.deepEqual(pending.sourceKeys, [], "discovery names are not claimed as stored serving artist keys");
+  assert.deepEqual(pending.spotifyIds, []);
+  assert.ok(!pending.matchKeys.includes("banda ms de sergio lizarraga"));
+  assert.equal(pending.identityMappingStatus, "unverified");
+  const conflict = groupMonitoringCandidateIdentities([...sources, { artist_key: "contradictory discovery", artist_name: "Banda MS", spotify_id: null,
+    source: "artist_candidates", discovery_status: "approved", matched_artist_key: "different target" }]).find(group => group.artistKey === "banda ms")!;
+  assert.equal(conflict.identityConflict, true);
+});
+
 test("unmatched source keys cannot be classified as absent artist data", () => {
   const { row, now } = fixture();
   const artist = groupMonitoringCandidateIdentities([{ artist_key: "unmatched short name", artist_name: null, spotify_id: null, source: "official_artists" }])[0]!;
@@ -248,7 +296,7 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     await db.exec("INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('luis miguel','Luis Miguel','luis-id')");
     assert.equal((await getMonitoringCandidateIdentity("luis-miguel", readPool as never))?.artistKey, "luis miguel");
     assert.equal((await getMonitoringCandidateIdentity("luismiguel", readPool as never))?.artistKey, "luis miguel");
-    await db.exec("INSERT INTO spotify_artists(artist_key,spotify_artist_id) VALUES ('Luis Miguel','conflicting-id')");
+    await db.exec("INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('Luis Miguel','conflicting-id',true)");
     const conflicted = await getMonitoringCandidateIdentity("luis miguel", readPool as never);
     assert.equal(conflicted?.identityConflict, true);
     assert.deepEqual(conflicted?.matchKeys, ["luis miguel"]);
@@ -289,5 +337,90 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
     const unresolvedMs = await getMonitoringCandidateDirectory({ artistKeys: ["bandams"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
     assert.equal(unresolvedMs.artists[0]?.classification, null);
     assert.ok(unresolvedMs.artists[0]?.findings.some(finding => finding.code === "identity_source_mapping_unverified"));
+    await db.exec(`INSERT INTO official_artists(artist_key,artist_name) VALUES ('artist alpha','Artist Alpha'),('artist beta','Artist Beta');
+      INSERT INTO musicbrainz_artists(artist_key,mbid,name,aliases,verified) VALUES
+        ('artist alpha','alpha-mbid','Artist Alpha','["阿尔法", "X東京"]','auto'),
+        ('artist beta','beta-mbid','Artist Beta','["ベータ", "X大阪"]','auto');
+      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('x','x-provider',true),('x東京','tokyo-provider',true);
+      INSERT INTO monitoring_stream_items(artist_key,item_type,item_key,title) VALUES ('阿尔法','track','alpha-track','Alpha Track')`);
+    for (const [alias, expected] of [["阿尔法", "artist alpha"], ["X東京", "artist alpha"], ["ベータ", "artist beta"], ["X大阪", "artist beta"]]) {
+      const identity = await getMonitoringCandidateIdentity(alias!, readPool as never);
+      assert.equal(identity?.artistKey, expected);
+      assert.equal(identity?.identityConflict, false);
+    }
+    assert.equal(await getMonitoringCandidateIdentity("未知", readPool as never), null);
+    assert.equal(await getMonitoringCandidateIdentity("!!!", readPool as never), null);
+    const asciiIdentity = await getMonitoringCandidateIdentity("x", readPool as never);
+    assert.deepEqual(asciiIdentity?.sourceKeys, ["x"]);
+    assert.deepEqual(asciiIdentity?.spotifyIds, ["x-provider"]);
+    const unicodePage = await getMonitoringCandidateDirectory({ artistKeys: ["阿尔法"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(unicodePage.total, 1);
+    assert.deepEqual(unicodePage.artists[0]?.sourceKeys, ["artist alpha", "x東京", "阿尔法"]);
+    const unrelatedPage = await getMonitoringCandidateDirectory({ artistKeys: ["未知"] }, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(unrelatedPage.total, 0);
+    const unicodeSearch = await getMonitoringCandidateDirectory({ search: "ベータ" }, { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(unicodeSearch.total, 1);
+    assert.equal(unicodeSearch.artists[0]?.artistKey, "artist beta");
+    await db.exec(`INSERT INTO kworb_coverage(artist_key,artist_name,spotify_id) VALUES ('paid artist','Paid Artist','paid-provider');
+      INSERT INTO songstats_history_provider_identities(id,artist_key,spotify_artist_id,validation_status) VALUES
+        (10,'verified paid source','paid-provider','verified'),
+        (11,'review other artist','paid-provider','review'),
+        (12,'rejected other artist','paid-provider','rejected');
+      INSERT INTO spotify_artists(artist_key,spotify_artist_id,verified) VALUES ('unverified spotify artist','paid-provider',false);
+      INSERT INTO monitoring_stream_items(artist_key,item_type,item_key,title) VALUES
+        ('review other artist','track','review-track','Review Track'),
+        ('rejected other artist','track','rejected-track','Rejected Track')`);
+    const trusted = await getMonitoringCandidateIdentity("paid artist", readPool as never);
+    assert.deepEqual(trusted?.sourceKeys, ["paid artist", "verified paid source"]);
+    assert.equal(trusted?.identityConflict, false);
+    const retained = groupMonitoringCandidateIdentities((await db.query(withUnavailableMonitoringSources(
+      MONITORING_CANDIDATE_POPULATION_SQL, ["songstats_historical_observations"],
+    ))).rows);
+    for (const key of ["review other artist", "rejected other artist", "unverified spotify artist"]) {
+      const identity = retained.find(group => group.sourceKeys.includes(key));
+      assert.deepEqual(identity?.sourceKeys, [key], "unaccepted mappings remain separately inspectable");
+      assert.deepEqual(identity?.spotifyIds, [], "unaccepted provider IDs are not identity evidence");
+      assert.equal(identity?.identityMappingStatus, "unverified");
+      assert.deepEqual((await getMonitoringCandidateIdentity(key, readPool as never))?.sourceKeys, [key]);
+    }
+    const { authorizeMonitoringArtist } = await import("./monitoring-authorization");
+    const paid = await authorizeMonitoringArtist({
+      userId: "paid-user", requestedArtistKey: "paid artist", internalUserIds: "founder",
+      findActiveSubscription: async () => ({ artist_key: "paid artist", artist_name: "Paid Artist", status: "active", created_at: null }),
+      findExistingArtist: async key => {
+        const identity = await getMonitoringCandidateIdentity(key, readPool as never);
+        return identity ? { artist_key: identity.artistKey, artist_name: identity.artistName, status: "internal", created_at: null,
+          match_keys: identity.matchKeys, identity_conflict: identity.identityConflict } : null;
+      },
+    });
+    assert.equal(paid.allowed, true);
+    assert.equal(paid.grant?.artist_key, "paid artist");
+    assert.ok(paid.grant?.match_keys?.includes("verified paid source"));
+    for (const key of ["review other artist", "rejected other artist", "unverified spotify artist"]) {
+      assert.ok(!paid.grant?.match_keys?.includes(key), "paid access never inherits unaccepted provider mappings");
+    }
+    await db.exec(`INSERT INTO artist_candidates(id,artist_name,normalized_name,status,matched_artist_id) VALUES
+      (100,'Banda MS','bandams','linked_existing_artist','banda ms de sergio lizarraga'),
+      (101,'Pending Discovery','pendingdiscovery','pending','paid artist'),
+      (102,'Rejected Discovery','rejecteddiscovery','rejected','paid artist');
+      INSERT INTO spotify_artist_candidates(artist_key,artist_name,status,candidates) VALUES
+      ('only spotify proposal','Only Spotify Proposal','review','[{"spotifyArtistId":"paid-provider"}]')`);
+    const linkedMs = await getMonitoringCandidateIdentity("banda-ms", readPool as never);
+    assert.deepEqual(linkedMs?.sourceKeys, ["banda ms", "banda ms de sergio lizarraga", "bandamsdesergiolizarraga"]);
+    assert.equal(linkedMs?.identityConflict, false);
+    assert.equal(linkedMs?.identityAliasEvidence.find(row => row.source === "artist_candidates")?.candidateId, "100");
+    for (const key of ["pendingdiscovery", "rejecteddiscovery", "only spotify proposal"]) {
+      const candidate = await getMonitoringCandidateIdentity(key, readPool as never);
+      assert.equal(candidate?.artistKey, key);
+      assert.equal(candidate?.identityMappingStatus, "unverified");
+      assert.deepEqual(candidate?.spotifyIds, []);
+      assert.ok(!candidate?.matchKeys.includes("paid artist"));
+    }
+    const discoveryPage = await getMonitoringCandidateDirectory({ artistKeys: ["pendingdiscovery", "rejecteddiscovery", "only spotify proposal"] },
+      { readPool: readPool as never, now: new Date("2026-08-10") });
+    assert.equal(discoveryPage.total, 3);
+    assert.ok(discoveryPage.artists.every(row => row.classification === null && row.candidateRecords.length === 1));
+    const paidAfterDiscovery = await getMonitoringCandidateIdentity("paid artist", readPool as never);
+    for (const key of ["pendingdiscovery", "rejecteddiscovery", "only spotify proposal"]) assert.ok(!paidAfterDiscovery?.matchKeys.includes(key));
   } finally { await db.close(); }
 });

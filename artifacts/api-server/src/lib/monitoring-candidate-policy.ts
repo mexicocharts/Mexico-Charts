@@ -1,6 +1,6 @@
 import { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
 import { MONITORING_READINESS_POLICY_VERSION, isMonitoringReadinessDateFresh } from "./monitoring-readiness-policy";
-import { compactArtistKey, songstatsArtistKeyCandidates } from "./songstats-artist-key";
+import { normalizeArtistKey, songstatsArtistKeyCandidates } from "./songstats-artist-key";
 import { buildSongstatsPublicInsight } from "./songstats-public-service";
 import { normalizedMonitoringReleaseTitle } from "./monitoring-artwork";
 import { youtubeCoverageFromLatestObservations } from "./youtube-latest-observation";
@@ -27,6 +27,9 @@ export interface MonitoringCandidateSourceRow {
   declared_aliases?: string[] | null;
   mbid?: string | null;
   verified?: string | null;
+  source_record_id?: string | null;
+  discovery_status?: string | null;
+  matched_artist_key?: string | null;
 }
 
 export interface MonitoringCandidateIdentity {
@@ -38,17 +41,31 @@ export interface MonitoringCandidateIdentity {
   spotifyIds: string[];
   identityConflict: boolean;
   declaredAliases: string[];
-  identityAliasEvidence: Array<{ source: "musicbrainz_artists"; artistKey: string; mbid: string; verification: string; aliases: string[] }>;
+  identityAliasEvidence: Array<{ source: "musicbrainz_artists" | "artist_candidates"; artistKey: string; mbid?: string; candidateId?: string; matchedArtistKey?: string; verification: string; aliases: string[] }>;
+  candidateRecords: Array<{ source: "artist_candidates" | "spotify_artist_candidates"; recordId: string; artistName: string | null; lookupName: string; status: string | null; matchedArtistKey: string | null }>;
   identityMappingStatus: "provider_id" | "accepted_registry" | "unverified" | "conflict";
 }
 
 const acceptedRegistryRow = (row: MonitoringCandidateSourceRow) => row.source === "musicbrainz_artists" && Boolean(row.mbid?.trim()) &&
   ["auto", "auto_review_accepted", "manual_review_accepted"].includes(row.verified ?? "");
-const declaredRowAliases = (row: MonitoringCandidateSourceRow) => acceptedRegistryRow(row)
-  ? [...new Set([row.artist_name, ...(Array.isArray(row.declared_aliases) ? row.declared_aliases : [])]
+const acceptedDiscoveryRow = (row: MonitoringCandidateSourceRow) => row.source === "artist_candidates" && Boolean(row.matched_artist_key?.trim()) &&
+  ["approved", "linked_existing_artist"].includes(row.discovery_status ?? "");
+const declaredRowAliases = (row: MonitoringCandidateSourceRow) => acceptedRegistryRow(row) || acceptedDiscoveryRow(row)
+  ? [...new Set([row.artist_name, ...(acceptedDiscoveryRow(row) ? [row.artist_key] : []), ...(Array.isArray(row.declared_aliases) ? row.declared_aliases : [])]
     .filter((value): value is string => typeof value === "string" && Boolean(value.trim())).map(value => value.trim()))] : [];
+const trustedSpotifyId = (row: MonitoringCandidateSourceRow) => ["artist_candidates", "spotify_artist_candidates"].includes(row.source) ? null : row.spotify_id?.trim() || null;
 
 const SOURCE_PRIORITY = ["kworb_coverage", "official_artists", "spotify_artists", "songstats_artists"];
+/** Keep Unicode identity names exact. Removing their characters can produce an
+ * empty key, or reduce distinct mixed-script names to the same ASCII fragment.
+ * ASCII and accent-normalized Latin names retain the established aliases.
+ */
+export function monitoringIdentityKeyCandidates(value: string): string[] {
+  const normalized = normalizeArtistKey(value);
+  if (!normalized) return [];
+  return /[^\x00-\x7f]/.test(normalized) ? [normalized] : songstatsArtistKeyCandidates(normalized);
+}
+
 /** Deterministic connected identity groups, including explicit aliases and provider IDs.
  * Conflicting provider IDs are retained as a diagnostic and never commercially approved.
  */
@@ -58,8 +75,8 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   const parents: number[] = [];
   const root = (id: number): number => parents[id] === id ? id : (parents[id] = root(parents[id]!));
   for (const row of rows.filter(row => row.artist_key?.trim())) {
-    const keys = [...[row.artist_key, ...declaredRowAliases(row)].flatMap(songstatsArtistKeyCandidates).map(key => `key:${compactArtistKey(key)}`),
-      ...(row.spotify_id?.trim() ? [`spotify:${row.spotify_id.trim()}`] : []),
+    const keys = [...[row.artist_key, ...declaredRowAliases(row), ...(acceptedDiscoveryRow(row) ? [row.matched_artist_key!] : [])].flatMap(monitoringIdentityKeyCandidates).map(key => `key:${key}`),
+      ...(trustedSpotifyId(row) ? [`spotify:${trustedSpotifyId(row)}`] : []),
       ...(acceptedRegistryRow(row) ? [`musicbrainz:${row.mbid}`] : [])];
     const previous = keys.flatMap(key => index.has(key) ? [root(index.get(key)!)] : []);
     const id = previous.length ? Math.min(...previous) : groups.length;
@@ -73,23 +90,38 @@ export function groupMonitoringCandidateIdentities(rows: MonitoringCandidateSour
   return [...merged.values()].map(group => {
     const priority = (source: string) => { const index = SOURCE_PRIORITY.indexOf(source); return index < 0 ? 99 : index; };
     const ordered = [...group].sort((a, b) => priority(a.source) - priority(b.source) || a.artist_key.localeCompare(b.artist_key));
-    const first = ordered[0]!;
-    const sourceKeys = [...new Set(ordered.map(row => row.artist_key))].sort();
-    const spotifyIds = [...new Set(ordered.flatMap(row => row.spotify_id?.trim() ? [row.spotify_id.trim()] : []))].sort();
+    const first = ordered.find(row => row.source !== "artist_candidates") ?? ordered[0]!;
+    // artist_candidates stores discovery names, not serving artist_key values.
+    // Preserve those records separately; an accepted matched_artist_id is an
+    // explicit relationship, never a fabricated source-data row.
+    const sourceKeys = [...new Set(ordered.filter(row => row.source !== "artist_candidates").map(row => row.artist_key))].sort();
+    const spotifyIds = [...new Set(ordered.flatMap(row => trustedSpotifyId(row) ? [trustedSpotifyId(row)!] : []))].sort();
     const declaredAliases = [...new Set(group.flatMap(declaredRowAliases))].sort();
-    const identityAliasEvidence = group.filter(acceptedRegistryRow).map(row => ({ source: "musicbrainz_artists" as const,
-      artistKey: row.artist_key, mbid: row.mbid!, verification: row.verified!, aliases: declaredRowAliases(row) }));
-    const identityConflict = spotifyIds.length > 1 || new Set(identityAliasEvidence.map(value => value.mbid)).size > 1;
+    const identityAliasEvidence: MonitoringCandidateIdentity["identityAliasEvidence"] = [
+      ...group.filter(acceptedRegistryRow).map(row => ({ source: "musicbrainz_artists" as const,
+        artistKey: row.artist_key, mbid: row.mbid!, verification: row.verified!, aliases: declaredRowAliases(row) })),
+      ...group.filter(acceptedDiscoveryRow).map(row => ({ source: "artist_candidates" as const,
+        artistKey: row.matched_artist_key!, candidateId: row.source_record_id ?? row.artist_key, matchedArtistKey: row.matched_artist_key!,
+        verification: row.discovery_status!, aliases: declaredRowAliases(row) })),
+    ];
+    const acceptedTargets = group.filter(acceptedDiscoveryRow).map(row => row.matched_artist_key!);
+    const targetGroups = new Set(acceptedTargets.map(key => monitoringIdentityKeyCandidates(key).filter(token => /^[a-z0-9]+$/.test(token)).sort()[0] ?? normalizeArtistKey(key)));
+    const identityConflict = spotifyIds.length > 1 || new Set(identityAliasEvidence.flatMap(value => value.mbid ? [value.mbid] : [])).size > 1 || targetGroups.size > 1;
+    const candidateRecords: MonitoringCandidateIdentity["candidateRecords"] = group.filter(row => ["artist_candidates", "spotify_artist_candidates"].includes(row.source))
+      .map(row => ({ source: row.source as "artist_candidates" | "spotify_artist_candidates", recordId: row.source_record_id ?? row.artist_key,
+        artistName: row.artist_name, lookupName: row.artist_key, status: row.discovery_status ?? null, matchedArtistKey: row.matched_artist_key ?? null }));
     return {
-      artistKey: first.artist_key,
+      artistKey: acceptedDiscoveryRow(first) ? first.matched_artist_key! : first.artist_key,
       artistName: ordered.find(row => row.artist_name?.trim())?.artist_name?.trim() || first.artist_key,
       sourceKeys,
-      matchKeys: [...new Set([...sourceKeys, ...declaredAliases].flatMap(key => [key, key.toLowerCase(), ...songstatsArtistKeyCandidates(key)]))],
+      matchKeys: [...new Set([...sourceKeys, ...declaredAliases, ...acceptedTargets, ...candidateRecords.map(row => row.lookupName)]
+        .flatMap(key => [key, key.toLowerCase(), ...monitoringIdentityKeyCandidates(key)]))],
       candidateSources: [...new Set(group.map(row => row.source))].sort(),
       spotifyIds,
       identityConflict,
       declaredAliases,
       identityAliasEvidence,
+      candidateRecords,
       identityMappingStatus: identityConflict ? "conflict" as const : spotifyIds.length ? "provider_id" as const : identityAliasEvidence.length ? "accepted_registry" as const : "unverified" as const,
     };
   }).sort((a, b) => a.artistKey.localeCompare(b.artistKey));
@@ -336,7 +368,7 @@ export function evaluateMonitoringCandidate(
   addMissing(count(sourceEvidence["comparisonPeers"]) > 0, "missing_comparison_peer", "comparisons", `${count(sourceEvidence["comparisonPeers"])} stored peer artists have usable comparison snapshots.`);
   if (artist.identityConflict) findings.push({
     code: "conflicting_provider_identity", section: "identity", status: "investigation_required",
-    evidence: `${artist.spotifyIds.length} Spotify identities and ${new Set(artist.identityAliasEvidence.map(value => value.mbid)).size} accepted MusicBrainz identities share the resolved artist aliases.`,
+    evidence: `${artist.spotifyIds.length} Spotify identities, ${new Set(artist.identityAliasEvidence.flatMap(value => value.mbid ? [value.mbid] : [])).size} accepted MusicBrainz identities, and ${new Set(artist.identityAliasEvidence.flatMap(value => value.matchedArtistKey ? [value.matchedArtistKey] : [])).size} accepted discovery targets share the resolved artist aliases.`,
     action: "Resolve the identity conflict before making any commercial eligibility decision.",
   });
   const identityMappingUnverified = artist.identityMappingStatus === "unverified";

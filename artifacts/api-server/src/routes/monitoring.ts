@@ -2,7 +2,6 @@ import { Router, type RequestHandler } from "express";
 import { monitoringReadPool } from "@workspace/db";
 import {
   listSongstatsCatalogArtists,
-  songstatsArtistKeyCandidates,
 } from "../lib/songstats-snapshot-service";
 import { buildSongstatsPublicInsight } from "../lib/songstats-public-service";
 import {
@@ -38,6 +37,7 @@ import {
 } from "../lib/request-database";
 import { createMonitoringWeeklyReport } from "../lib/monitoring-weekly-report";
 import { getMonitoringCandidateDirectory, getMonitoringCandidateList } from "../lib/monitoring-candidate-audit";
+import { monitoringIdentityKeyCandidates } from "../lib/monitoring-candidate-policy";
 import { loadLatestMonitoringStreamSummary, loadMonitoringSpotifyHistory, type MonitoringStreamSummaryRow } from "../lib/monitoring-stream-serving";
 import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
 import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../lib/monitoring-history-request";
@@ -321,47 +321,55 @@ async function resolveMonitoringAccess(
   userId: string,
   requestedArtistKey: string,
 ) {
-  const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
+  const lookupKeys = [...new Set([requestedArtistKey.trim().toLowerCase(), ...monitoringIdentityKeyCandidates(requestedArtistKey)].filter(Boolean))];
+  const identities = new Map<string, Promise<MonitoringArtistGrant | null>>();
+  const findExistingArtist = (artistKey: string) => {
+    if (!identities.has(artistKey)) identities.set(artistKey, getExistingMonitoringArtist(artistKey).then(artist => artist ? {
+      artist_key: artist.artistKey, artist_name: artist.artistName, status: "internal", created_at: null,
+      match_keys: artist.matchKeys, identity_conflict: artist.identityConflict,
+    } : null));
+    return identities.get(artistKey)!;
+  };
   const authorization = await authorizeMonitoringArtist({
     userId,
     requestedArtistKey,
     findActiveSubscription: async () => {
-      const subscription =
-        await monitoringReadPool.query<MonitoringArtistGrant>(
+      const readSubscription = async (keys: string[]) => monitoringReadPool.query<MonitoringArtistGrant>(
           `
         SELECT artist_key, artist_name, status, created_at
         FROM monitoring_subscriptions
         WHERE clerk_user_id = $1
           AND (
             lower(artist_key) = ANY($2::text[])
-            OR regexp_replace(
-              translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
-              '[^a-z0-9]',
-              '',
-              'g'
-            ) = ANY($2::text[])
+            OR (
+              length(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun')) =
+                octet_length(translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'))
+              AND regexp_replace(
+                translate(lower(artist_key), 'áéíóúüñ', 'aeiouun'),
+                '[^a-z0-9]', '', 'g'
+              ) = ANY($4::text[])
+            )
           )
           AND status = ANY($3::text[])
         ORDER BY updated_at DESC
         LIMIT 1
       `,
-          [userId, lookupKeys, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES],
+          [userId, keys, ACTIVE_ARTIST_PRO_SUBSCRIPTION_STATUSES, keys.filter(key => /^[a-z0-9]+$/.test(key))],
         );
-      return subscription.rows[0] ?? null;
+      const direct = (await readSubscription(lookupKeys)).rows[0];
+      if (direct) return direct;
+      // A stored paid key may differ from the route's accepted registry alias.
+      // Resolve only trusted identity edges; user and active-status predicates
+      // remain mandatory on the second artist-specific subscription read.
+      const identity = await findExistingArtist(requestedArtistKey);
+      if (!identity) return null;
+      const acceptedKeys = identity.identity_conflict ? [identity.artist_key]
+        : [identity.artist_key, ...(identity.match_keys ?? [])];
+      const acceptedLookupKeys = [...new Set(acceptedKeys.flatMap(key =>
+        [key.trim().toLowerCase(), ...monitoringIdentityKeyCandidates(key)]).filter(Boolean))];
+      return (await readSubscription(acceptedLookupKeys)).rows[0] ?? null;
     },
-    findExistingArtist: async (artistKey) => {
-      const artist = await getExistingMonitoringArtist(artistKey);
-      return artist
-        ? {
-            artist_key: artist.artistKey,
-            artist_name: artist.artistName,
-            status: "internal",
-            created_at: null,
-            match_keys: artist.matchKeys,
-            identity_conflict: artist.identityConflict,
-          }
-        : null;
-    },
+    findExistingArtist,
   });
   const active = authorization.grant;
   logger.info(
@@ -391,14 +399,14 @@ async function loadAuthorizedMonitoring(
   const authorization = await resolveMonitoringAccess(userId, requestedArtistKey);
   const active = authorization.grant;
   if (!authorization.allowed || !active) return null;
-  const lookupKeys = songstatsArtistKeyCandidates(requestedArtistKey);
+  const lookupKeys = [...new Set([requestedArtistKey.trim().toLowerCase(), ...monitoringIdentityKeyCandidates(requestedArtistKey)].filter(Boolean))];
 
   const activeKeys = active.identity_conflict ? [active.artist_key] : [
     ...new Set([
       active.artist_key,
       ...(active.match_keys ?? []),
-      ...songstatsArtistKeyCandidates(active.artist_key),
-      ...songstatsArtistKeyCandidates(active.artist_name),
+      ...monitoringIdentityKeyCandidates(active.artist_key),
+      ...monitoringIdentityKeyCandidates(active.artist_name),
       ...lookupKeys,
     ]),
   ];
@@ -1345,7 +1353,7 @@ router.get(
   createMonitoringHistoryHandler({
     userId: clerkUserId,
     authorize: resolveMonitoringAccess,
-    aliases: songstatsArtistKeyCandidates,
+    aliases: monitoringIdentityKeyCandidates,
     read: (input) => loadCompactMonitoringMetricHistory({ ...input, queryable: monitoringReadPool }),
     failure: (error) => {
       const detail = safeDatabaseDiagnostic(error);
