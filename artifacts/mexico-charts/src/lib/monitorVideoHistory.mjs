@@ -15,11 +15,15 @@ const validDate = (value) =>
 const validTime = (value) =>
   typeof value === "string" &&
   validDate(value.slice(0, 10)) &&
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value) &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(value) &&
   Number(value.slice(11, 13)) < 24 &&
   Number(value.slice(14, 16)) < 60 &&
   Number(value.slice(17, 19)) < 60 &&
   Number.isFinite(Date.parse(value));
+// UTC timestamps share a calendar format; padding to PostgreSQL precision makes
+// lexical comparison exact without Date.parse truncating sub-millisecond digits.
+const canonicalTime = (value) =>
+  `${value.slice(0, 19)}.${(value.match(/\.(\d+)Z$/)?.[1] ?? "").padEnd(6, "0")}Z`;
 const count = (value) => Number.isSafeInteger(value) && value >= 0;
 const nonempty = (value) =>
   typeof value === "string" && value.trim().length > 0;
@@ -140,7 +144,7 @@ export function validateMonitorVideoHistory(
       dates.has(point.date) ||
       ids.has(point.observationId) ||
       point.date !== etDate.format(new Date(point.observedAt)) ||
-      Date.parse(point.observedAt) > Date.parse(payload.asOf)
+      canonicalTime(point.observedAt) > canonicalTime(payload.asOf)
     )
       fail();
     dates.add(point.date);
@@ -184,10 +188,10 @@ export function validateMonitorVideoHistory(
       !validTime(coverage.lastObservedAt) ||
       etDate.format(new Date(coverage.firstObservedAt)) !==
         payload.points[0].date ||
-      Date.parse(coverage.firstObservedAt) >
-        Date.parse(payload.points[0].observedAt) ||
-      Date.parse(coverage.lastObservedAt) !==
-        Date.parse(payload.points.at(-1).observedAt)
+      canonicalTime(coverage.firstObservedAt) >
+        canonicalTime(payload.points[0].observedAt) ||
+      canonicalTime(coverage.lastObservedAt) !==
+        canonicalTime(payload.points.at(-1).observedAt)
     )
       fail();
   }

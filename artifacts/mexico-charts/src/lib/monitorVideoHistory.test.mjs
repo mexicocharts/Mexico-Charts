@@ -235,6 +235,53 @@ test("UTC observations after midnight retain their previous Eastern date", () =>
   );
 });
 
+test("native timestamps retain exact microseconds while equivalent UTC precision remains valid", () => {
+  const payload = fixture();
+  payload.asOf = "2026-09-06T21:00:00.123456Z";
+  payload.points[0].observedAt = "2026-08-31T20:00:00.123456Z";
+  payload.coverage.firstObservedAt = "2026-08-31T20:00:00.123455Z";
+  payload.points.at(-1).observedAt = "2026-09-06T21:00:00.123456Z";
+  payload.coverage.lastObservedAt = payload.points.at(-1).observedAt;
+  assert.equal(validateMonitorVideoHistory(payload, expected), payload);
+  assert.equal(payload.points[0].observedAt, "2026-08-31T20:00:00.123456Z");
+  for (const [pointTime, coverageTime] of [
+    ["2026-09-06T20:00:00Z", "2026-09-06T20:00:00.000000Z"],
+    ["2026-09-06T20:00:00.1Z", "2026-09-06T20:00:00.100000Z"],
+    ["2026-09-06T20:00:00.123Z", "2026-09-06T20:00:00.123000Z"],
+  ]) {
+    payload.points.at(-1).observedAt = pointTime;
+    payload.coverage.lastObservedAt = coverageTime;
+    assert.equal(validateMonitorVideoHistory(payload, expected), payload);
+  }
+});
+
+test("sub-millisecond future samples and contradictory raw bounds remain backend failures", () => {
+  for (const mutate of [
+    (p) => {
+      p.asOf = "2026-09-06T20:00:00.123455Z";
+      p.points.at(-1).observedAt = "2026-09-06T20:00:00.123456Z";
+      p.coverage.lastObservedAt = p.points.at(-1).observedAt;
+    },
+    (p) => {
+      p.points[0].observedAt = "2026-08-31T20:00:00.123455Z";
+      p.coverage.firstObservedAt = "2026-08-31T20:00:00.123456Z";
+    },
+    (p) => {
+      p.points.at(-1).observedAt = "2026-09-06T20:00:00.123456Z";
+      p.coverage.lastObservedAt = "2026-09-06T20:00:00.123455Z";
+    },
+    (p) => {
+      p.asOf = "2026-09-06T21:00:00.1234567Z";
+    },
+  ]) {
+    const payload = fixture();
+    mutate(payload);
+    assert.throws(() => validateMonitorVideoHistory(payload, expected), {
+      status: 502,
+    });
+  }
+});
+
 test("the bounded resource lifecycle treats malformed native history as failure and aborts held video reads", async () => {
   const request = monitorVideoHistoryRequest({ ...expected, userId: "viewer" });
   await assert.rejects(
