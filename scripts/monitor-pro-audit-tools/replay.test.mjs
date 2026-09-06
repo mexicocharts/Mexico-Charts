@@ -7,7 +7,7 @@ import {execFileSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {toolDirectory,esbuildExecutable} from './paths.mjs';
 import {prepareAuditQueries} from './manifest-helper.mjs';
-import { parseRfc4180Csv, decodeReplitCsv, md5Utf8, createAuditReplay, buildJsonChunkSql } from './replay.mjs';
+import { parseRfc4180Csv, decodeReplitCsv, md5Utf8, createAuditReplay, buildJsonChunkSql, canonicalCheckpointJson, CHECKPOINT_HASH_VERSION } from './replay.mjs';
 const columns = ['protocol','total_rows','payload_chars','payload_md5','chunk_start','chunk_chars','chunk'];
 const csv = rows => rows.map(row => row.map(value => '"'+String(value).replaceAll('"','""')+'"').join(',')).join('\r\n')+'\r\n';
 const raw = output => ({exitCode:0,exitReason:null,output,success:true});
@@ -28,6 +28,175 @@ function framed(rows, context) {
   const payload=JSON.stringify(rows), chars=Array.from(payload), part=context.chunkSize===null ? payload : chars.slice(context.chunkStart-1,context.chunkStart-1+context.chunkSize).join('');
   return raw(csv([columns,['monitor-audit-json-v1',rows.length,chars.length,md5Utf8(payload),context.chunkStart,Array.from(part).length,part]]));
 }
+function reordered(value) {
+  return Array.isArray(value)?value.map(reordered):value!==null&&typeof value==='object'
+    ?Object.fromEntries(Object.keys(value).sort().reverse().map(key=>[key,reordered(value[key])])):value;
+}
+function legacyCheckpoints(storage,population) {
+  for(const [key,saved] of storage.values){
+    if(key.includes('/decoded/')){
+      const frames=[...storage.values.entries()].filter(([rawKey,value])=>rawKey.includes('/raw/')&&value.id===key.split('/').at(-1).replace('.json',''))
+        .map(([,value])=>decodeReplitCsv(value.rawResult,{expectedColumns:columns,expectedRows:1})[0]).sort((a,b)=>Number(a.chunk_start)-Number(b.chunk_start));
+      const originalRows=JSON.parse(frames.map(value=>value.chunk).join(''));
+      saved.normalizedRowsMd5=md5Utf8(JSON.stringify(originalRows));delete saved.normalizedRowsHashVersion;
+    }
+    if(key.includes('/results/')){
+      const index=Number(key.split('/').at(-1).replace('.json',''));
+      saved.candidateMd5=md5Utf8(JSON.stringify(population.candidates[index]));delete saved.candidateHashVersion;delete saved.resultMd5;
+    }
+    if(key.endsWith('/report.json')){
+      saved.populationMd5=md5Utf8(JSON.stringify(population.candidates));
+      delete saved.populationHashVersion;delete saved.artistsMd5;delete saved.checkpointArtifact;
+    }
+  }
+}
+
+test('canonical internal JSON sorts object keys only and retains every JSON value boundary',()=>{
+  const value={z:[{b:null,a:'東京 😀'},['b','a']],a:{n:1,s:'1',flag:false}};
+  assert.equal(canonicalCheckpointJson(value),canonicalCheckpointJson(reordered(value)));
+  for(const changed of [{...value,z:[['b','a'],{b:null,a:'東京 😀'}]}, {...value,a:{...value.a,n:'1'}},
+    {...value,a:{...value.a,flag:null}}, {...value,a:{s:'1',flag:false}}, {...value,z:[{b:'null',a:'東京 😀'},['b','a']]}])
+    assert.notEqual(canonicalCheckpointJson(changed),canonicalCheckpointJson(value));
+  assert.notEqual(canonicalCheckpointJson({a:null}),canonicalCheckpointJson({}));
+  for(const invalid of [NaN,Infinity,undefined,[undefined],new Array(2),new Date(),{a:()=>0}])assert.throws(()=>canonicalCheckpointJson(invalid));
+});
+
+test('reordered host metadata, implementation, decoded rows, candidates, results and reports resume without extra reads',async()=>{
+  const storage=memory();let queries=0,evaluations=0,interrupt=true;
+  const persist=async(key,value)=>{await storage.persist(key,reordered(value));if(interrupt&&key.includes('/results/')){interrupt=false;throw Error('stopped after result');}};
+  const counted={...evaluator,evaluateMonitoringCandidate:(...args)=>{evaluations++;return evaluator.evaluateMonitoringCandidate(...args);}};
+  const execute=async(sql,context)=>{queries++;return framed([{artist_key:'alpha',nested:{b:2,a:1},declared_aliases:[]}],context);};
+  const args={evaluator:counted,metadata,persist,read:storage.read,execute,failedToolRetries:1,replayImplementation:retryImplementation};
+  const plan={sources:[{id:'base',capture:'whole',totalRows:1,selectAll:()=> 'SELECT source'}]};
+  await createAuditReplay(args).collectPopulation(plan);
+  const population=await storage.read('test_run/population.json');
+  await assert.rejects(createAuditReplay(args).auditNext({population,evidenceSql:()=> 'SELECT evidence'}),/stopped after result/);
+  let report=await createAuditReplay(args).auditNext({population:reordered(population),evidenceSql:()=> 'SELECT evidence'});
+  assert.equal(report.auditComplete,true);assert.equal(queries,2);assert.equal(evaluations,1);
+  report=await createAuditReplay(args).auditNext({population:reordered(population),evidenceSql:()=> 'SELECT evidence'});
+  assert.equal(report.candidatesAudited,1);assert.equal(queries,2);assert.equal(evaluations,1);
+  assert.equal((await storage.read('test_run/decoded/base_whole.json')).normalizedRowsHashVersion,CHECKPOINT_HASH_VERSION);
+  assert.equal((await storage.read('test_run/results/0.json')).candidateHashVersion,CHECKPOINT_HASH_VERSION);
+  assert.equal((await storage.read('test_run/report.json')).populationHashVersion,CHECKPOINT_HASH_VERSION);
+});
+
+test('legacy object-key recovery validates complete original raw frames and preserves every original checkpoint',async()=>{
+  for(const chunked of [false,true]){
+    const storage=memory(),rows=[{population:8317,accepted_aliases:406,discovery:81,nested:{z:[],a:['東京 😀',{z:2,a:1}]}}];
+    const request={id:'source_counts',sql:'SELECT counts',expectedRows:1,chunked};
+    await createAuditReplay({evaluator,metadata,...storage,chunkSize:17,execute:async(sql,context)=>framed(rows,context)}).captureRows(request);
+    legacyCheckpoints(storage);
+    for(const [key,value] of storage.values)storage.values.set(key,reordered(value));
+    const originals=new Map([...storage.values].map(([key,value])=>[key,structuredClone(value)]));let queries=0;
+    const options={evaluator,metadata:reordered(metadata),...storage,chunkSize:17,execute:async()=>{queries++;throw Error('must not query');}};
+    assert.deepEqual(await createAuditReplay(options).captureRows(request),rows);assert.equal(queries,0);
+    const recoveryKey='test_run/canonical-checkpoints/'+CHECKPOINT_HASH_VERSION+'/decoded/source_counts.json';
+    const recovery=await storage.read(recoveryKey);
+    assert.equal(recovery.normalizedRowsHashVersion,CHECKPOINT_HASH_VERSION);
+    assert.equal(recovery.legacyRecovery.rawVerification,'complete_original_frames');
+    assert.equal(recovery.payloadMd5,originals.get('test_run/decoded/source_counts.json').payloadMd5);
+    for(const [key,value] of originals)assert.deepEqual(await storage.read(key),value);
+    const writes=storage.writes.length;
+    assert.deepEqual(await createAuditReplay(options).captureRows(request),rows);assert.equal(storage.writes.length,writes);assert.equal(queries,0);
+  }
+});
+
+test('retained production source-count ordering reproduces the reported legacy mismatch and recovers without SQL',async()=>{
+  const storage=memory(),payload='[{"discovery": 81, "population": 8317, "accepted_aliases": 406}]';
+  assert.equal(payload.length,64);assert.equal(md5Utf8(payload),'a81d378990f113ed7fa41ceda4f3b360');
+  assert.equal(md5Utf8(JSON.stringify(JSON.parse(payload))),'d676671764fe53bb06a4eef025c0e47d');
+  const request={id:'source_counts',sql:'SELECT source_count_fixture',expectedRows:1};
+  const envelope=raw(csv([columns,['monitor-audit-json-v1',1,64,md5Utf8(payload),1,64,payload]]));
+  await createAuditReplay({evaluator,metadata,...storage,execute:async()=>envelope}).captureRows(request);
+  legacyCheckpoints(storage);
+  const decoded=storage.values.get('test_run/decoded/source_counts.json');
+  decoded.rows=[{accepted_aliases:406,discovery:81,population:8317}];
+  assert.equal(md5Utf8(JSON.stringify(decoded.rows)),'ed7218c4f3c8d1c0d86127ac27189bbf');
+  let calls=0;
+  const rows=await createAuditReplay({evaluator,metadata,...storage,execute:async()=>{calls++;throw Error('no SQL');}}).captureRows(request);
+  assert.deepEqual(rows,JSON.parse(payload));assert.equal(calls,0);
+  assert.equal(decoded.normalizedRowsMd5,'d676671764fe53bb06a4eef025c0e47d');
+});
+
+test('legacy normalization rejects changed values, types, array order, requests, missing frames and unsupported hashes without SQL',async()=>{
+  for(const kind of ['value','type','array','missing_field','null','missing_raw','truncated','raw_digest','raw_sql','raw_id','legacy_hash','unknown_version','missing_chunk']){
+    const storage=memory(),rows=[{artist_key:'alpha',nested:{value:1,nullable:null,aliases:['Z','東京 😀']}}];
+    const chunked=kind==='missing_chunk',request={id:'checked',sql:'SELECT source',expectedRows:1,chunked};
+    await createAuditReplay({evaluator,metadata,...storage,chunkSize:17,execute:async(sql,context)=>framed(rows,context)}).captureRows(request);
+    legacyCheckpoints(storage);for(const [key,value] of storage.values)storage.values.set(key,reordered(value));
+    const decoded=storage.values.get('test_run/decoded/checked.json'),rawKey='test_run/raw/checked/'+(chunked?'18':'full')+'.json';
+    if(kind==='value')decoded.rows[0].nested.value=2;
+    if(kind==='type')decoded.rows[0].nested.value='1';
+    if(kind==='array')decoded.rows[0].nested.aliases.reverse();
+    if(kind==='missing_field')delete decoded.rows[0].nested.nullable;
+    if(kind==='null')decoded.rows[0].nested.value=null;
+    if(kind==='missing_raw'||kind==='missing_chunk')storage.values.delete(rawKey);
+    if(kind==='truncated')storage.values.get(rawKey).rawResult.truncated=true;
+    if(kind==='raw_digest')storage.values.get(rawKey).rawResult.output=storage.values.get(rawKey).rawResult.output.replace(md5Utf8(JSON.stringify(rows)),'0'.repeat(32));
+    if(kind==='raw_sql')storage.values.get(rawKey).sql='SELECT other source';
+    if(kind==='raw_id')storage.values.get(rawKey).id='another';
+    if(kind==='legacy_hash')decoded.normalizedRowsMd5='0'.repeat(32);
+    if(kind==='unknown_version')decoded.normalizedRowsHashVersion='unreviewed_version';
+    let queries=0;
+    await assert.rejects(createAuditReplay({evaluator,metadata,...storage,chunkSize:17,execute:async()=>{queries++;throw Error('must not query');}}).captureRows(request),undefined,kind);
+    assert.equal(queries,0,kind);assert.ok(!storage.writes.some(key=>key.includes('/canonical-checkpoints/')),kind);
+  }
+});
+
+test('legacy reordered candidate and report hashes migrate through verified population and evidence without relabeling originals',async()=>{
+  const storage=memory(),source=[{artist_key:'alpha'},{artist_key:'beta'}];
+  const execute=async(sql,context)=>framed(context.id==='base_whole'?source:[{artist_key:context.id==='evidence_0'?'alpha':'beta'}],context);
+  const initial=createAuditReplay({evaluator,metadata,...storage,execute});
+  const population=await initial.collectPopulation({sources:[{id:'base',capture:'whole',totalRows:2,selectAll:()=> 'SELECT source'}]});
+  await initial.auditNext({population,evidenceSql:artist=>'SELECT '+artist.artistKey,maximumArtists:2});
+  legacyCheckpoints(storage,population);for(const [key,value] of storage.values)storage.values.set(key,reordered(value));
+  const originals=new Map([...storage.values].map(([key,value])=>[key,structuredClone(value)]));let queries=0;
+  const args={evaluator,metadata:reordered(metadata),...storage,execute:async()=>{queries++;throw Error('must not query');}};
+  const report=await createAuditReplay(args).auditNext({population:await storage.read('test_run/population.json'),evidenceSql:artist=>'SELECT '+artist.artistKey,maximumArtists:2});
+  assert.equal(report.auditComplete,true);assert.equal(report.candidatesAudited,2);assert.equal(queries,0);
+  assert.equal(report.checkpointArtifact,'test_run/canonical-checkpoints/'+CHECKPOINT_HASH_VERSION+'/report.json');
+  for(const [key,value] of originals)assert.deepEqual(await storage.read(key),value,'original remains immutable: '+key);
+  const again=await createAuditReplay(args).auditNext({population:await storage.read('test_run/population.json'),evidenceSql:artist=>'SELECT '+artist.artistKey});
+  assert.equal(again.auditComplete,true);assert.equal(queries,0);
+});
+
+test('collectPopulation reuses a reordered legacy population without rewriting it and rejects substantive changes',async()=>{
+  const storage=memory(),plan={sources:[{id:'base',capture:'whole',totalRows:1,selectAll:()=> 'SELECT source'}]};
+  const population=await createAuditReplay({evaluator,metadata,...storage,execute:async(sql,context)=>framed([{artist_key:'alpha'}],context)}).collectPopulation(plan);
+  legacyCheckpoints(storage,population);for(const [key,value] of storage.values)storage.values.set(key,reordered(value));
+  const original=structuredClone(await storage.read('test_run/population.json')),writes=storage.writes.filter(key=>key==='test_run/population.json').length;
+  let queries=0;const args={evaluator,metadata,...storage,execute:async()=>{queries++;throw Error('must not query');}};
+  assert.deepEqual(await createAuditReplay(args).collectPopulation(plan),original);
+  assert.equal(storage.writes.filter(key=>key==='test_run/population.json').length,writes);
+  assert.deepEqual(await storage.read('test_run/population.json'),original);assert.equal(queries,0);
+  storage.values.get('test_run/population.json').candidates[0].artistName='changed';
+  await assert.rejects(createAuditReplay(args).collectPopulation(plan),/Existing population checkpoint differs/);
+  assert.equal(storage.writes.filter(key=>key==='test_run/population.json').length,writes);assert.equal(queries,0);
+});
+
+test('legacy report migration rejects changed candidates, results, prefix facts and missing evidence without production reads',async()=>{
+  for(const kind of ['candidate_name','candidate_array','report_value','report_hash','result_value','result_hash','missing_evidence','raw_evidence','unknown_result_version']){
+    const storage=memory();
+    const first=createAuditReplay({evaluator,metadata,...storage,execute:async(sql,context)=>framed([{artist_key:'alpha'}],context)});
+    const population=await first.collectPopulation({sources:[{id:'base',capture:'whole',totalRows:1,selectAll:()=> 'SELECT source'}]});
+    await first.auditNext({population,evidenceSql:()=> 'SELECT evidence'});
+    legacyCheckpoints(storage,population);for(const [key,value] of storage.values)storage.values.set(key,reordered(value));
+    const changedPopulation=await storage.read('test_run/population.json'),report=await storage.read('test_run/report.json'),result=await storage.read('test_run/results/0.json');
+    if(kind==='candidate_name')changedPopulation.candidates[0].artistName='Another Artist';
+    if(kind==='candidate_array')changedPopulation.candidates[0].sourceKeys.push('unrelated');
+    if(kind==='report_value')report.artists[0].classification='A';
+    if(kind==='report_hash')report.populationMd5='0'.repeat(32);
+    if(kind==='result_value')result.result.classification='A';
+    if(kind==='result_hash')result.candidateMd5='0'.repeat(32);
+    if(kind==='missing_evidence')storage.values.delete('test_run/raw/evidence_0/full.json');
+    if(kind==='raw_evidence')storage.values.get('test_run/raw/evidence_0/full.json').rawResult.output='START TRANSACTION\nROLLBACK\n';
+    if(kind==='unknown_result_version')result.candidateHashVersion='unreviewed';
+    let queries=0;
+    await assert.rejects(createAuditReplay({evaluator,metadata,...storage,execute:async()=>{queries++;throw Error('must not query');}})
+      .auditNext({population:changedPopulation,evidenceSql:()=> 'SELECT evidence'}),undefined,kind);
+    assert.equal(queries,0,kind);assert.equal(await storage.read('test_run/canonical-checkpoints/'+CHECKPOINT_HASH_VERSION+'/report.json'),null,kind);
+  }
+});
 test('strict CSV retains nested empty arrays, quoted commas and embedded CRLF without invented aliases', () => {
   const rows=[['aliases','evidence'],['[]',JSON.stringify({nested:[[],{text:'line one\r\nline "two",東京 😀'}]})]];
   const decoded=decodeReplitCsv(raw(csv(rows)),{expectedColumns:['aliases','evidence'],expectedRows:1,jsonColumns:{aliases:'array',evidence:'object'}});
@@ -203,7 +372,8 @@ test('one immutable whole-source frame proves population coverage; repeated OFFS
     return framed(context.id.endsWith('_whole')?[{artist_key:'alpha'},{artist_key:'beta'}]:[{artist_key:'alpha'}],context);}});
   const drift=await replay.collectPopulation({sources:[{id:'drift',totalRows:2,pageSize:1,selectPage:({offset})=>'SELECT source OFFSET '+offset}]});
   assert.equal(drift.candidates.length,1);assert.equal(drift.populationComplete,false);
-  const whole=await replay.collectPopulation({sources:[{id:'whole',capture:'whole',totalRows:2,selectAll:()=> 'SELECT source'}]});
+  const whole=await createAuditReplay({evaluator,metadata:{...metadata,runId:'whole_run'},...storage,execute:async(sql,context)=>{queries++;return framed([{artist_key:'alpha'},{artist_key:'beta'}],context);}})
+    .collectPopulation({sources:[{id:'whole',capture:'whole',totalRows:2,selectAll:()=> 'SELECT source'}]});
   assert.equal(whole.rawRows,2);assert.equal(whole.populationComplete,true);
   assert.deepEqual(whole.candidates.map(row=>row.artistKey),['alpha','beta']);assert.equal(queries,3);
 });
@@ -271,7 +441,8 @@ test('PostgreSQL canonical population chunks are stable under reordered source p
     assert.equal(decoded.transportProof.payloadMd5,first.payload_md5);assert.equal(calls,Math.ceil(first.payload_chars/23));
     const finalRaw=await storage.read('test_run/raw/ordered_digest_chunks/'+(1+23*(calls-1))+'.json');
     const [lastFrame]=decodeReplitCsv(finalRaw.rawResult);assert.ok(Number(lastFrame.chunk_chars)<23);
-    const empty=await replay.collectPopulation({sources:[{id:'empty',capture:'digest_chunks',totalRows:0,selectAll:()=> 'SELECT 1 marker WHERE false'}]});
+    const empty=await createAuditReplay({evaluator:grouping,metadata:{...metadata,runId:'empty_run'},...storage,execute,chunkSize:23})
+      .collectPopulation({sources:[{id:'empty',capture:'digest_chunks',totalRows:0,selectAll:()=> 'SELECT 1 marker WHERE false'}]});
     assert.equal(empty.populationComplete,true);assert.equal(empty.rawRows,0);assert.equal(empty.pages[0].contentProof.chunkCount,1);
   }finally{await db.close();}
 });
@@ -305,6 +476,8 @@ test('explicit failed-envelope retries preserve every attempt and resume success
   assert.deepEqual(await storage.read('test_run/manifest.json'),metadata);
   const implementation=await storage.read('test_run/replay-implementations/'+retryImplementation.sha256+'.retries-1.json');
   assert.equal(implementation.sourceHash,metadata.sourceHash);assert.equal(implementation.failedToolRetries,1);
+  assert.equal(implementation.checkpointHashVersion,CHECKPOINT_HASH_VERSION);
+  assert.equal(implementation.scope,'explicit_failed_envelope_retries_and_verified_canonical_recovery');
   const count=queries.length;await createAuditReplay(args).collectPopulation(plan);assert.equal(queries.length,count);
 });
 
