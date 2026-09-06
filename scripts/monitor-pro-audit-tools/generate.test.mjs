@@ -40,7 +40,7 @@ async function committedToolWorktree(base) {
   // as the production checkout revision when reviewing uncommitted changes.
   for(const file of await readdir(toolDirectory))if(file.endsWith('.mjs')||file==='README.md')await copyFile(resolve(toolDirectory,file),resolve(seed,'scripts/monitor-pro-audit-tools',file));
   for(const file of ['monitoring-bundled-roster.ts','monitoring-candidate-policy.ts','monitoring-candidate-audit.ts',
-    'monitoring-youtube-serving.ts','monitoring-youtube-native-diagnostics.ts'])
+    'monitoring-youtube-serving.ts','monitoring-youtube-native-diagnostics.ts','monitoring-youtube-native-contract.ts','monitoring-youtube-native-history.ts'])
     await copyFile(resolve(repoRoot,'artifacts/api-server/src/lib',file),resolve(seed,'artifacts/api-server/src/lib',file));
   git(seed,'init','-q');git(seed,'add','.');git(seed,'-c','user.name=Audit Fixture','-c','user.email=audit-fixture@example.invalid','commit','-qm','committed audit fixture');
   git(seed,'worktree','add','--detach',worktree,'HEAD');await dependencyOverlay(worktree);

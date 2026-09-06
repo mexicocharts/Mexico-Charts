@@ -63,6 +63,7 @@ const input = (queryable: any, videoId = "approved001", includeCandidateOnly = f
 
 test("native video history preserves exact observed cumulative samples, alias deduplication and Eastern gaps", { skip: !fixtureModule }, async () => withFixture(async queryable => {
   const result = await loadMonitoringYoutubeNativeHistory(input(queryable));
+  assert.equal(result.contractVersion, "monitoring_youtube_native_history_v1");
   assert.equal(result.kind, "native_intraday_cumulative");
   assert.equal(result.selection, "last_observation_per_et_date");
   assert.equal(result.sourceType, "youtube_api_shadow");

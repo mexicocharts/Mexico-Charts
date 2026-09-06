@@ -1,7 +1,9 @@
-export const MONITORING_YOUTUBE_NATIVE_INSPECTION_VERSION = "monitoring_youtube_native_history_inspection_v1";
-const SOURCE_TABLE = "youtube_video_intraday_shadow_snapshots";
-const SOURCE_TYPE = "youtube_api_shadow";
-const TIME_ZONE = "America/New_York";
+import { MONITORING_YOUTUBE_NATIVE_HISTORY_CONTRACT as CONTRACT, MONITORING_YOUTUBE_VIDEO_ID_PATTERN } from "./monitoring-youtube-native-contract";
+
+export const MONITORING_YOUTUBE_NATIVE_INSPECTION_VERSION = "monitoring_youtube_native_history_inspection_v2";
+const SOURCE_TABLE = CONTRACT.sourceTable;
+const SOURCE_TYPE = CONTRACT.sourceType;
+const TIME_ZONE = CONTRACT.timeZone;
 const RANGE_DAYS = 90;
 const REQUIRED_TABLES = [SOURCE_TABLE, "youtube_artist_video_links", "youtube_music_catalog_candidates", "youtube_tracked_videos"];
 
@@ -40,6 +42,7 @@ export function buildMonitoringYoutubeNativeDiagnosticsSql(artistKeysSql: string
       FROM native_inspection_eligible e LEFT JOIN inspection_raw r USING(video_id) LEFT JOIN inspection_dates d USING(video_id)
     ) SELECT jsonb_build_object(
       'inspectionVersion','${MONITORING_YOUTUBE_NATIVE_INSPECTION_VERSION}','inspected',true,
+      'servingContractVersion','${CONTRACT.version}',
       'sourceKeys',to_jsonb(${artistKeysSql}),'sourceTable','${SOURCE_TABLE}','trustedSourceType','${SOURCE_TYPE}',
       'kind','native_intraday_cumulative','selection','last_observation_per_et_date',
       'substitutesForApprovedDailySnapshots',false,'allTimeCoverageInspected',false,
@@ -68,6 +71,7 @@ export function buildMonitoringYoutubeNativeDiagnosticsSql(artistKeysSql: string
           count(v.video_id)*90-COALESCE(sum(observed_dates),0) "missingVideoDates",
           COALESCE(sum(invalid_points),0) "invalidSelectedPointCount",
           count(v.video_id) FILTER(WHERE missing_tracked) "missingTrackedVideos",
+          count(v.video_id) FILTER(WHERE v.video_id !~ '${MONITORING_YOUTUBE_VIDEO_ID_PATTERN}') "invalidVideoIds",
           min(observed_dates) "minimumObservedDates",max(observed_dates) "maximumObservedDates",
           to_char(min(first_observed_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "firstObservedAt",
           to_char(max(last_observed_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') "lastObservedAt"
@@ -107,7 +111,7 @@ function eastern(value: string) {
 }
 const countFields = ["eligibleVideos", "videosWithAnySamples", "videosWithTrustedSamples", "videosWithoutTrustedSamples", "videosWithOneDate",
   "videosWithMultipleDates", "videosWithAllRequestedDates", "renderableVideosWithMultipleDates", "unrenderableVideos", "rawObservationCount",
-  "selectedPointCount", "missingVideoDates", "invalidSelectedPointCount", "missingTrackedVideos"];
+  "selectedPointCount", "missingVideoDates", "invalidSelectedPointCount", "missingTrackedVideos", "invalidVideoIds"];
 
 /** Validate an independently clocked, exact source-key proof. Missing schema,
  * transport/proof fields or contradictions remain unknown; zero is evidence. */
@@ -121,6 +125,7 @@ export function evaluateMonitoringYoutubeNativeInspection(value: unknown, option
   if (missing.length) return result("unavailable", `missing_sources:${missing.sort().join(",")}`);
   if (!object(value) || options.identityConflict) return result("invalid", "invalid_or_conflicted_identity_proof");
   if (value.inspectionVersion !== MONITORING_YOUTUBE_NATIVE_INSPECTION_VERSION || value.inspected !== true
+    || value.servingContractVersion !== CONTRACT.version
     || value.sourceTable !== SOURCE_TABLE || value.trustedSourceType !== SOURCE_TYPE || value.timeZone !== TIME_ZONE || value.rangeDays !== RANGE_DAYS
     || value.kind !== "native_intraday_cumulative" || value.selection !== "last_observation_per_et_date"
     || value.substitutesForApprovedDailySnapshots !== false || value.allTimeCoverageInspected !== false) return result("invalid", "wrong_native_source_contract");
@@ -157,7 +162,7 @@ export function evaluateMonitoringYoutubeNativeInspection(value: unknown, option
       || (b.rawObservationCount === 0) !== (b.videosWithTrustedSamples === 0)
       || b.rawObservationCount < b.selectedPointCount || b.missingVideoDates !== 90 * b.eligibleVideos - b.selectedPointCount
       || b.invalidSelectedPointCount < b.unrenderableVideos || b.invalidSelectedPointCount > b.selectedPointCount
-      || (b.invalidSelectedPointCount === 0) !== (b.unrenderableVideos === 0) || b.missingTrackedVideos > b.eligibleVideos
+      || (b.invalidSelectedPointCount === 0) !== (b.unrenderableVideos === 0) || b.missingTrackedVideos > b.eligibleVideos || b.invalidVideoIds > b.eligibleVideos
       || !boundedTimes(raw.firstObservedAt, raw.lastObservedAt, b.rawObservationCount > 0)) return result("invalid", "native_counts_do_not_reconcile");
     if (b.eligibleVideos === 0 ? raw.minimumObservedDates !== null || raw.maximumObservedDates !== null
       : !integer(raw.minimumObservedDates) || !integer(raw.maximumObservedDates) || b.minimumObservedDates > b.maximumObservedDates || b.maximumObservedDates > 90
@@ -168,6 +173,10 @@ export function evaluateMonitoringYoutubeNativeInspection(value: unknown, option
         || (b.maximumObservedDates === 90) !== (b.videosWithAllRequestedDates > 0)
         || b.selectedPointCount < b.minimumObservedDates * (b.eligibleVideos - 1) + b.maximumObservedDates
         || b.selectedPointCount > b.maximumObservedDates * (b.eligibleVideos - 1) + b.minimumObservedDates) return result("invalid", "invalid_per_video_date_bounds");
+    if (b.rawObservationCount > 0) {
+      const span = (Date.parse(eastern(raw.lastObservedAt as string).date) - Date.parse(eastern(raw.firstObservedAt as string).date)) / 86_400_000 + 1;
+      if (b.maximumObservedDates > span) return result("invalid", "observed_dates_exceed_timestamp_span");
+    }
   }
   if (!Array.isArray(value.sourceTypes) || !value.sourceTypes.every(object)) return result("invalid", "missing_native_source_inventory");
   const types = new Set<string>();

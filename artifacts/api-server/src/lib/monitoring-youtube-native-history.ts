@@ -1,10 +1,12 @@
 import type { PoolClient } from "@workspace/db";
 import { buildMonitoringYoutubeEligibleVideosSql, type MonitoringYoutubeRelationship } from "./monitoring-youtube-serving";
+import { isMonitoringYoutubeVideoId, MONITORING_YOUTUBE_NATIVE_HISTORY_CONTRACT as CONTRACT } from "./monitoring-youtube-native-contract";
 
 export type MonitoringYoutubeHistoryRange = "7d" | "30d" | "90d";
 const RANGE_DAYS = { "7d": 7, "30d": 30, "90d": 90 } as const;
 
 export interface MonitoringYoutubeNativeHistory {
+  contractVersion: typeof CONTRACT.version;
   kind: "native_intraday_cumulative";
   artistKey: string;
   videoId: string;
@@ -42,7 +44,7 @@ export class MonitoringYoutubeVideoAccessError extends Error {
 }
 
 export function validMonitoringYoutubeHistoryInput(videoId: string, range: string): range is MonitoringYoutubeHistoryRange {
-  return /^[A-Za-z0-9_-]{11}$/.test(videoId) && Object.hasOwn(RANGE_DAYS, range);
+  return isMonitoringYoutubeVideoId(videoId) && Object.hasOwn(RANGE_DAYS, range);
 }
 
 /** One exact eligible video, one bounded native archive read. The selected
@@ -59,10 +61,10 @@ export const MONITORING_YOUTUBE_NATIVE_HISTORY_SQL = `
     FROM clock
   ), native AS MATERIALIZED (
     SELECT sample.id,sample.observed_at,sample.view_count,
-      (sample.observed_at AT TIME ZONE 'America/New_York')::date observation_date
-    FROM youtube_video_intraday_shadow_snapshots sample CROSS JOIN bounds
+      (sample.observed_at AT TIME ZONE '${CONTRACT.timeZone}')::date observation_date
+    FROM ${CONTRACT.sourceTable} sample CROSS JOIN bounds
     WHERE sample.video_id=$2 AND EXISTS(SELECT 1 FROM eligible)
-      AND sample.source_type='youtube_api_shadow' AND sample.view_count IS NOT NULL
+      AND sample.source_type='${CONTRACT.sourceType}' AND sample.view_count IS NOT NULL
       AND sample.observed_at>=(bounds.start_date::timestamp AT TIME ZONE 'America/New_York')
       AND sample.observed_at<=bounds.as_of
   ), selected_points AS (
@@ -158,9 +160,10 @@ export async function loadMonitoringYoutubeNativeHistory(input: {
   if (!relationshipSources.length) throw new Error("Missing authorized native history relationship");
   const approvedPrimary = input.includeCandidateOnly ? null : relationshipSources[0]!;
   return {
-    kind: "native_intraday_cumulative", artistKey: input.artistKey, videoId: input.videoId, range: input.range,
-    timeZone: "America/New_York", startDate: row.start_date, endDate: row.end_date, asOf,
-    selection: "last_observation_per_et_date", sourceTable: "youtube_video_intraday_shadow_snapshots", sourceType: "youtube_api_shadow",
+    contractVersion: CONTRACT.version,
+    kind: CONTRACT.kind, artistKey: input.artistKey, videoId: input.videoId, range: input.range,
+    timeZone: CONTRACT.timeZone, startDate: row.start_date, endDate: row.end_date, asOf,
+    selection: CONTRACT.selection, sourceTable: CONTRACT.sourceTable, sourceType: CONTRACT.sourceType,
     status: !points.length ? "empty" : points.length === dates.length ? "complete" : "partial", points,
     coverage: { requestedDays: dates.length, observedDays: points.length, missingDates: dates.filter(date => !observedDates.has(date)),
       rawObservationCount, firstObservedAt: row.first_observed_at == null ? null : iso(row.first_observed_at),

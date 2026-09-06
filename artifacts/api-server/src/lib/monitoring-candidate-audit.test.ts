@@ -524,13 +524,14 @@ test("complete native investigation reports known cumulative coverage without sa
     videosWithoutTrustedSamples: days ? 0 : videos, videosWithOneDate: days === 1 ? videos : 0,
     videosWithMultipleDates: days >= 2 ? videos : 0, videosWithAllRequestedDates: days === 90 ? videos : 0,
     renderableVideosWithMultipleDates: days >= 2 ? videos : 0, unrenderableVideos: 0, rawObservationCount: videos * days,
-    selectedPointCount: videos * days, missingVideoDates: videos * (90 - days), invalidSelectedPointCount: 0, missingTrackedVideos: 0,
+    selectedPointCount: videos * days, missingVideoDates: videos * (90 - days), invalidSelectedPointCount: 0, missingTrackedVideos: 0, invalidVideoIds: 0,
     minimumObservedDates: videos ? days : null, maximumObservedDates: videos ? days : null,
     firstObservedAt: videos && days ? (days === 90 ? "2026-05-13T05:00:00.000000Z" : "2026-08-09T12:00:00.000001Z") : null,
     lastObservedAt: videos && days ? "2026-08-10T11:00:00.000001Z" : null });
   for (const [days, outcome] of [[0, "absent_in_range"], [1, "present_one_date_only"], [2, "present_partial"], [90, "present_all_requested_dates"]] as const) {
     const approved = bucket("approved", 2, days);
-    const proof = { inspectionVersion: "monitoring_youtube_native_history_inspection_v1", inspected: true, sourceKeys: artist.sourceKeys,
+    const proof = { inspectionVersion: "monitoring_youtube_native_history_inspection_v2", inspected: true, sourceKeys: artist.sourceKeys,
+      servingContractVersion: "monitoring_youtube_native_history_v1",
       sourceTable: "youtube_video_intraday_shadow_snapshots", trustedSourceType: "youtube_api_shadow", kind: "native_intraday_cumulative",
       selection: "last_observation_per_et_date", substitutesForApprovedDailySnapshots: false, allTimeCoverageInspected: false,
       timeZone: "America/New_York", rangeDays: 90, captureClock: clock, startDate: "2026-05-13", endDate: "2026-08-10",
@@ -543,25 +544,68 @@ test("complete native investigation reports known cumulative coverage without sa
     const evaluated = evaluateMonitoringCandidate(artist, input, now);
     const inspection = evaluated.sourceEvidence["youtubeNativeHistoryInspection"] as { status: string; approvedOutcome: string };
     assert.equal(inspection.status, "complete");assert.equal(inspection.approvedOutcome, outcome);
-    assert.equal(evaluated.classification, days ? null : "C", "available native history needs contract review, while inspected absence is a known gap");
-    assert.equal(evaluated.auditStatus, days ? "incomplete" : "complete");assert.equal(evaluated.publicEligible, false);assert.equal(evaluated.legacyPublicEligible, true);
-    assert.ok(evaluated.findings.some(finding => finding.code === "missing_youtube_daily_history" && finding.status === (days ? "investigation_required" : "blocked")));
-    assert.equal(evaluated.findings.some(finding => finding.code === "youtube_native_history_contract_review_required"), days > 0);
+    assert.equal(evaluated.classification, days >= 2 ? "B" : days ? null : "C", "full renderable approved native history supports a contract repair, not public eligibility");
+    assert.equal(evaluated.auditStatus, days === 1 ? "incomplete" : "complete");assert.equal(evaluated.publicEligible, false);assert.equal(evaluated.legacyPublicEligible, true);
+    assert.ok(evaluated.findings.some(finding => finding.code === "missing_youtube_daily_history" && finding.status === (days >= 2 ? "repairable" : days ? "investigation_required" : "blocked")));
+    assert.equal(evaluated.findings.some(finding => finding.code === "youtube_native_history_contract_review_required"), days === 1);
+    assert.equal(evaluated.findings.some(finding => finding.code === "youtube_native_history_contract_mismatch" && finding.status === "repairable"), days >= 2);
     assert.ok(!evaluated.findings.some(finding => finding.code === "youtube_native_intraday_fallback_uninvestigated"));
-    assert.ok(!evaluated.findings.some(finding => finding.status === "repairable"));
+    assert.equal(evaluated.findings.some(finding => finding.status === "repairable"), days >= 2);
     assert.deepEqual(evaluated.sourceEvidence["youtubeHistory"], input.source_evidence.youtubeHistory);
     if (days) {
       const partialDaily = evaluateMonitoringCandidate(artist, { ...input,
         source_evidence: { ...input.source_evidence, youtubeHistory: { days: 2, videos: 2, videosWithHistory: 0 } } }, now);
-      assert.equal(partialDaily.classification, null, "daily and native aggregate counts cannot prove their per-video union is insufficient");
+      assert.equal(partialDaily.classification, days >= 2 ? "B" : null, "one+one never certifies a mixed-source date union; a full native source independently supports repair");
       const independentBlocker = evaluateMonitoringCandidate(artist, { ...input,
         source_evidence: { ...input.source_evidence, spotifyHistory: { days: 0 } } }, now);
-      assert.equal(independentBlocker.classification, "C");assert.equal(independentBlocker.auditStatus, "incomplete");
+      assert.equal(independentBlocker.classification, "C");assert.equal(independentBlocker.auditStatus, days === 1 ? "incomplete" : "complete");
       assert.ok(independentBlocker.findings.some(finding => finding.code === "missing_spotify_daily_history" && finding.status === "blocked"));
     }
     const dailyComplete = evaluateMonitoringCandidate(artist, { ...input,
       source_evidence: { ...input.source_evidence, youtubeHistory: row.source_evidence.youtubeHistory } }, now);
     assert.equal(dailyComplete.classification, "A", "the previously complete approved daily path is unchanged");
+
+    for (const field of ["invalidVideoIds", "missingTrackedVideos"] as const) {
+      const guarded = structuredClone(input);guarded.source_evidence.youtubeServing.nativeIntradayHistory.buckets[0]![field] = 1;
+      if (field === "missingTrackedVideos") {
+        guarded.source_evidence.youtube = { approvedVideos: 1, observedVideos: 1, videosWithArtwork: 1 };
+        guarded.source_evidence.youtubeObservations = guarded.source_evidence.youtubeObservations.slice(0, 1);
+        guarded.source_evidence.youtubeImport[0]!.expectedVideos = 1;
+        guarded.source_evidence.youtubeImport[0]!.observedApprovedVideos = 1;
+      }
+      const result = evaluateMonitoringCandidate(artist, guarded, now);
+      assert.equal((result.sourceEvidence["youtubeNativeHistoryInspection"] as { status: string }).status, "complete");
+      assert.equal(result.classification, null, `${field} cannot establish usable native history or source absence, including zero samples`);
+      assert.equal(result.publicEligible, false);
+      assert.ok(!result.findings.some(finding => finding.code === "youtube_native_history_contract_mismatch"));
+    }
+    if (days >= 2) {
+      const partial = structuredClone(input);const partialProof = partial.source_evidence.youtubeServing.nativeIntradayHistory;
+      Object.assign(partialProof.buckets[0]!, { videosWithOneDate: 1, videosWithMultipleDates: 1, videosWithAllRequestedDates: 0,
+        renderableVideosWithMultipleDates: 1, rawObservationCount: 3, selectedPointCount: 3, missingVideoDates: 177,
+        minimumObservedDates: 1, maximumObservedDates: 2 });
+      Object.assign(partialProof.sourceTypes[0]!, { rows: 3, nonNullViews: 3 });
+      const partialResult = evaluateMonitoringCandidate(artist, partial, now);
+      assert.equal((partialResult.sourceEvidence["youtubeNativeHistoryInspection"] as { status: string }).status, "complete");
+      assert.equal(partialResult.classification, null, "one fully covered video cannot substitute for the other approved video");
+
+      const candidateBadId = structuredClone(input);
+      candidateBadId.source_evidence.youtubeServing.nativeIntradayHistory.buckets[1] = { ...bucket("candidate_only", 1, 0), invalidVideoIds: 1 };
+      assert.equal(evaluateMonitoringCandidate(artist, candidateBadId, now).classification, "B", "candidate-only invalid IDs remain diagnostic and cannot change complete approved coverage");
+      const wrongContract = structuredClone(input);wrongContract.source_evidence.youtubeServing.nativeIntradayHistory.servingContractVersion = "unreviewed_endpoint";
+      assert.equal(evaluateMonitoringCandidate(artist, wrongContract, now).classification, null);
+      const longKey = "a".repeat(161), oversizedIdentity = { ...artist, artistKey: longKey, sourceKeys: [longKey] };
+      const oversized = structuredClone(input);oversized.artist_key = longKey;
+      oversized.source_evidence.youtubeServing.nativeIntradayHistory.sourceKeys = [longKey];
+      assert.equal(evaluateMonitoringCandidate(oversizedIdentity, oversized, now).classification, null,
+        "a source key rejected by the existing endpoint length bound cannot certify usable history access");
+      const stale = evaluateMonitoringCandidate(artist, { ...input, source_evidence: { ...input.source_evidence,
+        youtubeObservations: input.source_evidence.youtubeObservations.map(value => ({ ...value, observedAt: "2026-08-01T12:00:00Z" })) } }, now);
+      assert.equal(stale.classification, "C", "historical coverage does not weaken independent live freshness");
+      assert.ok(stale.findings.some(finding => finding.code === "stale_or_missing_youtube_observations" && finding.status === "blocked"));
+      assert.ok(stale.findings.some(finding => finding.code === "youtube_native_history_contract_mismatch" && finding.status === "repairable"));
+      assert.deepEqual(stale.repairsPerformed, [], "source-implemented access is not falsely reported as a performed production repair");
+    }
 
     for (const patch of [{ native_history_captured_at: undefined }, { native_history_captured_at: null },
       { audit_captured_at: "2026-08-10T12:00:00.123455Z" }]) {

@@ -392,6 +392,7 @@ function nativeInspection() {
     missingVideoDates: 267,
     invalidSelectedPointCount: 0,
     missingTrackedVideos: 1,
+    invalidVideoIds: 0,
     minimumObservedDates: 0,
     maximumObservedDates: 2,
     firstObservedAt: "2026-09-01T08:00:00.123456Z",
@@ -403,7 +404,8 @@ function nativeInspection() {
     approvedOutcome: "present_partial",
     proof: {
       inspected: true,
-      inspectionVersion: "monitoring_youtube_native_history_inspection_v1",
+      inspectionVersion: "monitoring_youtube_native_history_inspection_v2",
+      servingContractVersion: "monitoring_youtube_native_history_v1",
       allTimeCoverageInspected: false,
       captureClock: "2026-09-06T08:51:36.871908Z",
       startDate: "2026-06-09",
@@ -454,7 +456,7 @@ test("validated native archive remains separate from approved daily coverage and
     /no sustituyen snapshots diarios ni demuestran elegibilidad/,
   );
   const approved = summary.get("Archivo acumulativo · aprobados");
-  assert.match(approved, /1 \/ 3 videos con al menos 2 fechas; 1 graficables/);
+  assert.match(approved, /1 \/ 3 videos con al menos 2 fechas; 1 series con valores válidos/);
   assert.match(
     approved,
     /1 con una fecha; 1 sin lecturas confiables en el rango/,
@@ -468,7 +470,7 @@ test("validated native archive remains separate from approved daily coverage and
   const candidateSummary = summary.get("Archivo acumulativo · candidatos");
   assert.match(
     candidateSummary,
-    /1 \/ 2 videos con al menos 2 fechas; 0 graficables/,
+    /1 \/ 2 videos con al menos 2 fechas; 0 series con valores válidos/,
   );
   assert.match(candidateSummary, /1 con lecturas inválidas \(1 puntos\)/);
   assert.match(candidateSummary, /Solo inspección interna; no aprobación/);
@@ -480,6 +482,7 @@ test("validated native archive remains separate from approved daily coverage and
     "2026-06-09",
     "2026-09-06T08:51:36.871908Z",
     "synthetic-key, Synthetic Key",
+    "monitoring_youtube_native_history_v1",
   ])
     assert.ok(provenance.includes(exact));
   assert.match(provenance, /No es cobertura de todo el historial/);
@@ -533,6 +536,44 @@ test("completed native zero observations and no selected relationships do not be
     ).get("Archivo acumulativo · aprobados"),
     /Sin relaciones seleccionadas.*no demuestra ausencia fuera/,
   );
+});
+
+test("native v2 distinguishes valid values from usable video IDs and rejects unbound serving proof", async () => {
+  const inspection = nativeInspection();
+  // A malformed ID may have both a tracked record and valid cumulative values.
+  // Neither fact makes its history URL usable or permits hiding its diagnosis.
+  Object.assign(inspection.proof.buckets[0], {
+    invalidVideoIds: 2,
+    missingTrackedVideos: 0,
+  });
+  inspection.proof.buckets[1].invalidVideoIds = 1;
+  const evidence = { youtubeNativeHistoryInspection: inspection };
+  const summary = new Map(monitoringSourceSummary(evidence));
+  assert.match(summary.get("Archivo acumulativo · aprobados"), /1 series con valores válidos/);
+  assert.match(summary.get("Archivo acumulativo · aprobados"), /2 con identificador no válido para consultar el historial; 0 sin registro/);
+  assert.match(summary.get("Archivo acumulativo · candidatos"), /1 con identificador no válido para consultar el historial/);
+  assert.doesNotMatch(summary.get("Archivo acumulativo · aprobados"), /graficables/);
+  const audit = await loadCompleteMonitoringAudit(async () =>
+    page([{ ...candidate("a", null), sourceEvidence: evidence }], 0, 1),
+  );
+  assert.deepEqual(audit.artists[0].sourceEvidence, evidence);
+  assert.equal(audit.artists[0].classification, null);
+  assert.equal(audit.auditComplete, false);
+  for (const change of [
+    (i) => (i.proof.inspectionVersion = "monitoring_youtube_native_history_inspection_v1"),
+    (i) => delete i.proof.servingContractVersion,
+    (i) => (i.proof.servingContractVersion = "unverified_contract"),
+    (i) => delete i.proof.buckets[0].invalidVideoIds,
+    (i) => (i.proof.buckets[0].invalidVideoIds = "0"),
+    (i) => (i.proof.buckets[0].invalidVideoIds = -1),
+    (i) => (i.proof.buckets[1].invalidVideoIds = 3),
+  ]) {
+    const malformed = nativeInspection();
+    change(malformed);
+    const invalid = new Map(monitoringSourceSummary({ youtubeNativeHistoryInspection: malformed }));
+    assert.equal(invalid.has("Archivo acumulativo · aprobados"), false);
+    assert.match(invalid.get("Archivo nativo YouTube · acumulativo"), /Evidencia de inspección inválida/);
+  }
 });
 
 test("uninspected, unavailable, invalid or inconsistent archive proof never appears as measured zero", () => {

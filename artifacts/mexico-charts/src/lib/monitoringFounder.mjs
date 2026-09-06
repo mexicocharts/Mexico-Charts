@@ -277,6 +277,7 @@ function nativeYoutubeHistorySummary(inspection) {
     "missingVideoDates",
     "invalidSelectedPointCount",
     "missingTrackedVideos",
+    "invalidVideoIds",
   ];
   const date = (value) =>
     typeof value === "string" &&
@@ -312,6 +313,7 @@ function nativeYoutubeHistorySummary(inspection) {
         bucket.videosWithAllRequestedDates <= bucket.videosWithMultipleDates &&
         bucket.unrenderableVideos <= bucket.videosWithTrustedSamples &&
         bucket.missingTrackedVideos <= bucket.eligibleVideos &&
+        bucket.invalidVideoIds <= bucket.eligibleVideos &&
         bucket.rawObservationCount >= bucket.selectedPointCount &&
         bucket.selectedPointCount >= bucket.videosWithTrustedSamples &&
         bucket.invalidSelectedPointCount <= bucket.selectedPointCount &&
@@ -342,7 +344,8 @@ function nativeYoutubeHistorySummary(inspection) {
     !proof ||
     proof.inspected !== true ||
     proof.inspectionVersion !==
-      "monitoring_youtube_native_history_inspection_v1" ||
+      "monitoring_youtube_native_history_inspection_v2" ||
+    proof.servingContractVersion !== "monitoring_youtube_native_history_v1" ||
     proof.allTimeCoverageInspected !== false ||
     proof.kind !== "native_intraday_cumulative" ||
     proof.sourceTable !== "youtube_video_intraday_shadow_snapshots" ||
@@ -368,7 +371,7 @@ function nativeYoutubeHistorySummary(inspection) {
   const describe = (bucket) =>
     bucket.eligibleVideos === 0
       ? "Sin relaciones seleccionadas en este grupo; no demuestra ausencia fuera de estas relaciones."
-      : `${bucket.videosWithMultipleDates} / ${bucket.eligibleVideos} videos con al menos 2 fechas; ${bucket.renderableVideosWithMultipleDates} graficables; ${bucket.videosWithAllRequestedDates} con las 90 fechas. ${bucket.videosWithOneDate} con una fecha; ${bucket.videosWithoutTrustedSamples} sin lecturas confiables en el rango. ${bucket.unrenderableVideos} con lecturas inválidas (${bucket.invalidSelectedPointCount} puntos); ${bucket.missingTrackedVideos} sin registro en el catálogo rastreado. ${bucket.selectedPointCount} puntos seleccionados de ${bucket.rawObservationCount} lecturas; ${bucket.missingVideoDates} fechas por video sin muestra. Primera / última lectura UTC: ${bucket.firstObservedAt ?? "sin lecturas confiables"} / ${bucket.lastObservedAt ?? "sin lecturas confiables"}.`;
+      : `${bucket.videosWithMultipleDates} / ${bucket.eligibleVideos} videos con al menos 2 fechas; ${bucket.renderableVideosWithMultipleDates} series con valores válidos; ${bucket.videosWithAllRequestedDates} con las 90 fechas. ${bucket.videosWithOneDate} con una fecha; ${bucket.videosWithoutTrustedSamples} sin lecturas confiables en el rango. ${bucket.unrenderableVideos} con lecturas inválidas (${bucket.invalidSelectedPointCount} puntos); ${bucket.invalidVideoIds} con identificador no válido para consultar el historial; ${bucket.missingTrackedVideos} sin registro en el catálogo rastreado. ${bucket.selectedPointCount} puntos seleccionados de ${bucket.rawObservationCount} lecturas; ${bucket.missingVideoDates} fechas por video sin muestra. Primera / última lectura UTC: ${bucket.firstObservedAt ?? "sin lecturas confiables"} / ${bucket.lastObservedAt ?? "sin lecturas confiables"}.`;
   return [
     [
       label,
@@ -384,7 +387,7 @@ function nativeYoutubeHistorySummary(inspection) {
     ],
     [
       "Archivo acumulativo · procedencia",
-      `${proof.sourceTable} · ${proof.trustedSourceType}. Última observación real por fecha de America/New_York. ${proof.startDate} a ${proof.endDate} (${proof.rangeDays} días solicitados); inicio UTC ${proof.startsAt}; captura UTC ${proof.captureClock}. Claves: ${proof.sourceKeys.join(", ")}. No es cobertura de todo el historial.`,
+      `${proof.sourceTable} · ${proof.trustedSourceType}. Última observación real por fecha de America/New_York. ${proof.startDate} a ${proof.endDate} (${proof.rangeDays} días solicitados); inicio UTC ${proof.startsAt}; captura UTC ${proof.captureClock}. Claves: ${proof.sourceKeys.join(", ")}. Contrato de consulta: ${proof.servingContractVersion}. No es cobertura de todo el historial.`,
     ],
   ];
 }
