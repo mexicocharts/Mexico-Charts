@@ -238,3 +238,36 @@ results: private classifications are never publication instructions.
 
 Focused tests: `node --test scripts/monitor-pro-audit-tools/evidence-pipeline.test.mjs
 scripts/monitor-pro-audit-tools/catalog-evidence-reconciliation.test.mjs`.
+
+### Authoritative founder product contract — 2026-09-07
+
+`founder-product-contract.mjs` is the versioned authoritative policy for the founder-
+approved diagnostic evaluation. It supersedes the older full-audit gates and hidden
+legacy duplicates as product policy. The older evaluator and evidence-pipeline files
+remain available only for preserved historical replay and evidence inspection; their
+classifications must not be used as the new product contract.
+
+`founder-contract-diagnostics.mjs <private-output-root> <new-result-directory>` verifies
+and reuses only the three retained diagnostic inputs, then evaluates the founder policy.
+It performs no queries, provider requests, deployment or publication. Do not use it to
+run the roster. It does not import prior eligibility decisions as product gates.
+
+The pure policy separates core data minimums, reliable-serving validation, section
+availability, quality warnings, source freshness, and founder inspection. Unknown
+serving acceptance is reported as an unverified operational requirement, not as an
+absent artist dataset. No special audit file or visual artwork review is required.
+Verified actual serving evidence can establish that criterion; a successful database
+source capture alone cannot assert authenticated production acceptance.
+
+Songstats core readings require exact matched Songstats source evidence and use only
+their own observation dates (existing14-day core limit). The paused per-video collector
+never supplies their freshness or invalidates them. Correctly matched Spotify/Deezer
+artwork is accepted without human certification. Partial catalogs, secondary images,
+individual growth windows, delta/history coverage, pulse and peers are section/quality
+states. Per-video histories retain cumulative semantics; no daily deltas are fabricated.
+
+This implementation is an offline diagnostic policy entry point, not a deployed product
+change. Production route guards and publication remain untouched. Future application
+integration must explicitly adopt this contract rather than reintroducing the old gates.
+
+Tests: `node --test scripts/monitor-pro-audit-tools/founder-product-contract.test.mjs`.
