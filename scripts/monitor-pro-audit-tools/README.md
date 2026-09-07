@@ -189,3 +189,52 @@ Use `--base /private/audit/base --action verify` for source/lineage verification
 `node rerun-catalog-evidence.mjs BASE DOCUMENTS_JSON NEW_OUTPUT_DIRECTORY` replays the pinned saved roster evidence with the frozen evaluator, verifies exact baseline replay, and then applies only catalog evidence. It refuses to overwrite output, preserves original audit clocks, and checks that every non-catalog finding is unchanged. Captures later than the original clock remain deferred. It performs no database/provider requests, public eligibility writes, or other reconciliation jobs. Retained failures and mapping exclusions remain separate from incomplete classifications. Partial output must be retained and reviewed before another invocation; this offline command is not the source-capture resume runner.
 
 Focused tests: `node --test catalog-evidence-reconciliation.test.mjs` and `python3 reconcile-captured-catalog.test.py`. Keep private manifests, original captures, normalized documents and evaluator outputs outside Git.
+
+### Diagnostic-only evidence adapter (no public eligibility changes)
+
+`evidence-pipeline.mjs` wraps the hash-bound frozen evaluator for private audits.
+`rerun-diagnostic-evidence.mjs <retained-audit-root> <new-private-output>` deliberately
+accepts only the three retained diagnostic cases (710,596,662), verifies their input
+hashes and original decisions, and writes new decisions without modifying originals.
+It cannot run a population pass. It imports no application runtime or provider client.
+
+The adapter retains the full product thresholds: 14-day audience/catalog freshness,
+7/30/90 growth with seven-day baseline tolerance, complete artwork/catalog, approved
+video coverage, six-hour video freshness, measured deltas and positive intervals.
+The history predicate's existing `view_count` observations and minimum two exact
+Eastern dates describe cumulative-view history; validated complete native cumulative
+history satisfies that predicate, never a separate daily-delta predicate. The frozen
+native validator remains responsible for exact identity, independent capture clocks,
+source-type/relationship exclusions and per-video range reconciliation.
+
+Source catalog dates and acquisition timestamps are separate. Unknown source dates
+remain null and cannot pass freshness. The adapter can derive a catalog certificate
+from already-verified complete captured tables without requiring an audit-created
+certificate or applied-artwork boolean. Merely counting stored items is insufficient.
+Missing artwork stays unknown when the supported source fallback is not evidenced.
+Legacy endpoint-presence failures remain repairable where equivalent data is proved;
+this adapter never changes the public guard.
+
+Growth diagnostics consume retained licensed observations and the existing verified
+compact projection. Optional `source_evidence.growthObservations` contains raw scoped
+reads for `licensed_history`, `verified_compact_history`, `scheduled_daily_history`.
+Each entry binds metric, artistKey, the exact sourceKeys, source reference, capturedAt,
+startDate/endDate, read status, and exact `{date,value}` points. These are trusted
+capture-layer inputs, not user assertions; the caller must verify original capture
+integrity, query bounds and source licensing before supplying them. A `complete` read
+must include all rows/keys for that source and requested interval, including explicit
+empty responses. An absent property, partial read, invalid value, other identity,
+earlier capture or incomplete interval cannot establish absence. No new acquisition
+of these reads is performed by this module or the diagnostic runner. Existing compact
+flags establish successful windows but do not establish per-window absence.
+
+A/B require all required evidence to be determined. C requires a blocked finding and
+no outstanding investigation under the existing complete-audit export rule. The new
+growth path emits blocked only for an exhaustive, clock-bound deficit; otherwise it
+emits investigation_required. This does not certify the exhaustiveness of unrelated
+legacy blocked predicates. Original raw decisions remain alongside corrected outputs.
+`publicEligible` is always false and `publicEligibilityEvaluated` false in adapter
+results: private classifications are never publication instructions.
+
+Focused tests: `node --test scripts/monitor-pro-audit-tools/evidence-pipeline.test.mjs
+scripts/monitor-pro-audit-tools/catalog-evidence-reconciliation.test.mjs`.

@@ -17,7 +17,8 @@ export function reconcileCatalogEvidence(candidate,row,documents,reference){
   assert(doc.scope==='complete_captured_kworb_table_not_all_spotify_objects');
   assert(doc.allRowsAccounted===true&&doc.observedCount===doc.items.length&&doc.expectedCount===doc.items.length&&doc.items.length>0);
   assert(doc.source.httpStatus===200&&/^[a-f0-9]{64}$/.test(doc.source.sha256));
-  assert(Number.isFinite(Date.parse(doc.source.fetchedAt))&&/^\d{4}-\d{2}-\d{2}$/.test(doc.sourceDate));
+  assert(Number.isFinite(Date.parse(doc.source.fetchedAt)));
+  assert(doc.sourceDate==null||(/^\d{4}-\d{2}-\d{2}$/.test(doc.sourceDate)&&new Date(doc.sourceDate).toISOString().slice(0,10)===doc.sourceDate));
   assert(new Set(doc.items.map(i=>i.item_key)).size===doc.items.length);
   assert(doc.items.every(i=>i.item_key&&i.title&&i.item_type===(doc.source.kind==='songs'?'track':'album')));
   assert(doc.source.url===`https://kworb.net/spotify/artist/${id}_${doc.source.kind}.html`);
@@ -27,7 +28,7 @@ export function reconcileCatalogEvidence(candidate,row,documents,reference){
  const items=[...tracks.items,...albums.items];
  const sum=(group,key)=>group.every(i=>Number.isSafeInteger(i[key])&&i[key]>=0)&&Number.isSafeInteger(group.reduce((n,i)=>n+i[key],0))?group.reduce((n,i)=>n+i[key],0):null;
  const updated=clone(row);updated.stream_items=clone(items);
- const date=tracks.sourceDate===albums.sourceDate?tracks.sourceDate:null;
+ const date=tracks.sourceDate===albums.sourceDate?(tracks.sourceDate??null):null;
  updated.served_summary={snapshot_date:date,track_count:tracks.items.length,album_count:albums.items.length,
   track_daily_streams:sum(tracks.items,'dailyStreams'),track_total_streams:sum(tracks.items,'totalStreams'),album_total_streams:sum(albums.items,'totalStreams'),
   source_table:'kworb_live_complete_catalog',provenance:'derived_exact_sum_of_captured_source_items',source_reference:reference,
@@ -35,7 +36,7 @@ export function reconcileCatalogEvidence(candidate,row,documents,reference){
  updated.source_evidence={...updated.source_evidence,catalogCompleteness:{verified:true,reference,source:'kworb_live_complete_catalog',spotifyArtistId:id,
   expectedTracks:tracks.expectedCount,expectedAlbums:albums.expectedCount,scope:tracks.scope},
   liveCatalogInvestigation:{status:'reviewed',source:'kworb_live_complete_catalog',reference,spotifyArtistId:id,
-   observedAt:updated.served_summary.fetched_at,catalogEvidenceApplied:true,artworkEvidenceApplied:false}};
+   sourceDates:{tracks:tracks.sourceDate??null,albums:albums.sourceDate??null},sourceObservedDate:date??null,acquiredAt:updated.served_summary.fetched_at,catalogEvidenceApplied:true,artworkEvidenceApplied:false}};
  manifest.fullCatalogApplied=true;manifest.reason='complete_captured_source_catalog_applied_artwork_fallback_unverified';
  manifest.sources=[tracks.source,albums.source];manifest.expected={tracks:tracks.expectedCount,albums:albums.expectedCount};
  manifest.observed={tracks:tracks.items.length,albums:albums.items.length};manifest.sourceDates={tracks:tracks.sourceDate,albums:albums.sourceDate};
