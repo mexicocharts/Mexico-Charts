@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-checkout=/tmp/monitor-pro-preview-approved
-expected_revision=156f91345ba82d5506616fa74d0b090f797cc4c7
-approved_branch=codex/canonical-monitor-pro-experience
+checkout=/tmp/monitor-pro-preview-approved-1051e10
+expected_revision=1051e102fa86a200b0330f46b7dad9d4c30dbf8e
+approved_branch=codex/monitor-pro-founder-readiness
 approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
-api_port=8099
-api_log=/tmp/monitor-pro-private-api.log
-build_log=/tmp/monitor-pro-private-build.log
+api_port=8100
+api_log=/tmp/monitor-pro-private-api-1051e10.log
+build_log=/tmp/monitor-pro-private-build-1051e10.log
 
 restore_approved_checkout() {
   local restore_root restore_checkout
