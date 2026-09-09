@@ -1,3 +1,4 @@
+import { directoryDiagnostic, directoryRequestId } from "./monitoring-directory-diagnostics";
 import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
 import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service";
@@ -63,14 +64,15 @@ const CACHE_MS = 5 * 60_000;
 const POPULATION_CACHE_MS = 60_000;
 let populationCache: { expiresAt: number; value: MonitoringCandidateIdentity[] } | null = null;
 let populationPending: Promise<MonitoringCandidateIdentity[]> | null = null;
+let populationPendingOwner: string | null = null;
 let aliasCache: { expiresAt: number; value: MonitoringCandidateSourceRow[] } | null = null;
 async function loadMonitoringIdentityCatalog(readPool: AuditPool, missing: string[]) {
   const cacheable = readPool === monitoringReadPool || readPool === publicReadPool;
   if (cacheable && aliasCache && aliasCache.expiresAt > Date.now()) return aliasCache.value;
   const accepted = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(MONITORING_ACCEPTED_ALIAS_SQL, missing), []);
+    withUnavailableMonitoringSources(MONITORING_ACCEPTED_ALIAS_SQL, missing), [], undefined, "accepted_aliases");
   const discovery = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(MONITORING_DISCOVERY_CANDIDATES_SQL, missing), []);
+    withUnavailableMonitoringSources(MONITORING_DISCOVERY_CANDIDATES_SQL, missing), [], undefined, "discovery_candidates");
   const value = [...accepted, ...discovery];
   if (cacheable) aliasCache = { expiresAt: Date.now() + POPULATION_CACHE_MS, value };
   return value;
@@ -78,7 +80,7 @@ async function loadMonitoringIdentityCatalog(readPool: AuditPool, missing: strin
 
 async function loadCandidateRows(readPool: AuditPool, missing: string[]) {
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(MONITORING_CANDIDATE_POPULATION_SQL, missing), []);
+    withUnavailableMonitoringSources(MONITORING_CANDIDATE_POPULATION_SQL, missing), [], undefined, "candidate_population");
   return [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing), ...getMonitoringBundledRosterRows()];
 }
 
@@ -88,14 +90,18 @@ export async function loadMonitoringCandidatePopulation(readPool: AuditPool = mo
     return groupMonitoringCandidateIdentities(await loadCandidateRows(readPool, missing));
   }
   if (populationCache && populationCache.expiresAt > Date.now()) return populationCache.value;
-  if (populationPending) return populationPending;
+  if (populationPending) {
+    directoryDiagnostic("candidate_population", "shared_pending", performance.now(), "wait", undefined, populationPendingOwner);
+    return populationPending;
+  }
+  populationPendingOwner = directoryRequestId();
   populationPending = loadMonitoringAuditSchema(readPool)
     .then(missing => loadCandidateRows(readPool, missing))
     .then(rows => {
       const value = groupMonitoringCandidateIdentities(rows);
       populationCache = { expiresAt: Date.now() + POPULATION_CACHE_MS, value };
       return value;
-    }).finally(() => { populationPending = null; });
+    }).finally(() => { populationPending = null; populationPendingOwner = null; });
   return populationPending;
 }
 
@@ -294,7 +300,7 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
   const fresh = new Map<string, MonitoringCandidateAuditArtist>();
   if (uncached.length) {
     const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, withUnavailableMonitoringSources(MONITORING_CANDIDATE_EVIDENCE_SQL, missingSchemaTables),
-      [JSON.stringify(uncached.map(artist => ({ artist_key: artist.artistKey, source_keys: artist.sourceKeys })))]);
+      [JSON.stringify(uncached.map(artist => ({ artist_key: artist.artistKey, source_keys: artist.sourceKeys })))], undefined, "page_evidence");
     const byKey = new Map(rows.map(row => [row.artist_key, row]));
     for (const artist of uncached) {
       const row = byKey.get(artist.artistKey);

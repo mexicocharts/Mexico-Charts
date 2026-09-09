@@ -1,3 +1,4 @@
+import { withDirectoryDiagnostics } from "../lib/monitoring-directory-diagnostics";
 import { MONITORING_COMPARISONS_SQL } from "../lib/monitoring-comparisons";
 import { Router, type RequestHandler } from "express";
 import { monitoringReadPool } from "@workspace/db";
@@ -966,7 +967,15 @@ router.get(
       res.status(400).json({ error: "Invalid directory page or search", code: "invalid_directory_request" });
       return;
     }
-    try { res.json(await getMonitoringCandidateDirectory({ limit, offset, search })); }
+    try {
+      await withDirectoryDiagnostics(
+        diagnostic => logger.info({ event: "monitoring_founder_directory_stage", ...diagnostic }, "Founder directory diagnostic"),
+        async requestId => {
+          res.setHeader("X-Monitor-Request-Id", requestId);
+          res.json(await getMonitoringCandidateDirectory({ limit, offset, search }));
+        },
+      );
+    }
     catch (error) {
       logger.warn({ event: "monitoring_founder_audit_failure", database: safeDatabaseDiagnostic(error) }, "Founder evidence audit failed");
       res.status(requestDatabaseHttpStatus(error)).json({ error: "The evidence audit could not complete. Source absence has not been established.", code: "candidate_audit_failed" });

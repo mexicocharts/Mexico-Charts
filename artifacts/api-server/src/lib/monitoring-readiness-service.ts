@@ -1,3 +1,4 @@
+import { directoryDiagnostic, type DirectoryStage } from "./monitoring-directory-diagnostics";
 import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
 export { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
@@ -56,17 +57,20 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
   text: string,
   values: unknown[],
   onDiagnostic?: MonitoringReadinessAuditOptions["onDiagnostic"],
+  directoryStage?: DirectoryStage,
 ): Promise<T[]> {
   const acquisitionStartedAt = performance.now();
   let client;
   try {
     client = await readPool.connect();
+    if (directoryStage) directoryDiagnostic(directoryStage, "db_acquisition", acquisitionStartedAt, "ok");
     onDiagnostic?.({
       stage: "db_acquisition",
       durationMs: roundedDuration(acquisitionStartedAt),
       outcome: "ok",
     });
   } catch (error) {
+    if (directoryStage) directoryDiagnostic(directoryStage, "db_acquisition", acquisitionStartedAt, "error", error);
     onDiagnostic?.({
       stage: "db_acquisition",
       durationMs: roundedDuration(acquisitionStartedAt),
@@ -78,6 +82,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
   const queryStartedAt = performance.now();
   try {
     const result = await client.query<T>({ text, values });
+    if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "ok");
     onDiagnostic?.({
       stage: "readiness_query",
       durationMs: roundedDuration(queryStartedAt),
@@ -85,6 +90,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     });
     return result.rows;
   } catch (error) {
+    if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "error", error);
     onDiagnostic?.({
       stage: "readiness_query",
       durationMs: roundedDuration(queryStartedAt),

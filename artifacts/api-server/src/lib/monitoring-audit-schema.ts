@@ -49,7 +49,7 @@ export async function loadMonitoringAuditSchema(readPool: Pick<database.PgPool, 
   if (cacheable && cache && cache.expiresAt > Date.now()) return cache.missingTables;
   const rows = await executeMonitoringReadinessQuery<{ table_name: string; present: boolean }>(readPool,
     "SELECT name table_name, to_regclass('public.' || name) IS NOT NULL present FROM unnest($1::text[]) name",
-    [[...MONITORING_AUDIT_SOURCE_TABLES]]);
+    [[...MONITORING_AUDIT_SOURCE_TABLES]], undefined, "schema_inventory");
   if (rows.length !== MONITORING_AUDIT_SOURCE_TABLES.length) throw new Error("Monitoring source schema inventory was incomplete");
   const missingTables = rows.filter(row => !row.present).map(row => row.table_name).sort();
   if (cacheable) cache = { expiresAt: Date.now() + 60_000, missingTables };
