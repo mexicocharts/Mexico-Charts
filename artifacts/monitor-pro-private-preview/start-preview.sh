@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-checkout=/tmp/monitor-pro-preview-approved-1051e10
-expected_revision=1051e102fa86a200b0330f46b7dad9d4c30dbf8e
-approved_branch=codex/monitor-pro-founder-readiness
+checkout=/tmp/monitor-pro-preview-approved-baf7bc8
+expected_revision=baf7bc8be6e9258cb852ca62ab9ad9fdde6355b8
+expected_tree=a0d54bbcf1f57da3e7e52de6b6e0ae3ac4114ad4
+approved_branch=codex/monitor-pro-bounded-diagnostics-1051
 approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
 api_port=8100
-api_log=/tmp/monitor-pro-private-api-1051e10.log
-build_log=/tmp/monitor-pro-private-build-1051e10.log
+api_log=/tmp/monitor-pro-private-api-baf7bc8.log
+build_log=/tmp/monitor-pro-private-build-baf7bc8.log
 
 restore_approved_checkout() {
   local restore_root restore_checkout
@@ -19,6 +20,7 @@ restore_approved_checkout() {
       "$approved_repository" "$restore_checkout"
     git -C "$restore_checkout" checkout --quiet --detach "$expected_revision"
     [[ "$(git -C "$restore_checkout" rev-parse HEAD)" == "$expected_revision" ]]
+    [[ "$(git -C "$restore_checkout" rev-parse HEAD^{tree})" == "$expected_tree" ]]
     CI=1 pnpm --dir "$restore_checkout" install --frozen-lockfile --offline
     [[ -z "$(git -C "$restore_checkout" status --porcelain --untracked-files=no)" ]]
   ); then
@@ -44,6 +46,11 @@ fi
 actual_revision="$(git -C "$checkout" rev-parse HEAD)"
 if [[ "$actual_revision" != "$expected_revision" ]]; then
   echo "Approved Monitor Pro checkout revision mismatch." >&2
+  exit 1
+fi
+actual_tree="$(git -C "$checkout" rev-parse HEAD^{tree})"
+if [[ "$actual_tree" != "$expected_tree" ]]; then
+  echo "Approved Monitor Pro checkout tree mismatch." >&2
   exit 1
 fi
 
