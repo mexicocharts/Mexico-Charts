@@ -464,31 +464,37 @@ async function runPrioritizedSearches(client: PgClient, session:{id:string;start
 }
 
 async function ensureComparatorRoster(client: PgClient, sessionId: string) {
-  await client.query(`INSERT INTO youtube_discovery_validation_comparator_artists
+  await client.query(`WITH frozen AS (
+      SELECT artist_key,min(artist_name) artist_name,
+        regexp_replace(translate(lower(artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g') normalized_artist_key
+      FROM youtube_discovery_validation_channels
+      WHERE session_id=$1
+      GROUP BY artist_key
+    ), canonical AS (
+      SELECT DISTINCT ON (normalized_artist_key)
+        normalized_artist_key,artist_key,artist_name
+      FROM (
+        SELECT artist_key,artist_name,status,
+          regexp_replace(translate(lower(artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g') normalized_artist_key
+        FROM kworb_coverage
+      ) candidates
+      ORDER BY normalized_artist_key,CASE WHEN status='active' THEN 0 ELSE 1 END,artist_key
+    ), baseline AS (
+      SELECT DISTINCT
+        regexp_replace(translate(lower(artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g') normalized_artist_key
+      FROM youtube_music_catalog_candidates
+      WHERE evidence_source=$2
+    )
+    INSERT INTO youtube_discovery_validation_comparator_artists
     (session_id,validation_artist_key,discovery_artist_key,artist_name,baseline_ready_at)
     SELECT $1::bigint, frozen.artist_key,
       COALESCE(canonical.artist_key,frozen.artist_key),
       COALESCE(canonical.artist_name,frozen.artist_name),
-      CASE WHEN EXISTS (
-        SELECT 1 FROM youtube_music_catalog_candidates baseline
-        WHERE regexp_replace(translate(lower(baseline.artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g')
-            = regexp_replace(translate(lower(COALESCE(canonical.artist_key,frozen.artist_key)),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g')
-          AND baseline.evidence_source=$2
-      ) THEN now() ELSE NULL END
-    FROM (
-      SELECT artist_key,min(artist_name) artist_name
-      FROM youtube_discovery_validation_channels
-      WHERE session_id=$1
-      GROUP BY artist_key
-    ) frozen
-    LEFT JOIN LATERAL (
-      SELECT k.artist_key,k.artist_name
-      FROM kworb_coverage k
-      WHERE regexp_replace(translate(lower(k.artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g')
-          = regexp_replace(translate(lower(frozen.artist_key),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g')
-      ORDER BY CASE WHEN k.status='active' THEN 0 ELSE 1 END,k.artist_key
-      LIMIT 1
-    ) canonical ON true
+      CASE WHEN baseline.normalized_artist_key IS NOT NULL THEN now() ELSE NULL END
+    FROM frozen
+    LEFT JOIN canonical ON canonical.normalized_artist_key=frozen.normalized_artist_key
+    LEFT JOIN baseline ON baseline.normalized_artist_key=
+      regexp_replace(translate(lower(COALESCE(canonical.artist_key,frozen.artist_key)),'áéíóúüñ','aeiouun'),'[^a-z0-9]','','g')
     ON CONFLICT (session_id,validation_artist_key) DO UPDATE SET
       discovery_artist_key=excluded.discovery_artist_key,
       artist_name=excluded.artist_name,
