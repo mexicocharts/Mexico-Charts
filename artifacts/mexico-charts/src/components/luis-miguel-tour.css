@@ -1,11 +1,129 @@
 .lm-hero {
+  --lm-depth-x: 0px;
+  --lm-depth-y: 0px;
   position: relative;
   isolation: isolate;
   background: #020503;
   color: #fff;
-  overflow: hidden;
+  overflow: clip;
   min-height: 490px;
   height: clamp(490px, 39vw, 650px);
+}
+.lm-atmosphere,
+.lm-light-sweep {
+  position: absolute;
+  pointer-events: none;
+  z-index: -2;
+  opacity: 0;
+}
+.lm-atmosphere {
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 86% 34%, #79ff4526, transparent 55%),
+    radial-gradient(ellipse at 8% 75%, #63ff1818, transparent 40%);
+}
+.lm-light-sweep {
+  inset: -30% auto -30% 0;
+  width: 35%;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    #a7ff7330 49%,
+    #d6ffc840 50%,
+    transparent 80%
+  );
+  transform: translateX(-150%) skewX(-14deg);
+}
+.lm-animated .lm-stage {
+  animation: lm-lights-up 1.6s ease-out both;
+  transform: translate3d(
+      calc(var(--lm-depth-x) * -0.5),
+      calc(var(--lm-depth-y) * -0.5),
+      0
+    )
+    scale(1.018);
+  transition: transform 700ms ease-out;
+}
+.lm-animated .lm-portrait {
+  transform: translate3d(var(--lm-depth-x), var(--lm-depth-y), 0);
+  transition: transform 700ms ease-out;
+}
+.lm-animated .lm-atmosphere {
+  animation: lm-stage-breathe 9s ease-in-out infinite;
+}
+.lm-animated .lm-light-sweep {
+  animation: lm-led-sweep 12s ease-in-out 1.3s infinite;
+}
+.lm-hero[data-motion-running="false"] .lm-stage,
+.lm-hero[data-motion-running="false"] .lm-atmosphere,
+.lm-hero[data-motion-running="false"] .lm-light-sweep {
+  animation-play-state: paused;
+}
+.lm-motion-toggle {
+  position: absolute;
+  right: max(18px, 3%);
+  bottom: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid #a5db8133;
+  border-radius: 99px;
+  background: #030803d9;
+  color: #c5d6bc;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.lm-motion-toggle:hover {
+  border-color: #a5db8177;
+  color: #fff;
+}
+.lm-motion-toggle:focus-visible {
+  outline: 2px solid #87ff42;
+  outline-offset: 4px;
+}
+@keyframes lm-lights-up {
+  from {
+    filter: brightness(0.35);
+  }
+  to {
+    filter: brightness(1);
+  }
+}
+@keyframes lm-stage-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@keyframes lm-led-sweep {
+  0%,
+  10% {
+    transform: translateX(-150%) skewX(-14deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.7;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  72%,
+  100% {
+    transform: translateX(400%) skewX(-14deg);
+    opacity: 0;
+  }
+}
+@media (pointer: coarse) {
+  .lm-motion-toggle {
+    min-height: 44px;
+  }
 }
 .lm-stage {
   position: absolute;
@@ -422,6 +540,19 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .lm-hero .lm-stage,
+  .lm-hero .lm-portrait,
+  .lm-hero .lm-atmosphere,
+  .lm-hero .lm-light-sweep {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .lm-atmosphere,
+  .lm-light-sweep {
+    display: none;
+  }
   .lm-button {
     transition: none;
   }

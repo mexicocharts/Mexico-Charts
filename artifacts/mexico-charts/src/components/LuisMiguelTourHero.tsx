@@ -1,5 +1,7 @@
 import { Link } from "wouter";
-import { ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { ArrowRight, Pause, Play } from "lucide-react";
+import { useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
 import "./luis-miguel-tour.css";
 
@@ -12,9 +14,63 @@ export default function LuisMiguelTourHero({
   article?: boolean;
 }) {
   const { pick } = useLanguage();
+  const heroRef = useRef<HTMLElement>(null);
+  const reducedMotion = useReducedMotion();
+  const [paused, setPaused] = useState(false);
+  const [inView, setInView] = useState(true);
+  const [pageVisible, setPageVisible] = useState(true);
+  const motionEnabled = reducedMotion === false;
+  const running = motionEnabled && !paused && inView && pageVisible;
+
+  useEffect(() => {
+    if (!motionEnabled) return;
+    const element = heroRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.05 },
+    );
+    if (element) observer.observe(element);
+    const updateVisibility = () => setPageVisible(!document.hidden);
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", updateVisibility);
+    };
+  }, [motionEnabled]);
+
+  function resetDepth() {
+    heroRef.current?.style.setProperty("--lm-depth-x", "0px");
+    heroRef.current?.style.setProperty("--lm-depth-y", "0px");
+  }
+
+  useEffect(() => {
+    if (!running) resetDepth();
+  }, [running]);
+
+  function moveDepth(event: PointerEvent<HTMLElement>) {
+    // Touch scrolling stays native; only a fine mouse pointer adds depth.
+    if (!running || event.pointerType !== "mouse") return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(
+      -1,
+      Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2),
+    );
+    const y = Math.max(
+      -1,
+      Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2),
+    );
+    event.currentTarget.style.setProperty("--lm-depth-x", `${x * 6}px`);
+    event.currentTarget.style.setProperty("--lm-depth-y", `${y * 4}px`);
+  }
+
   return (
     <section
-      className="lm-hero"
+      ref={heroRef}
+      className={`lm-hero${motionEnabled ? " lm-animated" : ""}`}
+      data-motion-running={running}
+      onPointerMove={moveDepth}
+      onPointerLeave={resetDepth}
       aria-label={pick("Luis Miguel · Tour 2027", "Luis Miguel · Tour 2027")}
       data-testid="luis-miguel-tour-hero"
     >
@@ -26,6 +82,8 @@ export default function LuisMiguelTourHero({
         height="764"
         fetchPriority="high"
       />
+      <div className="lm-atmosphere" aria-hidden="true" />
+      <div className="lm-light-sweep" aria-hidden="true" />
       {/* Display the original photograph directly. CSS crops the poster lettering;
           no generative portrait, facial retouching or replacement is used. */}
       <div className="lm-portrait">
@@ -82,6 +140,24 @@ export default function LuisMiguelTourHero({
           </Link>
         </div>
       </div>
+      {motionEnabled && (
+        <button
+          type="button"
+          className="lm-motion-toggle"
+          onClick={() => setPaused((value) => !value)}
+          aria-pressed={paused}
+          aria-label={pick("Pausar animación", "Pause animation")}
+        >
+          {paused ? (
+            <Play size={12} aria-hidden="true" />
+          ) : (
+            <Pause size={12} aria-hidden="true" />
+          )}
+          {paused
+            ? pick("Reanudar", "Resume")
+            : pick("Pausar animación", "Pause animation")}
+        </button>
+      )}
     </section>
   );
 }
