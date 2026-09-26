@@ -542,7 +542,7 @@ async function recordComparatorSightings(input: {
       (session_id,validation_artist_key,discovery_artist_key,video_id,title,catalog_discovered_at,evidence)
     SELECT $1::bigint,$3,$4,eligible."videoId",eligible."title",eligible.discovered_at,
       jsonb_build_object(
-        'primarySource',$6,
+        'primarySource',$6::text,
         'sourceSections',eligible."sourceSections",
         'releaseIds',eligible."releaseIds",
         'candidateStatus',eligible."status",
