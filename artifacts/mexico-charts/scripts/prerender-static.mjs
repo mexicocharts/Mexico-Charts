@@ -13,6 +13,34 @@ const ogImage = `${siteUrl}/opengraph.jpg`;
 
 const routes = [
   {
+    path: "/touring/luis-miguel-tour-2027",
+    type: "article",
+    article: {
+      "@type": "NewsArticle",
+      headline: "Luis Miguel anuncia Tour 2027: seguiremos cada nuevo anuncio",
+      datePublished: "2026-09-26",
+      dateModified: "2026-09-26",
+      author: { "@type": "Organization", name: "Redacción México Charts" },
+      publisher: { "@type": "Organization", name: "Mexico Charts", url: siteUrl },
+      image: `${siteUrl}/images/campaigns/luis-miguel-2027/announcement-original.jpg`,
+    },
+    title: "Luis Miguel anuncia Tour 2027 — Mexico Charts",
+    description: "Tu guía independiente del Tour 2027 de Luis Miguel: anuncios confirmados, fechas, ciudades, preventas y enlaces de compra autorizados.",
+    eyebrow: "Giras · Cobertura especial",
+    heading: "Luis Miguel anuncia Tour 2027: seguiremos cada nuevo anuncio",
+    body: "Luis Miguel anunció su Tour 2027 el 21 de septiembre de 2026. Al 26 de septiembre de 2026, los países, ciudades, recintos, fechas de conciertos y preventas siguen pendientes de confirmación.",
+    sections: [
+      ["Tu punto de encuentro para seguir la gira", "México Charts reunirá la información confirmada por país, ciudad y recinto. Nuestra integración con Ticketmaster permitirá incorporar los eventos disponibles en su plataforma y sus enlaces de compra, junto con las fechas de preventa y venta general conforme se confirmen."],
+      ["Cobertura editorial independiente", "Daremos seguimiento a nuevas funciones, reprogramaciones y avisos oficiales. Para eventos comercializados por otras boleteras incluiremos los canales autorizados anunciados por sus organizadores. México Charts no está afiliado con el artista, su equipo o los organizadores de la gira."],
+    ],
+    links: [
+      ["https://x.com/LMXLM/status/2102151151932051880", "Anuncio oficial de Luis Miguel"],
+      ["https://andina.pe/agencia/noticia-luis-miguel-vuelve-a-los-escenarios-sol-mexico-anuncia-tour-2027-1092693.aspx", "Agencia Andina: cobertura del anuncio"],
+      ["/artist/luis-miguel", "Perfil de Luis Miguel"],
+      ["/touring", "Todas las giras"],
+    ],
+  },
+  {
     path: "/",
     title: "Charts de música mexicana, artistas e industria | Mexico Charts",
     description:
@@ -379,6 +407,7 @@ function updateHead(html, route) {
       `<meta property="og:description" content="${description}" />`,
     )
     .replace(/<meta property="og:url" content=".*?" \/>/s, `<meta property="og:url" content="${url}" />`)
+    .replace(/<meta property="og:type" content=".*?" \/>/s, `<meta property="og:type" content="${route.type ?? "website"}" />`)
     .replace(/<meta property="og:image" content=".*?" \/>/s, `<meta property="og:image" content="${ogImage}" />`)
     .replace(/<meta property="og:image:alt" content=".*?" \/>/s, `<meta property="og:image:alt" content="${title}" />`)
     .replace(/<meta name="twitter:title" content=".*?" \/>/s, `<meta name="twitter:title" content="${title}" />`)
@@ -398,6 +427,7 @@ function updateHead(html, route) {
         url,
         description: route.description,
         inLanguage: "es-MX",
+        ...(route.article ?? {}),
         ...(route.path === "/"
           ? {
               image: `${siteUrl}/mexico-charts-logo.png`,
