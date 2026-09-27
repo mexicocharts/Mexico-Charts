@@ -47,13 +47,13 @@ test("unknown error messages and custom classes are not logged; broken sink cann
   assert.doesNotMatch(JSON.stringify(records), /password|postgres|credential|private/);
   assert.equal(await withDirectoryDiagnostics(() => { throw Error("sink"); }, async () => 42), 42);
 });
-const { getMonitoringCandidateDirectory, MONITORING_ACCEPTED_ALIAS_SQL, MONITORING_DISCOVERY_CANDIDATES_SQL, MONITORING_CANDIDATE_POPULATION_SQL } = await import("./monitoring-candidate-audit");
+const { getMonitoringCandidateDirectory, MONITORING_ACCEPTED_ALIAS_SQL, MONITORING_DISCOVERY_CANDIDATES_SQL, MONITORING_DIRECTORY_POPULATION_SQL } = await import("./monitoring-candidate-audit");
 const { MONITORING_AUDIT_SOURCE_TABLES } = await import("./monitoring-audit-schema");
 for (const failingStage of stages) {
   test(`real directory loader wires ${failingStage} and preserves failure`, async () => {
     const records: any[] = []; const failure = new Error("Query read timeout"); let acquired = 0; let released = 0;
     const pool = { connect: async () => { acquired++; return { release: () => { released++; }, query: async ({ text }: { text: string }) => {
-      const stage = text.includes("to_regclass") ? "schema_inventory" : text === MONITORING_CANDIDATE_POPULATION_SQL ? "candidate_population" : text === MONITORING_ACCEPTED_ALIAS_SQL ? "accepted_aliases" : text === MONITORING_DISCOVERY_CANDIDATES_SQL ? "discovery_candidates" : "page_evidence";
+      const stage = text.includes("to_regclass") ? "schema_inventory" : text === MONITORING_DIRECTORY_POPULATION_SQL ? "candidate_population" : text === MONITORING_ACCEPTED_ALIAS_SQL ? "accepted_aliases" : text === MONITORING_DISCOVERY_CANDIDATES_SQL ? "discovery_candidates" : "page_evidence";
       if (stage === failingStage) throw failure;
       return { rows: stage === "schema_inventory" ? MONITORING_AUDIT_SOURCE_TABLES.map(table_name => ({ table_name, present: true })) : [] };
     } }; } };

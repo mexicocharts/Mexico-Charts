@@ -1,4 +1,5 @@
 import { directoryDiagnostic, directoryRequestId } from "./monitoring-directory-diagnostics";
+import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
 import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
 import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service";
@@ -60,6 +61,7 @@ export const MONITORING_CANDIDATE_POPULATION_SQL = `
 `;
 
 type AuditPool = Pick<PgPool, "connect">;
+export const MONITORING_DIRECTORY_POPULATION_SQL = indexedMonitoringPopulationSql(MONITORING_CANDIDATE_POPULATION_SQL);
 const CACHE_MS = 5 * 60_000;
 const POPULATION_CACHE_MS = 60_000;
 let populationCache: { expiresAt: number; value: MonitoringCandidateIdentity[] } | null = null;
@@ -80,8 +82,16 @@ async function loadMonitoringIdentityCatalog(readPool: AuditPool, missing: strin
 
 async function loadCandidateRows(readPool: AuditPool, missing: string[]) {
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(MONITORING_CANDIDATE_POPULATION_SQL, missing), [], undefined, "candidate_population");
-  return [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing), ...getMonitoringBundledRosterRows()];
+    withUnavailableMonitoringSources(MONITORING_DIRECTORY_POPULATION_SQL, missing), [], undefined, "candidate_population");
+  const population = [...rows, ...await loadMonitoringIdentityCatalog(readPool, missing), ...getMonitoringBundledRosterRows()];
+  const nameKeys = new Set(videoInventoryNameKeys(population));
+  for (const source of VIDEO_INVENTORY_SOURCES) {
+    const keys = rows.filter(row => row.source === source && nameKeys.has(row.artist_key)).map(row => row.artist_key);
+    if (!keys.length) continue;
+    population.push(...await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
+      withUnavailableMonitoringSources(videoInventoryNamesSql(source), missing), [keys], undefined, "candidate_population"));
+  }
+  return population;
 }
 
 export async function loadMonitoringCandidatePopulation(readPool: AuditPool = monitoringReadPool) {
