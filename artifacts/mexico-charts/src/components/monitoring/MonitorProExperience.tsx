@@ -51,6 +51,7 @@ import {
 import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import MonitorVideoHistory from "./MonitorVideoHistory";
 import { compareCatalogCounts, formatCatalogDaily, formatCatalogCutoff } from "@/lib/monitorCatalog.mjs";
+import { monitorReportRecommendation, type CompactMonitorReleaseImpact } from "@/lib/monitorReport.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -169,22 +170,7 @@ export type MonitorDashboardData = {
     importStatus: "complete" | "retryable" | "pending";
     complete: boolean;
   };
-  latestReleaseImpact: null | {
-    release: {
-      id: string;
-      title: string;
-      type: string;
-      releaseDate: string | null;
-      artworkUrl: string | null;
-      platformCount: number;
-    };
-    score: number | null;
-    confidence: "high" | "medium" | "collecting";
-    platformsMeasured: number;
-    lift7: number | null;
-    lift30: number | null;
-    lift90: number | null;
-  };
+  latestReleaseImpact: CompactMonitorReleaseImpact | null;
   liveVideoHistory: Array<{
     video_id: string;
     snapshot_date: string;
@@ -1511,10 +1497,10 @@ function VideosView() {
               YouTube en vivo, video por video
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-white/42">
-              {videos.length} videos únicos tienen conteos exactos guardados
+              {videos.length} videos únicos del catálogo vinculado tienen conteos exactos guardados.
               {channelVideoCount == null
                 ? ""
-                : ` de los ${channelVideoCount} videos registrados en el canal`}
+                : ` El canal registra ${channelVideoCount} videos; es un conjunto distinto del catálogo vinculado.`}
             </p>
             <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
               {[
@@ -1527,10 +1513,8 @@ function VideosView() {
                   "últimas lecturas · Cálculo de Mexico Charts",
                 ],
                 [
-                  channelVideoCount == null
-                    ? `${videos.length}/—`
-                    : `${videos.length}/${channelVideoCount}`,
-                  "cobertura en vivo",
+                  String(videos.length),
+                  "videos con lecturas guardadas",
                 ],
               ].map(([value, label]) => (
                 <div
@@ -2177,9 +2161,7 @@ function ReportsView() {
           ["Análisis", data.dailyPulse.summary],
           [
             "Recomendaciones",
-            data.latestReleaseImpact
-              ? `Revisar el impacto real de ${data.latestReleaseImpact.release.title}`
-              : "La recomendación se generará cuando exista evidencia suficiente",
+            monitorReportRecommendation(data.latestReleaseImpact, data.catalog.releases),
           ],
         ].map(([title, body], index) => (
           <Panel key={title} className="p-6">

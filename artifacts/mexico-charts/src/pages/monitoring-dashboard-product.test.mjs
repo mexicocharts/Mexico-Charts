@@ -69,6 +69,13 @@ test("report download remains a server-generated PDF", () => {
   assert.match(experience, /onDownloadReport/);
   assert.match(experience, /Descargar PDF/);
   assert.doesNotMatch(page, /Descargar CSV/);
+  assert.match(experience, /monitorReportRecommendation\(data\.latestReleaseImpact, data\.catalog\.releases\)/);
+  assert.doesNotMatch(experience, /latestReleaseImpact\.release\.title/);
+});
+
+test("linked multi-channel video catalog is not divided by a single channel's count", () => {
+  assert.doesNotMatch(experience, /\$\{videos\.length\}\/\$\{channelVideoCount\}/);
+  assert.match(experience, /conjunto distinto del catálogo vinculado/);
 });
 
 test("dashboard keeps terminal authentication failures stable", async () => {
