@@ -6,7 +6,7 @@ import {
   listSongstatsCatalogArtists,
 } from "../lib/songstats-snapshot-service";
 import { buildMonitoringDailyPulse, buildMonitoringNativeSnapshotsSql, mergeMonitoringPlatformHistory } from "../lib/monitoring-daily-pulse";
-import { buildSongstatsPublicInsight } from "../lib/songstats-public-service";
+import { buildSongstatsPublicInsight, monitoringSourceGrowth } from "../lib/songstats-public-service";
 import {
   auditMonitoringReadiness,
   getExistingMonitoringArtist,
@@ -44,6 +44,7 @@ import { getMonitoringCandidateDirectory, getMonitoringCandidateInventory, getMo
 import { monitoringIdentityKeyCandidates } from "../lib/monitoring-candidate-policy";
 import { loadLatestMonitoringStreamSummary, loadMonitoringSpotifyHistory, type MonitoringStreamSummaryRow } from "../lib/monitoring-stream-serving";
 import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
+import { cachedCatalogArtwork, loadCatalogArtworkBatch, parseCatalogArtworkKeys } from "../lib/monitoring-catalog-artwork";
 import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../lib/monitoring-history-request";
 import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog, summarizeMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
@@ -773,7 +774,7 @@ async function loadAuthorizedMonitoring(
     current: completeHistory.at(-1) ?? null,
     history: completeHistory,
     dailyPulse: buildMonitoringDailyPulse(completeHistory, catalog),
-    growth: insight?.growth ?? {},
+    growth: monitoringSourceGrowth(extendedRow?.historic_stats),
     topMexicoCities: insight?.topMexicoCities ?? [],
     catalog,
     latestReleaseImpact: releaseImpact,
@@ -848,6 +849,7 @@ async function loadAuthorizedMonitoring(
         artworkUrl:
           item.artwork_url ??
           releaseArtwork.get(normalizedMonitoringReleaseTitle(item.title)) ??
+          cachedCatalogArtwork({ type: item.item_type, key: item.item_key }) ??
           null,
         compilation: item.compilation,
         totalStreams: nullableNumber(item.total_streams),
@@ -993,6 +995,32 @@ router.get(
   },
 );
 
+router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  const keys = parseCatalogArtworkKeys(String(req.query.items ?? ""));
+  if (!artistKey || artistKey.length > 160 || !keys) {
+    res.status(400).json({ error: "Invalid bounded artwork request" }); return;
+  }
+  try {
+    const access = await resolveMonitoringAccess(clerkUserId(res), artistKey);
+    if (!access.allowed || !access.grant) { res.status(403).json({ error: "Artist Pro access is required" }); return; }
+    const sourceKeys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
+    const [identity] = await loadMonitoringPriorityArtistIdentity(monitoringReadPool, sourceKeys, {
+      identityConflict: access.grant.identity_conflict, canonicalArtistKey: access.grant.artist_key,
+    });
+    if (!identity?.spotify_artist_id || identity.identity_conflict) {
+      res.status(503).json({ error: "Verified catalog identity is unavailable" }); return;
+    }
+    const catalog = await loadCompleteMonitoringKworbCatalog(identity.spotify_artist_id);
+    const selected = keys.map(key => catalog.items.find(item => `${item.type}:${item.key}` === key));
+    if (selected.some(item => !item)) { res.status(400).json({ error: "Artwork must belong to this artist's catalog" }); return; }
+    res.json({ artistKey: access.grant.artist_key, items: await loadCatalogArtworkBatch(selected.filter(item => item != null)) });
+  } catch (error) {
+    logger.warn({ event: "monitoring_artwork_read_failure", artistKey, database: safeDatabaseDiagnostic(error) }, "Monitor artwork request failed");
+    res.status(503).json({ error: "Artwork lookup is temporarily unavailable" });
+  }
+});
+
 router.get(
   "/monitoring/dashboard/:artistKey",
   requireMonitoringClerkUser,
@@ -1006,9 +1034,10 @@ router.get(
       return;
     }
     try {
-      const dashboard = await loadAuthorizedMonitoring(
-        clerkUserId(res),
-        artistKey,
+      const dashboard = await withDirectoryDiagnostics(
+        diagnostic => logger.info({ event: "monitoring_dashboard_identity_read", ...diagnostic,
+          poolTotal: monitoringReadPool.totalCount, poolIdle: monitoringReadPool.idleCount, poolWaiting: monitoringReadPool.waitingCount }, "Monitor identity read diagnostic"),
+        () => loadAuthorizedMonitoring(clerkUserId(res), artistKey),
       );
       if (!dashboard) {
         res
@@ -1135,6 +1164,7 @@ router.get(
         spotifyHistory: dashboard.spotifyCatalog.history,
         liveVideoHistory: dashboard.liveVideoHistory,
         comparisonArtists: dashboard.comparisonArtists,
+        growth: dashboard.growth,
       });
       const safeArtist =
         dashboard.subscription.artistName

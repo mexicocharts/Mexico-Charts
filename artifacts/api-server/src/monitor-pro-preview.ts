@@ -22,7 +22,7 @@ export function previewReadOnlyUrl(raw: string): string {
 export function previewRequestAllowed(method: string, path: string): boolean {
   if (method !== "GET" && method !== "HEAD") return false;
   return (
-    /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
+    /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|artwork\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
       path,
     ) ||
     path === "/api/image-proxy" ||
@@ -157,6 +157,21 @@ export async function startMonitorProPreview() {
             "Authenticated private preview response counts",
           );
         }
+        return originalJson(body);
+      };
+    }
+    if (req.path.startsWith("/api/monitoring/artwork/") || req.path.startsWith("/api/monitoring/history/")) {
+      const originalJson = res.json.bind(res);
+      res.json = body => {
+        if (res.statusCode === 200) logger.info({
+          event: "monitor_preview_read_completeness", artistKey: body?.artistKey,
+          kind: req.path.includes("/artwork/") ? "artwork" : "history",
+          requestedItems: body?.items?.length,
+          loadedArtwork: body?.items?.filter((item: { artworkUrl?: string }) => Boolean(item.artworkUrl)).length,
+          metricKey: body?.metric?.metricKey, sourceAvailability: body?.availabilityBySource,
+          pointCount: body?.points?.length, firstDate: body?.points?.[0]?.[0], lastDate: body?.points?.at(-1)?.[0],
+          exactSourcePoints: body?.resolution?.exactSourcePoints,
+        }, "Authenticated preview supplemental read counts");
         return originalJson(body);
       };
     }

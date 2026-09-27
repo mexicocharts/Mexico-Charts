@@ -10,6 +10,7 @@ export type WeeklyReportInput = Omit<
 > & {
   weekEnd: string;
   artistImageUrl: string | null;
+  growth?: Record<string, Record<string, { absolute: number; baselineDate: string; latestDate: string; baselineValue: number; latestValue: number; source: string } | null>>;
   liveVideos: Array<
     MonitoringReportInput["liveVideos"][number] & {
       thumbnail_url?: string | null;
@@ -28,6 +29,22 @@ export type WeeklyReportInput = Omit<
     signals?: Array<Record<string, unknown>>;
   };
 };
+
+export function reportGrowth(input: Pick<WeeklyReportInput, "growth" | "history">, metric: string, days: number) {
+  // An explicit missing window must stay missing, not fall back to a different
+  // source. The report and dashboard consume exactly the same growth payload.
+  if (input.growth) return input.growth[metric]?.[`days${days}`] ?? null;
+  const current = input.history.at(-1);
+  if (!current) return null;
+  const target = new Date(`${current.date}T12:00:00Z`);
+  target.setUTCDate(target.getUTCDate() - days);
+  const previous = input.history.find(row => row.date === target.toISOString().slice(0, 10));
+  const key = metric as keyof Omit<typeof current, "date">;
+  const before = previous?.[key], after = current[key];
+  if (before == null || after == null || !previous) return null;
+  return { absolute: after - before, baselineDate: previous.date, latestDate: current.date,
+    baselineValue: before, latestValue: after, source: "stored_dashboard_history" };
+}
 
 const BG = "#050505",
   PANEL = "#101010",
@@ -229,14 +246,10 @@ export async function createMonitoringWeeklyReport(
       text(x + 14, y, value, 22, WHITE, 141);
       text(x + 14, y - 17, detail, 7, GREEN, 141);
     });
-  const change = (key: keyof typeof current, days: number) => {
-    const cutoff = new Date(`${current.date}T12:00:00Z`);
-    cutoff.setUTCDate(cutoff.getUTCDate() - days);
-    const date = cutoff.toISOString().slice(0, 10);
-    const old = history.find((row) => row.date === date);
-    const before = n(old?.[key]),
-      after = n(current[key]);
-    return before == null || after == null ? null : after - before;
+  const change = (key: keyof typeof current, days: number) => reportGrowth(input, key, days)?.absolute ?? null;
+  const windowLabel = (key: string, days: number) => {
+    const value = reportGrowth(input, key, days);
+    return value ? `${value.baselineDate} a ${value.latestDate}` : "Ventana sin lectura";
   };
   const start = weeklyStart(input.weekEnd);
   page("", 1);
@@ -282,12 +295,12 @@ export async function createMonitoringWeeklyReport(
     [
       "CAMBIOS",
       signed(change("spotifyMonthlyListeners", 7)),
-      "Oyentes Spotify / ventana exacta de siete días",
+      `Oyentes Spotify / ${windowLabel("spotifyMonthlyListeners", 7)}`,
     ],
     [
       "ANÁLISIS",
       signed(change("youtubeChannelViews", 7)),
-      "Vistas del canal / ventana exacta de siete días",
+      `Vistas del canal / ${windowLabel("youtubeChannelViews", 7)}`,
     ],
     [
       "RECOMENDACIONES",
@@ -437,7 +450,7 @@ export async function createMonitoringWeeklyReport(
     MUTED,
   );
 
-  page("YouTube en vivo", 5, "Videos de YouTube con mayor actividad");
+  page("YouTube en vivo", 5, "Videos de YouTube con más vistas acumuladas");
   videos.forEach((v, i) => {
     const x = 34 + i * 242;
     panel(x, 242, 230, 240);
@@ -670,11 +683,12 @@ export async function createMonitoringWeeklyReport(
   text(
     54,
     137,
-    "Los catálogos, videos y mercados indican las lecturas disponibles al generar el reporte.",
-    9,
+    `Ventanas 30d: Spotify oyentes ${windowLabel("spotifyMonthlyListeners", 30)}; YouTube ${windowLabel("youtubeChannelViews", 30)}.`,
+    8,
     MUTED,
     680,
   );
+  text(54, 121, `Spotify seguidores ${windowLabel("spotifyFollowers", 30)}; Instagram ${windowLabel("instagramFollowers", 30)}.`, 8, MUTED, 680);
   text(
     54,
     105,

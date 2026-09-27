@@ -391,6 +391,25 @@ function downsampleRecent(
   ));
 }
 
+/** Monitor-only metadata for the existing source-based growth calculation.
+ * No public policy, ingestion, or protected YouTube calculation is changed. */
+export function monitoringSourceGrowth(historicStats: unknown) {
+  const histories = sourceHistories(objectValue(historicStats));
+  return Object.fromEntries(METRICS.map(metric => {
+    const points = pointsForMetric(histories, metric.source, metric.field);
+    return [metric.key, Object.fromEntries([7, 15, 30, 90].map(days => {
+      const growth = growthWindow(points, days);
+      const latest = points.at(-1);
+      if (!growth || !latest) return [`days${days}`, null];
+      const target = new Date(`${latest.date}T12:00:00Z`);
+      target.setUTCDate(target.getUTCDate() - days);
+      const baseline = closestPointAtOrBefore(points, target)!;
+      return [`days${days}`, { ...growth, baselineDate: baseline.date, latestDate: latest.date,
+        baselineValue: baseline.value, latestValue: latest.value, source: "songstats_extended_history" as const }];
+    }))];
+  }));
+}
+
 function artistInfoFromPayload(historicStats: JsonObject | null) {
   return objectValue(historicStats?.["artist_info"]);
 }

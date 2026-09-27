@@ -4,7 +4,7 @@ import { build } from "esbuild";
 import { previewReadOnlyUrl, previewRequestAllowed, startMonitorProPreview } from "./monitor-pro-preview";
 
 test("preview only exposes read routes, never checkout or admin jobs", () => {
-  for (const path of ["/api/monitoring/dashboard/peso-pluma", "/api/monitoring/history/luismiguel/spotifyFollowers", "/api/monitoring/report/natanael-cano", "/api/monitoring/internal/artists"]) {
+  for (const path of ["/api/monitoring/dashboard/peso-pluma", "/api/monitoring/artwork/luismiguel", "/api/monitoring/history/luismiguel/spotifyFollowers", "/api/monitoring/report/natanael-cano", "/api/monitoring/internal/artists"]) {
     assert.equal(previewRequestAllowed("GET", path), true);
     assert.equal(previewRequestAllowed("POST", path), false);
   }

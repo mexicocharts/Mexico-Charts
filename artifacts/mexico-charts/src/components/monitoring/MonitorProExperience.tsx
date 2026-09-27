@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -52,6 +52,7 @@ import type { YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPrev
 import MonitorVideoHistory from "./MonitorVideoHistory";
 import { compareCatalogCounts, formatCatalogDaily, formatCatalogCutoff } from "@/lib/monitorCatalog.mjs";
 import { monitorReportRecommendation, type CompactMonitorReleaseImpact } from "@/lib/monitorReport.mjs";
+import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArtwork.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1006,6 +1007,37 @@ function TrendsView({
 
 function SpotifyView() {
   const { data } = useMonitorPro();
+  const auth = useMexicoAuth();
+  const [artwork, setArtwork] = useState<Record<string, string>>({});
+  const [artworkLoading, setArtworkLoading] = useState(false);
+  const [artworkError, setArtworkError] = useState(false);
+  const [artworkAttempt, setArtworkAttempt] = useState(0);
+  const batches = useMemo(() => missingArtworkBatches(data.spotifyCatalog.items), [data.spotifyCatalog.items]);
+  useEffect(() => {
+    setArtwork({}); setArtworkError(false);
+    if (!auth.isSignedIn || !auth.userId || !batches.length) { setArtworkLoading(false); return; }
+    const controller = new AbortController();
+    setArtworkLoading(true);
+    void (async () => {
+      try {
+        // One bounded, authenticated batch at a time. Leaving Spotify cancels
+        // the sequence; no polling, background worker or database write.
+        for (const batch of batches) {
+          const items = await requestMonitorResource({
+            getToken: auth.getToken,
+            input: `/api/monitoring/artwork/${encodeURIComponent(data.subscription.artistKey)}?items=${encodeURIComponent(batch.join(","))}`,
+            signal: controller.signal,
+            readResponse: async response => validateArtworkResponse(await response.json(), batch),
+          });
+          if (controller.signal.aborted) return;
+          setArtwork(previous => ({ ...previous, ...Object.fromEntries(items.filter(item => item.artworkUrl).map(item => [item.resource, item.artworkUrl!])) }));
+          if (items.some(item => item.status === "pending")) setArtworkError(true);
+        }
+      } catch { if (!controller.signal.aborted) setArtworkError(true); }
+      finally { if (!controller.signal.aborted) setArtworkLoading(false); }
+    })();
+    return () => controller.abort();
+  }, [auth.userId, auth.isSignedIn, auth.getToken, data.subscription.artistKey, batches, artworkAttempt]);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"daily" | "total">("daily");
   const spotifyTracks = data.spotifyCatalog.items
@@ -1014,7 +1046,7 @@ function SpotifyView() {
       id: item.key,
       title: item.title,
       spotifyUrl: item.spotifyUrl,
-      artworkUrl: item.artworkUrl,
+      artworkUrl: item.artworkUrl ?? artwork[`track:${item.key}`] ?? null,
       daily: item.dailyStreams,
       total: item.totalStreams,
     }));
@@ -1024,7 +1056,7 @@ function SpotifyView() {
       id: item.key,
       title: item.title,
       spotifyUrl: item.spotifyUrl,
-      artworkUrl: item.artworkUrl,
+      artworkUrl: item.artworkUrl ?? artwork[`album:${item.key}`] ?? null,
       daily: item.dailyStreams,
       total: item.totalStreams,
     }));
@@ -1047,6 +1079,11 @@ function SpotifyView() {
   const heroAlbums = spotifyAlbums.slice(0, 4);
   return (
     <div className="space-y-5">
+      <div role="status" className="text-xs text-white/45">
+        Portadas: {spotifyTracks.filter(item => item.artworkUrl).length}/{spotifyTracks.length} canciones · {spotifyAlbums.filter(item => item.artworkUrl).length}/{spotifyAlbums.length} álbumes.
+        {artworkLoading && " Cargando las portadas restantes sin bloquear los streams…"}
+        {!artworkLoading && artworkError && <> Algunas consultas de portadas siguen pendientes. <button className="text-[#39FF14] underline" onClick={() => setArtworkAttempt(value => value + 1)}>Reintentar portadas</button></>}
+      </div>
       <Panel className="relative overflow-hidden border-[#1ed760]/25 bg-[radial-gradient(circle_at_82%_18%,rgba(30,215,96,.2),transparent_35%),radial-gradient(circle_at_12%_0%,rgba(57,255,20,.08),transparent_32%)]">
         <div className="grid lg:grid-cols-[1.05fr_.95fr]">
           <div className="relative z-10 p-6 sm:p-9">
@@ -2383,12 +2420,11 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
               </p>
               <p className="mt-2 text-xs font-black">
                 {
-                  new Set(data.history.map((point) => point.date.slice(0, 7)))
-                    .size
+                  data.history.length ? 1 : 0
                 }
               </p>
               <p className="mt-1 text-[8px] text-white/25">
-                meses con lecturas
+                corte semanal exportable
               </p>
             </div>
           </aside>
