@@ -680,7 +680,10 @@ export async function runYoutubeValidationComparatorSweep(
       }>(`SELECT validation_artist_key,discovery_artist_key,artist_name
           FROM youtube_discovery_validation_comparator_artists
           WHERE session_id=$1
-          ORDER BY last_attempt_at ASC NULLS FIRST,validation_artist_key
+          ORDER BY
+            CASE WHEN baseline_ready_at IS NULL THEN 0 ELSE 1 END,
+            last_attempt_at ASC NULLS FIRST,
+            validation_artist_key
           LIMIT $2`, [session.id, Math.max(1, Math.min(100, Math.floor(limit)))]);
       let succeeded = 0;
       let failed = 0;
