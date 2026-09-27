@@ -1,162 +1,121 @@
 import { Link } from "wouter";
-import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { ArrowRight, Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Pause, Play, RotateCcw } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
 import "./luis-miguel-tour.css";
+import "./luis-miguel-video.css";
 
 export const LUIS_MIGUEL_TOUR_PATH = "/touring/luis-miguel-tour-2027";
-const assets = `${import.meta.env.BASE_URL}images/campaigns/luis-miguel-2027/`;
+const base = import.meta.env.BASE_URL;
+const poster = `${base}images/campaigns/luis-miguel-2027/full-panels-poster.png`;
+const videos = `${base}videos/luis-miguel-2027/`;
+const REVEAL_COMPLETE = 9;
+const INTRO_SPEED = 1.3;
 
-export default function LuisMiguelTourHero({
-  article = false,
-}: {
-  article?: boolean;
-}) {
+export default function LuisMiguelTourHero({ article = false }: { article?: boolean }) {
   const { pick } = useLanguage();
   const heroRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const reducedMotion = useReducedMotion();
+  const motionEnabled = reducedMotion === false;
   const [paused, setPaused] = useState(false);
+  const [hasPlayed, setHasPlayed] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [inView, setInView] = useState(true);
   const [pageVisible, setPageVisible] = useState(true);
-  const motionEnabled = reducedMotion === false;
-  const running = motionEnabled && !paused && inView && pageVisible;
+  const running = motionEnabled && !paused && inView && pageVisible && !failed;
+  const showAction = revealed || !motionEnabled || failed || (paused && !hasPlayed);
 
-  useEffect(() => {
-    if (!motionEnabled) return;
-    const element = heroRef.current;
-    const observer = new IntersectionObserver(
-      ([entry]) => setInView(entry.isIntersecting),
-      { threshold: 0.05 },
-    );
-    if (element) observer.observe(element);
-    const updateVisibility = () => setPageVisible(!document.hidden);
-    updateVisibility();
-    document.addEventListener("visibilitychange", updateVisibility);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener("visibilitychange", updateVisibility);
-    };
-  }, [motionEnabled]);
-
-  function resetDepth() {
-    heroRef.current?.style.setProperty("--lm-depth-x", "0px");
-    heroRef.current?.style.setProperty("--lm-depth-y", "0px");
+  function syncReveal() {
+    const video = videoRef.current;
+    if (!video) return;
+    const complete = video.currentTime >= REVEAL_COMPLETE;
+    video.playbackRate = complete ? 1 : INTRO_SPEED;
+    setRevealed(complete);
   }
 
   useEffect(() => {
-    if (!running) resetDepth();
+    const element = heroRef.current;
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), { threshold: 0.1 });
+    if (element) observer.observe(element);
+    const visibility = () => setPageVisible(!document.hidden);
+    visibility();
+    document.addEventListener("visibilitychange", visibility);
+    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", visibility); };
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let active = true;
+    if (running) {
+      video.playbackRate = video.currentTime < REVEAL_COMPLETE ? INTRO_SPEED : 1;
+      video.play().catch(() => { if (active) setPaused(true); });
+    } else {
+      video.pause();
+    }
+    return () => { active = false; video.pause(); };
   }, [running]);
 
-  function moveDepth(event: PointerEvent<HTMLElement>) {
-    // Touch scrolling stays native; only a fine mouse pointer adds depth.
-    if (!running || event.pointerType !== "mouse") return;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(
-      -1,
-      Math.min(1, ((event.clientX - bounds.left) / bounds.width - 0.5) * 2),
-    );
-    const y = Math.max(
-      -1,
-      Math.min(1, ((event.clientY - bounds.top) / bounds.height - 0.5) * 2),
-    );
-    event.currentTarget.style.setProperty("--lm-depth-x", `${x * 6}px`);
-    event.currentTarget.style.setProperty("--lm-depth-y", `${y * 4}px`);
+  function replay() {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = 0;
+    video.playbackRate = INTRO_SPEED;
+    setRevealed(false);
+    setPaused(false);
+    video.play().catch(() => setPaused(true));
+  }
+
+  function keepPanelsMoving() {
+    const video = videoRef.current;
+    if (!video || !running) return;
+    // Play the entrance once, then retain the illuminated scene and LED pulse.
+    video.currentTime = 10;
+    video.play().catch(() => setPaused(true));
   }
 
   return (
-    <section
-      ref={heroRef}
-      className={`lm-hero${motionEnabled ? " lm-animated" : ""}`}
-      data-motion-running={running}
-      onPointerMove={moveDepth}
-      onPointerLeave={resetDepth}
-      aria-label={pick("Luis Miguel · Tour 2027", "Luis Miguel · Tour 2027")}
-      data-testid="luis-miguel-tour-hero"
-    >
-      <img
-        className="lm-stage"
-        src={`${assets}led-stage.webp`}
-        alt=""
-        width="2059"
-        height="764"
-        fetchPriority="high"
-      />
-      <div className="lm-atmosphere" aria-hidden="true" />
-      <div className="lm-light-sweep" aria-hidden="true" />
-      {/* Display the original photograph directly. CSS crops the poster lettering;
-          no generative portrait, facial retouching or replacement is used. */}
-      <div className="lm-portrait">
-        <img
-          src={`${assets}announcement-original.jpg`}
-          alt={pick(
-            "Luis Miguel en la fotografía del anuncio de su Tour 2027",
-            "Luis Miguel in the photograph announcing his Tour 2027",
-          )}
-          width="1028"
-          height="1254"
-          fetchPriority="high"
-        />
-      </div>
-      <div className="lm-hero-copy">
-        <p className="lm-eyebrow">
-          {pick("El Sol de México · Nueva gira", "El Sol de México · New tour")}
-        </p>
-        {article ? (
-          <div className="lm-name" aria-hidden="true">
-            <span>LUIS</span>
-            <span>MIGUEL</span>
-          </div>
-        ) : (
-          <h1 className="lm-name">
-            <span>LUIS</span>
-            <span>MIGUEL</span>
-          </h1>
+    <section ref={heroRef} className="lm-video-hero" aria-label="Luis Miguel · Tour 2027" data-testid="luis-miguel-tour-hero">
+      {article ? <span className="lm-video-sr">Luis Miguel · Tour 2027</span> : <h1 className="lm-video-sr">Luis Miguel · Tour 2027</h1>}
+      <div className="lm-video-stage">
+        <img className="lm-video-poster" src={poster} alt="Luis Miguel · Tour 2027. Toda la información de la gira, en un solo lugar." width="1280" height="720" fetchPriority="high" />
+        {motionEnabled && !failed && (
+          <video
+            ref={videoRef}
+            className={`lm-video-film${hasPlayed ? " lm-video-film-visible" : ""}`}
+            muted playsInline preload="auto" poster={poster}
+            aria-hidden="true" tabIndex={-1}
+            onPlaying={() => setHasPlayed(true)}
+            onTimeUpdate={syncReveal}
+            onEnded={keepPanelsMoving}
+            onError={(event) => {
+              // A skipped source can emit an error while another source remains playable.
+              if (event.currentTarget.error) { setFailed(true); setHasPlayed(false); }
+            }}
+          >
+            <source src={`${videos}full-panels-4k.mp4`} media="(min-width: 1600px)" type="video/mp4" />
+            <source src={`${videos}full-panels-1080p.mp4`} type="video/mp4" />
+          </video>
         )}
-        <p className="lm-year">TOUR 2027</p>
-        <p className="lm-status">
-          {pick(
-            "Anuncio confirmado · Fechas por anunciar",
-            "Tour announced · Dates to be announced",
-          )}
-        </p>
-        <div className="lm-actions">
-          {article ? (
-            <a className="lm-button lm-button-primary" href="#anuncio">
-              {pick("Leer el anuncio", "Read the announcement")}
-              <ArrowRight size={16} />
-            </a>
-          ) : (
-            <Link
-              className="lm-button lm-button-primary"
-              href={LUIS_MIGUEL_TOUR_PATH}
-            >
-              {pick("Leer el anuncio", "Read the announcement")}
-              <ArrowRight size={16} />
-            </Link>
-          )}
-          <Link className="lm-button" href="/artist/luis-miguel">
-            {pick("Ver perfil", "View profile")}
-          </Link>
-        </div>
       </div>
-      {motionEnabled && (
-        <button
-          type="button"
-          className="lm-motion-toggle"
-          onClick={() => setPaused((value) => !value)}
-          aria-pressed={paused}
-          aria-label={pick("Pausar animación", "Pause animation")}
-        >
-          {paused ? (
-            <Play size={12} aria-hidden="true" />
-          ) : (
-            <Pause size={12} aria-hidden="true" />
-          )}
-          {paused
-            ? pick("Reanudar", "Resume")
-            : pick("Pausar animación", "Pause animation")}
-        </button>
+      <div className={`lm-video-actions${showAction ? " lm-video-actions-visible" : ""}`} aria-hidden={!showAction} inert={!showAction}>
+        {article ? (
+          <a className="lm-video-cta" href="#anuncio">{pick("Leer el anuncio", "Read the announcement")}<ArrowUpRight size={20} aria-hidden="true" /></a>
+        ) : (
+          <Link className="lm-video-cta" href={LUIS_MIGUEL_TOUR_PATH}>{pick("Ver información de la gira", "Explore the tour")}<ArrowUpRight size={20} aria-hidden="true" /></Link>
+        )}
+      </div>
+      {motionEnabled && !failed && (
+        <div className="lm-video-controls">
+          <button type="button" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={paused ? pick("Reanudar animación", "Resume animation") : pick("Pausar animación", "Pause animation")}>
+            {paused ? <Play size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}
+            <span>{paused ? pick("Reanudar", "Resume") : pick("Pausar", "Pause")}</span>
+          </button>
+          <button type="button" onClick={replay} aria-label={pick("Repetir reveal", "Replay reveal")}><RotateCcw size={15} aria-hidden="true" /><span>{pick("Repetir", "Replay")}</span></button>
+        </div>
       )}
     </section>
   );
