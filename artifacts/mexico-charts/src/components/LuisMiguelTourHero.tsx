@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, Pause, Play, RotateCcw } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import { useLanguage } from "@/i18n/LanguageContext";
 import "./luis-miguel-tour.css";
@@ -26,7 +26,8 @@ export default function LuisMiguelTourHero({ article = false }: { article?: bool
   const [inView, setInView] = useState(true);
   const [pageVisible, setPageVisible] = useState(true);
   const running = motionEnabled && !paused && inView && pageVisible && !failed;
-  const showAction = revealed || !motionEnabled || failed || (paused && !hasPlayed);
+  const showFallback = reducedMotion === true || failed || paused;
+  const showAction = revealed || showFallback;
 
   function syncReveal() {
     const video = videoRef.current;
@@ -59,16 +60,6 @@ export default function LuisMiguelTourHero({ article = false }: { article?: bool
     return () => { active = false; video.pause(); };
   }, [running]);
 
-  function replay() {
-    const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = 0;
-    video.playbackRate = INTRO_SPEED;
-    setRevealed(false);
-    setPaused(false);
-    video.play().catch(() => setPaused(true));
-  }
-
   function keepPanelsMoving() {
     const video = videoRef.current;
     if (!video || !running) return;
@@ -81,12 +72,12 @@ export default function LuisMiguelTourHero({ article = false }: { article?: bool
     <section ref={heroRef} className="lm-video-hero" aria-label="Luis Miguel · Tour 2027" data-testid="luis-miguel-tour-hero">
       {article ? <span className="lm-video-sr">Luis Miguel · Tour 2027</span> : <h1 className="lm-video-sr">Luis Miguel · Tour 2027</h1>}
       <div className="lm-video-stage">
-        <img className="lm-video-poster" src={poster} alt="Luis Miguel · Tour 2027. Toda la información de la gira, en un solo lugar." width="1280" height="720" fetchPriority="high" />
+        <img style={{ visibility: showFallback ? "visible" : "hidden" }} className="lm-video-poster" src={poster} alt="Luis Miguel · Tour 2027. Toda la información de la gira, en un solo lugar." width="1280" height="720" fetchPriority="high" />
         {motionEnabled && !failed && (
           <video
             ref={videoRef}
             className={`lm-video-film${hasPlayed ? " lm-video-film-visible" : ""}`}
-            muted playsInline preload="auto" poster={poster}
+            muted playsInline preload="auto"
             aria-hidden="true" tabIndex={-1}
             onPlaying={() => setHasPlayed(true)}
             onTimeUpdate={syncReveal}
@@ -108,15 +99,6 @@ export default function LuisMiguelTourHero({ article = false }: { article?: bool
           <Link className="lm-video-cta" href={LUIS_MIGUEL_TOUR_PATH}>{pick("Ver información de la gira", "Explore the tour")}<ArrowUpRight size={20} aria-hidden="true" /></Link>
         )}
       </div>
-      {motionEnabled && !failed && (
-        <div className="lm-video-controls">
-          <button type="button" onClick={() => setPaused(value => !value)} aria-pressed={paused} aria-label={paused ? pick("Reanudar animación", "Resume animation") : pick("Pausar animación", "Pause animation")}>
-            {paused ? <Play size={15} aria-hidden="true" /> : <Pause size={15} aria-hidden="true" />}
-            <span>{paused ? pick("Reanudar", "Resume") : pick("Pausar", "Pause")}</span>
-          </button>
-          <button type="button" onClick={replay} aria-label={pick("Repetir reveal", "Replay reveal")}><RotateCcw size={15} aria-hidden="true" /><span>{pick("Repetir", "Replay")}</span></button>
-        </div>
-      )}
     </section>
   );
 }
