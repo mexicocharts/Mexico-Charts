@@ -448,5 +448,9 @@
   }
 }
 @media (max-width: 560px) {
-  .lm-ed-header h1 span { font-size: .73em; white-space: nowrap; margin-top: 10px; }
+  .lm-ed-header h1 span {
+    font-size: 0.73em;
+    white-space: nowrap;
+    margin-top: 10px;
+  }
 }

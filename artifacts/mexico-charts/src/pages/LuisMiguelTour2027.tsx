@@ -170,6 +170,9 @@ export default function LuisMiguelTour2027() {
                 </p>
               </section>
               <section id="confirmado">
+                <p className="lm-ed-section-label">
+                  02 / {pick("LO CONFIRMADO", "CONFIRMED DETAILS")}
+                </p>
                 <h2>
                   {pick(
                     "Lo confirmado hasta ahora",
@@ -227,7 +230,7 @@ export default function LuisMiguelTour2027() {
               </section>
               <section id="cobertura">
                 <p className="lm-ed-section-label">
-                  02 / {pick("NUESTRA COBERTURA", "OUR COVERAGE")}
+                  03 / {pick("NUESTRA COBERTURA", "OUR COVERAGE")}
                 </p>
                 <h2>
                   {pick(
@@ -305,7 +308,7 @@ export default function LuisMiguelTour2027() {
               </section>
               <section id="fechas" className="lm-ed-dates">
                 <p className="lm-ed-section-label">
-                  03 / {pick("CALENDARIO", "CALENDAR")}
+                  04 / {pick("CALENDARIO", "CALENDAR")}
                 </p>
                 <h2>
                   {pick(
@@ -345,7 +348,7 @@ export default function LuisMiguelTour2027() {
               </section>
               <section id="boletos">
                 <p className="lm-ed-section-label">
-                  04 / {pick("BOLETOS", "TICKETS")}
+                  05 / {pick("BOLETOS", "TICKETS")}
                 </p>
                 <h2>
                   {pick(
@@ -401,7 +404,7 @@ export default function LuisMiguelTour2027() {
               </section>
               <section id="preguntas">
                 <p className="lm-ed-section-label">
-                  05 / {pick("GUÍA RÁPIDA", "QUICK GUIDE")}
+                  06 / {pick("GUÍA RÁPIDA", "QUICK GUIDE")}
                 </p>
                 <h2>
                   {pick("Preguntas frecuentes", "Frequently asked questions")}
