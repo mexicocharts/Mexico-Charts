@@ -217,6 +217,25 @@ test("marks exhausted transient YouTube Music failures as retryable", async () =
   );
 });
 
+test("bounds unresolved YouTube Music operations and exhausts retries", async () => {
+  let attempts = 0;
+  await assert.rejects(
+    withYoutubeInnertubeRetry(async () => {
+      attempts += 1;
+      return await new Promise<string>(() => {});
+    }, {
+      maxAttempts: 2,
+      attemptTimeoutMs: 1_000,
+      baseDelayMs: 1,
+      maxDelayMs: 1,
+      random: () => 0,
+      sleep: async () => {},
+    }),
+    error => error instanceof YoutubeRetryableError && error.attempts === 2,
+  );
+  assert.equal(attempts, 2);
+});
+
 test("continues catalog parsing when optional MusicShelf content is missing", () => {
   assert.equal(isMissingMusicShelfError(new Error("Missing MusicShelf node")), true);
   assert.deepEqual(collectYoutubeMusicArtistItems({

@@ -198,6 +198,7 @@ export async function withYoutubeInnertubeRetry<T>(
     maxAttempts?: number;
     baseDelayMs?: number;
     maxDelayMs?: number;
+    attemptTimeoutMs?: number;
     random?: () => number;
     sleep?: (delayMs: number) => Promise<void>;
     onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void;
@@ -206,12 +207,28 @@ export async function withYoutubeInnertubeRetry<T>(
   const maxAttempts = Math.max(1, Math.min(5, options.maxAttempts ?? 4));
   const baseDelayMs = Math.max(1, options.baseDelayMs ?? 500);
   const maxDelayMs = Math.max(baseDelayMs, options.maxDelayMs ?? 8_000);
+  const attemptTimeoutMs = Math.max(1_000, options.attemptTimeoutMs ?? 30_000);
   const random = options.random ?? Math.random;
   const sleep = options.sleep ?? ((delayMs: number) => new Promise<void>(resolve => setTimeout(resolve, delayMs)));
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      return await operation();
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        return await Promise.race([
+          operation(),
+          new Promise<never>((_resolve, reject) => {
+            timeout = setTimeout(() => {
+              reject(Object.assign(
+                new Error(`YouTube Music operation timed out after ${attemptTimeoutMs}ms.`),
+                { status: 504, code: "YOUTUBE_MUSIC_TIMEOUT" },
+              ));
+            }, attemptTimeoutMs);
+          }),
+        ]);
+      } finally {
+        if (timeout) clearTimeout(timeout);
+      }
     } catch (error) {
       lastError = error;
       if (!isRetryableYoutubeError(error) || attempt === maxAttempts) {
