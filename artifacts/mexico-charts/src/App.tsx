@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useLanguage } from "@/i18n/LanguageContext";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
+const LuisMiguelTour2027 = lazy(() => import("@/pages/LuisMiguelTour2027"));
 const HomeV6 = lazy(() => import("@/pages/HomeV6"));
 const ArtistDetail = lazy(() => import("@/pages/ArtistDetail"));
 const ArtistRoster = lazy(() => import("@/pages/ArtistRoster"));
@@ -132,6 +133,7 @@ function Router() {
           <Route path="/industry/certifications" component={Certifications} />
           <Route path="/insights/mexico-top-10-ifpi-2026" component={InsightIFPI2026} />
           <Route path="/touring" component={TouringHub} />
+          <Route path="/touring/luis-miguel-tour-2027" component={LuisMiguelTour2027} />
           <Route path="/touring/event/:eventId" component={TouringEventIntelligence} />
           <Route path="/artist/:slug" component={ArtistDetail} />
           <Route path="/social-templates" component={SocialTemplates} />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import PageSEO from "@/components/PageSEO";
+import LuisMiguelTourHero from "@/components/LuisMiguelTourHero";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { Link } from "wouter";
@@ -283,6 +284,7 @@ export default function HomeV6() {
   const { language, pick } = useLanguage();
   const { youtubeEnabled, reviewChoice } = useYouTubeConsent();
   const [heroIndex, setHeroIndex] = useState(0);
+  const [showTourCampaign, setShowTourCampaign] = useState(true);
   const [tickerPaused, setTickerPaused] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -574,9 +576,10 @@ export default function HomeV6() {
 
   /* Auto-cycle hero */
   useEffect(() => {
+    if (showTourCampaign || reduced) return;
     const t = setInterval(() => setHeroIndex(i => (i + 1) % HERO_ARTISTS.length), 5000);
     return () => clearInterval(t);
-  }, [HERO_ARTISTS.length]);
+  }, [HERO_ARTISTS.length, showTourCampaign, reduced]);
 
   /* Artist images */
   const allNames = useMemo(() => {
@@ -647,11 +650,12 @@ export default function HomeV6() {
       </div>
 
       <SiteNav homeActive />
+      {showTourCampaign && <LuisMiguelTourHero />}
 
       {/* ══════════════════════════════════════════════════════════
           HERO — V5 gradient + parallax + ambient glow + noise
       ══════════════════════════════════════════════════════════ */}
-      <section ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px", zIndex: 1 }} data-testid="section-hero">
+      <section hidden={showTourCampaign} ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px", zIndex: 1 }} data-testid="section-hero">
 
         {/* Base — obsidian black */}
         <div className="absolute inset-0" style={{ background:"#050505" }} />
@@ -830,6 +834,11 @@ export default function HomeV6() {
           </div>
         </motion.div>
       </section>
+
+      <div className="lm-mode" role="group" aria-label={pick("Contenido destacado", "Featured content")}>
+        <button type="button" aria-pressed={showTourCampaign} onClick={() => setShowTourCampaign(true)}>Luis Miguel / Tour 2027</button>
+        <button type="button" aria-pressed={!showTourCampaign} onClick={() => setShowTourCampaign(false)}>{pick("Top artistas", "Top artists")}</button>
+      </div>
 
       {/* ── STATS TICKER ── */}
       <div
