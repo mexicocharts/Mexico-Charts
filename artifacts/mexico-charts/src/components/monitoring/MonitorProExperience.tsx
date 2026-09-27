@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   BarChart3,
@@ -1008,6 +1008,10 @@ function TrendsView({
 function SpotifyView() {
   const { data } = useMonitorPro();
   const auth = useMexicoAuth();
+  // Clerk can replace its token callback during a session refresh. Read the
+  // latest callback without restarting the whole catalog artwork sequence.
+  const artworkToken = useRef(auth.getToken);
+  artworkToken.current = auth.getToken;
   const [artwork, setArtwork] = useState<Record<string, string>>({});
   const [artworkLoading, setArtworkLoading] = useState(false);
   const [artworkError, setArtworkError] = useState(false);
@@ -1024,7 +1028,7 @@ function SpotifyView() {
         // the sequence; no polling, background worker or database write.
         for (const batch of batches) {
           const items = await requestMonitorResource({
-            getToken: auth.getToken,
+            getToken: () => artworkToken.current(),
             input: `/api/monitoring/artwork/${encodeURIComponent(data.subscription.artistKey)}?items=${encodeURIComponent(batch.join(","))}`,
             signal: controller.signal,
             readResponse: async response => validateArtworkResponse(await response.json(), batch),
@@ -1037,7 +1041,7 @@ function SpotifyView() {
       finally { if (!controller.signal.aborted) setArtworkLoading(false); }
     })();
     return () => controller.abort();
-  }, [auth.userId, auth.isSignedIn, auth.getToken, data.subscription.artistKey, batches, artworkAttempt]);
+  }, [auth.userId, auth.isSignedIn, data.subscription.artistKey, batches, artworkAttempt]);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"daily" | "total">("daily");
   const spotifyTracks = data.spotifyCatalog.items

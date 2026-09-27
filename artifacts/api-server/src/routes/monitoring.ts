@@ -1002,19 +1002,25 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
     res.status(400).json({ error: "Invalid bounded artwork request" }); return;
   }
   try {
-    const access = await resolveMonitoringAccess(clerkUserId(res), artistKey);
-    if (!access.allowed || !access.grant) { res.status(403).json({ error: "Artist Pro access is required" }); return; }
-    const sourceKeys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
-    const [identity] = await loadMonitoringPriorityArtistIdentity(monitoringReadPool, sourceKeys, {
-      identityConflict: access.grant.identity_conflict, canonicalArtistKey: access.grant.artist_key,
-    });
-    if (!identity?.spotify_artist_id || identity.identity_conflict) {
-      res.status(503).json({ error: "Verified catalog identity is unavailable" }); return;
-    }
-    const catalog = await loadCompleteMonitoringKworbCatalog(identity.spotify_artist_id);
-    const selected = keys.map(key => catalog.items.find(item => `${item.type}:${item.key}` === key));
-    if (selected.some(item => !item)) { res.status(400).json({ error: "Artwork must belong to this artist's catalog" }); return; }
-    res.json({ artistKey: access.grant.artist_key, items: await loadCatalogArtworkBatch(selected.filter(item => item != null)) });
+    await withDirectoryDiagnostics(
+      diagnostic => logger.info({ event: "monitoring_artwork_identity_read", artistKey, ...diagnostic,
+        poolTotal: monitoringReadPool.totalCount, poolIdle: monitoringReadPool.idleCount, poolWaiting: monitoringReadPool.waitingCount }, "Monitor artwork identity diagnostic"),
+      async () => {
+        const access = await resolveMonitoringAccess(clerkUserId(res), artistKey);
+        if (!access.allowed || !access.grant) { res.status(403).json({ error: "Artist Pro access is required" }); return; }
+        const sourceKeys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
+        const [identity] = await loadMonitoringPriorityArtistIdentity(monitoringReadPool, sourceKeys, {
+          identityConflict: access.grant.identity_conflict, canonicalArtistKey: access.grant.artist_key,
+        });
+        if (!identity?.spotify_artist_id || identity.identity_conflict) {
+          res.status(503).json({ error: "Verified catalog identity is unavailable" }); return;
+        }
+        const catalog = await loadCompleteMonitoringKworbCatalog(identity.spotify_artist_id);
+        const selected = keys.map(key => catalog.items.find(item => `${item.type}:${item.key}` === key));
+        if (selected.some(item => !item)) { res.status(400).json({ error: "Artwork must belong to this artist's catalog" }); return; }
+        res.json({ artistKey: access.grant.artist_key, items: await loadCatalogArtworkBatch(selected.filter(item => item != null)) });
+      },
+    );
   } catch (error) {
     logger.warn({ event: "monitoring_artwork_read_failure", artistKey, database: safeDatabaseDiagnostic(error) }, "Monitor artwork request failed");
     res.status(503).json({ error: "Artwork lookup is temporarily unavailable" });
