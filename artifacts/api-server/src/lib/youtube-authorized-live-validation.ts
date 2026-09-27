@@ -516,6 +516,20 @@ async function comparatorBrowseId(client: PgClient, discoveryArtistKey: string):
   return result.rows[0]?.browse_id ?? null;
 }
 
+async function comparatorTrustedBrowseIds(
+  client: PgClient,
+  sessionId: string,
+  validationArtistKey: string,
+): Promise<string[]> {
+  const result = await client.query<{ channel_id: string }>(`
+    SELECT DISTINCT channel_id
+    FROM youtube_discovery_validation_channels
+    WHERE session_id=$1 AND artist_key=$2 AND NULLIF(channel_id,'') IS NOT NULL
+    ORDER BY channel_id
+  `, [sessionId, validationArtistKey]);
+  return result.rows.map(row => row.channel_id);
+}
+
 async function recordComparatorSightings(input: {
   client: PgClient;
   session: ValidationSession;
@@ -581,11 +595,19 @@ async function runComparatorArtist(input: {
     WHERE session_id=$1 AND validation_artist_key=$2`, [input.session.id, input.validationArtistKey]);
   try {
     const browseId = await comparatorBrowseId(input.client, input.discoveryArtistKey);
+    const trustedBrowseIds = browseId
+      ? []
+      : await comparatorTrustedBrowseIds(
+          input.client,
+          input.session.id,
+          input.validationArtistKey,
+        );
     const summary = await discoverYoutubeMusicArtist({
       artistKey: input.discoveryArtistKey,
       artistName: input.artistName,
       browseId,
       trustedBrowseId: false,
+      trustedBrowseIds,
       write: true,
       includeCandidates: true,
     });

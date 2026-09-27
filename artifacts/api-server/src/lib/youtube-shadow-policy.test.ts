@@ -107,6 +107,29 @@ test("uses a single trusted identity to disambiguate exact name matches without 
   });
 });
 
+test("uses a frozen identity only when YouTube Music returns that identity for an alias", () => {
+  const matches = [
+    { browseId: "UCunrelated", name: "Jesse" },
+    { browseId: "UCjesseyjoy", name: "Jesse & Joy" },
+  ];
+  assert.deepEqual(chooseExactYoutubeArtistMatch(
+    "jesseyjoyoficial",
+    matches,
+    ["UCjesseyjoy"],
+  ), {
+    browseId: "UCjesseyjoy",
+    ambiguous: false,
+  });
+  assert.deepEqual(chooseExactYoutubeArtistMatch(
+    "jesseyjoyoficial",
+    matches,
+    ["UCnotReturned"],
+  ), {
+    browseId: null,
+    ambiguous: false,
+  });
+});
+
 test("canonicalizes a stored verified YouTube channel URL before discovery", async () => {
   const client = {
     query: async <T>() => ({
