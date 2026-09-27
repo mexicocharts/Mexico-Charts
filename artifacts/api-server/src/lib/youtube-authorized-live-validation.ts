@@ -226,7 +226,7 @@ export async function replaceInvalidYoutubeValidationSession(input: {
     const carriedUsage = usage.rows[0] ?? { logical: 0, attempts: 0 };
     await client.query(`UPDATE youtube_discovery_validation_sessions
       SET status='stopped',completed_at=now(),configuration=configuration || jsonb_build_object(
-        'decisionWindowUsable',false,'stoppedReason',$2,'stoppedAt',now()
+        'decisionWindowUsable',false,'stoppedReason',$2::text,'stoppedAt',now()
       ) WHERE id=$1`, [previous.id, input.reason]);
     const created = await client.query<ValidationSession>(`
       INSERT INTO youtube_discovery_validation_sessions (ends_at,historical_gate,configuration)
