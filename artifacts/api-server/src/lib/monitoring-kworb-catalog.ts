@@ -135,7 +135,7 @@ type SpotifyImageItem = {
   images?: Array<{ url?: string }>;
 };
 
-async function spotifyApplicationToken(): Promise<string | null> {
+async function spotifyApplicationToken(signal: AbortSignal): Promise<string | null> {
   const clientId = process.env["SPOTIFY_CLIENT_ID"]?.trim();
   const clientSecret = process.env["SPOTIFY_CLIENT_SECRET"]?.trim();
   if (!clientId || !clientSecret) return null;
@@ -146,7 +146,7 @@ async function spotifyApplicationToken(): Promise<string | null> {
       "content-type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({ grant_type: "client_credentials" }),
-    signal: AbortSignal.timeout(4_000),
+    signal: AbortSignal.any([signal, AbortSignal.timeout(4_000)]),
   });
   if (!response.ok) return null;
   const payload = (await response.json()) as { access_token?: string };
@@ -159,8 +159,9 @@ function chunks<T>(values: T[], size: number): T[][] {
   );
 }
 
-async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
-  const token = await spotifyApplicationToken().catch(() => null);
+export async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[], signal: AbortSignal) {
+  if (signal.aborted) return items;
+  const token = await spotifyApplicationToken(signal).catch(() => null);
   const artwork = new Map<string, string>();
   const load = async (
     type: "tracks" | "albums",
@@ -169,12 +170,13 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
   ) => {
     await Promise.all(
       chunks(ids, size).map(async (batch) => {
+        if (signal.aborted) return;
         try {
           const response = await fetch(
             `https://api.spotify.com/v1/${type}?ids=${encodeURIComponent(batch.join(","))}`,
             {
               headers: { authorization: `Bearer ${token}` },
-              signal: AbortSignal.timeout(5_000),
+              signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
             },
           );
           if (!response.ok) return;
@@ -223,6 +225,7 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
       .slice(0, OEMBED_TRACK_LIMIT),
   ];
   for (const batch of chunks(oembedCandidates, OEMBED_CONCURRENCY)) {
+    if (signal.aborted) break;
     await Promise.all(
       batch.map(async (item) => {
         if (!item.spotifyUrl) return;
@@ -236,7 +239,7 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
             return;
           const response = await fetch(
             `https://open.spotify.com/oembed?url=${encodeURIComponent(url.href)}`,
-            { signal: AbortSignal.timeout(3_000) },
+            { signal: AbortSignal.any([signal, AbortSignal.timeout(3_000)]) },
           );
           if (!response.ok) return;
           const payload = (await response.json()) as {
@@ -246,7 +249,8 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
           if (thumbnail && /^https:\/\//i.test(thumbnail))
             artwork.set(`${item.type}:${item.key}`, thumbnail);
         } catch {
-          // Artwork is optional enrichment; the real stream row remains usable.
+          // Preserve measured stream rows when the artwork request fails.
+          // Missing artwork remains a product-completeness gap, not fake data.
         }
       }),
     );
@@ -294,6 +298,10 @@ export async function loadCompleteMonitoringKworbCatalog(
 async function fetchCompleteMonitoringKworbCatalog(
   spotifyArtistId: string,
 ): Promise<MonitoringKworbCatalog> {
+  // The caller has an 8.5s catalog stage. Never let serial metadata/fallback
+  // image requests erase streams already fetched within that stage.
+  // This shortens artwork work; it does not raise any HTTP/database timeout.
+  const catalogDeadline = AbortSignal.timeout(8_000);
   const [songs, albums] = await Promise.all([
     fetchPage(spotifyArtistId, "songs"),
     fetchPage(spotifyArtistId, "albums"),
@@ -310,7 +318,7 @@ async function fetchCompleteMonitoringKworbCatalog(
       "Kworb complete catalog response did not contain both tracks and albums",
     );
   }
-  const items = await enrichSpotifyArtwork(parsedItems);
+  const items = await enrichSpotifyArtwork(parsedItems, catalogDeadline);
   const sourceDates = { tracks: parseMonitoringKworbSourceDate(songs), albums: parseMonitoringKworbSourceDate(albums) };
   const value: MonitoringKworbCatalog = {
     fetchedAt: new Date().toISOString(),

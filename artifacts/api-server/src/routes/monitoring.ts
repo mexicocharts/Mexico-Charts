@@ -1111,6 +1111,16 @@ router.get(
         });
         return;
       }
+      const reportStages = ["priority_daily_snapshots", "complete_kworb_catalog",
+        "priority_spotify_history", "priority_youtube_live_videos",
+        "extended_artist_data", "priority_comparisons"];
+      if (reportStages.some(stage => dashboard.sectionStatus[stage] && dashboard.sectionStatus[stage] !== "loaded")) {
+        res.status(503).json({
+          error: "El reporte está pendiente porque una consulta no terminó. No se sustituyen datos pendientes por cero.",
+          code: "report_data_pending",
+        });
+        return;
+      }
       const pdf = await createMonitoringWeeklyReport({
         artistName: dashboard.subscription.artistName,
         artistKey: dashboard.subscription.artistKey,

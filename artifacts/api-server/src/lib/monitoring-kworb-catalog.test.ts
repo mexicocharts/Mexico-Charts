@@ -4,6 +4,7 @@ import {
   loadCompleteMonitoringKworbCatalog,
   parseMonitoringKworbCatalog,
   summarizeMonitoringKworbCatalog,
+  enrichSpotifyArtwork,
 } from "./monitoring-kworb-catalog";
 import { monitoringCatalogReportRows } from "./monitoring-report-pdf";
 import { compareCatalogCounts, formatCatalogDaily } from "../../../mexico-charts/src/lib/monitorCatalog.mjs";
@@ -198,4 +199,33 @@ test("a failed shared Kworb request is evicted and the next reader can retry", a
     await assert.rejects(loadCompleteMonitoringKworbCatalog("test-retry-failure"), /HTTP 503/);
     assert.equal(calls, 4);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test("artwork deadline aborts pending images without discarding parsed streams or starting later batches", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalId = process.env["SPOTIFY_CLIENT_ID"];
+  delete process.env["SPOTIFY_CLIENT_ID"];
+  const controller = new AbortController();
+  const items = Array.from({ length: 50 }, (_, index) => ({ ...parseMonitoringKworbCatalog(capturedAlbums, "album")[0]!, key: `album${index}` }));
+  let calls = 0;
+  globalThis.fetch = (async (_input, init) => {
+    calls++;
+    if (calls === 1) return Response.json({ thumbnail_url: "https://example.test/real-fixture.jpg" });
+    return new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener("abort", () => reject(init!.signal!.reason), { once: true });
+    });
+  }) as typeof fetch;
+  try {
+    const pending = enrichSpotifyArtwork(items, controller.signal);
+    await new Promise(resolve => setImmediate(resolve));
+    controller.abort();
+    const result = await pending;
+    assert.equal(result.length, 50);
+    assert.equal(calls, 24, "no later artwork batch starts after cancellation");
+    assert.equal(result[0]!.artworkUrl, "https://example.test/real-fixture.jpg");
+    assert.deepEqual(result.map(({ artworkUrl, ...row }) => row), items.map(({ artworkUrl, ...row }) => row));
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalId == null) delete process.env["SPOTIFY_CLIENT_ID"]; else process.env["SPOTIFY_CLIENT_ID"] = originalId;
+  }
 });

@@ -71,6 +71,8 @@ test("report download remains a server-generated PDF", () => {
   assert.doesNotMatch(page, /Descargar CSV/);
   assert.match(experience, /monitorReportRecommendation\(data\.latestReleaseImpact, data\.catalog\.releases\)/);
   assert.doesNotMatch(experience, /latestReleaseImpact\.release\.title/);
+  assert.match(experience, /disabled=\{!month \|\| reportLoading \|\| incomplete\}/);
+  assert.match(experience, /reportes: \["priority_daily_snapshots", "complete_kworb_catalog"/);
 });
 
 test("linked multi-channel video catalog is not divided by a single channel's count", () => {

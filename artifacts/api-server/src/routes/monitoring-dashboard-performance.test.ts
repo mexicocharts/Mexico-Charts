@@ -413,4 +413,7 @@ test("monitor report endpoint returns a private PDF instead of CSV", () => {
   assert.match(source, /reporte-semanal-\$\{safeArtist\}-\$\{weekEnd\}\.pdf/);
   assert.doesNotMatch(source, /content-type", "text\/csv/);
   assert.doesNotMatch(report, /Object\.values\(dashboard\.sectionStatus\)/);
+  assert.match(report, /reportStages\.some/);
+  assert.match(report, /code: "report_data_pending"/);
+  assert.ok(report.indexOf('code: "report_data_pending"') < report.indexOf("const pdf = await"));
 });

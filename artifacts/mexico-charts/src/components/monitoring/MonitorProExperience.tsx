@@ -2027,7 +2027,9 @@ const viewReadStages: Record<View, string[]> = {
   mercados: ["extended_artist_data"],
   comparar: ["priority_comparisons", "extended_artist_data"],
   alertas: ["priority_daily_snapshots", "extended_artist_data"],
-  reportes: [],
+  reportes: ["priority_daily_snapshots", "complete_kworb_catalog",
+    "priority_spotify_history", "priority_youtube_live_videos",
+    "extended_artist_data", "priority_comparisons"],
 };
 
 function hasReadFailure(view: View, data: MonitorDashboardData) {
@@ -2073,6 +2075,7 @@ function ReadFailureNotice({
 function ReportsView() {
   const { data, onDownloadReport, reportLoading, reportError } =
     useMonitorPro();
+  const incomplete = hasReadFailure("reportes", data);
   // Only the latest complete payload is available for report generation.
   // Older audience points alone do not establish historical catalog/market cuts.
   const availableMonths = data.history.at(-1)?.date
@@ -2106,7 +2109,7 @@ function ReportsView() {
             <div className="mt-6 flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={!month || reportLoading}
+                disabled={!month || reportLoading || incomplete}
                 onClick={() => void onDownloadReport(month)}
                 className="flex items-center gap-2 rounded-xl bg-[#39FF14] px-5 py-3.5 text-[9px] font-black uppercase tracking-[.15em] text-black"
               >
@@ -2138,8 +2141,8 @@ function ReportsView() {
           <div className="grid grid-cols-2 gap-2">
             {[
               [String(data.history.length), "lecturas"],
-              [String(data.spotifyCatalog.items.length), "Spotify"],
-              [String(data.liveVideos.length), "videos"],
+              [hasReadFailure("spotify", data) ? "Pendiente" : String(data.spotifyCatalog.items.length), "Spotify"],
+              [hasReadFailure("videos", data) ? "Pendiente" : String(data.liveVideos.length), "videos"],
               [String(data.topMexicoCities.length), "mercados"],
             ].map(([value, label]) => (
               <div
@@ -2201,7 +2204,7 @@ function ReportsView() {
             </div>
             <button
               type="button"
-              disabled={!month || reportLoading}
+              disabled={!month || reportLoading || incomplete}
               onClick={() => void onDownloadReport(month)}
               className="text-[9px] font-black uppercase tracking-[.15em] text-[#39FF14]"
             >
