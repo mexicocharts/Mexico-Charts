@@ -594,19 +594,25 @@ async function runComparatorArtist(input: {
     SET last_attempt_at=now(),attempts=attempts+1,last_error=NULL
     WHERE session_id=$1 AND validation_artist_key=$2`, [input.session.id, input.validationArtistKey]);
   try {
-    const browseId = await comparatorBrowseId(input.client, input.discoveryArtistKey);
-    const trustedBrowseIds = browseId
+    const storedBrowseId = await comparatorBrowseId(input.client, input.discoveryArtistKey);
+    const trustedBrowseIds = storedBrowseId
       ? []
       : await comparatorTrustedBrowseIds(
           input.client,
           input.session.id,
           input.validationArtistKey,
         );
+    const frozenBrowseId = trustedBrowseIds.length === 1 ? trustedBrowseIds[0]! : null;
+    const browseId = storedBrowseId ?? frozenBrowseId;
     const summary = await discoverYoutubeMusicArtist({
       artistKey: input.discoveryArtistKey,
       artistName: input.artistName,
       browseId,
-      trustedBrowseId: false,
+      trustedBrowseId: Boolean(frozenBrowseId),
+      // Comparator evidence must remain Innertube-sourced. A frozen channel
+      // may establish identity, but it must never switch this run to the
+      // documented uploads-playlist fallback.
+      allowVerifiedChannelFallback: false,
       trustedBrowseIds,
       write: true,
       includeCandidates: true,

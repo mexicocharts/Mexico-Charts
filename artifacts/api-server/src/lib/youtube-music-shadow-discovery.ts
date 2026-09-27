@@ -822,12 +822,14 @@ export async function discoverYoutubeMusicArtist(input: {
   artistName: string;
   browseId?: string | null;
   trustedBrowseId?: boolean;
+  allowVerifiedChannelFallback?: boolean;
   trustedIdentityCandidates?: YoutubeArtistIdentityMatch[];
   trustedBrowseIds?: string[];
   write?: boolean;
   includeCandidates?: boolean;
   dbClient?: PgClient;
 }): Promise<YoutubeMusicDiscoverySummary> {
+  const allowVerifiedChannelFallback = input.allowVerifiedChannelFallback ?? input.trustedBrowseId ?? false;
   const summary: YoutubeMusicDiscoverySummary = {
     artistKey: input.artistKey,
     artistName: input.artistName,
@@ -874,7 +876,7 @@ export async function discoverYoutubeMusicArtist(input: {
       return summary;
     }
 
-    if (youtubeShadowCanUseVerifiedChannelFallback({
+    if (allowVerifiedChannelFallback && youtubeShadowCanUseVerifiedChannelFallback({
       browseId: summary.browseId,
       trustedBrowseId: input.trustedBrowseId,
     })) {
@@ -913,7 +915,7 @@ export async function discoverYoutubeMusicArtist(input: {
          { onRetry },
        );
     } catch (musicBrowseError) {
-      if (!youtubeShadowCanUseVerifiedChannelFallback({
+      if (!allowVerifiedChannelFallback || !youtubeShadowCanUseVerifiedChannelFallback({
         browseId: summary.browseId,
         trustedBrowseId: input.trustedBrowseId,
       })) throw musicBrowseError;
