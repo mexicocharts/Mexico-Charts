@@ -1,6 +1,7 @@
 import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { configuredSongstatsMonthlyArtistLimit } from "./songstats-billing-guard";
+import { songstatsArtistSelectionPredicate } from "./songstats-artist-exclusions";
 import {
   ensureSongstatsTables,
   syncSongstatsCurrentStats,
@@ -89,6 +90,7 @@ async function snapshotProgress(
         WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
           AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
           AND COALESCE(c.songstats_eligible, true) = true
+          AND ${songstatsArtistSelectionPredicate("COALESCE(c.spotify_id, s.spotify_artist_id)")}
         ORDER BY c.tier, c.artist_key
         LIMIT $2
       ), completed AS (

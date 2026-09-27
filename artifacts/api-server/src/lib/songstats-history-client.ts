@@ -2,6 +2,7 @@ import type {
   SongstatsHistoricStatsResponse,
   SongstatsSource,
 } from "./songstats-client";
+import { assertSongstatsArtistAllowed } from "./songstats-artist-exclusions";
 
 const API_BASE_URL = "https://api.songstats.com/enterprise/v1";
 const ALLOWED_ENDPOINT = "/artists/historic_stats";
@@ -30,6 +31,7 @@ export async function fetchLicensedSongstatsArtistHistory(input: {
   withAggregates?: boolean;
   timeoutMs?: number;
 }): Promise<SongstatsHistoricStatsResponse> {
+  assertSongstatsArtistAllowed(input);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate) ||
       !/^\d{4}-\d{2}-\d{2}$/.test(input.endDate) ||
       input.startDate > input.endDate) {

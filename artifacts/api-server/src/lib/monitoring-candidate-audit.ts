@@ -1,4 +1,5 @@
 import { directoryDiagnostic, directoryRequestId } from "./monitoring-directory-diagnostics";
+import { FOUNDER_ROSTER_SQL, FOUNDER_ROSTER_MONTH, FOUNDER_ROSTER_SCOPE, verifiedFounderRosterIds, filterFounderRoster } from "./monitoring-founder-roster";
 import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
 import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
@@ -282,14 +283,22 @@ LEFT JOIN LATERAL (${buildMonitoringYoutubeDiagnosticsSql("c.source_keys")}) you
 ORDER BY c.artist_key
 `;
 
-export type MonitoringCandidateDirectoryOptions = { limit?: number; offset?: number; search?: string; artistKeys?: string[] };
+export type MonitoringCandidateDirectoryOptions = { limit?: number; offset?: number; search?: string; artistKeys?: string[]; founderRosterOnly?: boolean };
 type AuditDependencies = { readPool?: AuditPool; now?: Date };
 const evidenceCache = new Map<string, { expiresAt: number; value: MonitoringCandidateAuditArtist }>();
 
-export async function getMonitoringCandidateList() {
-  const artists = await loadMonitoringCandidatePopulation();
+async function loadFounderRosterPopulation(readPool: AuditPool) {
+  const rows = await executeMonitoringReadinessQuery<{ spotify_id: string }>(readPool,
+    FOUNDER_ROSTER_SQL, [FOUNDER_ROSTER_MONTH], undefined, "candidate_population");
+  const allowed = verifiedFounderRosterIds(rows);
+  return filterFounderRoster(await loadMonitoringCandidatePopulation(readPool), allowed);
+}
+
+export async function getMonitoringCandidateList(options: { founderRosterOnly?: boolean } = {}) {
+  const artists = options.founderRosterOnly ? await loadFounderRosterPopulation(monitoringReadPool) : await loadMonitoringCandidatePopulation();
   const missingSchemaTables = await loadMonitoringAuditSchema();
-  return { count: artists.length, artists, ...monitoringCandidatePopulationScope(missingSchemaTables), missingSchemaTables };
+  return { count: artists.length, artists, ...monitoringCandidatePopulationScope(missingSchemaTables),
+    ...(options.founderRosterOnly ? { founderRoster: FOUNDER_ROSTER_SCOPE } : {}), missingSchemaTables };
 }
 
 async function loadDirectoryPage(options: MonitoringCandidateDirectoryOptions, dependencies: AuditDependencies) {
@@ -300,7 +309,7 @@ async function loadDirectoryPage(options: MonitoringCandidateDirectoryOptions, d
   const searchKeys = monitoringIdentityKeyCandidates(options.search ?? "");
   const requestedKeys = new Set((options.artistKeys ?? []).flatMap(monitoringIdentityKeyCandidates));
   const missingSchemaTables = await loadMonitoringAuditSchema(readPool);
-  const population = (await loadMonitoringCandidatePopulation(readPool)).filter(artist =>
+  const population = (options.founderRosterOnly ? await loadFounderRosterPopulation(readPool) : await loadMonitoringCandidatePopulation(readPool)).filter(artist =>
     (!searchKeys.length || [artist.artistName, ...artist.matchKeys].flatMap(monitoringIdentityKeyCandidates).some(key => searchKeys.some(search => key.includes(search)))) &&
     (!requestedKeys.size || artist.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => requestedKeys.has(key))));
   const page = population.slice(offset, offset + limit);
@@ -317,6 +326,7 @@ export async function getMonitoringCandidateInventory(options: MonitoringCandida
     contractVersion: MONITORING_COMPLETE_CONTRACT_VERSION,
     contract: MONITORING_COMPLETE_CONTRACT,
     ...monitoringCandidatePopulationScope(missingSchemaTables),
+    ...(options.founderRosterOnly ? { founderRoster: FOUNDER_ROSTER_SCOPE } : {}),
     populationUnit: "resolved_identity_groups" as const,
     missingSchemaTables, total: population.length, offset, limit,
     hasMore: offset + page.length < population.length,
@@ -361,6 +371,7 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
     contractVersion: MONITORING_COMPLETE_CONTRACT_VERSION,
     contract: MONITORING_COMPLETE_CONTRACT,
     ...monitoringCandidatePopulationScope(missingSchemaTables),
+    ...(options.founderRosterOnly ? { founderRoster: FOUNDER_ROSTER_SCOPE } : {}),
     populationUnit: "resolved_identity_groups" as const,
     missingSchemaTables,
     total: population.length,

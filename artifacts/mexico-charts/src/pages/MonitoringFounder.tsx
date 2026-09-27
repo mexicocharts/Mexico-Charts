@@ -160,6 +160,14 @@ export default function MonitoringFounder() {
           cambia su elegibilidad pública. Los errores de consulta se muestran
           como pendientes, nunca como ausencia confirmada de datos.
         </p>
+        {data?.founderRoster && (
+          <p className="mt-4 max-w-3xl text-sm leading-6 text-white/70">
+            Roster Songstats · {data.founderRoster.referenceMonth}: {data.founderRoster.includedSpotifyIds} IDs de Spotify incluidos
+            {" "}tras excluir a Bad Bunny. La selección permanece fija al cambiar de mes;
+            no incluye automáticamente nuevos descubrimientos. El historial de uso se conserva.
+            {data.founderRoster.identityReviewPending && " Hay una coincidencia de identidad de Los Plebes del Rancho pendiente de revisión; no se ha fusionado ningún registro."}
+          </p>
+        )}
         {!auth.isLoaded ? (
           <p role="status" className="mt-8">
             Resolviendo la sesión…

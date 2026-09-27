@@ -46,6 +46,16 @@ export type MonitoringCandidate = {
   }>;
 };
 export type MonitoringPopulationScope = {
+  founderRoster?: {
+    referenceMonth: string;
+    referenceFingerprint: string;
+    historicalLedgerIds: number;
+    excludedIds: number;
+    includedSpotifyIds: number;
+    referenceSongstatsIdentities: number;
+    membershipGrantsEligibility: false;
+    identityReviewPending: boolean;
+  };
   databasePopulationComplete?: boolean;
   populationScope?: "database_and_bundled_rosters";
   populationLimitations?: Array<

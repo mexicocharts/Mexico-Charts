@@ -325,7 +325,7 @@ test("complete Spotify catalog reuses the existing stored artwork layer", () => 
   assert.match(source, /for \(const track of storedTrackArtwork\)/);
 });
 
-test("internal artist picker requires founder authentication and lists the broad shared directory privately", () => {
+test("internal artist picker requires founder authentication and restricts the directory to the recovered roster", () => {
   const routeStart = source.indexOf('"/monitoring/internal/artists"');
   const directoryStart = source.indexOf('"/monitoring/internal/directory"');
   const gateStart = source.indexOf("const requireMonitoringFounder");
@@ -336,7 +336,9 @@ test("internal artist picker requires founder authentication and lists the broad
   assert.match(gate, /Cache-Control", "private, no-store"/);
   assert.match(gate, /res\.status\(403\)/);
   assert.match(route, /requireMonitoringClerkUser,\s*requireMonitoringFounder,/);
-  assert.match(route, /await getMonitoringCandidateList\(\)/);
+  assert.match(route, /await getMonitoringCandidateList\(\{ founderRosterOnly: true \}\)/);
+  assert.match(source, /getMonitoringCandidateInventory\(\{ limit, offset, search, founderRosterOnly: true \}\)/);
+  assert.match(source, /getMonitoringCandidateDirectory\(\{ limit, offset, search, founderRosterOnly: true \}\)/);
   assert.doesNotMatch(route, /auditMonitoringReadiness|getMonitoringReadyArtist|evaluateMonitoringCandidate/);
   assert.doesNotMatch(route, /getMonitoringCandidateDirectory|JOIN latest_snapshots|FROM songstats_artist_daily_snapshots/);
   assert.match(route, /candidate_directory_failed/);
@@ -352,7 +354,7 @@ test("founder evidence reads remain separately authenticated and bounded by page
   assert.match(route, /limit > 200/);
   assert.match(route, /offset < 0/);
   assert.match(route, /search\.length > 160/);
-  assert.match(route, /await getMonitoringCandidateDirectory\(\{ limit, offset, search \}\)/);
+  assert.match(route, /await getMonitoringCandidateDirectory\(\{ limit, offset, search, founderRosterOnly: true \}\)/);
   assert.match(route, /req.query.view === "inventory"\s*\? await getMonitoringCandidateInventory/);
   assert.match(route, /candidate_audit_failed/);
 });

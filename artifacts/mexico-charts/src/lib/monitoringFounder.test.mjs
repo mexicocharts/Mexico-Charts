@@ -54,6 +54,24 @@ function page(artists, offset, total, overrides = {}) {
   };
 }
 
+test("scoped exports preserve roster metadata and reject membership changes between pages", async () => {
+  const founderRoster = {
+    referenceMonth: "2026-09", referenceFingerprint: "a".repeat(64),
+    historicalLedgerIds: 529, excludedIds: 1, includedSpotifyIds: 528,
+    referenceSongstatsIdentities: 527, membershipGrantsEligibility: false, identityReviewPending: true,
+  };
+  const pages = [
+    page([candidate("a"), candidate("b")], 0, 3, { founderRoster }),
+    page([candidate("c")], 2, 3, { founderRoster }),
+  ];
+  const audit = await loadCompleteMonitoringAudit(async offset => pages[offset / 2]);
+  assert.deepEqual(audit.founderRoster, founderRoster);
+  assert.equal(audit.auditScope, "selected_songstats_roster");
+  pages[1].founderRoster = { ...founderRoster, referenceFingerprint: "b".repeat(64) };
+  await assert.rejects(loadCompleteMonitoringAudit(async offset => pages[offset / 2]), /cambió/);
+  assert.throws(() => validateMonitoringDirectory({ ...pages[0], founderRoster: { ...founderRoster, membershipGrantsEligibility: true } }));
+});
+
 test("export keeps every server classification, including incomplete audits, across pages", async () => {
   const pages = [
     page([candidate("a", "A"), candidate("b", "B")], 0, 4),

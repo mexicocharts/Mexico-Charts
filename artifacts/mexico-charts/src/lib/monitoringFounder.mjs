@@ -58,8 +58,9 @@ function validatePopulationScope(data) {
 }
 
 function populationScopeIdentity(data) {
-  if (data.populationScope === undefined) return null;
+  if (data.populationScope === undefined) return JSON.stringify(data.founderRoster ?? null);
   return JSON.stringify({
+    founderRoster: data.founderRoster ?? null,
     scope: data.populationScope,
     limitations: [...data.populationLimitations].sort(),
     sources: data.bundledSourceInventory
@@ -93,6 +94,17 @@ export function validateMonitoringDirectory(data) {
   )
     throw incompleteDirectory();
   validatePopulationScope(data);
+  if (data.founderRoster !== undefined) {
+    const roster = data.founderRoster;
+    if (!roster || !/^\d{4}-\d{2}$/.test(roster.referenceMonth) ||
+        !/^[a-f0-9]{64}$/.test(roster.referenceFingerprint) ||
+        ![roster.historicalLedgerIds, roster.excludedIds, roster.includedSpotifyIds, roster.referenceSongstatsIdentities]
+          .every(value => Number.isSafeInteger(value) && value >= 0) ||
+        roster.includedSpotifyIds !== roster.historicalLedgerIds - roster.excludedIds ||
+        roster.referenceSongstatsIdentities > roster.includedSpotifyIds ||
+        roster.membershipGrantsEligibility !== false || typeof roster.identityReviewPending !== "boolean")
+      throw incompleteDirectory();
+  }
   const counts = { A: 0, B: 0, C: 0, incomplete: 0 };
   for (const artist of data.artists) {
     if (
@@ -204,7 +216,8 @@ export async function loadCompleteMonitoringAudit(
     policyVersion: first.policyVersion,
     contractVersion: first.contractVersion,
     contract: first.contract,
-    auditScope: populationComplete
+    ...(first.founderRoster === undefined ? {} : { founderRoster: first.founderRoster }),
+    auditScope: first.founderRoster ? "selected_songstats_roster" : populationComplete
       ? "all_candidates"
       : "all_discovered_candidates",
     populationComplete,

@@ -947,7 +947,7 @@ router.get(
   requireMonitoringClerkUser,
   requireMonitoringFounder,
   async (_req, res) => {
-    try { res.json(await getMonitoringCandidateList()); }
+    try { res.json(await getMonitoringCandidateList({ founderRosterOnly: true })); }
     catch (error) {
       logger.warn({ event: "monitoring_candidate_list_failure", database: safeDatabaseDiagnostic(error) }, "Monitoring candidate directory failed");
       res.status(requestDatabaseHttpStatus(error)).json({ error: "The artist directory is temporarily unavailable", code: "candidate_directory_failed" });
@@ -973,8 +973,8 @@ router.get(
         async requestId => {
           res.setHeader("X-Monitor-Request-Id", requestId);
           res.json(req.query.view === "inventory"
-            ? await getMonitoringCandidateInventory({ limit, offset, search })
-            : await getMonitoringCandidateDirectory({ limit, offset, search }));
+            ? await getMonitoringCandidateInventory({ limit, offset, search, founderRosterOnly: true })
+            : await getMonitoringCandidateDirectory({ limit, offset, search, founderRosterOnly: true }));
         },
       );
     }
