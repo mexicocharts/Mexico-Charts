@@ -17,6 +17,7 @@ export const SONGSTATS_HISTORY_VALIDATION_FINGERPRINT_INPUTS = Object.freeze([
   "src/lib/songstats-history-backfill.ts",
   "src/lib/songstats-history-capacity.ts",
   "src/lib/songstats-history-client.ts",
+  "src/lib/songstats-artist-exclusions.ts",
   "src/lib/songstats-history-model.ts",
   "src/lib/songstats-history-schema-contract.ts",
   "src/lib/songstats-history-store.ts",

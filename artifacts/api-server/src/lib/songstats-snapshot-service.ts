@@ -11,6 +11,7 @@ import {
 import { ensureSongstatsBillingUsageTable } from "./songstats-billing-guard";
 import { logger } from "./logger";
 import { songstatsArtistKeyCandidates } from "./songstats-artist-key";
+import { songstatsArtistSelectionPredicate } from "./songstats-artist-exclusions";
 
 export { songstatsArtistKeyCandidates } from "./songstats-artist-key";
 
@@ -89,6 +90,7 @@ export async function listSongstatsCatalogArtists(options: {
       WHERE COALESCE(c.spotify_id, s.spotify_artist_id) IS NOT NULL
         AND (COALESCE(c.has_spotify, false) = true OR s.spotify_artist_id IS NOT NULL)
         AND COALESCE(c.songstats_eligible, true) = true
+        AND ${songstatsArtistSelectionPredicate("COALESCE(c.spotify_id, s.spotify_artist_id)")}
         ${requestedFilter}
         ${snapshotFilter}
         ${billingFilter}

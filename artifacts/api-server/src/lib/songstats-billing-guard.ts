@@ -1,4 +1,5 @@
 import { pool } from "@workspace/db";
+import { assertSongstatsArtistAllowed } from "./songstats-artist-exclusions";
 
 export const SONGSTATS_CONTRACT_UNIQUE_ARTIST_LIMIT = 529;
 
@@ -97,6 +98,8 @@ export async function claimSongstatsMonthlyArtist(
   identifier: SongstatsBillableIdentifier,
   endpoint: string,
 ): Promise<void> {
+  // Before any schema, accounting or network side effect, including repeat IDs.
+  assertSongstatsArtistAllowed(identifier);
   const artist = billableIdentity(identifier);
   const month = billingMonth();
   const limit = configuredSongstatsMonthlyArtistLimit();
