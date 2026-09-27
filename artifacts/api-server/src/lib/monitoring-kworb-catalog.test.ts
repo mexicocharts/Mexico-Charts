@@ -139,3 +139,63 @@ test("uses bounded public Spotify oEmbed artwork when metadata credentials are u
     else process.env["SPOTIFY_CLIENT_SECRET"] = originalClientSecret;
   }
 });
+
+test("concurrent catalog readers share one request and failed artwork batches do not erase streams", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalId = process.env["SPOTIFY_CLIENT_ID"];
+  const originalSecret = process.env["SPOTIFY_CLIENT_SECRET"];
+  process.env["SPOTIFY_CLIENT_ID"] = "unit-test-only";
+  process.env["SPOTIFY_CLIENT_SECRET"] = "unit-test-only";
+  let pages = 0;
+  let tokenCalls = 0;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input);
+    if (url.endsWith("_songs.html") || url.endsWith("_albums.html")) {
+      pages++;
+      const type = url.endsWith("_songs.html") ? "track" : "album";
+      return new Response(`<tr><td class="text"><a href="https://open.spotify.com/${type}/test123">Real fixture row</a></td><td>123</td><td>4</td></tr>`);
+    }
+    if (url === "https://accounts.spotify.com/api/token") {
+      tokenCalls++;
+      return Response.json({ access_token: "unit-test-only" });
+    }
+    if (url.startsWith("https://api.spotify.com/v1/tracks")) throw new Error("Synthetic network failure");
+    if (url.startsWith("https://api.spotify.com/v1/albums")) return Response.json({ albums: [{ id: "test123", images: [{ url: "https://example.test/album.jpg" }] }] });
+    if (url.startsWith("https://open.spotify.com/oembed?")) return Response.json({ thumbnail_url: "https://example.test/track.jpg" });
+    throw new Error("Unexpected fixture request");
+  }) as typeof fetch;
+  try {
+    const [first, second] = await Promise.all([
+      loadCompleteMonitoringKworbCatalog("test-shared-request"),
+      loadCompleteMonitoringKworbCatalog("test-shared-request"),
+    ]);
+    assert.equal(pages, 2, "only one songs/albums pair for simultaneous readers");
+    assert.equal(tokenCalls, 1);
+    assert.equal(first, second);
+    assert.deepEqual(first.items.map(item => [item.type, item.totalStreams, item.dailyStreams, item.artworkUrl]), [
+      ["track", 123, 4, "https://example.test/track.jpg"],
+      ["album", 123, 4, "https://example.test/album.jpg"],
+    ]);
+    await loadCompleteMonitoringKworbCatalog("test-shared-request");
+    assert.equal(pages, 2, "successful catalog retains the existing cache policy");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalId == null) delete process.env["SPOTIFY_CLIENT_ID"]; else process.env["SPOTIFY_CLIENT_ID"] = originalId;
+    if (originalSecret == null) delete process.env["SPOTIFY_CLIENT_SECRET"]; else process.env["SPOTIFY_CLIENT_SECRET"] = originalSecret;
+  }
+});
+
+test("a failed shared Kworb request is evicted and the next reader can retry", async () => {
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => { calls++; return new Response("unavailable", { status: 503 }); }) as typeof fetch;
+  try {
+    await Promise.all([
+      assert.rejects(loadCompleteMonitoringKworbCatalog("test-retry-failure"), /HTTP 503/),
+      assert.rejects(loadCompleteMonitoringKworbCatalog("test-retry-failure"), /HTTP 503/),
+    ]);
+    assert.equal(calls, 2);
+    await assert.rejects(loadCompleteMonitoringKworbCatalog("test-retry-failure"), /HTTP 503/);
+    assert.equal(calls, 4);
+  } finally { globalThis.fetch = originalFetch; }
+});

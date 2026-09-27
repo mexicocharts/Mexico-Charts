@@ -938,12 +938,16 @@ function SummaryView({ open }: { open: (view: View) => void }) {
           <p className="mt-4 text-lg font-black">
             {featuredVideo
               ? `${featuredVideo.title} se acerca a un nuevo hito`
-              : "Esperando videos verificados"}
+              : hasReadFailure("videos", data)
+                ? "Consulta de YouTube pendiente"
+                : "Esperando videos verificados"}
           </p>
           <p className="mt-3 text-xs leading-6 text-white/40">
             {featuredVideo && milestone
               ? `${exact(featuredViews)} vistas observadas; próximo hito ${compact(milestone)}.`
-              : "Esta sección se completará cuando exista cobertura real de YouTube."}
+              : hasReadFailure("videos", data)
+                ? "No se pudo completar la consulta. Esto no significa que el artista no tenga videos."
+                : "Esta sección se completará cuando exista cobertura real de YouTube."}
           </p>
           <button
             onClick={() => open("videos")}
@@ -2244,13 +2248,15 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
       key: "spotify",
       label: "Spotify",
       icon: Music2,
-      note: String(data.spotifyCatalog.items.length),
+      note: !data.spotifyCatalog.items.length && hasReadFailure("spotify", data)
+        ? "Pendiente" : String(data.spotifyCatalog.items.length),
     },
     {
       key: "videos",
       label: "YouTube",
       icon: Video,
-      note: String(data.liveVideos.length),
+      note: !data.liveVideos.length && hasReadFailure("videos", data)
+        ? "Pendiente" : String(data.liveVideos.length),
     },
     { key: "mercados", label: "Mercados", icon: MapPin },
     { key: "comparar", label: "Comparar", icon: Radar },

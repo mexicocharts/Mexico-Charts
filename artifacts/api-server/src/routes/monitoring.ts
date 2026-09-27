@@ -335,6 +335,19 @@ async function loadAuthorizedMonitoring(
     }),
     [],
   );
+  // External catalog reads depend on identity, not on every other database
+  // section. Start them as soon as identity resolves, inside the same overall
+  // request budget and without adding database connections or background jobs.
+  const priorityCompleteCatalog = priorityArtistIdentity.then((identity) =>
+    identity[0]?.spotify_artist_id
+      ? dashboardStage(
+          "complete_kworb_catalog",
+          () => loadCompleteMonitoringKworbCatalog(identity[0]!.spotify_artist_id!),
+          null,
+          8_500,
+        )
+      : null,
+  );
   const priorityStreamSummary = dashboardStage(
     "priority_stream_summary",
     () => loadLatestMonitoringStreamSummary(monitoringReadPool, activeKeys, {
@@ -484,6 +497,21 @@ async function loadAuthorizedMonitoring(
     prioritySnapshots,
   ]);
 
+  // Do not serialize real stored YouTube reads behind external Spotify artwork.
+  // Use the existing remaining dashboard budget (and existing DB statement
+  // timeout), not the former 1.5s cutoff which discarded successful cold reads.
+  const priorityLiveVideos = dashboardStage(
+    "priority_youtube_live_videos",
+    () => loadMonitoringYoutubeLiveVideos(monitoringReadPool, activeKeys, {
+      deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
+    }),
+    [],
+  );
+  const [completeCatalog, prioritizedLiveVideos] = await Promise.all([
+    priorityCompleteCatalog,
+    priorityLiveVideos,
+  ]);
+
   let resolvedStreamItems: Array<Omit<(typeof prioritizedStreamItems)[number], "total_streams" | "daily_streams"> & {
     total_streams: string | number | null; daily_streams: string | number | null;
   }> = prioritizedStreamItems;
@@ -500,57 +528,37 @@ async function loadAuthorizedMonitoring(
     | "archive"
     | "kworb_live_complete_catalog"
     | "unavailable" = resolvedStreamItems.length ? "archive" : "unavailable";
-  if (prioritizedArtistIdentity[0]?.spotify_artist_id) {
-    const completeCatalog = await dashboardStage(
-      "complete_kworb_catalog",
-      () =>
-        loadCompleteMonitoringKworbCatalog(
-          prioritizedArtistIdentity[0]!.spotify_artist_id!,
-        ),
-      null,
-      8_500,
-    );
-    if (completeCatalog) {
-      spotifyCatalogSource = completeCatalog.source;
-      catalogSourceDates = completeCatalog.sourceDates;
-      resolvedStreamItems = completeCatalog.items.map((item) => ({
-        item_type: item.type,
-        item_key: item.key,
-        title: item.title,
-        spotify_url: item.spotifyUrl,
-        artwork_url: item.artworkUrl,
-        compilation: item.compilation,
-        total_streams: item.totalStreams,
-        daily_streams: item.dailyStreams,
-      }));
-      const totals = summarizeMonitoringKworbCatalog(completeCatalog.items);
-      resolvedStreamSummary = [
-        {
-          snapshot_date: completeCatalog.snapshotDate,
-          track_count: totals.trackCount,
-          album_count: totals.albumCount,
-          track_daily_streams: totals.trackDailyStreams,
-          album_daily_streams: totals.albumDailyStreams,
-          track_total_streams: totals.trackTotalStreams,
-          album_total_streams: totals.albumTotalStreams,
-          fetched_at: completeCatalog.fetchedAt,
-          source_table: "kworb_live_complete_catalog",
-          source_artist_keys: [active.artist_key],
-          derivation: "sum_catalog_items",
-          recovery_reason: null,
-        },
-      ];
-    }
+  if (completeCatalog) {
+    spotifyCatalogSource = completeCatalog.source;
+    catalogSourceDates = completeCatalog.sourceDates;
+    resolvedStreamItems = completeCatalog.items.map((item) => ({
+      item_type: item.type,
+      item_key: item.key,
+      title: item.title,
+      spotify_url: item.spotifyUrl,
+      artwork_url: item.artworkUrl,
+      compilation: item.compilation,
+      total_streams: item.totalStreams,
+      daily_streams: item.dailyStreams,
+    }));
+    const totals = summarizeMonitoringKworbCatalog(completeCatalog.items);
+    resolvedStreamSummary = [
+      {
+        snapshot_date: completeCatalog.snapshotDate,
+        track_count: totals.trackCount,
+        album_count: totals.albumCount,
+        track_daily_streams: totals.trackDailyStreams,
+        album_daily_streams: totals.albumDailyStreams,
+        track_total_streams: totals.trackTotalStreams,
+        album_total_streams: totals.albumTotalStreams,
+        fetched_at: completeCatalog.fetchedAt,
+        source_table: "kworb_live_complete_catalog",
+        source_artist_keys: [active.artist_key],
+        derivation: "sum_catalog_items",
+        recovery_reason: null,
+      },
+    ];
   }
-
-  const prioritizedLiveVideos = await dashboardStage(
-    "priority_youtube_live_videos",
-    () => loadMonitoringYoutubeLiveVideos(monitoringReadPool, activeKeys, {
-      deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
-    }),
-    [],
-    1_500,
-  );
 
   const extended = await dashboardStage(
     "extended_artist_data",

@@ -56,6 +56,13 @@ test("unavailable comparison and alert data is stated rather than fabricated", (
   assert.match(experience, /Sin puntuación fabricada/);
 });
 
+test("failed catalog reads are pending rather than evidence of zero Spotify or YouTube data", () => {
+  assert.match(experience, /!data\.spotifyCatalog\.items\.length && hasReadFailure\("spotify", data\)\s*\? "Pendiente"/);
+  assert.match(experience, /!data\.liveVideos\.length && hasReadFailure\("videos", data\)\s*\? "Pendiente"/);
+  assert.match(experience, /Consulta de YouTube pendiente/);
+  assert.match(experience, /Esto no significa que el artista no tenga videos/);
+});
+
 test("report download remains a server-generated PDF", () => {
   assert.match(page, /\/api\/monitoring\/report\//);
   assert.match(page, /mexico-charts-monitor-pro-.*\.pdf/);

@@ -267,7 +267,7 @@ test("dashboard reads use the dedicated three-connection monitoring pool", () =>
     source,
     /const \[\s*prioritizedArtistIdentity,[\s\S]*?snapshots,\s*\] = await Promise\.all/,
   );
-  assert.match(source, /const prioritizedLiveVideos = await dashboardStage/);
+  assert.match(source, /const priorityLiveVideos = dashboardStage/);
   assert.match(
     source,
     /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s,
@@ -283,8 +283,22 @@ test("Spotify catalog and stored YouTube counters are prioritized before optiona
   assert.match(source, /const resolvedLiveVideos = prioritizedLiveVideos/);
   assert.match(
     source,
-    /priority_youtube_live_videos[\s\S]*loadMonitoringYoutubeLiveVideos\(monitoringReadPool, activeKeys,[\s\S]*?1_500/,
+    /priority_youtube_live_videos[\s\S]*loadMonitoringYoutubeLiveVideos\(monitoringReadPool, activeKeys/,
   );
+});
+
+test("Spotify starts after identity, and YouTube starts before either catalog is awaited", () => {
+  const identity = source.indexOf("const priorityArtistIdentity = dashboardStage");
+  const spotify = source.indexOf("const priorityCompleteCatalog = priorityArtistIdentity.then");
+  const stored = source.indexOf("const priorityStreamSummary = dashboardStage");
+  const youtube = source.indexOf("const priorityLiveVideos = dashboardStage");
+  const joined = source.indexOf("const [completeCatalog, prioritizedLiveVideos] = await Promise.all");
+  assert.ok(identity >= 0 && spotify > identity && stored > spotify);
+  assert.ok(youtube > stored && joined > youtube);
+  assert.match(source.slice(joined, joined + 180), /priorityCompleteCatalog,\s*priorityLiveVideos/);
+  const videoStage = source.slice(youtube, joined);
+  assert.doesNotMatch(videoStage, /1_500/);
+  assert.match(videoStage, /DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds/);
 });
 
 test("dashboard returns safe empty sections when individual data sources are unavailable", () => {

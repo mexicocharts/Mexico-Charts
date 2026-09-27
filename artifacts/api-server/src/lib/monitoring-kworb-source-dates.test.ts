@@ -75,20 +75,19 @@ test("UI and PDF cutoff descriptions preserve mixed/unknown source dates and sto
 
 test("the actual dashboard adapter retains source cutoffs and fetch provenance while leaving archive dates intact", async () => {
   const source = readFileSync(new URL("../routes/monitoring.ts", import.meta.url), "utf8");
-  const start = source.indexOf("  let resolvedStreamItems:"), end = source.indexOf("  const prioritizedLiveVideos =", start);
+  const start = source.indexOf("  let resolvedStreamItems:"), end = source.indexOf("  const extended =", start);
   assert.ok(start > 0 && end > start);
   const stage = transpileModule(source.slice(start, end) + "\nreturn {resolvedStreamSummary,catalogSourceDates};", { compilerOptions: { target: ScriptTarget.ES2022 } }).outputText;
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-  const load = new AsyncFunction("prioritizedStreamItems", "prioritizedStreamSummary", "prioritizedArtistIdentity", "dashboardStage",
-    "loadCompleteMonitoringKworbCatalog", "summarizeMonitoringKworbCatalog", "active", stage);
+  const load = new AsyncFunction("prioritizedStreamItems", "prioritizedStreamSummary", "completeCatalog",
+    "summarizeMonitoringKworbCatalog", "active", stage);
   const archive = { snapshot_date: "2026-08-12", fetched_at: "2026-08-13T00:00:00Z" };
   for (const dates of [{ tracks: "2026-08-29", albums: "2026-08-29" }, { tracks: "2026-08-29", albums: "2026-09-05" },
     { tracks: "2026-08-29", albums: null }, { tracks: null, albums: null }, null]) {
     const expected = dates?.tracks != null && dates.tracks === dates.albums ? dates.tracks : null;
     const catalog = dates == null ? null : { source: "kworb_live_complete_catalog", fetchedAt: "2026-09-06T15:16:17Z",
       snapshotDate: expected, sourceDates: dates, items: [] };
-    const value = await load([], [archive], [{ spotify_artist_id: "verified-id" }], async (_name: string, run: () => Promise<unknown>) => run(),
-      async () => catalog, () => ({}), { artist_key: "artist" });
+    const value = await load([], [archive], catalog, () => ({}), { artist_key: "artist" });
     assert.deepEqual(value.catalogSourceDates, dates);
     assert.equal(value.resolvedStreamSummary[0].snapshot_date, dates == null ? archive.snapshot_date : expected);
     assert.equal(value.resolvedStreamSummary[0].fetched_at, dates == null ? archive.fetched_at : catalog!.fetchedAt);

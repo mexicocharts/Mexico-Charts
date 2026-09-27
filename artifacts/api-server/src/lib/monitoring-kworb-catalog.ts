@@ -24,6 +24,7 @@ const cache = new Map<
   string,
   { expiresAt: number; value: MonitoringKworbCatalog }
 >();
+const inFlight = new Map<string, Promise<MonitoringKworbCatalog>>();
 
 function decodeHtml(value: string) {
   return value
@@ -168,28 +169,34 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
   ) => {
     await Promise.all(
       chunks(ids, size).map(async (batch) => {
-        const response = await fetch(
-          `https://api.spotify.com/v1/${type}?ids=${encodeURIComponent(batch.join(","))}`,
-          {
-            headers: { authorization: `Bearer ${token}` },
-            signal: AbortSignal.timeout(5_000),
-          },
-        );
-        if (!response.ok) return;
-        const payload = (await response.json()) as {
-          tracks?: SpotifyImageItem[];
-          albums?: SpotifyImageItem[];
-        };
-        for (const item of payload[type] ?? []) {
-          const url =
-            type === "tracks"
-              ? item.album?.images?.[0]?.url
-              : item.images?.[0]?.url;
-          if (item.id && url)
-            artwork.set(
-              `${type === "tracks" ? "track" : "album"}:${item.id}`,
-              url,
-            );
+        try {
+          const response = await fetch(
+            `https://api.spotify.com/v1/${type}?ids=${encodeURIComponent(batch.join(","))}`,
+            {
+              headers: { authorization: `Bearer ${token}` },
+              signal: AbortSignal.timeout(5_000),
+            },
+          );
+          if (!response.ok) return;
+          const payload = (await response.json()) as {
+            tracks?: SpotifyImageItem[];
+            albums?: SpotifyImageItem[];
+          };
+          for (const item of payload[type] ?? []) {
+            const url =
+              type === "tracks"
+                ? item.album?.images?.[0]?.url
+                : item.images?.[0]?.url;
+            if (item.id && url)
+              artwork.set(
+                `${type === "tracks" ? "track" : "album"}:${item.id}`,
+                url,
+              );
+          }
+        } catch {
+          // A failed artwork batch must not discard genuine stream rows or
+          // successful artwork from other batches. The existing oEmbed/stored
+          // artwork paths still get their chance to resolve these images.
         }
       }),
     );
@@ -210,9 +217,7 @@ async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[]) {
     artworkUrl: artwork.get(`${item.type}:${item.key}`) ?? null,
   }));
   const oembedCandidates = [
-    ...apiEnriched.filter(
-      (item) => item.type === "album" && !item.artworkUrl,
-    ),
+    ...apiEnriched.filter((item) => item.type === "album" && !item.artworkUrl),
     ...apiEnriched
       .filter((item) => item.type === "track" && !item.artworkUrl)
       .slice(0, OEMBED_TRACK_LIMIT),
@@ -275,6 +280,20 @@ export async function loadCompleteMonitoringKworbCatalog(
 ): Promise<MonitoringKworbCatalog> {
   const cached = cache.get(spotifyArtistId);
   if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const pending = inFlight.get(spotifyArtistId);
+  if (pending) return pending;
+  const request = fetchCompleteMonitoringKworbCatalog(spotifyArtistId);
+  inFlight.set(spotifyArtistId, request);
+  try {
+    return await request;
+  } finally {
+    inFlight.delete(spotifyArtistId);
+  }
+}
+
+async function fetchCompleteMonitoringKworbCatalog(
+  spotifyArtistId: string,
+): Promise<MonitoringKworbCatalog> {
   const [songs, albums] = await Promise.all([
     fetchPage(spotifyArtistId, "songs"),
     fetchPage(spotifyArtistId, "albums"),
