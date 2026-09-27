@@ -34,6 +34,7 @@ export default function MonitoringFounder() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [offset, setOffset] = useState(0);
+  const [auditPage, setAuditPage] = useState(false);
   const [exportState, setExportState] = useState<{
     scope: string;
     text: string;
@@ -60,12 +61,12 @@ export default function MonitoringFounder() {
   const enabled =
     auth.configured && auth.isLoaded && auth.isSignedIn && Boolean(auth.userId);
   const result = useQuery<MonitoringDirectory>({
-    queryKey: ["monitoring-founder-directory", auth.userId, query, offset],
+    queryKey: ["monitoring-founder-directory", auth.userId, query, offset, auditPage],
     enabled,
     queryFn: ({ signal }) =>
       requestMonitorResource({
         getToken: auth.getToken,
-        input: `/api/monitoring/internal/directory?limit=25&offset=${offset}&search=${encodeURIComponent(query)}`,
+        input: `/api/monitoring/internal/directory?limit=25&offset=${offset}&search=${encodeURIComponent(query)}${auditPage ? "" : "&view=inventory"}`,
         signal,
         readResponse: async (response) =>
           validateMonitoringDirectory(await response.json()),
@@ -187,6 +188,12 @@ export default function MonitoringFounder() {
                   className="min-w-0 flex-1 bg-transparent py-3 outline-none"
                 />
               </label>
+              <button
+                onClick={() => setAuditPage(value => !value)}
+                className="rounded-lg border border-white/15 px-5 py-3 text-sm font-bold"
+              >
+                {auditPage ? "Volver al inventario" : "Auditar esta página"}
+              </button>
               {data && (
                 <button
                   onClick={exportAudit}
@@ -207,7 +214,7 @@ export default function MonitoringFounder() {
             )}
             {result.isFetching && (
               <p role="status" className="mt-6 text-sm text-white/55">
-                Consultando evidencia de preparación…
+                {auditPage ? "Consultando evidencia de preparación…" : "Consultando inventario de artistas…"}
               </p>
             )}
             {error && (
@@ -236,6 +243,11 @@ export default function MonitoringFounder() {
             )}
             {data && (
               <>
+                {!auditPage && (
+                  <p className="mt-4 text-sm text-white/60">
+                    Puedes abrir los perfiles sin esperar la auditoría. La elegibilidad y la cobertura de datos permanecen sin verificar hasta auditar.
+                  </p>
+                )}
                 {!data.populationComplete && (
                   <div
                     role="alert"
@@ -287,7 +299,7 @@ export default function MonitoringFounder() {
                     }
                   </span>
                   <span>
-                    Política {data.policyVersion} · {data.auditedAt}
+                    {auditPage ? "Auditoría" : "Inventario consultado"} · Política {data.policyVersion} · {data.auditedAt}
                   </span>
                 </div>
                 <div className="mt-6 space-y-4">

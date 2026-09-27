@@ -47,8 +47,38 @@ test("unknown error messages and custom classes are not logged; broken sink cann
   assert.doesNotMatch(JSON.stringify(records), /password|postgres|credential|private/);
   assert.equal(await withDirectoryDiagnostics(() => { throw Error("sink"); }, async () => 42), 42);
 });
-const { getMonitoringCandidateDirectory, MONITORING_ACCEPTED_ALIAS_SQL, MONITORING_DISCOVERY_CANDIDATES_SQL, MONITORING_DIRECTORY_POPULATION_SQL } = await import("./monitoring-candidate-audit");
+const { getMonitoringCandidateDirectory, getMonitoringCandidateInventory, MONITORING_ACCEPTED_ALIAS_SQL, MONITORING_DISCOVERY_CANDIDATES_SQL, MONITORING_DIRECTORY_POPULATION_SQL } = await import("./monitoring-candidate-audit");
 const { MONITORING_AUDIT_SOURCE_TABLES } = await import("./monitoring-audit-schema");
+test("explicit inventory browsing preserves paging and unknown eligibility without querying evidence", async () => {
+  let evidenceQueries = 0;
+  const pool = { connect: async () => ({ release() {}, query: async ({ text }: { text: string }) => {
+    if (text.includes("to_regclass")) return { rows: MONITORING_AUDIT_SOURCE_TABLES.map(table_name => ({ table_name, present: true })) };
+    if (text === MONITORING_DIRECTORY_POPULATION_SQL) return { rows: [
+      { artist_key: "fixture-one", artist_name: "Fixture One", source: "official_artists" },
+      { artist_key: "fixture-two", artist_name: "Fixture Two", source: "official_artists" },
+    ] };
+    if (text === MONITORING_ACCEPTED_ALIAS_SQL || text === MONITORING_DISCOVERY_CANDIDATES_SQL) return { rows: [] };
+    evidenceQueries++; throw new Error("Query read timeout");
+  } }) };
+  const options = { search: "fixture-", limit: 1 };
+  const dependencies = { readPool: pool as never, now: new Date("2026-09-27") };
+  const first = await getMonitoringCandidateInventory(options, dependencies);
+  const second = await getMonitoringCandidateInventory({ ...options, offset: 1 }, dependencies);
+  assert.equal(first.total, 2); assert.equal(first.hasMore, true); assert.equal(second.hasMore, false);
+  assert.notEqual(first.artists[0].artistKey, second.artists[0].artistKey);
+  for (const page of [first, second]) {
+    const { validateMonitoringDirectory } = await import("../../../mexico-charts/src/lib/monitoringFounder.mjs");
+    assert.equal(validateMonitoringDirectory(page), page, "actual inventory response satisfies frontend contract");
+    assert.equal(page.auditScope, "inventory_only");
+    assert.deepEqual(page.counts, { A: 0, B: 0, C: 0, incomplete: 1 });
+    assert.equal(page.artists[0].classification, null);
+    assert.equal(page.artists[0].publicEligible, false);
+    assert.deepEqual(page.artists[0].sourceEvidence, {});
+  }
+  assert.equal(evidenceQueries, 0);
+  await assert.rejects(getMonitoringCandidateDirectory({ search: "fixture-", limit: 1 }, dependencies), /Query read timeout/);
+  assert.equal(evidenceQueries, 1, "default readiness auditing must still fail, not silently use inventory");
+});
 for (const failingStage of stages) {
   test(`real directory loader wires ${failingStage} and preserves failure`, async () => {
     const records: any[] = []; const failure = new Error("Query read timeout"); let acquired = 0; let released = 0;

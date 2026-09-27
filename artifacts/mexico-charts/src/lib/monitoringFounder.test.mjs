@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   loadCompleteMonitoringAudit,
   monitoringPopulationSummary,
@@ -8,6 +9,17 @@ import {
   validateMonitoringDirectory,
 } from "./monitoringFounder.mjs";
 import { MonitoringDashboardHttpError } from "./monitoringAccess.mjs";
+
+test("founder browsing opts into inventory while audit and export remain explicit evidence reads", () => {
+  const page = readFileSync(new URL("../pages/MonitoringFounder.tsx", import.meta.url), "utf8");
+  assert.match(page, /\[auditPage, setAuditPage\] = useState\(false\)/);
+  assert.match(page, /auditPage \? "" : "&view=inventory"/);
+  assert.match(page, /queryKey: \["monitoring-founder-directory", auth.userId, query, offset, auditPage\]/);
+  const exportBody = page.slice(page.indexOf("async function exportAudit"), page.indexOf("return (\n    <div"));
+  assert.doesNotMatch(exportBody, /view=inventory/);
+  assert.match(page, /Auditar esta página/);
+  assert.match(page, /Volver al inventario/);
+});
 
 function candidate(artistKey, classification = "A") {
   return {

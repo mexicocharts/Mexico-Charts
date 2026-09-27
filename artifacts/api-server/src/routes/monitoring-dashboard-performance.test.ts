@@ -353,6 +353,7 @@ test("founder evidence reads remain separately authenticated and bounded by page
   assert.match(route, /offset < 0/);
   assert.match(route, /search\.length > 160/);
   assert.match(route, /await getMonitoringCandidateDirectory\(\{ limit, offset, search \}\)/);
+  assert.match(route, /req.query.view === "inventory"\s*\? await getMonitoringCandidateInventory/);
   assert.match(route, /candidate_audit_failed/);
 });
 
@@ -377,7 +378,7 @@ test("internal authorization targets indexed identities without running the popu
   assert.doesNotMatch(identity, /getMonitoringCandidateDirectory|evaluateMonitoringCandidate|EVIDENCE_SQL/);
   const populationLoader = candidateSource.slice(candidateSource.indexOf("export async function loadMonitoringCandidatePopulation"), identityStart);
   assert.match(populationLoader, /populationCache && populationCache\.expiresAt > Date\.now\(\)/);
-  assert.match(populationLoader, /if \(populationPending\) return populationPending/);
+  assert.match(populationLoader, /if \(populationPending\) \{[\s\S]*return populationPending;/);
   assert.match(populationLoader, /finally\(\(\) => \{ populationPending = null;/);
   assert.doesNotMatch(populationLoader, /EVIDENCE_SQL|evaluateMonitoringCandidate/);
   const populationSql = candidateSource.slice(candidateSource.indexOf("export const MONITORING_CANDIDATE_POPULATION_SQL"), candidateSource.indexOf("type AuditPool"));

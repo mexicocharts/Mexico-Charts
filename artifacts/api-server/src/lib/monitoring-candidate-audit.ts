@@ -292,7 +292,7 @@ export async function getMonitoringCandidateList() {
   return { count: artists.length, artists, ...monitoringCandidatePopulationScope(missingSchemaTables), missingSchemaTables };
 }
 
-export async function getMonitoringCandidateDirectory(options: MonitoringCandidateDirectoryOptions = {}, dependencies: AuditDependencies = {}) {
+async function loadDirectoryPage(options: MonitoringCandidateDirectoryOptions, dependencies: AuditDependencies) {
   const readPool = dependencies.readPool ?? monitoringReadPool;
   const now = dependencies.now ?? new Date();
   const limit = Math.max(1, Math.min(200, Math.trunc(options.limit ?? 50) || 50));
@@ -304,6 +304,37 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
     (!searchKeys.length || [artist.artistName, ...artist.matchKeys].flatMap(monitoringIdentityKeyCandidates).some(key => searchKeys.some(search => key.includes(search)))) &&
     (!requestedKeys.size || artist.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => requestedKeys.has(key))));
   const page = population.slice(offset, offset + limit);
+  return { readPool, now, limit, offset, missingSchemaTables, population, page };
+}
+
+export async function getMonitoringCandidateInventory(options: MonitoringCandidateDirectoryOptions = {}, dependencies: AuditDependencies = {}) {
+  const { now, limit, offset, missingSchemaTables, population, page } = await loadDirectoryPage(options, dependencies);
+  // Founder browsing is not a readiness decision. Do not force a full history
+  // audit before an authenticated founder can open an existing artist profile.
+  // The default audit/export path below remains unchanged and fail-closed.
+  return {
+    policyVersion: MONITORING_READINESS_POLICY_VERSION,
+    contractVersion: MONITORING_COMPLETE_CONTRACT_VERSION,
+    contract: MONITORING_COMPLETE_CONTRACT,
+    ...monitoringCandidatePopulationScope(missingSchemaTables),
+    populationUnit: "resolved_identity_groups" as const,
+    missingSchemaTables, total: population.length, offset, limit,
+    hasMore: offset + page.length < population.length,
+    auditedAt: now.toISOString(), auditScope: "inventory_only" as const,
+    counts: { A: 0, B: 0, C: 0, incomplete: page.length },
+    artists: page.map(artist => ({
+      ...artist, classification: null, publicEligible: false,
+      auditStatus: "incomplete" as const, lastSnapshotDate: null,
+      readinessReasons: ["readiness_audit_not_requested"],
+      findings: [{ code: "readiness_audit_not_requested", section: "directory",
+        status: "investigation_required", evidence: "Inventario de artistas; la preparación de datos no se evaluó en esta consulta." }],
+      sourceEvidence: {},
+    })),
+  };
+}
+
+export async function getMonitoringCandidateDirectory(options: MonitoringCandidateDirectoryOptions = {}, dependencies: AuditDependencies = {}) {
+  const { readPool, now, limit, offset, missingSchemaTables, population, page } = await loadDirectoryPage(options, dependencies);
   const cacheable = (readPool === monitoringReadPool || readPool === publicReadPool) && !dependencies.now;
   const cacheKey = (artist: MonitoringCandidateIdentity) => JSON.stringify([artist.artistKey, artist.sourceKeys, artist.spotifyIds, artist.identityAliasEvidence, artist.candidateRecords, missingSchemaTables]);
   const uncached = page.filter(artist => !cacheable || (evidenceCache.get(cacheKey(artist))?.expiresAt ?? 0) <= Date.now());

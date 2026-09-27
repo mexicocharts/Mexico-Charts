@@ -40,7 +40,7 @@ import {
   safeDatabaseDiagnostic,
 } from "../lib/request-database";
 import { createMonitoringWeeklyReport } from "../lib/monitoring-weekly-report";
-import { getMonitoringCandidateDirectory, getMonitoringCandidateList } from "../lib/monitoring-candidate-audit";
+import { getMonitoringCandidateDirectory, getMonitoringCandidateInventory, getMonitoringCandidateList } from "../lib/monitoring-candidate-audit";
 import { monitoringIdentityKeyCandidates } from "../lib/monitoring-candidate-policy";
 import { loadLatestMonitoringStreamSummary, loadMonitoringSpotifyHistory, type MonitoringStreamSummaryRow } from "../lib/monitoring-stream-serving";
 import { normalizedMonitoringReleaseTitle } from "../lib/monitoring-artwork";
@@ -972,7 +972,9 @@ router.get(
         diagnostic => logger.info({ event: "monitoring_founder_directory_stage", ...diagnostic }, "Founder directory diagnostic"),
         async requestId => {
           res.setHeader("X-Monitor-Request-Id", requestId);
-          res.json(await getMonitoringCandidateDirectory({ limit, offset, search }));
+          res.json(req.query.view === "inventory"
+            ? await getMonitoringCandidateInventory({ limit, offset, search })
+            : await getMonitoringCandidateDirectory({ limit, offset, search }));
         },
       );
     }
