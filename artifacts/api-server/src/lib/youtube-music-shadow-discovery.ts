@@ -86,7 +86,7 @@ export interface YoutubeMusicDiscoverySummary {
   artistKey: string;
   artistName: string;
   browseId: string | null;
-  mappingEvidence: "exact_name_search" | "verified_youtube_channel" | null;
+  mappingEvidence: "exact_name_search" | "verified_youtube_channel" | "frozen_validation_channel_identity" | null;
   mappingStatus: YoutubeShadowStatus | "not_found" | "ambiguous" | "retryable";
   releasesInspected: number;
   uniqueCandidates: number;
@@ -611,12 +611,24 @@ export function chooseExactYoutubeArtistMatch(
   matches: YoutubeArtistIdentityMatch[],
   trustedBrowseIds: string[] = [],
 ): { browseId: string | null; ambiguous: boolean } {
+  const trustedIds = new Set(trustedBrowseIds);
+  const trustedMatches = [...new Set(
+    matches
+      .map(match => match.browseId)
+      .filter(browseId => trustedIds.has(browseId)),
+  )];
+  // A frozen, pre-existing channel identity may resolve a display-name alias
+  // (for example, a handle-like stored name) as long as YouTube Music itself
+  // returned that exact channel in the artist-search results. Never accept a
+  // trusted ID that was absent from the current Innertube response.
+  if (trustedMatches.length === 1) {
+    return { browseId: trustedMatches[0]!, ambiguous: false };
+  }
+  if (trustedMatches.length > 1) return { browseId: null, ambiguous: true };
   const exact = matches.filter(match =>
     normalizeYoutubeArtistName(match.name) === normalizeYoutubeArtistName(artistName),
   );
   const ids = [...new Set(exact.map(match => match.browseId))];
-  const trustedMatches = ids.filter(id => trustedBrowseIds.includes(id));
-  if (trustedMatches.length === 1) return { browseId: trustedMatches[0]!, ambiguous: false };
   return { browseId: ids.length === 1 ? ids[0]! : null, ambiguous: ids.length > 1 };
 }
 
@@ -625,7 +637,12 @@ async function resolveBrowseId(
   artistName: string,
   trustedBrowseIds: string[] = [],
   onRetry?: (attempt: number, delayMs: number, statusCode: number | null) => void,
-): Promise<{ browseId: string | null; ambiguous: boolean; matches: YoutubeArtistIdentityMatch[] }> {
+): Promise<{
+  browseId: string | null;
+  ambiguous: boolean;
+  matches: YoutubeArtistIdentityMatch[];
+  mappingEvidence: "frozen_validation_channel_identity" | "exact_name_search" | null;
+}> {
   const results = await withYoutubeInnertubeRetry(
     () => yt.music.search(artistName, { type: "artist" }),
     { onRetry },
@@ -633,7 +650,16 @@ async function resolveBrowseId(
   const matches = (results.artists?.contents ?? [])
     .map(item => ({ browseId: item.id, name: item.name?.toString() ?? "" }))
     .filter((item): item is YoutubeArtistIdentityMatch => Boolean(item.browseId && item.name));
-  return { ...chooseExactYoutubeArtistMatch(artistName, matches, trustedBrowseIds), matches };
+  const chosen = chooseExactYoutubeArtistMatch(artistName, matches, trustedBrowseIds);
+  return {
+    ...chosen,
+    matches,
+    mappingEvidence: chosen.browseId
+      ? trustedBrowseIds.includes(chosen.browseId)
+        ? "frozen_validation_channel_identity"
+        : "exact_name_search"
+      : null,
+  };
 }
 
 async function persistDiscovery(
@@ -663,6 +689,7 @@ async function persistDiscovery(
       JSON.stringify({
         exactNormalizedName: summary.mappingEvidence === "exact_name_search",
         verifiedYoutubeChannelMapping: summary.mappingEvidence === "verified_youtube_channel",
+        frozenValidationChannelIdentity: summary.mappingEvidence === "frozen_validation_channel_identity",
       }),
     ],
   );
@@ -779,6 +806,7 @@ export async function discoverYoutubeMusicArtist(input: {
   browseId?: string | null;
   trustedBrowseId?: boolean;
   trustedIdentityCandidates?: YoutubeArtistIdentityMatch[];
+  trustedBrowseIds?: string[];
   write?: boolean;
   includeCandidates?: boolean;
   dbClient?: PgClient;
@@ -846,7 +874,7 @@ export async function discoverYoutubeMusicArtist(input: {
       { onRetry },
     );
     if (!summary.browseId) {
-      const resolved = await resolveBrowseId(yt, input.artistName, [], onRetry);
+      const resolved = await resolveBrowseId(yt, input.artistName, input.trustedBrowseIds ?? [], onRetry);
       summary.identityMatches = resolved.matches;
       if (resolved.ambiguous) {
         summary.mappingStatus = "ambiguous";
@@ -854,7 +882,7 @@ export async function discoverYoutubeMusicArtist(input: {
         return summary;
       }
       summary.browseId = resolved.browseId;
-      if (resolved.browseId) summary.mappingEvidence = "exact_name_search";
+      if (resolved.browseId) summary.mappingEvidence = resolved.mappingEvidence;
     }
     if (!summary.browseId) {
       summary.error = "No exact YouTube Music artist match was found.";
