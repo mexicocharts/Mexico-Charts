@@ -1542,7 +1542,7 @@ function VideosView() {
               )}
               <div>
                 <p className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.2em] text-red-300">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
                   YouTube en vivo
                 </p>
                 <p className="mt-1 text-sm font-black text-white/55">
@@ -1558,6 +1558,8 @@ function VideosView() {
               {channelVideoCount == null
                 ? ""
                 : ` El canal registra ${channelVideoCount} videos; es un conjunto distinto del catálogo vinculado.`}
+              {" "}Son lecturas guardadas, no una confirmación de actualización en vivo.
+              Consulta la fecha y el intervalo de cada video; las variaciones no comparten necesariamente el mismo período.
             </p>
             <div className="mt-7 grid max-w-xl grid-cols-3 gap-2">
               {[
@@ -1621,7 +1623,7 @@ function VideosView() {
       <Panel className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-white/[.07] p-6 sm:flex-row sm:items-end sm:justify-between sm:p-7">
           <div>
-            <Kicker>YouTube con contador activo</Kicker>
+            <Kicker>YouTube · lecturas guardadas</Kicker>
             <h3 className="mt-2 text-2xl font-black">
               Los {videos.length} videos conectados
             </h3>
