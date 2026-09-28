@@ -1,7 +1,13 @@
 import test from "node:test";
-import { reportVideoThumbnail } from "./monitoring-weekly-report";
+import { reportVideoThumbnail, reportIdentityNotice } from "./monitoring-weekly-report";
 import { monitorVideoThumbnail } from "../../../mexico-charts/src/lib/monitorVideoThumbnail.mjs";
 import assert from "node:assert/strict";
+
+test("an unresolved founder identity warning survives report export", () => {
+  assert.match(reportIdentityNotice(true)!, /conflicto de identidad sin resolver/);
+  assert.equal(reportIdentityNotice(false), null);
+  assert.equal(reportIdentityNotice(), null);
+});
 
 test("report and dashboard use real video CDN fallback without changing source records", () => {
   for (const resolve of [reportVideoThumbnail, monitorVideoThumbnail]) {

@@ -10,6 +10,7 @@ export type WeeklyReportInput = Omit<
 > & {
   weekEnd: string;
   artistImageUrl: string | null;
+  identityConflict?: boolean;
   growth?: Record<string, Record<string, { absolute: number; baselineDate: string; latestDate: string; baselineValue: number; latestValue: number; source: string } | null>>;
   liveVideos: Array<
     MonitoringReportInput["liveVideos"][number] & {
@@ -39,6 +40,10 @@ export function reportVideoThumbnail(video: { video_id: string; thumbnail_url?: 
   // Presentation only: use the existing video's CDN image, never create an observation.
   return video.thumbnail_url || (/^[A-Za-z0-9_-]{11}$/.test(video.video_id)
     ? `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg` : null);
+}
+
+export function reportIdentityNotice(conflict?: boolean) {
+  return conflict ? "INSPECCIÓN PRIVADA: conflicto de identidad sin resolver; no combinar fuentes." : null;
 }
 
 export function reportGrowth(input: Pick<WeeklyReportInput, "growth" | "history">, metric: string, days: number) {
@@ -295,6 +300,8 @@ export async function createMonitoringWeeklyReport(
       550,
     );
     text(612, 12, `CORTE: ${dateLabel(input.weekEnd)}`, 6.5, MUTED, 150);
+    const notice = reportIdentityNotice(input.identityConflict);
+    if (notice) text(34, 28, notice, 6.5, "#FFD166", 724);
   };
   const metrics = (rows: Array<[string, string, string]>, y = 422) =>
     rows.forEach(([label, value, detail], i) => {
@@ -339,6 +346,8 @@ export async function createMonitoringWeeklyReport(
   text(62, 122, input.dailyPulse.headline, 13, WHITE, 286);
   text(62, 98, "Tendencias / Spotify / YouTube / mercados", 8, MUTED, 286);
   text(666, 42, "PRIVADO", 8, GREEN);
+  const identityNotice = reportIdentityNotice(input.identityConflict);
+  if (identityNotice) text(44, 42, identityNotice, 8, "#FFD166", 595);
 
   page("Reporte semanal", 2, "Resultados de la semana");
   panel(34, 365, 724, 105, "#0A140B", "#245D21");

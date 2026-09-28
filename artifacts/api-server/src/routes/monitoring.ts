@@ -1180,6 +1180,7 @@ router.get(
         artistKey: dashboard.subscription.artistKey,
         weekEnd,
         artistImageUrl: dashboard.subscription.artistImageUrl,
+        identityConflict: dashboard.identityDiagnostics?.conflict === true,
         generatedAt: new Date(),
         history: dashboard.history,
         spotifyCatalog: dashboard.spotifyCatalog,
