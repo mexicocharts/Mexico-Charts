@@ -610,6 +610,7 @@ export async function recordSongstatsHistoryChunkTelemetry(input: {
     ? input.walBytes / input.estimatedLogicalBytes
     : null;
   const telemetry = {
+    walPosition: "insert",
     walBytes: Math.max(0, Math.round(input.walBytes)),
     ...(input.walScope ? {
       walScope: input.walScope,
@@ -622,7 +623,7 @@ export async function recordSongstatsHistoryChunkTelemetry(input: {
     retryCount: Math.max(0, Math.round(input.retryCount)),
     failureCount: Math.max(0, Math.round(input.failureCount)),
     recordedAt: new Date().toISOString(),
-    version: 1,
+    version: 2,
   };
   await pool.query(`
     UPDATE songstats_history_import_chunks
@@ -820,12 +821,15 @@ export async function pauseSongstatsHistoryImportRun(input: {
 }
 
 export async function songstatsHistoryCapacitySnapshot() {
+  // Measure generated WAL, not the write position: flushing older buffered WAL
+  // must not be counted as newly generated WAL in this interval. Still global,
+  // not importer/session attribution; concurrent writers remain included.
   const result = await pool.query<{
     database_bytes: string;
     wal_lsn: string;
   }>(`
     SELECT pg_database_size(current_database())::text AS database_bytes,
-           pg_current_wal_lsn()::text AS wal_lsn
+           pg_current_wal_insert_lsn()::text AS wal_lsn
   `);
   const row = result.rows[0]!;
   return { databaseBytes: Number(row.database_bytes), walLsn: row.wal_lsn };
@@ -833,7 +837,7 @@ export async function songstatsHistoryCapacitySnapshot() {
 
 export async function songstatsHistoryWalBytesSince(walLsn: string): Promise<number> {
   const result = await pool.query<{ wal_bytes: string }>(`
-    SELECT pg_wal_lsn_diff(pg_current_wal_lsn(), $1::pg_lsn)::text AS wal_bytes
+    SELECT pg_wal_lsn_diff(pg_current_wal_insert_lsn(), $1::pg_lsn)::text AS wal_bytes
   `, [walLsn]);
   return Number(result.rows[0]?.wal_bytes ?? 0);
 }

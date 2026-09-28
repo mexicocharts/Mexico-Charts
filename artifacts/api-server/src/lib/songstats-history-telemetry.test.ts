@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+test("WAL interval endpoints both measure insertion, never buffered-write progress", async () => {
+  const source = await readFile(new URL("./songstats-history-store.ts", import.meta.url), "utf8");
+  const endpoints = source.slice(source.indexOf("export async function songstatsHistoryCapacitySnapshot()"), source.indexOf("export interface StoredHistoricalObservationRow"));
+  assert.equal(endpoints.match(/pg_current_wal_insert_lsn\(\)/g)?.length, 2);
+  assert.doesNotMatch(endpoints, /pg_current_wal_lsn\(\)/);
+});
+
 test("backfill persists per-chunk WAL and execution telemetry before anomaly enforcement", async () => {
   const [backfill, store] = await Promise.all([
     readFile(new URL("./songstats-history-backfill.ts", import.meta.url), "utf8"),
