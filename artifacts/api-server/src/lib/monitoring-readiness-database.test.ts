@@ -61,3 +61,21 @@ test("monitoring readiness statement timeout releases the read client", async ()
   assert.equal(diagnostics.at(-1)?.stage, "readiness_query");
   assert.equal(diagnostics.at(-1)?.outcome, "timeout_or_unavailable");
 });
+
+test("client-side read timeout destroys the client instead of reusing an in-flight query", async () => {
+  for (const message of ["Query read timeout", "Connection terminated unexpectedly"]) {
+    const timeout = new Error(message);
+    let destroy: boolean | undefined;
+    const client = { query: async () => { throw timeout; }, release: (value?: boolean) => { destroy = value; } };
+    await assert.rejects(executeMonitoringReadinessQuery({ connect: async () => client } as never, "SELECT 1", []), error => error === timeout);
+    assert.equal(destroy, true);
+  }
+});
+
+test("successful bounded reads retain a reusable connection and unchanged rows", async () => {
+  const rows = [{ found: 1 }];
+  let destroy: boolean | undefined;
+  const client = { query: async () => ({ rows }), release: (value?: boolean) => { destroy = value; } };
+  assert.equal(await executeMonitoringReadinessQuery({ connect: async () => client } as never, "SELECT 1", []), rows);
+  assert.equal(destroy, false);
+});

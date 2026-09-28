@@ -4,7 +4,8 @@ import { directoryDiagnostic, directoryRequestId, withDirectoryDiagnostics, type
 process.env.DATABASE_URL ||= "postgresql://test:test@localhost:5432/test";
 const { executeMonitoringReadinessQuery } = await import("./monitoring-readiness-service");
 const stages: DirectoryStage[] = ["schema_inventory", "candidate_population", "accepted_aliases", "discovery_candidates", "page_evidence"];
-for (const stage of stages) {
+const queryStages: DirectoryStage[] = [...stages, "identity_initial", "identity_expanded"];
+for (const stage of queryStages) {
   for (const phase of ["db_acquisition", "query"] as const) {
     test(`${stage}: exposes ${phase} failure without changing error or leaking payload`, async () => {
       const records: any[] = []; let released = 0;

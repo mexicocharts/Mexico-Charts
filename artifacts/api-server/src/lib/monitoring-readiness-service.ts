@@ -80,6 +80,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
   }
 
   const queryStartedAt = performance.now();
+  let discardClient = false;
   try {
     const result = await client.query<T>({ text, values });
     if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "ok");
@@ -90,6 +91,9 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     });
     return result.rows;
   } catch (error) {
+    // pg's client-side query timeout does not cancel the server statement.
+    // Do not offer that still-busy/broken connection to the next HTTP request.
+    discardClient = error instanceof Error && /query read timeout|connection terminated|connection.*closed/i.test(error.message);
     if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "error", error);
     onDiagnostic?.({
       stage: "readiness_query",
@@ -98,7 +102,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     });
     throw error;
   } finally {
-    client.release();
+    client.release(discardClient);
   }
 }
 

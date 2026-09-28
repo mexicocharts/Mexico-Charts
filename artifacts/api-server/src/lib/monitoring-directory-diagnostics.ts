@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
-export type DirectoryStage = "schema_inventory" | "candidate_population" | "accepted_aliases" | "discovery_candidates" | "page_evidence" | "directory";
+export type DirectoryStage = "schema_inventory" | "candidate_population" | "accepted_aliases" | "discovery_candidates" | "identity_initial" | "identity_expanded" | "identity_cache" | "page_evidence" | "directory";
 type Record = { requestId: string; stage: DirectoryStage; phase: string; elapsedMs: number; outcome: string; errorClass?: string; errorMessage?: string; ownerRequestId?: string | null };
 const context = new AsyncLocalStorage<{ requestId: string; emit: (record: Record) => void }>();
 export function directoryRequestId() { return context.getStore()?.requestId ?? null; }

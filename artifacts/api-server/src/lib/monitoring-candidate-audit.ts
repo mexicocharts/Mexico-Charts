@@ -1,4 +1,5 @@
 import { directoryDiagnostic, directoryRequestId } from "./monitoring-directory-diagnostics";
+import { createMonitoringIdentityCache } from "./monitoring-identity-cache";
 import { FOUNDER_ROSTER_SQL, FOUNDER_ROSTER_MONTH, FOUNDER_ROSTER_SCOPE, verifiedFounderRosterIds, filterFounderRoster } from "./monitoring-founder-roster";
 import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
 import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
@@ -116,7 +117,18 @@ export async function loadMonitoringCandidatePopulation(readPool: AuditPool = mo
   return populationPending;
 }
 
+const identityCaches = new WeakMap<AuditPool, ReturnType<typeof createMonitoringIdentityCache<MonitoringCandidateIdentity>>>();
 export async function getMonitoringCandidateIdentity(artistKey: string, readPool: AuditPool = monitoringReadPool) {
+  // Exact request keys and separate pools: neither route normalization nor a
+  // different database target may borrow another identity's cached result.
+  if (readPool !== monitoringReadPool && readPool !== publicReadPool) return readMonitoringCandidateIdentity(artistKey, readPool);
+  let cache = identityCaches.get(readPool);
+  if (!cache) { cache = createMonitoringIdentityCache<MonitoringCandidateIdentity>(); identityCaches.set(readPool, cache); }
+  return cache(artistKey, () => readMonitoringCandidateIdentity(artistKey, readPool), outcome =>
+    directoryDiagnostic("identity_cache", "lookup", performance.now(), outcome));
+}
+
+async function readMonitoringCandidateIdentity(artistKey: string, readPool: AuditPool) {
   const keys = new Set(monitoringIdentityKeyCandidates(artistKey));
   if (!keys.size) return null;
   const missing = await loadMonitoringAuditSchema(readPool);
@@ -153,11 +165,11 @@ export async function getMonitoringCandidateIdentity(artistKey: string, readPool
     return bundled.filter(row => monitoringIdentityKeyCandidates(row.artist_key).some(key => tokens.has(key)));
   };
   const initial = [...await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)]), ...matchingBundled(requested)];
+    withUnavailableMonitoringSources(targeted, missing), [requested, [], compactSqlKeys(requested)], undefined, "identity_initial"), ...matchingBundled(requested)];
   const sourceKeys = expandAliases([...new Set([...requested, ...initial.flatMap(row => [row.artist_key, ...monitoringIdentityKeyCandidates(row.artist_key)])])]);
   const spotifyIds = [...new Set(initial.map(row => row.spotify_id?.trim()).filter(isMonitoringSpotifyArtistId))];
   const rows = await executeMonitoringReadinessQuery<MonitoringCandidateSourceRow>(readPool,
-    withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, compactSqlKeys(sourceKeys)]);
+    withUnavailableMonitoringSources(targeted, missing), [sourceKeys, spotifyIds, compactSqlKeys(sourceKeys)], undefined, "identity_expanded");
   const candidate = groupMonitoringCandidateIdentities([...rows, ...acceptedAliases, ...matchingBundled([...sourceKeys, ...rows.map(row => row.artist_key)])]).find(candidate => candidate.matchKeys.flatMap(monitoringIdentityKeyCandidates).some(key => keys.has(key)));
   if (!candidate) return null;
   if (!candidate.identityConflict) return candidate;
