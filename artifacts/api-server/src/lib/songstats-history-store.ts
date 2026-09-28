@@ -1,4 +1,5 @@
 import { pool, type PoolClient } from "@workspace/db";
+import { readSongstatsInsertWal, type SongstatsInsertWal } from "./songstats-history-insert-wal";
 import {
   listSongstatsCatalogArtists,
   type SongstatsCatalogArtist,
@@ -436,6 +437,7 @@ async function insertObservationBatch(
     chunkId: number;
     providerIdentityId: number;
     metricDefinitionIds: Map<string, number>;
+    insertWal?: SongstatsInsertWal;
   },
 ): Promise<number> {
   if (!observations.length) return 0;
@@ -456,8 +458,7 @@ async function insertObservationBatch(
     );
     return `(${Array.from({ length: columnsPerRow }, (_, index) => `$${offset + index + 1}`).join(", ")})`;
   });
-  const result = await client.query(
-    `
+  const statement = `
       INSERT INTO songstats_historical_observations (
         artist_key, provider_identity_id, metric_definition_id,
         provider_observation_date, value, granularity, acquisition_mode,
@@ -466,9 +467,19 @@ async function insertObservationBatch(
       ON CONFLICT (
         artist_key, metric_definition_id, provider_observation_date, acquisition_mode
       ) DO NOTHING
-    `,
-    values,
-  );
+    `;
+  if (refs.insertWal) {
+    // This executes the same INSERT exactly once inside the existing transaction.
+    // The global WAL guard remains unchanged; these counters are diagnostic only.
+    const measured = await client.query(`EXPLAIN (ANALYZE, WAL, TIMING OFF, FORMAT JSON) ${statement}`, values);
+    const counters = readSongstatsInsertWal(measured.rows[0]?.["QUERY PLAN"]);
+    refs.insertWal.bytes += counters.bytes;
+    refs.insertWal.records += counters.records;
+    refs.insertWal.fullPageImages += counters.fullPageImages;
+    refs.insertWal.inserted += counters.inserted;
+    return counters.inserted;
+  }
+  const result = await client.query(statement, values);
   return result.rowCount ?? 0;
 }
 
@@ -482,7 +493,7 @@ export async function completeSongstatsHistoryChunk(input: {
   providerIdentityId: number;
   observations: NormalizedSongstatsHistoricalObservation[];
   parserDuplicateCount: number;
-}): Promise<{ inserted: number; duplicates: number }> {
+}): Promise<{ inserted: number; duplicates: number; insertWal?: SongstatsInsertWal }> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -504,6 +515,9 @@ export async function completeSongstatsHistoryChunk(input: {
       if (!metricDefinitionIds.has(key)) throw new Error(`Missing metric definition reference for ${key}`);
     }
     let inserted = 0;
+    const insertWal: SongstatsInsertWal | undefined = process.env.SONGSTATS_HISTORY_MEASURE_INSERT_WAL === "true"
+      ? { scope: "observation_insert_statements", bytes: 0, records: 0, fullPageImages: 0, inserted: 0 }
+      : undefined;
     for (let index = 0; index < input.observations.length; index += 250) {
       inserted += await insertObservationBatch(
         client,
@@ -512,6 +526,7 @@ export async function completeSongstatsHistoryChunk(input: {
           chunkId: input.chunkId,
           providerIdentityId: input.providerIdentityId,
           metricDefinitionIds,
+          insertWal,
         },
       );
     }
@@ -538,7 +553,7 @@ export async function completeSongstatsHistoryChunk(input: {
       ],
     );
     await client.query("COMMIT");
-    return { inserted, duplicates };
+    return { inserted, duplicates, ...(insertWal ? { insertWal } : {}) };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
