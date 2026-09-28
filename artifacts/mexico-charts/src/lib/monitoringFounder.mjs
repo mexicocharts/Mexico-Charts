@@ -160,6 +160,33 @@ function assertActive(signal) {
   if (signal?.aborted) throw new DOMException("Export cancelled", "AbortError");
 }
 
+/** Assemble one displayed page from bounded authenticated reads. A failed
+ * chunk rejects the whole page; it is never interpreted as absent artists. */
+export async function loadMonitoringDirectoryPage(loadPage, { offset, limit, signal }) {
+  const artists = [];
+  const counts = { A: 0, B: 0, C: 0, incomplete: 0 };
+  let first;
+  while (artists.length < limit) {
+    assertActive(signal);
+    const next = offset + artists.length;
+    const page = validateMonitoringDirectory(await loadPage(next, Math.min(5, limit - artists.length), signal));
+    assertActive(signal);
+    first ??= page;
+    if (page.offset !== next || page.total !== first.total ||
+        page.policyVersion !== first.policyVersion || page.contractVersion !== first.contractVersion ||
+        populationScopeIdentity(page) !== populationScopeIdentity(first) ||
+        page.populationComplete !== first.populationComplete ||
+        page.databasePopulationComplete !== first.databasePopulationComplete ||
+        JSON.stringify([...page.missingSchemaTables].sort()) !== JSON.stringify([...first.missingSchemaTables].sort()) ||
+        (page.hasMore && page.artists.length === 0)) throw incompleteDirectory();
+    artists.push(...page.artists);
+    for (const artist of page.artists) counts[artist.classification ?? "incomplete"]++;
+    if (!page.hasMore) break;
+  }
+  return validateMonitoringDirectory({ ...first, offset, limit, artists, counts,
+    hasMore: offset + artists.length < first.total });
+}
+
 /** Page the authorized audit without turning failed reads into classifications. */
 export async function loadCompleteMonitoringAudit(
   loadPage,

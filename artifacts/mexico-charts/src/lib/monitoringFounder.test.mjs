@@ -3,6 +3,7 @@ import test from "node:test";
 import { readFileSync } from "node:fs";
 import {
   loadCompleteMonitoringAudit,
+  loadMonitoringDirectoryPage,
   monitoringPopulationSummary,
   monitoringPopulationLimitations,
   monitoringSourceSummary,
@@ -35,6 +36,27 @@ function candidate(artistKey, classification = "A") {
     sourceEvidence: {},
   };
 }
+
+test("displayed audit pages retain every artist while bounding each request to five", async () => {
+  const roster = Array.from({ length: 28 }, (_, i) => candidate(`artist-${i}`, i % 2 ? "A" : null));
+  const requests = [];
+  const result = await loadMonitoringDirectoryPage(async (offset, limit) => {
+    requests.push([offset, limit]);
+    return page(roster.slice(offset, offset + limit), offset, roster.length, { limit });
+  }, { offset: 0, limit: 25 });
+  assert.deepEqual(requests, [[0,5],[5,5],[10,5],[15,5],[20,5]]);
+  assert.deepEqual(result.artists, roster.slice(0,25));
+  assert.equal(result.hasMore, true);
+  assert.equal(result.limit, 25);
+  const failure = new Error("source unavailable");
+  await assert.rejects(loadMonitoringDirectoryPage(async (offset, limit) => {
+    if (offset) throw failure;
+    return page(roster.slice(0,limit), 0, roster.length, { limit });
+  }, { offset: 0, limit: 25 }), e => e === failure);
+  const controller = new AbortController();controller.abort();
+  await assert.rejects(loadMonitoringDirectoryPage(async () => { throw Error("must not read"); },
+    { offset: 0, limit: 25, signal: controller.signal }), { name: "AbortError" });
+});
 function page(artists, offset, total, overrides = {}) {
   const counts = { A: 0, B: 0, C: 0, incomplete: 0 };
   artists.forEach((artist) => counts[artist.classification ?? "incomplete"]++);

@@ -17,6 +17,7 @@ import {
 } from "@/lib/monitorRequest.mjs";
 import {
   loadCompleteMonitoringAudit,
+  loadMonitoringDirectoryPage,
   monitoringPopulationSummary,
   monitoringPopulationLimitations,
   monitoringSourceSummary,
@@ -63,14 +64,17 @@ export default function MonitoringFounder() {
   const result = useQuery<MonitoringDirectory>({
     queryKey: ["monitoring-founder-directory", auth.userId, query, offset, auditPage],
     enabled,
-    queryFn: ({ signal }) =>
-      requestMonitorResource({
+    queryFn: ({ signal }) => {
+      const readPage = (next: number, limit: number, requestSignal?: AbortSignal) => requestMonitorResource({
         getToken: auth.getToken,
-        input: `/api/monitoring/internal/directory?limit=25&offset=${offset}&search=${encodeURIComponent(query)}${auditPage ? "" : "&view=inventory"}`,
-        signal,
+        input: `/api/monitoring/internal/directory?limit=${limit}&offset=${next}&search=${encodeURIComponent(query)}${auditPage ? "" : "&view=inventory"}`,
+        signal: requestSignal,
         readResponse: async (response) =>
           validateMonitoringDirectory(await response.json()),
-      }),
+      });
+      return auditPage ? loadMonitoringDirectoryPage(readPage, { offset, limit: 25, signal })
+        : readPage(offset, 25, signal);
+    },
     staleTime: 60_000,
     gcTime: 0,
     retry: shouldRetryMonitorRequest,
@@ -98,9 +102,8 @@ export default function MonitoringFounder() {
         (next, signal) =>
           requestMonitorResource({
             getToken: auth.getToken,
-            // Use the same bounded page size as interactive inspection. The
-            // export still walks the entire roster; it does not sample artists.
-            input: `/api/monitoring/internal/directory?limit=25&offset=${next}`,
+            // Small requests walk the entire roster without sampling artists.
+            input: `/api/monitoring/internal/directory?limit=5&offset=${next}`,
             signal,
             readResponse: async (response) =>
               validateMonitoringDirectory(await response.json()),

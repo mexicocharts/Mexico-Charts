@@ -84,6 +84,10 @@ export type MonitoringDirectory = MonitoringPopulationScope & {
   artists: MonitoringCandidate[];
 };
 export function validateMonitoringDirectory(data: unknown): MonitoringDirectory;
+export function loadMonitoringDirectoryPage(
+  loadPage: (offset: number, limit: number, signal?: AbortSignal) => Promise<MonitoringDirectory>,
+  options: { offset: number; limit: number; signal?: AbortSignal },
+): Promise<MonitoringDirectory>;
 export function loadCompleteMonitoringAudit(
   loadPage: (
     offset: number,
