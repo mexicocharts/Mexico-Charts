@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exactReportChange, reportChangeColor, reportCatalogDaily } from "./monitoring-weekly-report";
+import { exactReportChange, reportChangeColor, reportCatalogDaily, reportYoutubeComparison, reportRecommendations, type WeeklyReportInput } from "./monitoring-weekly-report";
 
 test("exact report appendix retains all measured change digits", () => {
   assert.equal(exactReportChange(-934_947), "-934,947");
@@ -26,4 +26,30 @@ test("negative audience growth uses the approved red loss treatment", () => {
   assert.equal(reportChangeColor("-934.9K / 30d"), "#FF5C68");
   assert.equal(reportChangeColor("+483.2K / 30d"), "#39FF14");
   assert.equal(reportChangeColor("188 canciones"), "#39FF14");
+});
+
+test("comparison ratios require identical observed windows, never merely a matching snapshot", () => {
+  const own = { absolute: 260, baselineDate: "2026-08-29", latestDate: "2026-09-28", baselineValue: 1000, latestValue: 1260, source: "songstats" };
+  const input = { history: [], growth: { youtubeChannelViews: { days30: own } }, comparisonArtists: [
+    { artistName: "Peer", spotifyMonthlyListeners: null, youtubeGrowth30: { absolute: 100, baselineDate: own.baselineDate, latestDate: own.latestDate } },
+    { artistName: "Wrong window", spotifyMonthlyListeners: null, youtubeGrowth30: { absolute: 1000, baselineDate: "2026-08-28", latestDate: own.latestDate } },
+  ] };
+  assert.equal(reportYoutubeComparison(input).value, "2.6X");
+  assert.match(reportYoutubeComparison(input).detail, /vs\. Peer/);
+  assert.equal(reportYoutubeComparison({ ...input, comparisonArtists: [input.comparisonArtists[1]!] }).value, "+260");
+  assert.equal(reportYoutubeComparison({ ...input, comparisonArtists: [] }).value, "+260");
+});
+
+test("recommendations use real input evidence without inventing releases or milestones", () => {
+  const input = { history: [{ date: "2026-09-28", spotifyMonthlyListeners: 12345 }], growth: {},
+    spotifyCatalog: { items: [{ type: "track", title: "Real track", dailyStreams: 123, totalStreams: 999 }] },
+    topMexicoCities: [{ name: "Puebla", currentListeners: 456 }],
+  } as WeeklyReportInput;
+  const recommendations = reportRecommendations(input);
+  assert.equal(recommendations.length, 3);
+  assert.match(recommendations[0]!.detail, /Real track: 123 diarios/);
+  assert.match(recommendations[1]!.detail, /456 oyentes/);
+  assert.match(recommendations[2]!.detail, /12,345 oyentes del 2026-09-28/);
+  assert.doesNotMatch(JSON.stringify(recommendations), /BELLAKEO|NUEVA VIDA/);
+  assert.deepEqual(reportRecommendations({ ...input, history: [], spotifyCatalog: { ...input.spotifyCatalog, items: [] }, topMexicoCities: [] }), []);
 });

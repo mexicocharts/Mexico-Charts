@@ -22,7 +22,7 @@ export type WeeklyReportInput = Omit<
     MonitoringReportInput["comparisonArtists"][number] & {
       snapshotDate?: string;
       spotifyGrowth30?: { absolute: number } | null;
-      youtubeGrowth30?: { absolute: number } | null;
+      youtubeGrowth30?: { absolute: number; baselineDate?: string; latestDate?: string } | null;
     }
   >;
   dailyPulse: MonitoringReportInput["dailyPulse"] & {
@@ -85,6 +85,38 @@ export function reportCatalogDaily(catalog: WeeklyReportInput["spotifyCatalog"],
     detail: total != null ? `${count} ${type === "track" ? "canciones" : "álbumes"}`
       : `${measured} de ${count} con lectura diaria`,
   };
+}
+export function reportYoutubeComparison(input: Pick<WeeklyReportInput, "growth" | "history" | "comparisonArtists">) {
+  const own = reportGrowth(input, "youtubeChannelViews", 30);
+  const peers = own ? input.comparisonArtists.filter(peer => {
+    const growth = peer.youtubeGrowth30;
+    return growth != null && growth.absolute > 0 && Number.isFinite(growth.absolute)
+      && growth.baselineDate === own.baselineDate && growth.latestDate === own.latestDate;
+  }).sort((a, b) => b.youtubeGrowth30!.absolute - a.youtubeGrowth30!.absolute) : [];
+  const peer = peers[0];
+  if (!own || own.absolute < 0 || !peer) return {
+    value: signed(own?.absolute ?? null), detail: "Cambio propio; sin par con ventana idéntica",
+  };
+  return { value: `${(own.absolute / peer.youtubeGrowth30!.absolute).toFixed(1)}X`,
+    detail: `vs. ${peer.artistName} / ${own.baselineDate} a ${own.latestDate}` };
+}
+export function reportRecommendations(input: WeeklyReportInput) {
+  const recommendations: Array<{title: string; detail: string}> = [];
+  const track = input.spotifyCatalog.items.filter(item => item.type === "track" && n(item.dailyStreams) != null)
+    .sort(compareMonitoringCatalogDaily)[0];
+  if (track) recommendations.push({ title: "SEGUIR LA CANCIÓN LÍDER",
+    detail: `${track.title}: ${compact(track.dailyStreams)} diarios. Comparar su próxima lectura; no asumir crecimiento.` });
+  const growth = reportGrowth(input, "spotifyMonthlyListeners", 30);
+  if (growth) recommendations.push({ title: growth.absolute < 0 ? "REVISAR LA CAÍDA EN SPOTIFY" : "MEDIR LA CONTINUIDAD EN SPOTIFY",
+    detail: `${signed(growth.absolute)} oyentes / ${growth.baselineDate} a ${growth.latestDate}. Evaluar contenido y playlists sin atribuir causalidad.` });
+  const city = [...input.topMexicoCities].filter(city => city.currentListeners != null)
+    .sort((a, b) => b.currentListeners! - a.currentListeners!)[0];
+  if (city) recommendations.push({ title: `SEGUIR ${city.name.toUpperCase()}`,
+    detail: `${exact(city.currentListeners)} oyentes: mayor mercado mexicano de esta lectura. Comparar el siguiente corte.` });
+  const current = input.history.at(-1);
+  if (current?.spotifyMonthlyListeners != null) recommendations.push({ title: "MEDIR EL PRÓXIMO CORTE",
+    detail: `Usar ${exact(current.spotifyMonthlyListeners)} oyentes del ${current.date} como referencia; no implica un estreno programado.` });
+  return recommendations.slice(0, 4);
 }
 export function weeklyStart(end: string) {
   const date = new Date(`${end}T12:00:00Z`);
@@ -605,6 +637,7 @@ export async function createMonitoringWeeklyReport(
   const comparable = input.comparisonArtists.filter(
     (a) => a.snapshotDate === current.date && a.spotifyMonthlyListeners != null,
   );
+  const youtubeComparison = reportYoutubeComparison(input);
   [
     [
       "OYENTES",
@@ -615,8 +648,8 @@ export async function createMonitoringWeeklyReport(
     ],
     [
       "YOUTUBE 30D",
-      signed(change("youtubeChannelViews", 30)),
-      "Diferencia entre observaciones de fechas exactas",
+      youtubeComparison.value,
+      youtubeComparison.detail,
     ],
     [
       "SPOTIFY 30D",
@@ -632,16 +665,17 @@ export async function createMonitoringWeeklyReport(
   });
   panel(34, 92, 724, 230);
   text(54, 292, "RECOMENDACIONES / PRÓXIMA SEMANA", 7, GREEN);
-  const recommendations = actions.slice(0, 4).map((s) => `Revisar: ${s}`);
+  const recommendations = reportRecommendations(input);
   if (!recommendations.length)
     recommendations.push(
-      "Sin evidencia suficiente para una recomendación específica en este corte.",
+      { title: "EVIDENCIA INSUFICIENTE", detail: "Sin evidencia suficiente para una recomendación específica en este corte." },
     );
   recommendations.forEach((s, i) => {
     const x = 54 + (i % 2) * 350,
       y = 248 - Math.floor(i / 2) * 80;
     text(x, y, `0${i + 1}`, 8, GREEN);
-    text(x + 30, y, s, 9, WHITE, 285);
+    text(x + 30, y, s.title, 9, WHITE, 285);
+    text(x + 30, y - 22, s.detail, 7.5, MUTED, 285);
   });
   text(
     54,
