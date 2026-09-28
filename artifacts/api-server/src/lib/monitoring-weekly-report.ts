@@ -450,7 +450,7 @@ export async function createMonitoringWeeklyReport(
     MUTED,
   );
 
-  page("YouTube en vivo", 5, "Videos de YouTube con más vistas acumuladas");
+  page("YouTube · lecturas guardadas", 5, "Videos de YouTube con más vistas acumuladas");
   videos.forEach((v, i) => {
     const x = 34 + i * 242;
     panel(x, 242, 230, 240);
