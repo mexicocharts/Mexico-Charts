@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-checkout=/tmp/monitor-pro-preview-approved-9019f42
-expected_revision=9019f42d7c5919be6ae39f716a0fdaa4d4d9bb34
-expected_tree=a7fe04c41929d9f5b28b03054d60835b8d5bb957
+checkout=/tmp/monitor-pro-preview-approved-1fa6b84
+expected_revision=91f27d7756b57f0d3870fce03b07f93abadfe29f
+expected_tree=541cfc31d9c836cd7fb773178c3e5098d1854a8c
 approved_branch=codex/monitor-pro-bounded-diagnostics-1051
 approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
 api_port=8100
