@@ -1039,7 +1039,8 @@ function SpotifyView() {
         // One bounded, authenticated batch at a time. Leaving Spotify cancels
         // the sequence; no polling, background worker or database write.
         // One initial pass and one bounded retry of unresolved resources only.
-        // A failed batch must not prevent later catalog covers from loading.
+        // Pending resources may continue. A failed API request stops this pass
+        // instead of repeating broken identity/auth reads for every batch.
         for (let pass = 0; pass < 2; pass++) {
           const batches = missingArtworkBatches(data.spotifyCatalog.items, 12, resolvedArtwork.current);
           for (const batch of batches) {
@@ -1060,7 +1061,10 @@ function SpotifyView() {
                 setArtworkError(true);
                 return;
               }
-            } catch { if (controller.signal.aborted) return; }
+            } catch {
+              if (!controller.signal.aborted) setArtworkError(true);
+              return;
+            }
           }
         }
         if (!controller.signal.aborted) setArtworkError(missingArtworkBatches(data.spotifyCatalog.items, 12, resolvedArtwork.current).length > 0);

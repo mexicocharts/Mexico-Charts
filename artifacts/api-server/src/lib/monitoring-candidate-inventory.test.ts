@@ -1,9 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { indexedVideoInventorySql, indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
+import { indexedVideoInventorySql, indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES, MONITORING_HISTORY_IDENTITY_SQL } from "./monitoring-candidate-inventory";
 import { groupMonitoringCandidateIdentities, type MonitoringCandidateSourceRow } from "./monitoring-candidate-policy";
 
 const fixtureModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
+test("history presence preserves DISTINCT rows, exact keys, duplicates and absent keys", { skip: !fixtureModule }, async () => {
+  const { PGlite } = await import(fixtureModule!);
+  const db = new PGlite();
+  try {
+    await db.exec("CREATE TABLE songstats_historical_observations(artist_key text); CREATE INDEX ON songstats_historical_observations(artist_key)");
+    for (const key of ["natanaelcano", "natanaelcano", "Natanael Cano", "other", "", null]) {
+      await db.query("INSERT INTO songstats_historical_observations VALUES ($1)", [key]);
+    }
+    for (const keys of [[], ["absent"], ["natanaelcano", "natanaelcano", "natanael-cano", "Natanael Cano", "", null]]) {
+      const original = await db.query("SELECT DISTINCT artist_key,NULL::text artist_name,NULL::text spotify_id,'songstats_historical_observations'::text source FROM songstats_historical_observations WHERE artist_key=ANY($1::text[])", [keys]);
+      const optimized = await db.query(MONITORING_HISTORY_IDENTITY_SQL, [keys]);
+      const ordered = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort();
+      assert.deepEqual(ordered(optimized.rows), ordered(original.rows));
+    }
+  } finally { await db.close(); }
+});
 test("indexed inventory retains exact grouped identity and names without scanning named artists' video payloads", { skip: !fixtureModule }, async () => {
   const { PGlite } = await import(fixtureModule!);
   const db = new PGlite();

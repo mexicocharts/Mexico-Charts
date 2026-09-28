@@ -3,6 +3,15 @@ import { groupMonitoringCandidateIdentities, type MonitoringCandidateSourceRow }
 export const VIDEO_INVENTORY_SOURCES = ["youtube_artist_video_links", "youtube_music_catalog_candidates"] as const;
 type VideoInventorySource = typeof VIDEO_INVENTORY_SOURCES[number];
 
+/** One presence row per exact requested key, not every dated observation.
+ * Preserve the DISTINCT projection while allowing the artist-leading index
+ * to stop at the first match. No history or identity edge is changed. */
+export const MONITORING_HISTORY_IDENTITY_SQL = `SELECT requested.artist_key,
+  NULL::text artist_name, NULL::text spotify_id, 'songstats_historical_observations'::text source
+  FROM (SELECT DISTINCT unnest($1::text[]) artist_key) requested
+  WHERE EXISTS (SELECT 1 FROM songstats_historical_observations observation
+    WHERE observation.artist_key=requested.artist_key LIMIT 1)`;
+
 /** Walk existing artist-leading indexes rather than scanning every video row.
  * The LIMIT applies to each next-key seek, never to the resulting artist set.
  * Video display names do not create identity edges. They are hydrated below

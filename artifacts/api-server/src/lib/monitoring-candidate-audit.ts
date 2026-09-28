@@ -3,7 +3,7 @@ import { loadCompleteMonitoringKworbCatalog } from "./monitoring-kworb-catalog";
 import { reconcileMonitoringLiveCatalog } from "./monitoring-candidate-live-catalog";
 import { createMonitoringIdentityCache } from "./monitoring-identity-cache";
 import { FOUNDER_ROSTER_SQL, FOUNDER_ROSTER_MONTH, FOUNDER_ROSTER_SCOPE, verifiedFounderRosterIds, filterFounderRoster } from "./monitoring-founder-roster";
-import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
+import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES, MONITORING_HISTORY_IDENTITY_SQL } from "./monitoring-candidate-inventory";
 import { buildMonitoringPulseEvidenceSql } from "./monitoring-daily-pulse";
 import { monitoringReadPool, publicReadPool, type PgPool } from "@workspace/db";
 import { executeMonitoringReadinessQuery } from "./monitoring-readiness-service";
@@ -151,6 +151,7 @@ async function readMonitoringCandidateIdentity(artistKey: string, readPool: Audi
     songstats_history_provider_identities: "(CASE WHEN validation_status='verified' THEN spotify_artist_id END)" };
   const targeted = pieces.map(sql => {
     const table = sql.match(/FROM ([a-z_]+)(?: WHERE status='verified')?$/)?.[1] ?? "";
+    if (table === "songstats_historical_observations") return MONITORING_HISTORY_IDENTITY_SQL;
     const verifiedLead = ["mexican_artist_identity_candidates", "artist_social_account_candidates", "youtube_music_artist_candidates"].includes(table);
     const keyColumn = table === "mexican_artist_identity_candidates" ? "normalized_name" : "artist_key";
     const provider = providerColumns[table];
