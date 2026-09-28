@@ -258,7 +258,7 @@ test("artwork deadline aborts pending images without discarding parsed streams o
     controller.abort();
     const result = await pending;
     assert.equal(result.length, 50);
-    assert.equal(calls, 24, "no later artwork batch starts after cancellation");
+    assert.equal(calls, 5, "one completed image plus four occupied slots; queued requests never start after cancellation");
     assert.equal(result[0]!.artworkUrl, "https://example.test/real-fixture.jpg");
     assert.deepEqual(result.map(({ artworkUrl, ...row }) => row), items.map(({ artworkUrl, ...row }) => row));
   } finally {
