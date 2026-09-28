@@ -40,3 +40,15 @@ test("ambiguous identities never request an arbitrary catalog", async () => {
   const result = await reconcileMonitoringLiveCatalog({ ...artist, identityConflict: true }, row, async () => { throw Error("must not load"); });
   assert.equal((result.source_evidence.liveCatalogInvestigation as any).status, "skipped");
 });
+test("catalog starts before SQL resolves, without swallowing a SQL failure", async () => {
+  let release!: (value: MonitoringCandidateEvidenceRow) => void;
+  let started = false;
+  const pending = reconcileMonitoringLiveCatalog(artist, new Promise(resolve => { release = resolve; }), async () => {
+    started = true; return catalog;
+  });
+  await Promise.resolve();
+  assert.equal(started, true);
+  release(row);
+  assert.equal((await pending).served_summary?.track_count, 1);
+  await assert.rejects(reconcileMonitoringLiveCatalog(artist, Promise.reject(Error("SQL failed")), async () => catalog), /SQL failed/);
+});

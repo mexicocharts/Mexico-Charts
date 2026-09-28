@@ -6,21 +6,32 @@ import type { MonitoringCandidateEvidenceRow, MonitoringCandidateIdentity } from
  * Never changes stored evidence, legacy eligibility, or non-Spotify sources. */
 export async function reconcileMonitoringLiveCatalog(
   artist: MonitoringCandidateIdentity,
-  row: MonitoringCandidateEvidenceRow,
+  rowInput: MonitoringCandidateEvidenceRow | Promise<MonitoringCandidateEvidenceRow>,
   load: (id: string) => Promise<MonitoringKworbCatalog>,
 ): Promise<MonitoringCandidateEvidenceRow> {
   const id = artist.spotifyIds[0];
+  const validIdentity = !artist.identityConflict && artist.spotifyIds.length === 1 && Boolean(id && /^[A-Za-z0-9]{22}$/.test(id))
+    && ["provider_id", "accepted_registry"].includes(artist.identityMappingStatus);
+  const started = Date.now();
+  // Start the existing bounded provider loader alongside the SQL read. Capture
+  // rejection immediately even if the SQL later fails; no unhandled promise.
+  const pending = validIdentity ? Promise.resolve().then(() => load(id!)).then(
+    value => ({ ok: true as const, value }), error => ({ ok: false as const, error }),
+  ) : null;
+  const row = await rowInput;
   const base = { ...row.source_evidence };
-  if (artist.identityConflict || artist.spotifyIds.length !== 1 || !id || !/^[A-Za-z0-9]{22}$/.test(id)
-      || !["provider_id", "accepted_registry"].includes(artist.identityMappingStatus)) {
+  if (!pending) {
     return { ...row, source_evidence: { ...base, liveCatalogInvestigation: {
       status: "skipped", reason: "unambiguous_verified_spotify_identity_required",
       catalogEvidenceApplied: false, artworkEvidenceApplied: false,
     } } };
   }
   let catalog: MonitoringKworbCatalog;
-  const started = Date.now();
-  try { catalog = await load(id); }
+  try {
+    const outcome = await pending;
+    if (!outcome.ok) throw outcome.error;
+    catalog = outcome.value;
+  }
   catch (error) {
     // Do not serialize upstream messages: they may contain request credentials.
     return { ...row, source_evidence: { ...base, liveCatalogInvestigation: {

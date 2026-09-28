@@ -378,13 +378,14 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
     const workers = await Promise.allSettled(Array.from({ length: Math.min(2, uncached.length) }, async () => {
       while (nextArtist < uncached.length) {
         const artist = uncached[nextArtist++]!;
-        const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, sql,
-          [artist.artistKey, artist.sourceKeys], undefined, "page_evidence");
-        const row = rows[0];
-        if (rows.length !== 1 || row?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
+        const row = executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, sql,
+          [artist.artistKey, artist.sourceKeys], undefined, "page_evidence").then(rows => {
+            if (rows.length !== 1 || rows[0]?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
+            return rows[0];
+          });
         // Injected fixture pools must never make real provider requests.
         const loadCatalog = dependencies.loadCatalog ?? (!dependencies.readPool ? loadCompleteMonitoringKworbCatalog : undefined);
-        const inspected = loadCatalog ? await reconcileMonitoringLiveCatalog(artist, row, loadCatalog) : row;
+        const inspected = loadCatalog ? await reconcileMonitoringLiveCatalog(artist, row, loadCatalog) : await row;
         const value = evaluateMonitoringCandidate(artist, { ...inspected, missing_schema_tables: missingSchemaTables }, dependencies.now ?? new Date());
         fresh.set(artist.artistKey, value);
         if (cacheable) evidenceCache.set(cacheKey(artist), { expiresAt: Date.now() + CACHE_MS, value });
