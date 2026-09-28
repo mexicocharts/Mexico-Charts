@@ -98,7 +98,9 @@ export default function MonitoringFounder() {
         (next, signal) =>
           requestMonitorResource({
             getToken: auth.getToken,
-            input: `/api/monitoring/internal/directory?limit=50&offset=${next}`,
+            // Use the same bounded page size as interactive inspection. The
+            // export still walks the entire roster; it does not sample artists.
+            input: `/api/monitoring/internal/directory?limit=25&offset=${next}`,
             signal,
             readResponse: async (response) =>
               validateMonitoringDirectory(await response.json()),
