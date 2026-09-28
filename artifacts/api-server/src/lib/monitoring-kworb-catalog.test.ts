@@ -18,6 +18,21 @@ const capturedAlbums = `<tr><td class="text"><div><a href="https://open.spotify.
 <tr><td class="text"><div><a href="https://open.spotify.com/album/5trXODX2kXgViIFuvKrwMo" target="_blank">Globall</a></div></td><td>46,269,335</td><td></td></tr>
 <tr><td class="text"><div><a href="https://open.spotify.com/album/7I7PhRSm4HZmNggp2lYLlo" target="_blank">Somos</a></div></td><td>9,064,981</td><td>1,770</td></tr>`;
 
+test("literal broken-heart titles are not discarded as HTML tags", () => {
+  // Exact public source rows independently reconciled September 28, 2026.
+  const rows = [
+    `<tr><td class="text"><div>* <a href="https://open.spotify.com/track/0fnnMKNB2PDaE1pvEtBXq9" target="_blank"></3</a></div></td><td>1,564,834</td><td>9,737</td></tr>`,
+    `<tr><td class="text"><div><a href="https://open.spotify.com/track/1PisnyylOZLyr1F6OuB0n5" target="_blank"></3</a></div></td><td>1,504,663</td><td>9,835</td></tr>`,
+    `<tr><td class="text"><div>* <a href="https://open.spotify.com/track/3L8OZNmQMFGMDhigIRL1zR" target="_blank"><3CDMX</a></div></td><td>281,531</td><td>74</td></tr>`,
+  ];
+  const parsed = parseMonitoringKworbCatalog(rows.join(""), "track");
+  assert.deepEqual(parsed.map(item => [item.key, item.title, item.totalStreams, item.dailyStreams]), [
+    ["0fnnMKNB2PDaE1pvEtBXq9", "</3", 1564834, 9737],
+    ["1PisnyylOZLyr1F6OuB0n5", "</3", 1504663, 9835],
+    ["3L8OZNmQMFGMDhigIRL1zR", "<3CDMX", 281531, 74],
+  ]);
+});
+
 test("captured blank daily rows keep every title, ID and its own metrics within the original row", () => {
   const fields = (html: string, type: "track" | "album") => parseMonitoringKworbCatalog(html, type)
     .map(({ key, title, totalStreams, dailyStreams }) => [key, title, totalStreams, dailyStreams]);

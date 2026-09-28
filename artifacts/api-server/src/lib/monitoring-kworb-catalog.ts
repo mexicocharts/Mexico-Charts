@@ -33,7 +33,9 @@ const inFlight = new Map<string, Promise<MonitoringKworbCatalog>>();
 
 function decodeHtml(value: string) {
   return value
-    .replace(/<[^>]+>/g, "")
+    // A literal song title such as </3 is not an HTML tag. Only strip
+    // actual letter-named tags/comments; otherwise that song vanishes.
+    .replace(/<!--[\s\S]*?-->|<\/?[A-Za-z][^>]*>/g, "")
     .replace(/&(#x[\da-f]+|#\d+|amp|quot|apos|nbsp|lt|gt);/gi, (entity, name: string) => {
       const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", nbsp: " ", lt: "<", gt: ">" };
       if (!name.startsWith("#")) return named[name.toLowerCase()] ?? entity;
