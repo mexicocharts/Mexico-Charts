@@ -728,6 +728,7 @@ function TrendChart({
 function SummaryView({ open }: { open: (view: View) => void }) {
   const { data } = useMonitorPro();
   const current = data.current;
+  const spotifyCatalogPending = data.spotifyCatalog.items.length === 0 && hasReadFailure("spotify", data);
   const growth = (key: MonitorMetricKey) => data.growth[key]?.days30 ?? null;
   const changeLabel = (key: MonitorMetricKey) => {
     const value = growth(key);
@@ -833,7 +834,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
           <div className="mt-6 space-y-3">
             {[
               ["Historial", data.history.length],
-              ["Spotify", data.spotifyCatalog.items.length],
+              ["Spotify", spotifyCatalogPending ? "Pendiente" : data.spotifyCatalog.items.length],
               ["YouTube · catálogo vinculado", data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded" ? "Pendiente" : data.liveVideos.length],
             ].map(([label, value]) => (
               <div key={label}>
@@ -861,7 +862,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {compact(data.spotifyCatalog.trackDailyStreams)}
           </p>
           <p className="mt-1 text-[9px] text-white/30">
-            streams diarios · {data.spotifyCatalog.trackCount} canciones
+            {spotifyCatalogPending ? "Consulta de canciones pendiente; no es ausencia de datos" : `streams diarios · ${data.spotifyCatalog.trackCount} canciones`}
           </p>
         </Panel>
         <Panel className="p-6">
@@ -870,7 +871,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {compact(data.spotifyCatalog.albumDailyStreams)}
           </p>
           <p className="mt-1 text-[9px] text-white/30">
-            streams diarios · {data.spotifyCatalog.albumCount} álbumes
+            {spotifyCatalogPending ? "Consulta de álbumes pendiente; no es ausencia de datos" : `streams diarios · ${data.spotifyCatalog.albumCount} álbumes`}
           </p>
         </Panel>
         <button

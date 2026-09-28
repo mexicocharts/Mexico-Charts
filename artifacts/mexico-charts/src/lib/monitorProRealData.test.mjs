@@ -48,6 +48,13 @@ test("Panel uses the linked video set and never renders a failed read as zero", 
   assert.doesNotMatch(panel, /youtubeCoverage.observedVideoCount/);
 });
 
+test("Panel does not turn a failed Spotify catalog request into zero songs or albums", () => {
+  assert.match(experience, /items.length === 0 && hasReadFailure\("spotify", data\)/);
+  assert.match(experience, /\["Spotify", spotifyCatalogPending \? "Pendiente"/);
+  assert.match(experience, /Consulta de canciones pendiente; no es ausencia de datos/);
+  assert.match(experience, /Consulta de álbumes pendiente; no es ausencia de datos/);
+});
+
 test("unimplemented report and alert promises are identified honestly", () => {
   assert.match(
     experience,
