@@ -55,6 +55,7 @@ import { monitorReportRecommendation, type CompactMonitorReleaseImpact } from "@
 import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArtwork.mjs";
 import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
+import { monitorVideoDelta, completeMonitorVideoDelta } from "@/lib/monitorVideoDelta.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1482,7 +1483,7 @@ function VideosView() {
         image: video.thumbnail_url,
         url: video.canonical_url,
         views,
-        delta: Number(video.view_delta ?? 0),
+        delta: monitorVideoDelta(video.view_delta, video.seconds_since_previous),
         secondsSincePrevious: Number(video.seconds_since_previous ?? 0),
         observedAt: video.observed_at,
         milestone,
@@ -1494,10 +1495,9 @@ function VideosView() {
     (total, video) => total + video.views,
     0,
   );
-  const totalLatestGain = videos.reduce(
-    (total, video) => total + video.delta,
-    0,
-  );
+  const totalLatestGain = completeMonitorVideoDelta(videos.map(video => video.delta));
+  const deltaCount = videos.filter(video => video.delta !== null).length;
+  const videoReadFailed = Boolean(data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded");
   const channelVideoCount = data.youtubeCoverage.channelVideoCount;
   if (!videos.length)
     return (
@@ -1511,14 +1511,15 @@ function VideosView() {
             YouTube en vivo, video por video
           </h2>
           <p className="mt-5 max-w-xl text-sm leading-7 text-white/42">
-            Todavía no hay videos verificados con contador para{" "}
-            {data.subscription.artistName}. La estructura del Monitor está lista
-            y mostrará únicamente observaciones reales.
+            {videoReadFailed
+              ? "La consulta del catálogo no se completó. No se ha confirmado la ausencia de videos."
+              : `La consulta no devolvió videos con lecturas guardadas para ${data.subscription.artistName}. Esto no demuestra que el artista no tenga videos.`}
           </p>
         </Panel>
         <Panel className="p-10 text-center text-sm text-white/35">
-          Cobertura observada: {data.youtubeCoverage.observedVideoCount}
-          {channelVideoCount == null ? "" : ` de ${channelVideoCount}`} videos.
+          {hasReadFailure("videos", data)
+            ? "Cobertura pendiente de confirmar."
+            : `Catálogo vinculado devuelto: ${videos.length} videos. El tamaño del canal es un conjunto distinto.`}
         </Panel>
       </div>
     );
@@ -1565,7 +1566,7 @@ function VideosView() {
                   "vistas monitoreadas · Fuente: YouTube Data API",
                 ],
                 [
-                  `+${compact(totalLatestGain)}`,
+                  totalLatestGain == null ? "—" : `${totalLatestGain >= 0 ? "+" : ""}${compact(totalLatestGain)}`,
                   "últimas lecturas · Cálculo de Mexico Charts",
                 ],
                 [
@@ -1584,6 +1585,12 @@ function VideosView() {
                 </div>
               ))}
             </div>
+            {deltaCount < videos.length && (
+              <p className="mt-3 text-[9px] text-white/40">
+                Variación e intervalo disponibles para {deltaCount} de {videos.length} videos.
+                El total permanece pendiente; los valores ausentes no se sustituyen por cero.
+              </p>
+            )}
           </div>
           <div className="relative min-h-[340px] overflow-hidden border-t border-white/[.07] lg:border-l lg:border-t-0">
             <VideoThumbnail
@@ -1662,10 +1669,10 @@ function VideosView() {
                       Última lectura
                     </p>
                     <p className="mt-1 text-sm font-black text-[#39FF14]">
-                      +{exact(video.delta)}
+                      {signed(video.delta)}
                     </p>
                     <p className="text-[8px] text-white/20">
-                      en {intervalLabel(video.secondsSincePrevious)} · Cálculo
+                      {video.delta == null ? "Sin variación e intervalo verificados" : `en ${intervalLabel(video.secondsSincePrevious)}`} · Cálculo
                       de Mexico Charts
                     </p>
                   </div>
