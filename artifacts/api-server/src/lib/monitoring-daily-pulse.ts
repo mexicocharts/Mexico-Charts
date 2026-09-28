@@ -132,12 +132,7 @@ export function mergeMonitoringPlatformHistory(
       return [point.date, normalized];
     }),
   );
-  for (const field of [
-    "spotifyMonthlyListeners",
-    "instagramFollowers",
-    "tiktokFollowers",
-    "youtubeSubscribers",
-  ] as const) {
+  for (const field of Object.keys(MONITORING_PULSE_COLUMNS) as PulseMetricKey[]) {
     for (const point of trends[field] ?? []) {
       const existing = byDate.get(point.date) ?? { date: point.date, ...empty };
       existing[field] = point.value;

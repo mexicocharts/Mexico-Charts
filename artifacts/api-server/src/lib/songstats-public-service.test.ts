@@ -36,6 +36,38 @@ test("Monitor long-history sampling preserves the actual latest daily pair", () 
   assert.equal(gapPulse.gapDays, 2);
 });
 
+test("Monitor current rows retain dated followers and views instead of just public chart metrics", () => {
+  const input = {
+    historicStats: { stats: [
+      { source: "spotify", data: { history: [
+        { date: "2026-09-27", followers_total: 100, monthly_listeners_current: 1000 },
+        { date: "2026-09-28", followers_total: 110, monthly_listeners_current: 1050 },
+      ] } },
+      { source: "youtube", data: { history: [
+        { date: "2026-09-27", video_views_total: 2000 },
+        { date: "2026-09-28", video_views_total: 2050 },
+      ] } },
+    ] }, audience: null, audienceDetails: null,
+  };
+  const paid = buildSongstatsPublicInsight(input, { access: "monitoring" });
+  const rows = mergeMonitoringPlatformHistory([], paid.trends);
+  assert.equal(rows.at(-1)?.spotifyFollowers, 110);
+  assert.equal(rows.at(-1)?.youtubeChannelViews, 2050);
+  const free = buildSongstatsPublicInsight(input);
+  assert.equal(free.trends.spotifyFollowers, undefined);
+  assert.equal(free.trends.youtubeChannelViews, undefined);
+
+  const dated = mergeMonitoringPlatformHistory([], {
+    spotifyMonthlyListeners: [{ date: "2026-09-28", value: 1050 }],
+    spotifyFollowers: [{ date: "2026-09-27", value: 100 }],
+  });
+  assert.equal(dated.at(-1)?.spotifyFollowers, null, "never copy an older value onto a newer date");
+  input.historicStats.stats[0]!.data.history.splice(0, 1);
+  const single = buildSongstatsPublicInsight(input, { access: "monitoring" });
+  assert.equal(mergeMonitoringPlatformHistory([], single.trends).at(-1)?.spotifyFollowers, 110);
+  assert.equal(single.growth.spotifyFollowers, undefined, "one real reading is not growth evidence");
+});
+
 test("normalizes saved Songstats catalog releases without exposing raw payloads", () => {
   const result = buildSongstatsPublicInsight({
     historicStats: { stats: [] },

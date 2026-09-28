@@ -557,14 +557,16 @@ export function buildSongstatsPublicInsight(input: {
         days90: monitoringAccess ? growthWindow(points, 90) : null,
       };
     }
-    if (TREND_KEYS.has(metric.key)) {
+    // The paid current snapshot is assembled from these dated histories too.
+    // Do not drop followers/views merely because the public chart uses four series.
+    if (monitoringAccess || TREND_KEYS.has(metric.key)) {
       const sampled = downsampleRecent(
         points,
         monitoringAccess ? 36_500 : 15,
         monitoringAccess ? 500 : 15,
         monitoringAccess,
       );
-      if (sampled.length >= 2) trends[metric.key] = sampled;
+      if (sampled.length >= (monitoringAccess ? 1 : 2)) trends[metric.key] = sampled;
     }
   }
 
