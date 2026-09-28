@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import PageSEO from "@/components/PageSEO";
 import { motion } from "framer-motion";
 import SiteNav from "@/components/SiteNav";
-import TouringCommandCenter from "@/components/TouringCommandCenter";
 import { useArtistTouring, useTouring, useTouringLab, type ArtistTours } from "@/hooks/useTouring";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { subscribeToNewsletter } from "@/services/newsletter";
@@ -10,6 +9,7 @@ import { Link } from "wouter";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 
 const HERO_BG = "/touring-hero.png";
+const SHOW_TOURING_LAB = false;
 
 
 function formatDate(iso: string): string {
@@ -826,11 +826,6 @@ export default function TouringHub() {
                   Explorar fechas <span style={{ fontSize: 13, opacity: 0.7 }}>→</span>
                 </button>
               </a>
-              <a href="#touring-lab">
-                <button className="th-outline-btn">
-                  Ver Touring Lab <span style={{ fontSize: 13, opacity: 0.7 }}>↓</span>
-                </button>
-              </a>
             </div>
           </motion.div>
         </div>
@@ -1020,6 +1015,7 @@ export default function TouringHub() {
       )}
 
       {/* Touring Lab only publishes supported observations; demand remains unavailable until authorized inputs exist. */}
+      {SHOW_TOURING_LAB && (
       <section id="touring-lab" aria-labelledby="touring-lab-heading" className="th-content-section" style={{ padding: "48px 32px", borderBottom: "1px solid #111", background: "#070707", scrollMarginTop: 72 }}>
         <SectionEyebrow>Datos y metodología</SectionEyebrow>
         <div id="touring-lab-heading"><SectionHeading white="Touring" green="Lab" /></div>
@@ -1273,15 +1269,9 @@ export default function TouringHub() {
           Fuente: {touringLab?.source ?? "Ticketmaster Discovery API"} · Agenda consultada: {touringFreshness}. Metadatos públicos y enlaces oficiales; un seat map estático no representa disponibilidad en vivo. Ofertas primary, resale, VIP y bloqueadas se mantienen separadas cuando la fuente las identifica. Historial: collecting hasta contar con snapshots.
         </div>
       </section>
+      )}
 
       </main>
-
-      <details style={{ borderBottom: "1px solid #111", background: "#070707" }}>
-        <summary style={{ cursor: "pointer", padding: "18px 32px", color: "rgba(255,255,255,.58)", fontSize: 9, fontWeight: 900, letterSpacing: ".16em", textTransform: "uppercase" }}>
-          Ver centro de monitoreo y metodología avanzada
-        </summary>
-        <TouringCommandCenter />
-      </details>
 
       {/* ── NEWSLETTER ── */}
       <section className="th-newsletter" style={{ padding: "36px 32px", background: "#060606", borderTop: "1px solid #111", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 32 }}>
