@@ -1,5 +1,6 @@
 import { pool, type PoolClient } from "@workspace/db";
 import { readSongstatsInsertWal, type SongstatsInsertWal } from "./songstats-history-insert-wal";
+import { historyInsertBatchSize } from "./songstats-history-insert-batch";
 import {
   listSongstatsCatalogArtists,
   type SongstatsCatalogArtist,
@@ -520,10 +521,11 @@ export async function completeSongstatsHistoryChunk(input: {
     const insertWal: SongstatsInsertWal | undefined = process.env.SONGSTATS_HISTORY_MEASURE_INSERT_WAL === "true"
       ? { scope: "observation_insert_statements", bytes: 0, records: 0, fullPageImages: 0, inserted: 0 }
       : undefined;
-    for (let index = 0; index < input.observations.length; index += 250) {
+    const batchSize = historyInsertBatchSize(process.env.SONGSTATS_HISTORY_INSERT_BATCH_SIZE);
+    for (let index = 0; index < input.observations.length; index += batchSize) {
       inserted += await insertObservationBatch(
         client,
-        input.observations.slice(index, index + 250),
+        input.observations.slice(index, index + batchSize),
         {
           chunkId: input.chunkId,
           providerIdentityId: input.providerIdentityId,
