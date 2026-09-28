@@ -46,7 +46,9 @@ export async function reconcileMonitoringLiveCatalog(
       source: catalog.source, reference, spotifyArtistId: id, observedAt: catalog.snapshotDate,
       sourceDates: catalog.sourceDates, acquiredAt: catalog.fetchedAt,
       attemptedAt: new Date(started).toISOString(), durationMs: Date.now() - started,
-      catalogEvidenceApplied: true, artworkEvidenceApplied: true,
+      catalogEvidenceApplied: true, artworkEvidenceApplied: catalog.items.every(item => Boolean(item.artworkUrl)),
+      artworkLookupAttempted: true,
+      artworkStatus: catalog.items.every(item => Boolean(item.artworkUrl)) ? "all_items_matched" : "partial_provider_lookup_unresolved",
       sourceUrls: [`https://kworb.net/spotify/artist/${id}_songs.html`, `https://kworb.net/spotify/artist/${id}_albums.html`],
     },
     // A successful parser is not independent proof of upstream completeness.

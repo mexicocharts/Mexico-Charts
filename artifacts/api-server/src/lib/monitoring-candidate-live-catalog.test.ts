@@ -22,6 +22,7 @@ test("audit applies exact profile catalog while preserving dates, nulls, legacy 
   assert.equal(result.served_summary?.snapshot_date, "2026-09-27");
   assert.equal(result.stream_items?.[0]?.artwork_url, catalog.items[0]?.artworkUrl);
   assert.equal((result.source_evidence.catalogCompleteness as any).verified, false);
+  assert.equal((result.source_evidence.liveCatalogInvestigation as any).artworkEvidenceApplied, false);
   assert.equal((result.source_evidence.liveCatalogRuntime as any).tracksWithDailyStreams, 0);
 });
 test("unknown source date is never replaced by fetch date", async () => {
