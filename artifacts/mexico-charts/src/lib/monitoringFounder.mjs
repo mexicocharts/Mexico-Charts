@@ -169,7 +169,9 @@ export async function loadMonitoringDirectoryPage(loadPage, { offset, limit, sig
   while (artists.length < limit) {
     assertActive(signal);
     const next = offset + artists.length;
-    const page = validateMonitoringDirectory(await loadPage(next, Math.min(5, limit - artists.length), signal));
+    // A cold profile catalog can take eight seconds. Keep each authenticated
+    // request to one artist; the displayed page still includes all 25.
+    const page = validateMonitoringDirectory(await loadPage(next, 1, signal));
     assertActive(signal);
     first ??= page;
     if (page.offset !== next || page.total !== first.total ||

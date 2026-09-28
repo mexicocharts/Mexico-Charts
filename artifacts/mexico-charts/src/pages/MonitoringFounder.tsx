@@ -103,7 +103,7 @@ export default function MonitoringFounder() {
           requestMonitorResource({
             getToken: auth.getToken,
             // Small requests walk the entire roster without sampling artists.
-            input: `/api/monitoring/internal/directory?limit=5&offset=${next}`,
+            input: `/api/monitoring/internal/directory?limit=1&offset=${next}`,
             signal,
             readResponse: async (response) =>
               validateMonitoringDirectory(await response.json()),

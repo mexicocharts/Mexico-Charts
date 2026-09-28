@@ -37,14 +37,14 @@ function candidate(artistKey, classification = "A") {
   };
 }
 
-test("displayed audit pages retain every artist while bounding each request to five", async () => {
+test("displayed audit pages retain every artist while bounding cold catalog requests to one", async () => {
   const roster = Array.from({ length: 28 }, (_, i) => candidate(`artist-${i}`, i % 2 ? "A" : null));
   const requests = [];
   const result = await loadMonitoringDirectoryPage(async (offset, limit) => {
     requests.push([offset, limit]);
     return page(roster.slice(offset, offset + limit), offset, roster.length, { limit });
   }, { offset: 0, limit: 25 });
-  assert.deepEqual(requests, [[0,5],[5,5],[10,5],[15,5],[20,5]]);
+  assert.deepEqual(requests, Array.from({ length: 25 }, (_, i) => [i, 1]));
   assert.deepEqual(result.artists, roster.slice(0,25));
   assert.equal(result.hasMore, true);
   assert.equal(result.limit, 25);

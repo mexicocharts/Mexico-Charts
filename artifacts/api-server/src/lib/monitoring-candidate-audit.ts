@@ -1,4 +1,6 @@
 import { directoryDiagnostic, directoryRequestId } from "./monitoring-directory-diagnostics";
+import { loadCompleteMonitoringKworbCatalog } from "./monitoring-kworb-catalog";
+import { reconcileMonitoringLiveCatalog } from "./monitoring-candidate-live-catalog";
 import { createMonitoringIdentityCache } from "./monitoring-identity-cache";
 import { FOUNDER_ROSTER_SQL, FOUNDER_ROSTER_MONTH, FOUNDER_ROSTER_SCOPE, verifiedFounderRosterIds, filterFounderRoster } from "./monitoring-founder-roster";
 import { indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES } from "./monitoring-candidate-inventory";
@@ -303,7 +305,7 @@ export const MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL = MONITORING_CANDIDATE_EVI
   /requested AS MATERIALIZED \([\s\S]*?\), comparison_snapshots/,
   "requested AS NOT MATERIALIZED (SELECT $1::text artist_key, $2::text[] source_keys), comparison_snapshots",
 );
-type AuditDependencies = { readPool?: AuditPool; now?: Date };
+type AuditDependencies = { readPool?: AuditPool; now?: Date; loadCatalog?: typeof loadCompleteMonitoringKworbCatalog };
 const evidenceCache = new Map<string, { expiresAt: number; value: MonitoringCandidateAuditArtist }>();
 
 async function loadFounderRosterPopulation(readPool: AuditPool) {
@@ -380,7 +382,10 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
           [artist.artistKey, artist.sourceKeys], undefined, "page_evidence");
         const row = rows[0];
         if (rows.length !== 1 || row?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
-        const value = evaluateMonitoringCandidate(artist, { ...row, missing_schema_tables: missingSchemaTables }, now);
+        // Injected fixture pools must never make real provider requests.
+        const loadCatalog = dependencies.loadCatalog ?? (!dependencies.readPool ? loadCompleteMonitoringKworbCatalog : undefined);
+        const inspected = loadCatalog ? await reconcileMonitoringLiveCatalog(artist, row, loadCatalog) : row;
+        const value = evaluateMonitoringCandidate(artist, { ...inspected, missing_schema_tables: missingSchemaTables }, dependencies.now ?? new Date());
         fresh.set(artist.artistKey, value);
         if (cacheable) evidenceCache.set(cacheKey(artist), { expiresAt: Date.now() + CACHE_MS, value });
       }
