@@ -75,6 +75,17 @@ export const exactReportChange = (value: number | null) =>
   value == null ? "Ventana sin lectura" : `${value >= 0 ? "+" : ""}${exact(value)}`;
 export const reportChangeColor = (detail: string) =>
   /^-\d/.test(detail) ? RED : GREEN;
+export function reportCatalogDaily(catalog: WeeklyReportInput["spotifyCatalog"], type: "track" | "album") {
+  const items = catalog.items.filter(item => item.type === type);
+  const count = type === "track" ? catalog.trackCount : catalog.albumCount;
+  const total = type === "track" ? catalog.trackDailyStreams : catalog.albumDailyStreams;
+  const measured = items.filter(item => n(item.dailyStreams) != null).length;
+  return {
+    value: total != null ? compact(total) : measured ? "Total incompleto" : "Sin lectura",
+    detail: total != null ? `${count} ${type === "track" ? "canciones" : "álbumes"}`
+      : `${measured} de ${count} con lectura diaria`,
+  };
+}
 export function weeklyStart(end: string) {
   const date = new Date(`${end}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() - 6);
@@ -395,11 +406,13 @@ export async function createMonitoringWeeklyReport(
 
   page("Spotify", 4, "Canciones y álbumes en Spotify");
   const sp = input.spotifyCatalog;
+  const trackDaily = reportCatalogDaily(sp, "track");
+  const albumDaily = reportCatalogDaily(sp, "album");
   metrics([
     [
       "CANCIONES / DIARIO",
-      compact(sp.trackDailyStreams),
-      `${sp.trackCount} canciones`,
+      trackDaily.value,
+      trackDaily.detail,
     ],
     [
       "CANCIONES / ACUMULADO",
@@ -408,8 +421,8 @@ export async function createMonitoringWeeklyReport(
     ],
     [
       "ÁLBUMES / DIARIO",
-      compact(sp.albumDailyStreams),
-      `${sp.albumCount} álbumes`,
+      albumDaily.value,
+      albumDaily.detail,
     ],
     [
       "ÁLBUMES / ACUMULADO",
@@ -561,8 +574,10 @@ export async function createMonitoringWeeklyReport(
     text(421, y, a.artistName, 9, WHITE, 118);
     text(421, y - 12, a.snapshotDate ?? "Sin fecha", 6, MUTED, 118);
     text(545, y, compact(a.spotifyMonthlyListeners), 8, WHITE, 65);
-    text(615, y, signed(n(a.spotifyGrowth30?.absolute)), 7, GREEN, 78);
-    text(700, y, signed(n(a.youtubeGrowth30?.absolute)), 7, GREEN, 52);
+    const spotifyChange = signed(n(a.spotifyGrowth30?.absolute));
+    const youtubeChange = signed(n(a.youtubeGrowth30?.absolute));
+    text(615, y, spotifyChange, 7, reportChangeColor(spotifyChange), 78);
+    text(700, y, youtubeChange, 7, reportChangeColor(youtubeChange), 52);
   });
   text(34, 170, "SEÑALES DEL CORTE", 7, GREEN);
   (actions.length
@@ -596,7 +611,7 @@ export async function createMonitoringWeeklyReport(
       comparable.length && current.spotifyMonthlyListeners != null
         ? `#${1 + comparable.filter((a) => a.spotifyMonthlyListeners! > current.spotifyMonthlyListeners!).length}`
         : "Sin corte comparable",
-      "Comparación sólo entre lecturas de la misma fecha",
+      `Entre ${comparable.length + 1} artistas / misma fecha; no es un ranking global`,
     ],
     [
       "YOUTUBE 30D",
