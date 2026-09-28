@@ -377,6 +377,7 @@ function downsampleRecent(
   points: SongstatsPublicTrendPoint[],
   days = 180,
   maximumPoints = 30,
+  preserveLatestPair = false,
 ): SongstatsPublicTrendPoint[] {
   const latest = points.at(-1);
   if (!latest) return [];
@@ -385,6 +386,18 @@ function downsampleRecent(
   const cutoffDate = cutoff.toISOString().slice(0, 10);
   const recent = points.filter(point => point.date >= cutoffDate);
   if (recent.length <= maximumPoints) return recent;
+  // Monitor also consumes this series for its daily pulse. Equidistant chart
+  // sampling must not discard yesterday and manufacture a multi-day gap.
+  // Keep only genuine source points; a real missing day remains missing.
+  if (preserveLatestPair && maximumPoints >= 4) {
+    const earlier = recent.slice(0, -2);
+    const earlierCount = maximumPoints - 2;
+    const step = (earlier.length - 1) / (earlierCount - 1);
+    return [
+      ...Array.from({ length: earlierCount }, (_, index) => earlier[Math.round(index * step)]!),
+      ...recent.slice(-2),
+    ];
+  }
   const step = (recent.length - 1) / (maximumPoints - 1);
   return Array.from({ length: maximumPoints }, (_, index) => (
     recent[Math.round(index * step)]!
@@ -549,6 +562,7 @@ export function buildSongstatsPublicInsight(input: {
         points,
         monitoringAccess ? 36_500 : 15,
         monitoringAccess ? 500 : 15,
+        monitoringAccess,
       );
       if (sampled.length >= 2) trends[metric.key] = sampled;
     }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildSongstatsPublicInsight } from "./songstats-public-service";
+import { evaluateMonitoringDailyPulse, mergeMonitoringPlatformHistory } from "./monitoring-daily-pulse";
 
 function history(field: string, start: number, dailyGain: number) {
   return Array.from({ length: 121 }, (_, index) => {
@@ -9,6 +10,31 @@ function history(field: string, start: number, dailyGain: number) {
     return { date: date.toISOString().slice(0, 10), [field]: start + dailyGain * index };
   });
 }
+
+test("Monitor long-history sampling preserves the actual latest daily pair", () => {
+  const points = Array.from({ length: 1885 }, (_, index) => {
+    const date = new Date("2021-08-01T12:00:00Z");
+    date.setUTCDate(date.getUTCDate() + index);
+    return { date: date.toISOString().slice(0, 10), monthly_listeners_current: 1000 + index };
+  });
+  const input = { historicStats: { stats: [{ source: "spotify", data: { history: points } }] }, audience: null, audienceDetails: null };
+  const insight = buildSongstatsPublicInsight(input, { access: "monitoring" });
+  const sampled = insight.trends.spotifyMonthlyListeners!;
+  assert.equal(sampled.length, 500);
+  assert.equal(sampled[0]?.date, points[0]?.date);
+  assert.deepEqual(sampled.slice(-2).map(p => p.date), ["2026-09-27", "2026-09-28"]);
+  assert.ok(sampled.every(p => points.some(original => original.date === p.date && original.monthly_listeners_current === p.value)));
+  const pulse = evaluateMonitoringDailyPulse(mergeMonitoringPlatformHistory([], insight.trends), new Date("2026-09-28T20:00:00Z"));
+  assert.equal(pulse.complete, true);
+  assert.equal(pulse.gapDays, 1);
+  assert.ok((buildSongstatsPublicInsight(input).trends.spotifyMonthlyListeners?.length ?? 0) <= 15);
+
+  points.splice(-2, 1);
+  const withRealGap = buildSongstatsPublicInsight(input, { access: "monitoring" });
+  const gapPulse = evaluateMonitoringDailyPulse(mergeMonitoringPlatformHistory([], withRealGap.trends), new Date("2026-09-28T20:00:00Z"));
+  assert.equal(gapPulse.complete, false);
+  assert.equal(gapPulse.gapDays, 2);
+});
 
 test("normalizes saved Songstats catalog releases without exposing raw payloads", () => {
   const result = buildSongstatsPublicInsight({
