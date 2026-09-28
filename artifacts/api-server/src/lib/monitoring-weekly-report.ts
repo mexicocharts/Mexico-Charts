@@ -71,6 +71,10 @@ const compact = (v: unknown) => {
 };
 const signed = (v: number | null) =>
   v == null ? "Ventana sin lectura" : `${v >= 0 ? "+" : ""}${compact(v)}`;
+export const exactReportChange = (value: number | null) =>
+  value == null ? "Ventana sin lectura" : `${value >= 0 ? "+" : ""}${exact(value)}`;
+export const reportChangeColor = (detail: string) =>
+  /^-\d/.test(detail) ? RED : GREEN;
 export function weeklyStart(end: string) {
   const date = new Date(`${end}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() - 6);
@@ -244,7 +248,7 @@ export async function createMonitoringWeeklyReport(
       panel(x, y - 27, 169, 85);
       text(x + 14, y + 30, label, 6.5, MUTED, 141);
       text(x + 14, y, value, 22, WHITE, 141);
-      text(x + 14, y - 17, detail, 7, GREEN, 141);
+      text(x + 14, y - 17, detail, 7, reportChangeColor(detail), 141);
     });
   const change = (key: keyof typeof current, days: number) => reportGrowth(input, key, days)?.absolute ?? null;
   const windowLabel = (key: string, days: number) => {
@@ -651,7 +655,7 @@ export async function createMonitoringWeeklyReport(
     text(
       302,
       y,
-      signed(delta),
+      exactReportChange(delta),
       7,
       delta != null && delta < 0 ? RED : GREEN,
       78,
