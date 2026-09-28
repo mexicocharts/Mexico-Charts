@@ -282,6 +282,7 @@ export async function claimSongstatsHistoryChunk(input: {
   runId: string;
   artist: SongstatsHistoryRosterArtist;
   window: SongstatsHistoryWindow;
+  requestIdentityType?: "spotify_artist_id" | "songstats_artist_id";
 }): Promise<
   | { status: "completed" }
   | { status: "busy" }
@@ -310,10 +311,11 @@ export async function claimSongstatsHistoryChunk(input: {
     JSON.stringify(input.artist.identityEvidence),
   ]);
   const providerIdentityId = identity.rows[0]!.id;
-  const requestIdentityType = input.artist.songstatsArtistId
+  const requestIdentityType = input.requestIdentityType ?? (input.artist.songstatsArtistId
     ? "songstats_artist_id"
-    : "spotify_artist_id";
-  const requestIdentityValue = input.artist.songstatsArtistId ?? input.artist.spotifyArtistId;
+    : "spotify_artist_id");
+  const requestIdentityValue = requestIdentityType === "spotify_artist_id"
+    ? input.artist.spotifyArtistId : input.artist.songstatsArtistId;
   const acquisitionMetadata = JSON.stringify({
     provider: "songstats",
     endpoint: "/artists/historic_stats",

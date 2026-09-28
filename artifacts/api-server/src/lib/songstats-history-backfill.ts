@@ -84,6 +84,8 @@ export interface SongstatsHistoryBackfillOptions {
   task?: { artistKey: string; year: number };
   deferFinalize?: boolean;
   capacityPolicy?: Partial<SongstatsHistoryCapacityPolicy>;
+  /** Identity used by a supplied fetcher; the built-in fetcher uses Songstats ID. */
+  requestIdentityType?: "spotify_artist_id" | "songstats_artist_id";
   onProgress?: (progress: SongstatsHistoryBackfillProgress) => void;
   onRequestAttempt?: (event: {
     artistKey: string;
@@ -326,7 +328,11 @@ export async function runSongstatsHistoryBackfill(
         artistKey: task.artist.artistKey,
         window: task.window,
       };
-      const claim = await claimSongstatsHistoryChunk({ runId, ...task });
+      const requestIdentityType = options.requestIdentityType ?? "songstats_artist_id";
+      if (requestIdentityType === "spotify_artist_id" && !options.fetchHistoricStats) {
+        throw new Error("Spotify request identity requires an explicit Spotify-ID fetcher");
+      }
+      const claim = await claimSongstatsHistoryChunk({ runId, ...task, requestIdentityType });
       if (claim.status === "completed") {
         options.onProgress?.({ ...progressBase, status: "skipped" });
         continue;
@@ -379,8 +385,9 @@ export async function runSongstatsHistoryBackfill(
           artistKey: task.artist.artistKey,
           spotifyArtistId: task.artist.spotifyArtistId,
           expectedSongstatsArtistId: task.artist.songstatsArtistId,
-          requestIdentityType: "songstats_artist_id",
-          requestIdentityValue: task.artist.songstatsArtistId!,
+          requestIdentityType,
+          requestIdentityValue: requestIdentityType === "spotify_artist_id"
+            ? task.artist.spotifyArtistId : task.artist.songstatsArtistId!,
           windowStartDate: task.window.startDate,
           windowEndDate: task.window.endDate,
           fetchedAt,
