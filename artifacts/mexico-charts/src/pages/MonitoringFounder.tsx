@@ -170,7 +170,7 @@ export default function MonitoringFounder() {
             Roster Songstats · {data.founderRoster.referenceMonth}: {data.founderRoster.includedSpotifyIds} IDs de Spotify incluidos
             {" "}tras excluir a Bad Bunny. La selección permanece fija al cambiar de mes;
             no incluye automáticamente nuevos descubrimientos. El historial de uso se conserva.
-            {data.founderRoster.identityReviewPending && " Hay una coincidencia de identidad de Los Plebes del Rancho pendiente de revisión; no se ha fusionado ningún registro."}
+            {data.founderRoster.identityReviewPending && " Hay conflictos de identidad pendientes de revisión, señalados en las fichas correspondientes. Sus claves de origen pueden inspeccionarse por separado; no se ha fusionado ningún registro."}
           </p>
         )}
         {!auth.isLoaded ? (
