@@ -1,4 +1,5 @@
 import { withDirectoryDiagnostics } from "../lib/monitoring-directory-diagnostics";
+import { MONITORING_EXTENDED_SOURCE_SQL, selectMonitoringExtendedSource } from "../lib/monitoring-extended-source";
 import { MONITORING_COMPARISONS_SQL } from "../lib/monitoring-comparisons";
 import { Router, type RequestHandler } from "express";
 import { monitoringReadPool } from "@workspace/db";
@@ -621,19 +622,20 @@ async function loadAuthorizedMonitoring(
     () =>
       monitoringReadPool
         .query<{
+          artist_key: string;
           historic_stats: unknown;
           audience: unknown;
           audience_details: unknown;
           catalog: unknown;
+          historic_fetched_at: string | null;
+          audience_fetched_at: string | null;
+          audience_details_fetched_at: string | null;
+          catalog_fetched_at: string | null;
+          updated_at: string;
         }>(
-          `
-      SELECT historic_stats, audience, audience_details, catalog
-      FROM songstats_artist_extended_data
-      WHERE lower(artist_key) = ANY($1::text[])
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `,
-          [activeKeys],
+          MONITORING_EXTENDED_SOURCE_SQL,
+          [activeKeys, prioritizedArtistIdentity[0]?.spotify_artist_id
+            ?? prioritizedArtistIdentity[0]?.roster_catalog_inspection?.spotifyArtistId ?? null],
         )
         .then((result) => result.rows),
     [],
@@ -676,7 +678,7 @@ async function loadAuthorizedMonitoring(
     ),
   ]);
   const resolvedLiveVideos = prioritizedLiveVideos;
-  const extendedRow = extended[0];
+  const extendedRow = extended.length ? selectMonitoringExtendedSource(extended) : null;
   const insight = extendedRow
     ? buildSongstatsPublicInsight(
         {
@@ -769,6 +771,7 @@ async function loadAuthorizedMonitoring(
       conflict: active.identity_conflict === true || prioritizedArtistIdentity[0]?.identity_conflict === true,
       warnings: active.identity_conflict || prioritizedArtistIdentity[0]?.identity_conflict ? ["conflicting_provider_identity"] : [],
       priorityIdentity: prioritizedArtistIdentity[0] ?? null,
+      extendedSourceKeys: extendedRow?.sourceKeys ?? null,
       rosterCatalogInspection: prioritizedArtistIdentity[0]?.roster_catalog_inspection ?? null,
     } : undefined,
     subscription: {
