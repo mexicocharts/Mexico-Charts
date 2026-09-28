@@ -818,7 +818,7 @@ async function loadAuthorizedMonitoring(
       source: spotifyCatalogSource,
       sourceDates: catalogSourceDates,
       pageStatus: completeCatalog?.pageStatus ?? null,
-      coverageStatus: completeCatalog?.pageStatus && Object.values(completeCatalog.pageStatus).some(page => page.status === "unresolved") ? "partial_unresolved" : null,
+      coverageStatus: completeCatalog?.pageStatus && Object.values(completeCatalog.pageStatus).some(page => page.status === "unresolved") ? "partial_unresolved" as const : null,
       summaryProvenance: latestStreamSummary ? {
         source: latestStreamSummary.source_table,
         derivation: latestStreamSummary.derivation,
