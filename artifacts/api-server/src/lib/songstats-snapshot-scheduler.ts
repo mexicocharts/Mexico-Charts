@@ -10,7 +10,9 @@ import {
 import { syncSongstatsExtendedData } from "./songstats-extended-service";
 
 const LOCK_KEY = 831_905_224;
-const INTELLIGENCE_LOCK_KEY = 831_905_225;
+// Separate from the billing transaction lock (831_905_225): this job awaits
+// accounted API calls on other connections while holding its session lock.
+const INTELLIGENCE_LOCK_KEY = 831_905_230;
 const CHECK_INTERVAL_MS = 10 * 60 * 1000;
 const RETRY_INTERVAL_MINUTES = 60;
 const MAX_DAILY_ATTEMPTS = 6;

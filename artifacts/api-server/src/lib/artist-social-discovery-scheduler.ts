@@ -2,7 +2,8 @@ import { pool } from "@workspace/db";
 import { logger } from "./logger";
 import { runArtistSocialDiscovery, seedVerifiedArtistSocialAccounts } from "./artist-social-discovery-service";
 
-const LOCK_KEY = 831_905_225;
+// Keep this session lock separate from Songstats billing and intelligence jobs.
+const LOCK_KEY = 831_905_231;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 // v4 prioritizes current charting artists, then completes the full active
 // catalog in the same idempotent run.
