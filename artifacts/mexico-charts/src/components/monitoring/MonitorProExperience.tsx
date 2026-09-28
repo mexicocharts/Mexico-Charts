@@ -56,6 +56,7 @@ import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArt
 import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
 import { monitorVideoDelta, completeMonitorVideoDelta } from "@/lib/monitorVideoDelta.mjs";
+import { monitorVideoPage } from "@/lib/monitorVideoPage.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1487,6 +1488,8 @@ function VideoThumbnail({
 
 function VideosView() {
   const { data } = useMonitorPro();
+  const [requestedPage, setRequestedPage] = useState(0);
+  useEffect(() => setRequestedPage(0), [data.subscription.artistKey]);
   const videos = data.liveVideos
     .map((video) => {
       const views = Number(video.view_count ?? 0);
@@ -1513,6 +1516,19 @@ function VideosView() {
   const deltaCount = videos.filter(video => video.delta !== null).length;
   const videoReadFailed = Boolean(data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded");
   const channelVideoCount = data.youtubeCoverage.channelVideoCount;
+  const videoPage = monitorVideoPage(videos, requestedPage);
+  const pagination = videoPage.pageCount > 1 && (
+    <nav aria-label="Páginas del catálogo de YouTube" className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[.07] p-4 text-xs sm:px-7">
+      <span aria-live="polite">Videos {videoPage.offset + 1}–{videoPage.offset + videoPage.items.length} de {videoPage.total}</span>
+      <div className="flex items-center gap-3">
+        <button className="rounded border border-white/20 px-3 py-2 disabled:opacity-30" disabled={videoPage.page === 0} onClick={() => setRequestedPage(videoPage.page - 1)}>Anterior</button>
+        <select aria-label="Página de videos" className="rounded border border-white/20 bg-black px-2 py-2" value={videoPage.page} onChange={event => setRequestedPage(Number(event.target.value))}>
+          {Array.from({ length: videoPage.pageCount }, (_, page) => <option key={page} value={page}>Página {page + 1} de {videoPage.pageCount}</option>)}
+        </select>
+        <button className="rounded border border-white/20 px-3 py-2 disabled:opacity-30" disabled={videoPage.page + 1 === videoPage.pageCount} onClick={() => setRequestedPage(videoPage.page + 1)}>Siguiente</button>
+      </div>
+    </nav>
+  );
   if (!videos.length)
     return (
       <div className="space-y-5">
@@ -1646,8 +1662,9 @@ function VideosView() {
             Todos los disponibles · sin duplicados
           </p>
         </div>
+        {pagination}
         <div className="grid gap-4 p-4 md:grid-cols-2 md:p-6 xl:grid-cols-3">
-          {videos.map((video, index) => (
+          {videoPage.items.map((video, index) => (
             <article
               key={video.id}
               className="group overflow-hidden rounded-2xl border border-white/[.08] bg-white/[.025] transition hover:-translate-y-1 hover:border-red-400/30 hover:bg-red-500/[.035]"
@@ -1663,7 +1680,7 @@ function VideosView() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                 <span className="absolute left-3 top-3 rounded-full border border-white/10 bg-black/75 px-3 py-1.5 text-[8px] font-black backdrop-blur">
-                  #{String(index + 1).padStart(2, "0")}
+                  #{String(videoPage.offset + index + 1).padStart(2, "0")}
                 </span>
                 <span className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-full bg-red-500 text-white shadow-lg">
                   <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
@@ -1722,6 +1739,7 @@ function VideosView() {
             </article>
           ))}
         </div>
+        {pagination}
       </Panel>
     </div>
   );
