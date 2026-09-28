@@ -333,22 +333,24 @@ async function loadAuthorizedMonitoring(
     () => loadMonitoringPriorityArtistIdentity(monitoringReadPool, activeKeys, {
       identityConflict: active.identity_conflict === true,
       canonicalArtistKey: active.artist_key,
+      allowRosterScopedCatalogInspection: authorization.source === "internal",
     }),
     [],
   );
   // External catalog reads depend on identity, not on every other database
   // section. Start them as soon as identity resolves, inside the same overall
   // request budget and without adding database connections or background jobs.
-  const priorityCompleteCatalog = priorityArtistIdentity.then((identity) =>
-    identity[0]?.spotify_artist_id
+  const priorityCompleteCatalog = priorityArtistIdentity.then((identity) => {
+    const catalogId = identity[0]?.spotify_artist_id ?? identity[0]?.roster_catalog_inspection?.spotifyArtistId;
+    return catalogId
       ? dashboardStage(
           "complete_kworb_catalog",
-          () => loadCompleteMonitoringKworbCatalog(identity[0]!.spotify_artist_id!),
+          () => loadCompleteMonitoringKworbCatalog(catalogId),
           null,
           8_500,
         )
-      : null,
-  );
+      : null;
+  });
   const priorityStreamSummary = dashboardStage(
     "priority_stream_summary",
     () => loadLatestMonitoringStreamSummary(monitoringReadPool, activeKeys, {
@@ -767,6 +769,7 @@ async function loadAuthorizedMonitoring(
       conflict: active.identity_conflict === true || prioritizedArtistIdentity[0]?.identity_conflict === true,
       warnings: active.identity_conflict || prioritizedArtistIdentity[0]?.identity_conflict ? ["conflicting_provider_identity"] : [],
       priorityIdentity: prioritizedArtistIdentity[0] ?? null,
+      rosterCatalogInspection: prioritizedArtistIdentity[0]?.roster_catalog_inspection ?? null,
     } : undefined,
     subscription: {
       artistKey: active.artist_key,
@@ -1019,11 +1022,13 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
         const sourceKeys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
         const [identity] = await loadMonitoringPriorityArtistIdentity(monitoringReadPool, sourceKeys, {
           identityConflict: access.grant.identity_conflict, canonicalArtistKey: access.grant.artist_key,
+          allowRosterScopedCatalogInspection: access.source === "internal",
         });
-        if (!identity?.spotify_artist_id || identity.identity_conflict) {
+        const catalogId = identity?.spotify_artist_id ?? identity?.roster_catalog_inspection?.spotifyArtistId;
+        if (!catalogId) {
           res.status(503).json({ error: "Verified catalog identity is unavailable" }); return;
         }
-        const catalog = await loadCompleteMonitoringKworbCatalog(identity.spotify_artist_id);
+        const catalog = await loadCompleteMonitoringKworbCatalog(catalogId);
         const selected = keys.map(key => catalog.items.find(item => `${item.type}:${item.key}` === key));
         if (selected.some(item => !item)) { res.status(400).json({ error: "Artwork must belong to this artist's catalog" }); return; }
         res.json({ artistKey: access.grant.artist_key, items: await loadCatalogArtworkBatch(selected.filter(item => item != null)) });

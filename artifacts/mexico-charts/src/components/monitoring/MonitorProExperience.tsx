@@ -86,6 +86,7 @@ export type MonitorDashboardData = {
     sourceKeys: string[];
     conflict: boolean;
     warnings: string[];
+    rosterCatalogInspection?: { spotifyArtistId: string; artistKey: string; source: "exact_key_roster_source_agreement" } | null;
   };
   sectionStatus?: Record<
     string,
@@ -2350,6 +2351,9 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
               Conflicto de identidad: este perfil muestra únicamente datos bajo
               su ID exacto. Revisa los identificadores en el directorio antes de
               combinar fuentes o habilitar el acceso público.
+              {data.identityDiagnostics.rosterCatalogInspection && (
+                <span className="mt-2 block">Inspección privada de Spotify: Kworb y Songstats coinciden en un único ID del roster para esta clave. El conflicto con el registro alternativo sigue pendiente; no se han combinado identidades.</span>
+              )}
             </div>
           )}
         <div className="border-b border-white/[.07] bg-[#080808]">

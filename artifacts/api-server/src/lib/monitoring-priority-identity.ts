@@ -1,4 +1,5 @@
 import type { PgPool } from "@workspace/db";
+import { FOUNDER_ROSTER_MONTH, FOUNDER_ROSTER_SQL, verifiedFounderRosterIds } from "./monitoring-founder-roster";
 
 export type MonitoringPriorityIdentity = {
   avatar_url: string | null;
@@ -8,7 +9,27 @@ export type MonitoringPriorityIdentity = {
   identity_conflict: boolean;
   malformed_provider_ids: string[];
   provider_sources: Array<{ source: string; artist_key: string; spotify_artist_id: string; fetched_at: string | null }>;
+  roster_catalog_inspection?: { spotifyArtistId: string; artistKey: string; source: "exact_key_roster_source_agreement" };
 };
+
+/** Inspection only: never resolves the conflict, merges identities, or grants
+ * eligibility. A registry-only alternative outside the fixed roster cannot
+ * erase an otherwise unanimous exact-key catalog mapping for the founder. */
+export function founderRosterCatalogInspection(
+  identity: MonitoringPriorityIdentity, artistKey: string, allowed: ReadonlySet<string>,
+): MonitoringPriorityIdentity["roster_catalog_inspection"] {
+  if (!identity.identity_conflict || identity.malformed_provider_ids.length || !artistKey) return undefined;
+  const sources = identity.provider_sources;
+  if (!sources.length || sources.some(row => row.artist_key !== artistKey || !/^[A-Za-z0-9]{22}$/.test(row.spotify_artist_id))) return undefined;
+  const established = sources.filter(row => row.source !== "spotify_artists");
+  const ids = new Set(established.map(row => row.spotify_artist_id));
+  if (ids.size !== 1 || !established.some(row => row.source === "kworb_coverage") || !established.some(row => row.source === "songstats_artists")) return undefined;
+  const [spotifyArtistId] = ids;
+  if (!spotifyArtistId || !allowed.has(spotifyArtistId)) return undefined;
+  const alternatives = sources.filter(row => row.spotify_artist_id !== spotifyArtistId);
+  if (!alternatives.length || alternatives.some(row => row.source !== "spotify_artists" || allowed.has(row.spotify_artist_id))) return undefined;
+  return { spotifyArtistId, artistKey, source: "exact_key_roster_source_agreement" };
+}
 
 /** Exact authorized source keys only. Discovery proposals never supply IDs.
  * A catalog source is usable only when the established mappings agree. */
@@ -54,10 +75,15 @@ export function buildMonitoringPriorityIdentitySql(artistKeysSql = "$1::text[]")
 export async function loadMonitoringPriorityArtistIdentity(
   readPool: Pick<PgPool, "query">,
   artistKeys: string[],
-  options: { identityConflict?: boolean; canonicalArtistKey?: string } = {},
+  options: { identityConflict?: boolean; canonicalArtistKey?: string; allowRosterScopedCatalogInspection?: boolean } = {},
 ): Promise<MonitoringPriorityIdentity[]> {
   const selected = options.identityConflict ? [options.canonicalArtistKey ?? artistKeys[0] ?? ""] : artistKeys;
   const keys = [...new Set(selected.filter(key => typeof key === "string" && Boolean(key.trim())))];
   const result = await readPool.query<MonitoringPriorityIdentity>(buildMonitoringPriorityIdentitySql(), [keys]);
+  if (options.allowRosterScopedCatalogInspection && keys.length === 1 && result.rows.some(row => row.identity_conflict)) {
+    const roster = await readPool.query<{ spotify_id: string }>(FOUNDER_ROSTER_SQL, [FOUNDER_ROSTER_MONTH]);
+    const allowed = verifiedFounderRosterIds(roster.rows);
+    for (const row of result.rows) row.roster_catalog_inspection = founderRosterCatalogInspection(row, keys[0]!, allowed);
+  }
   return result.rows;
 }
