@@ -832,21 +832,21 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {[
               ["Historial", data.history.length],
               ["Spotify", data.spotifyCatalog.items.length],
-              ["YouTube", data.youtubeCoverage.observedVideoCount],
+              ["YouTube · catálogo vinculado", data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded" ? "Pendiente" : data.liveVideos.length],
             ].map(([label, value]) => (
               <div key={label}>
                 <div className="flex justify-between text-[9px] font-black">
                   <span>{label}</span>
-                  <span className="text-white/30">{value} registros</span>
+                  <span className="text-white/30">{typeof value === "number" ? `${value} registros` : value}</span>
                 </div>
-                <div className="mt-2 h-1.5 rounded-full bg-white/[.07]">
+                {typeof value === "number" && <div className="mt-2 h-1.5 rounded-full bg-white/[.07]">
                   <div
                     className="h-full rounded-full bg-[#39FF14]"
                     style={{
                       width: `${Math.min(100, Math.max(8, Number(value)))}%`,
                     }}
                   />
-                </div>
+                </div>}
               </div>
             ))}
           </div>

@@ -41,6 +41,13 @@ test("YouTube direct and derived values keep their approved labels", () => {
   assert.match(experience, /video\.observedAt/);
 });
 
+test("Panel uses the linked video set and never renders a failed read as zero", () => {
+  const panel = experience.slice(experience.indexOf('<Kicker>Rendimiento digital</Kicker>'), experience.indexOf('<Kicker>Spotify · canciones</Kicker>'));
+  assert.match(panel, /YouTube · catálogo vinculado/);
+  assert.match(panel, /priority_youtube_live_videos !== "loaded" \? "Pendiente" : data.liveVideos.length/);
+  assert.doesNotMatch(panel, /youtubeCoverage.observedVideoCount/);
+});
+
 test("unimplemented report and alert promises are identified honestly", () => {
   assert.match(
     experience,
