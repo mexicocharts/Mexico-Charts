@@ -14,7 +14,10 @@ import { useMexicoAuth } from "@/auth/AuthProvider";
 import {
   requestMonitorResource,
   shouldRetryMonitorRequest,
+  validateMonitorDashboard,
 } from "@/lib/monitorRequest.mjs";
+import { monitorRuntimeSummary } from "@/lib/monitorRuntimeSummary";
+import type { MonitorDashboardData } from "@/components/monitoring/MonitorProExperience";
 import {
   loadCompleteMonitoringAudit,
   loadMonitoringDirectoryPage,
@@ -42,6 +45,7 @@ export default function MonitoringFounder() {
     running: boolean;
   } | null>(null);
   const exportController = useRef<AbortController | null>(null);
+  const runtimeProgress = useRef<unknown[]>([]);
   const authScope = `${auth.userId ?? ""}:${auth.isSignedIn}:${auth.isLoaded}`;
   const activeScope = useRef(authScope);
   activeScope.current = authScope;
@@ -54,6 +58,7 @@ export default function MonitoringFounder() {
   }, [search]);
   useEffect(() => {
     setExportState(null);
+    runtimeProgress.current = [];
     return () => {
       exportController.current?.abort();
       exportController.current = null;
@@ -84,6 +89,65 @@ export default function MonitoringFounder() {
   const error = result.error as (Error & { status?: number }) | null;
   const currentExport =
     enabled && exportState?.scope === authScope ? exportState : null;
+  const privatePreview = import.meta.env.BASE_URL === "/monitor-pro-private-preview/";
+  function downloadRuntime() {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({
+      exportedAt: new Date().toISOString(), evidence: "authenticated_runtime_not_visual_acceptance",
+      completed: runtimeProgress.current.length, results: runtimeProgress.current,
+    }, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `monitor-pro-authenticated-runtime-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  async function verifyRuntime() {
+    if (!privatePreview || !enabled || !data || currentExport?.running) return;
+    const controller = new AbortController();
+    exportController.current = controller;
+    runtimeProgress.current = [];
+    const progress = (text: string, running = true) => {
+      if (activeScope.current === authScope) setExportState({ scope: authScope, text, running });
+    };
+    try {
+      progress("Verificando aislamiento y leyendo el roster…");
+      const health = await requestMonitorResource<{ mode: string; databaseReadOnly: boolean; backgroundJobsStarted: boolean }>({
+        getToken: auth.getToken, input: "/api/preview-health", signal: controller.signal,
+      });
+      if (health.mode !== "read-only-monitor-pro-preview" || health.databaseReadOnly !== true || health.backgroundJobsStarted !== false)
+        throw new Error("La verificación requiere el API privado aislado y de solo lectura.");
+      const roster = await loadCompleteMonitoringAudit((next, signal) => requestMonitorResource({
+        getToken: auth.getToken, input: `/api/monitoring/internal/directory?limit=25&offset=${next}&view=inventory`, signal,
+        readResponse: async response => validateMonitoringDirectory(await response.json()),
+      }), { signal: controller.signal });
+      let consecutiveFailures = 0;
+      for (const artist of roster.artists) {
+        if (controller.signal.aborted || activeScope.current !== authScope) throw new DOMException("Cancelled", "AbortError");
+        const started = performance.now();
+        try {
+          const payload = await requestMonitorResource<MonitorDashboardData>({
+            getToken: auth.getToken, input: `/api/monitoring/dashboard/${encodeURIComponent(artist.artistKey)}`,
+            signal: controller.signal, readResponse: async response => validateMonitorDashboard(await response.json()),
+          });
+          runtimeProgress.current.push(monitorRuntimeSummary(artist.artistKey, payload, performance.now() - started));
+          consecutiveFailures = 0;
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+          const status = (error as { status?: number }).status ?? null;
+          runtimeProgress.current.push({ artistKey: artist.artistKey, status, outcome: "request_failed", durationMs: Math.round(performance.now() - started) });
+          consecutiveFailures++;
+          if (status === 401 || consecutiveFailures >= 5) throw new Error("Verificación pausada por autenticación o cinco fallos consecutivos. Descarga el avance.");
+        }
+        progress(`${runtimeProgress.current.length} / ${roster.total} respuestas de perfiles verificadas · no equivale a aceptación visual`);
+      }
+      downloadRuntime();
+      progress(`${runtimeProgress.current.length} respuestas exportadas. Portadas finales, PDF y aceptación visual siguen siendo comprobaciones separadas.`, false);
+    } catch (error) {
+      progress(error instanceof Error ? error.message : "Verificación interrumpida; descarga el avance.", false);
+    } finally {
+      if (exportController.current === controller) exportController.current = null;
+    }
+  }
   async function exportAudit() {
     if (!enabled || !data) return;
     exportController.current?.abort();
@@ -220,6 +284,11 @@ export default function MonitoringFounder() {
                 </button>
               )}
             </div>
+            {privatePreview && data && <div className="mt-3 flex gap-3 text-xs">
+              <button disabled={currentExport?.running} onClick={verifyRuntime} className="rounded border border-white/20 px-4 py-2 disabled:opacity-40">Verificar respuestas del roster · solo lectura</button>
+              {runtimeProgress.current.length > 0 && <button onClick={downloadRuntime} className="rounded border border-white/20 px-4 py-2">Descargar avance runtime</button>}
+              {currentExport?.running && <button onClick={() => exportController.current?.abort()} className="rounded border border-white/20 px-4 py-2">Detener verificación</button>}
+            </div>}
             {currentExport && (
               <p role="status" className="mt-3 text-xs text-white/60">
                 {currentExport.text}
