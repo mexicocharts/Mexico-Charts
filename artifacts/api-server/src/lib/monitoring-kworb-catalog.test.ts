@@ -201,6 +201,43 @@ test("a failed shared Kworb request is evicted and the next reader can retry", a
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test("one failed page preserves the other page without inventing absence, dates or zero totals", async () => {
+  const originalFetch = globalThis.fetch;
+  let albumCalls = 0;
+  globalThis.fetch = (async input => {
+    const url = String(input);
+    if (url.endsWith("_songs.html")) return new Response('<p>Last updated: 2026/09/27</p>' + capturedSongs);
+    if (url.endsWith("_albums.html")) { albumCalls++; return new Response("", { status: 404 }); }
+    return new Response("", { status: 503 });
+  }) as typeof fetch;
+  try {
+    const [a, b] = await Promise.all([loadCompleteMonitoringKworbCatalog("test-partial-pages"), loadCompleteMonitoringKworbCatalog("test-partial-pages")]);
+    assert.equal(a, b);
+    assert.equal(a.items.length, 2);
+    assert.equal(a.pageStatus?.albums.status, "unresolved");
+    assert.equal(a.pageStatus?.albums.httpStatus, 404);
+    assert.equal(a.sourceDates.tracks, "2026-09-27");
+    assert.equal(a.sourceDates.albums, null);
+    assert.equal(a.snapshotDate, null);
+    assert.equal(summarizeMonitoringKworbCatalog(a.items).albumTotalStreams, null);
+    assert.equal(summarizeMonitoringKworbCatalog(a.items).trackDailyStreams, null);
+    await loadCompleteMonitoringKworbCatalog("test-partial-pages");
+    assert.equal(albumCalls, 2, "partial responses are not cached as six-hour source absence");
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("unparseable successful page is unresolved while the valid album page survives", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async input => new Response(String(input).endsWith("_albums.html") ? capturedAlbums : "<html>unrecognized</html>")) as typeof fetch;
+  try {
+    const result = await loadCompleteMonitoringKworbCatalog("test-unparseable-songs");
+    assert.equal(result.items.length, 4);
+    assert.equal(result.pageStatus?.tracks.reason, "no_parseable_rows");
+    assert.equal(result.sourceDates.tracks, null);
+    assert.equal(summarizeMonitoringKworbCatalog(result.items).trackTotalStreams, null);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test("artwork deadline aborts pending images without discarding parsed streams or starting later batches", async () => {
   const originalFetch = globalThis.fetch;
   const originalId = process.env["SPOTIFY_CLIENT_ID"];

@@ -15,7 +15,10 @@ export type MonitoringKworbCatalog = {
   snapshotDate: string | null;
   source: "kworb_live_complete_catalog";
   items: MonitoringKworbCatalogItem[];
+  pageStatus?: { tracks: CatalogPageStatus; albums: CatalogPageStatus };
 };
+
+export type CatalogPageStatus = { status: "loaded" | "unresolved"; httpStatus: number | null; reason: "http_error" | "request_failed" | "no_parseable_rows" | null };
 
 const CACHE_MS = 6 * 60 * 60 * 1_000;
 const OEMBED_TRACK_LIMIT = 36;
@@ -113,6 +116,7 @@ export function summarizeMonitoringKworbCatalog(items: MonitoringKworbCatalogIte
   const tracks = items.filter((item) => item.type === "track");
   const albums = items.filter((item) => item.type === "album");
   const sum = (group: MonitoringKworbCatalogItem[], field: "totalStreams" | "dailyStreams") => {
+    if (!group.length) return null;
     let total = 0;
     for (const item of group) {
       const value = item[field];
@@ -216,7 +220,7 @@ export async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[], 
     ]);
   const apiEnriched = items.map((item) => ({
     ...item,
-    artworkUrl: artwork.get(`${item.type}:${item.key}`) ?? null,
+    artworkUrl: artwork.get(`${item.type}:${item.key}`) ?? item.artworkUrl ?? null,
   }));
   const oembedCandidates = [
     ...apiEnriched.filter((item) => item.type === "album" && !item.artworkUrl),
@@ -263,6 +267,7 @@ export async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[], 
 }
 
 async function fetchPage(spotifyArtistId: string, suffix: "songs" | "albums") {
+  try {
   const response = await fetch(
     `https://kworb.net/spotify/artist/${spotifyArtistId}_${suffix}.html`,
     {
@@ -274,9 +279,11 @@ async function fetchPage(spotifyArtistId: string, suffix: "songs" | "albums") {
       signal: AbortSignal.timeout(8_000),
     },
   );
-  if (!response.ok)
-    throw new Error(`Kworb ${suffix} request failed: HTTP ${response.status}`);
-  return response.text();
+  if (!response.ok) return { html: null, status: { status: "unresolved", httpStatus: response.status, reason: "http_error" } as CatalogPageStatus };
+  return { html: await response.text(), status: { status: "loaded", httpStatus: response.status, reason: null } as CatalogPageStatus };
+  } catch {
+    return { html: null, status: { status: "unresolved", httpStatus: null, reason: "request_failed" } as CatalogPageStatus };
+  }
 }
 
 export async function loadCompleteMonitoringKworbCatalog(
@@ -307,26 +314,27 @@ async function fetchCompleteMonitoringKworbCatalog(
     fetchPage(spotifyArtistId, "albums"),
   ]);
   const parsedItems = [
-    ...parseMonitoringKworbCatalog(songs, "track"),
-    ...parseMonitoringKworbCatalog(albums, "album"),
+    ...parseMonitoringKworbCatalog(songs.html ?? "", "track"),
+    ...parseMonitoringKworbCatalog(albums.html ?? "", "album"),
   ];
-  if (
-    !parsedItems.some((item) => item.type === "track") ||
-    !parsedItems.some((item) => item.type === "album")
-  ) {
-    throw new Error(
-      "Kworb complete catalog response did not contain both tracks and albums",
-    );
+  for (const [page, type] of [[songs, "track"], [albums, "album"]] as const) {
+    if (page.status.status === "loaded" && !parsedItems.some(item => item.type === type))
+      page.status = { ...page.status, status: "unresolved", reason: "no_parseable_rows" };
   }
+  if (!parsedItems.length) throw new Error(`Kworb catalog has no usable pages: tracks HTTP ${songs.status.httpStatus ?? "unknown"}; albums HTTP ${albums.status.httpStatus ?? "unknown"}`);
   const items = await enrichSpotifyArtwork(parsedItems, catalogDeadline);
-  const sourceDates = { tracks: parseMonitoringKworbSourceDate(songs), albums: parseMonitoringKworbSourceDate(albums) };
+  const sourceDates = { tracks: songs.status.status === "loaded" ? parseMonitoringKworbSourceDate(songs.html!) : null,
+    albums: albums.status.status === "loaded" ? parseMonitoringKworbSourceDate(albums.html!) : null };
   const value: MonitoringKworbCatalog = {
     fetchedAt: new Date().toISOString(),
     sourceDates,
     snapshotDate: sourceDates.tracks != null && sourceDates.tracks === sourceDates.albums ? sourceDates.tracks : null,
     source: "kworb_live_complete_catalog",
     items,
+    pageStatus: { tracks: songs.status, albums: albums.status },
   };
-  cache.set(spotifyArtistId, { expiresAt: Date.now() + CACHE_MS, value });
+  // A transient/404 page must not become a six-hour cached empty catalog.
+  if (songs.status.status === "loaded" && albums.status.status === "loaded")
+    cache.set(spotifyArtistId, { expiresAt: Date.now() + CACHE_MS, value });
   return value;
 }

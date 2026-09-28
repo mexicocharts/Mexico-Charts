@@ -200,6 +200,8 @@ export type MonitorDashboardData = {
     source: "archive" | "kworb_live_complete_catalog" | "unavailable";
     snapshotDate: string | null;
     sourceDates?: { tracks: string | null; albums: string | null } | null;
+    pageStatus?: { tracks: { status: "loaded" | "unresolved" }; albums: { status: "loaded" | "unresolved" } } | null;
+    coverageStatus?: "partial_unresolved" | null;
     trackCount: number;
     albumCount: number;
     trackDailyStreams: number | null;
@@ -1097,6 +1099,10 @@ function SpotifyView() {
   const heroAlbums = spotifyAlbums.slice(0, 4);
   return (
     <div className="space-y-5">
+      {data.spotifyCatalog.coverageStatus === "partial_unresolved" && <div role="status" className="rounded-xl border border-amber-400/30 p-4 text-sm text-amber-200">
+        Catálogo parcial: la consulta de {data.spotifyCatalog.pageStatus?.tracks.status === "unresolved" ? "canciones" : "álbumes"} sigue sin resolverse.
+        Se muestran los registros disponibles; los recuentos no confirman el catálogo total ni la ausencia de otros lanzamientos. Los registros guardados se conservan sin actualizar su fecha.
+      </div>}
       <div role="status" className="text-xs text-white/45">
         Portadas: {spotifyTracks.filter(item => item.artworkUrl).length}/{spotifyTracks.length} canciones · {spotifyAlbums.filter(item => item.artworkUrl).length}/{spotifyAlbums.length} álbumes.
         {artworkLoading && " Cargando las portadas restantes sin bloquear los streams…"}

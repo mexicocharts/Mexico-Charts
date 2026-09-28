@@ -36,6 +36,7 @@ export type MonitoringReportInput = {
     source?: "archive" | "kworb_live_complete_catalog" | "unavailable";
     snapshotDate: string | null;
     sourceDates?: { tracks: string | null; albums: string | null } | null;
+    coverageStatus?: "partial_unresolved" | null;
     trackCount: number;
     albumCount: number;
     trackDailyStreams: number | null;
@@ -67,6 +68,7 @@ const COLORS = {
 };
 
 export function monitoringCatalogDateDescription(catalog: MonitoringReportInput["spotifyCatalog"]): string {
+  if (catalog.coverageStatus === "partial_unresolved") return "parcial; consulta de fuente pendiente, no ausencia confirmada";
   if (catalog.source !== "kworb_live_complete_catalog" && catalog.sourceDates == null) return catalog.snapshotDate ?? "sin fecha";
   const { tracks = null, albums = null } = catalog.sourceDates ?? {};
   return tracks != null && tracks === albums ? tracks : `canciones ${tracks ?? "sin fecha"}; álbumes ${albums ?? "sin fecha"}`;

@@ -30,6 +30,22 @@ test("unknown source date is never replaced by fetch date", async () => {
   assert.equal(result.served_summary?.snapshot_date, null);
   assert.equal((result.source_evidence.liveCatalogInvestigation as any).observedAt, null);
 });
+
+test("partial live evidence preserves stored rows on the failed side and cannot prove completeness", async () => {
+  const stored = { ...row, stream_items: [{ item_type: "album", item_key: "stored", title: "Stored album", artwork_url: null }] };
+  const result = await reconcileMonitoringLiveCatalog(artist, stored, async () => ({ ...catalog,
+    items: catalog.items.filter(item => item.type === "track"), snapshotDate: null,
+    sourceDates: { tracks: "2026-09-27", albums: null },
+    pageStatus: { tracks: { status: "loaded", httpStatus: 200, reason: null }, albums: { status: "unresolved", httpStatus: 404, reason: "http_error" } },
+  }));
+  assert.equal(result.stream_items?.length, 2);
+  assert.equal(result.stream_items?.[1]?.item_key, "stored");
+  assert.equal(result.served_summary?.album_total_streams, null);
+  assert.equal((result.source_evidence.liveCatalogInvestigation as any).coverageStatus, "partial_unresolved");
+  assert.equal((result.source_evidence.liveCatalogInvestigation as any).artworkEvidenceApplied, false);
+  assert.equal((result.source_evidence.catalogCompleteness as any).verified, false);
+  assert.equal(result.source_evidence.youtube, row.source_evidence.youtube);
+});
 test("failed provider read preserves stored data and redacts upstream details", async () => {
   const result = await reconcileMonitoringLiveCatalog(artist, row, async () => { throw Error("credential-must-not-appear"); });
   assert.equal(result.summary, row.summary);

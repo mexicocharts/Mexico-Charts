@@ -46,9 +46,12 @@ export async function reconcileMonitoringLiveCatalog(
   const streamItems = catalog.items.map(item => ({ item_type: item.type, item_key: item.key, title: item.title,
     artwork_url: item.artworkUrl, spotify_url: item.spotifyUrl, total_streams: item.totalStreams,
     daily_streams: item.dailyStreams, compilation: item.compilation }));
-  return { ...row, stream_items: streamItems, served_summary: {
+  const retainedItems = (row.stream_items ?? []).filter(item =>
+    catalog.pageStatus?.[item.item_type === "track" ? "tracks" : "albums"].status === "unresolved");
+  return { ...row, stream_items: [...streamItems, ...retainedItems], served_summary: {
     snapshot_date: catalog.snapshotDate, fetched_at: catalog.fetchedAt,
-    track_count: totals.trackCount, album_count: totals.albumCount,
+    track_count: totals.trackCount + retainedItems.filter(item => item.item_type === "track").length,
+    album_count: totals.albumCount + retainedItems.filter(item => item.item_type === "album").length,
     track_total_streams: totals.trackTotalStreams, track_daily_streams: totals.trackDailyStreams,
     album_total_streams: totals.albumTotalStreams, album_daily_streams: totals.albumDailyStreams,
     source_table: catalog.source, source_artist_keys: [artist.artistKey], derivation: "sum_catalog_items",
@@ -56,8 +59,11 @@ export async function reconcileMonitoringLiveCatalog(
     liveCatalogInvestigation: { status: "reviewed", reviewKind: "shared_profile_loader_capture_not_visual_acceptance",
       source: catalog.source, reference, spotifyArtistId: id, observedAt: catalog.snapshotDate,
       sourceDates: catalog.sourceDates, acquiredAt: catalog.fetchedAt,
+      pageStatus: catalog.pageStatus ?? null,
+      coverageStatus: catalog.pageStatus && Object.values(catalog.pageStatus).some(page => page.status === "unresolved") ? "partial_unresolved" : "pages_loaded",
+      retainedStoredItemCount: retainedItems.length,
       attemptedAt: new Date(started).toISOString(), durationMs: Date.now() - started,
-      catalogEvidenceApplied: true, artworkEvidenceApplied: catalog.items.every(item => Boolean(item.artworkUrl)),
+      catalogEvidenceApplied: true, artworkEvidenceApplied: !retainedItems.length && !Object.values(catalog.pageStatus ?? {}).some(page => page.status === "unresolved") && catalog.items.every(item => Boolean(item.artworkUrl)),
       artworkLookupAttempted: true,
       artworkStatus: catalog.items.every(item => Boolean(item.artworkUrl)) ? "all_items_matched" : "partial_provider_lookup_unresolved",
       sourceUrls: [`https://kworb.net/spotify/artist/${id}_songs.html`, `https://kworb.net/spotify/artist/${id}_albums.html`],
@@ -67,6 +73,7 @@ export async function reconcileMonitoringLiveCatalog(
     catalogCompleteness: { verified: false, source: catalog.source, reference, spotifyArtistId: id,
       reason: "independent_source_row_coverage_not_verified", measuredTracks: totals.trackCount, measuredAlbums: totals.albumCount },
     liveCatalogRuntime: { reference, source: catalog.source, items: streamItems,
+      pageStatus: catalog.pageStatus ?? null,
       tracks: totals.trackCount, albums: totals.albumCount,
       tracksWithLifetimeStreams: catalog.items.filter(i => i.type === "track" && i.totalStreams != null).length,
       tracksWithDailyStreams: catalog.items.filter(i => i.type === "track" && i.dailyStreams != null).length,

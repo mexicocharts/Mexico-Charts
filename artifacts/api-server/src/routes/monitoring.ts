@@ -580,7 +580,8 @@ async function loadAuthorizedMonitoring(
   if (completeCatalog) {
     spotifyCatalogSource = completeCatalog.source;
     catalogSourceDates = completeCatalog.sourceDates;
-    resolvedStreamItems = completeCatalog.items.map((item) => ({
+    const retainedStoredItems = resolvedStreamItems.filter(item => completeCatalog.pageStatus?.[item.item_type === "track" ? "tracks" : "albums"].status === "unresolved");
+    resolvedStreamItems = [...completeCatalog.items.map((item) => ({
       item_type: item.type,
       item_key: item.key,
       title: item.title,
@@ -589,8 +590,12 @@ async function loadAuthorizedMonitoring(
       compilation: item.compilation,
       total_streams: item.totalStreams,
       daily_streams: item.dailyStreams,
-    }));
-    const totals = summarizeMonitoringKworbCatalog(completeCatalog.items);
+    })), ...retainedStoredItems];
+    const totals = summarizeMonitoringKworbCatalog(resolvedStreamItems.map(item => ({
+      type: item.item_type as "track" | "album", key: item.item_key, title: item.title,
+      spotifyUrl: item.spotify_url, artworkUrl: item.artwork_url, compilation: Boolean(item.compilation),
+      totalStreams: nullableNumber(item.total_streams), dailyStreams: nullableNumber(item.daily_streams),
+    })));
     resolvedStreamSummary = [
       {
         snapshot_date: completeCatalog.snapshotDate,
@@ -812,6 +817,8 @@ async function loadAuthorizedMonitoring(
     spotifyCatalog: {
       source: spotifyCatalogSource,
       sourceDates: catalogSourceDates,
+      pageStatus: completeCatalog?.pageStatus ?? null,
+      coverageStatus: completeCatalog?.pageStatus && Object.values(completeCatalog.pageStatus).some(page => page.status === "unresolved") ? "partial_unresolved" : null,
       summaryProvenance: latestStreamSummary ? {
         source: latestStreamSummary.source_table,
         derivation: latestStreamSummary.derivation,
