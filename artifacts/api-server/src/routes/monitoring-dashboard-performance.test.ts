@@ -270,8 +270,18 @@ test("dashboard reads use the dedicated three-connection monitoring pool", () =>
   assert.match(source, /const priorityLiveVideos = dashboardStage/);
   assert.match(
     source,
-    /const \[youtubeCoverage, availableHistory\] = await Promise\.all/s,
+    /const \[comparisonRows, youtubeCoverage, availableHistory\] = await Promise\.all/s,
   );
+});
+
+test("comparison and coverage reads retain the request budget without serializing behind external catalog", () => {
+  const comparison = source.slice(source.indexOf("const priorityComparisonRows"), source.indexOf("const prioritySnapshots"));
+  assert.doesNotMatch(comparison, /1_500/);
+  const core = source.slice(source.indexOf("const [\n    prioritizedArtistIdentity"), source.indexOf("const priorityCoverage"));
+  assert.doesNotMatch(core, /priorityComparisonRows/);
+  assert.ok(source.indexOf("const priorityCoverage") < source.indexOf("const [completeCatalog, prioritizedLiveVideos]"));
+  assert.match(source, /const \[comparisonRows, youtubeCoverage, availableHistory\] = await Promise\.all\(\[\s*priorityComparisonRows,\s*priorityCoverage,/);
+  assert.match(source, /DASHBOARD_LOAD_BUDGET_MS = 12_000/);
 });
 
 test("Spotify catalog and stored YouTube counters are prioritized before optional enrichment", () => {

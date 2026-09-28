@@ -461,7 +461,6 @@ async function loadAuthorizedMonitoring(
         )
         .then((result) => result.rows),
     [],
-    1_500,
   );
   const prioritySnapshots = dashboardStage(
     "priority_daily_snapshots",
@@ -485,7 +484,6 @@ async function loadAuthorizedMonitoring(
     spotifyHistory,
     spotifySnapshots,
     storedTrackArtwork,
-    comparisonRows,
     snapshots,
   ] = await Promise.all([
     priorityArtistIdentity,
@@ -494,13 +492,63 @@ async function loadAuthorizedMonitoring(
     prioritySpotifyHistory,
     prioritySpotifySnapshot,
     priorityStoredTrackArtwork,
-    priorityComparisonRows,
     prioritySnapshots,
   ]);
 
   // Do not serialize real stored YouTube reads behind external Spotify artwork.
   // Use the existing remaining dashboard budget (and existing DB statement
   // timeout), not the former 1.5s cutoff which discarded successful cold reads.
+  // Start this bounded database read before waiting on external catalog fetches.
+  const priorityCoverage = dashboardStage(
+      "youtube_coverage",
+      () =>
+        monitoringReadPool
+          .query<{
+            channel_video_count: string | number | null;
+            videos_imported: string | number | null;
+            expected_total_videos: string | number | null;
+            import_status: "complete" | "retryable" | null;
+            next_page_token: string | null;
+            completed_at: string | null;
+            linked_video_count: string | number;
+            observed_video_count: string | number;
+          }>(
+            `
+      WITH selected_links AS MATERIALIZED (
+        SELECT link.video_id, link.confidence_score
+        FROM youtube_artist_video_links link
+        WHERE link.active=true
+          AND link.artist_key = ANY($1::text[])
+      ), counts AS (
+        SELECT count(DISTINCT link.video_id) linked_video_count,
+               count(DISTINCT link.video_id) FILTER (
+                 WHERE link.confidence_score >= 80 AND sample.video_id IS NOT NULL
+               ) observed_video_count
+        FROM selected_links link
+        LEFT JOIN youtube_video_intraday_latest_observations sample ON sample.video_id=link.video_id
+      )
+      SELECT
+        yc.video_count channel_video_count,
+        import_state.videos_imported,
+        import_state.expected_total_videos,
+        import_state.status import_status,
+        import_state.next_page_token,
+        import_state.completed_at::text,
+        counts.linked_video_count,
+        counts.observed_video_count
+      FROM youtube_channels yc
+      CROSS JOIN counts
+      LEFT JOIN youtube_channel_upload_import_state import_state
+        ON import_state.artist_key=yc.artist_key
+      WHERE lower(yc.artist_key) = ANY($1::text[])
+      LIMIT 1
+    `,
+            [activeKeys],
+          )
+          .then((result) => result.rows),
+      [],
+    );
+
   const priorityLiveVideos = dashboardStage(
     "priority_youtube_live_videos",
     () => loadMonitoringYoutubeLiveVideos(monitoringReadPool, activeKeys, {
@@ -592,56 +640,9 @@ async function loadAuthorizedMonitoring(
     }),
     [],
   );
-  const [youtubeCoverage, availableHistory] = await Promise.all([
-    dashboardStage(
-      "youtube_coverage",
-      () =>
-        monitoringReadPool
-          .query<{
-            channel_video_count: string | number | null;
-            videos_imported: string | number | null;
-            expected_total_videos: string | number | null;
-            import_status: "complete" | "retryable" | null;
-            next_page_token: string | null;
-            completed_at: string | null;
-            linked_video_count: string | number;
-            observed_video_count: string | number;
-          }>(
-            `
-      WITH selected_links AS MATERIALIZED (
-        SELECT link.video_id, link.confidence_score
-        FROM youtube_artist_video_links link
-        WHERE link.active=true
-          AND link.artist_key = ANY($1::text[])
-      ), counts AS (
-        SELECT count(DISTINCT link.video_id) linked_video_count,
-               count(DISTINCT link.video_id) FILTER (
-                 WHERE link.confidence_score >= 80 AND sample.video_id IS NOT NULL
-               ) observed_video_count
-        FROM selected_links link
-        LEFT JOIN youtube_video_intraday_latest_observations sample ON sample.video_id=link.video_id
-      )
-      SELECT
-        yc.video_count channel_video_count,
-        import_state.videos_imported,
-        import_state.expected_total_videos,
-        import_state.status import_status,
-        import_state.next_page_token,
-        import_state.completed_at::text,
-        counts.linked_video_count,
-        counts.observed_video_count
-      FROM youtube_channels yc
-      CROSS JOIN counts
-      LEFT JOIN youtube_channel_upload_import_state import_state
-        ON import_state.artist_key=yc.artist_key
-      WHERE lower(yc.artist_key) = ANY($1::text[])
-      LIMIT 1
-    `,
-            [activeKeys],
-          )
-          .then((result) => result.rows),
-      [],
-    ),
+  const [comparisonRows, youtubeCoverage, availableHistory] = await Promise.all([
+    priorityComparisonRows,
+    priorityCoverage,
     dashboardStage(
       "compact_history_overview",
       () =>
