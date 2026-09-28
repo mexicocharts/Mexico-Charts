@@ -53,6 +53,7 @@ import MonitorVideoHistory from "./MonitorVideoHistory";
 import { compareCatalogCounts, formatCatalogDaily, formatCatalogCutoff } from "@/lib/monitorCatalog.mjs";
 import { monitorReportRecommendation, type CompactMonitorReleaseImpact } from "@/lib/monitorReport.mjs";
 import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArtwork.mjs";
+import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1016,32 +1017,45 @@ function SpotifyView() {
   const [artworkLoading, setArtworkLoading] = useState(false);
   const [artworkError, setArtworkError] = useState(false);
   const [artworkAttempt, setArtworkAttempt] = useState(0);
-  const batches = useMemo(() => missingArtworkBatches(data.spotifyCatalog.items), [data.spotifyCatalog.items]);
+  const resolvedArtwork = useRef<Record<string, string>>({});
   useEffect(() => {
-    setArtwork({}); setArtworkError(false);
-    if (!auth.isSignedIn || !auth.userId || !batches.length) { setArtworkLoading(false); return; }
+    resolvedArtwork.current = {};
+    setArtwork({});
+  }, [auth.userId, data.subscription.artistKey, data.spotifyCatalog.items]);
+  useEffect(() => {
+    setArtworkError(false);
+    if (!auth.isSignedIn || !auth.userId) { setArtworkLoading(false); return; }
     const controller = new AbortController();
     setArtworkLoading(true);
     void (async () => {
       try {
         // One bounded, authenticated batch at a time. Leaving Spotify cancels
         // the sequence; no polling, background worker or database write.
-        for (const batch of batches) {
-          const items = await requestMonitorResource({
-            getToken: () => artworkToken.current(),
-            input: `/api/monitoring/artwork/${encodeURIComponent(data.subscription.artistKey)}?items=${encodeURIComponent(batch.join(","))}`,
-            signal: controller.signal,
-            readResponse: async response => validateArtworkResponse(await response.json(), batch),
-          });
-          if (controller.signal.aborted) return;
-          setArtwork(previous => ({ ...previous, ...Object.fromEntries(items.filter(item => item.artworkUrl).map(item => [item.resource, item.artworkUrl!])) }));
-          if (items.some(item => item.status === "pending")) setArtworkError(true);
+        // One initial pass and one bounded retry of unresolved resources only.
+        // A failed batch must not prevent later catalog covers from loading.
+        for (let pass = 0; pass < 2; pass++) {
+          const batches = missingArtworkBatches(data.spotifyCatalog.items, 12, resolvedArtwork.current);
+          for (const batch of batches) {
+            if (controller.signal.aborted) return;
+            try {
+              const items = await requestMonitorResource({
+                getToken: () => artworkToken.current(),
+                input: `/api/monitoring/artwork/${encodeURIComponent(data.subscription.artistKey)}?items=${encodeURIComponent(batch.join(","))}`,
+                signal: controller.signal,
+                readResponse: async response => validateArtworkResponse(await response.json(), batch),
+              });
+              if (controller.signal.aborted) return;
+              resolvedArtwork.current = { ...resolvedArtwork.current, ...Object.fromEntries(items.filter(item => item.artworkUrl).map(item => [item.resource, item.artworkUrl!])) };
+              setArtwork({ ...resolvedArtwork.current });
+            } catch { if (controller.signal.aborted) return; }
+          }
         }
+        if (!controller.signal.aborted) setArtworkError(missingArtworkBatches(data.spotifyCatalog.items, 12, resolvedArtwork.current).length > 0);
       } catch { if (!controller.signal.aborted) setArtworkError(true); }
       finally { if (!controller.signal.aborted) setArtworkLoading(false); }
     })();
     return () => controller.abort();
-  }, [auth.userId, auth.isSignedIn, data.subscription.artistKey, batches, artworkAttempt]);
+  }, [auth.userId, auth.isSignedIn, data.subscription.artistKey, data.spotifyCatalog.items, artworkAttempt]);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"daily" | "total">("daily");
   const spotifyTracks = data.spotifyCatalog.items
@@ -1714,7 +1728,6 @@ function MarketsView() {
           {cities.map((market, index) => {
             const {
               name: city,
-              region,
               currentListeners: current,
               peakListeners: peak,
             } = market;
@@ -1730,7 +1743,7 @@ function MarketsView() {
                     <div>
                       <p className="text-sm font-black">{city}</p>
                       <p className="text-[8px] uppercase tracking-[.12em] text-white/25">
-                        {region ?? market.countryCode}
+                        {monitorMarketRegion(market)}
                       </p>
                     </div>
                   </div>

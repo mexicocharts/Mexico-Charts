@@ -1,5 +1,5 @@
-export function missingArtworkBatches(items, size = 12) {
-  const keys = [...new Set(items.filter(item => !item.artworkUrl && /^(track|album)$/.test(item.type) && /^[A-Za-z0-9]{22}$/.test(item.key))
+export function missingArtworkBatches(items, size = 12, resolved = {}) {
+  const keys = [...new Set(items.filter(item => !item.artworkUrl && !resolved[`${item.type}:${item.key}`] && /^(track|album)$/.test(item.type) && /^[A-Za-z0-9]{22}$/.test(item.key))
     .map(item => `${item.type}:${item.key}`))];
   return Array.from({ length: Math.ceil(keys.length / size) }, (_, i) => keys.slice(i * size, (i + 1) * size));
 }
