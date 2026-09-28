@@ -30,6 +30,11 @@ export type WeeklyReportInput = Omit<
   };
 };
 
+export function reportSpotifyArtworkIndex(videoCount: number, featuredTrackCount: number, type: "track" | "album", row: number) {
+  // Images are packed after the cover and videos; sparse catalogs have no padding.
+  return 1 + videoCount + (type === "album" ? featuredTrackCount : 0) + row;
+}
+
 export function reportGrowth(input: Pick<WeeklyReportInput, "growth" | "history">, metric: string, days: number) {
   // An explicit missing window must stay missing, not fall back to a different
   // source. The report and dashboard consume exactly the same growth payload.
@@ -484,7 +489,7 @@ export async function createMonitoringWeeklyReport(
       .slice(0, 5);
     featured.forEach((item, i) => {
         const y = 286 - i * 42;
-        const imageIndex = 1 + videos.length + col * 5 + i;
+        const imageIndex = reportSpotifyArtworkIndex(videos.length, featuredSpotify.filter(item => item.type === "track").length, type, i);
         picture(images[imageIndex], x + 18, y - 5, 30, 30);
         text(x + 56, y, item.title, 8.5, WHITE, 162);
         text(x + 232, y, compact(item.dailyStreams), 8, GREEN, 55);

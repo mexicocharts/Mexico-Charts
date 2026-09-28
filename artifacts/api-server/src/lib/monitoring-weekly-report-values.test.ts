@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { exactReportChange, reportChangeColor, reportCatalogDaily, reportYoutubeComparison, reportRecommendations, type WeeklyReportInput } from "./monitoring-weekly-report";
+import { exactReportChange, reportChangeColor, reportCatalogDaily, reportYoutubeComparison, reportRecommendations, reportSpotifyArtworkIndex, type WeeklyReportInput } from "./monitoring-weekly-report";
+
+test("album artwork follows the actual featured track count, including sparse catalogs", () => {
+  for (const videos of [0, 1, 3]) {
+    for (const tracks of [0, 1, 2, 5]) {
+      const packed = ["cover", ...Array.from({ length: videos }, (_, i) => `video${i}`),
+        ...Array.from({ length: tracks }, (_, i) => `track${i}`), "album0", "album1"];
+      for (let i = 0; i < tracks; i++) assert.equal(packed[reportSpotifyArtworkIndex(videos, tracks, "track", i)], `track${i}`);
+      for (let i = 0; i < 2; i++) assert.equal(packed[reportSpotifyArtworkIndex(videos, tracks, "album", i)], `album${i}`);
+    }
+  }
+});
 
 test("exact report appendix retains all measured change digits", () => {
   assert.equal(exactReportChange(-934_947), "-934,947");
