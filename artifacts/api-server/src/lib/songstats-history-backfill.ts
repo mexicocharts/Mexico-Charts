@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { historyWalAmplification } from "./songstats-history-insert-wal";
 import type { SongstatsHistoricStatsResponse } from "./songstats-client";
 import {
   fetchLicensedSongstatsArtistHistory,
@@ -419,11 +420,8 @@ export async function runSongstatsHistoryBackfill(
           });
           options.onProgress?.({ ...progressBase, status: "completed", ...saved });
           const walBytes = await songstatsHistoryWalBytesSince(capacityBefore.walLsn);
-          const estimatedLogicalBytes = Math.max(
-            1,
-            saved.inserted * capacityPolicy.compactBytesPerObservation,
-          );
-          const walAmplificationRatio = walBytes / estimatedLogicalBytes;
+          const estimatedLogicalBytes = saved.inserted * capacityPolicy.compactBytesPerObservation;
+          const walAmplificationRatio = historyWalAmplification(walBytes, estimatedLogicalBytes);
           await recordSongstatsHistoryChunkTelemetry({
             chunkId: claim.chunkId,
             walBytes,
@@ -434,7 +432,7 @@ export async function runSongstatsHistoryBackfill(
             failureCount: chunkFailureCount,
           });
           const approvedRatio = capacityPolicy.approvedWalAmplificationRatio;
-          if (approvedRatio != null && walAmplificationRatio > approvedRatio * 2) {
+          if (approvedRatio != null && walAmplificationRatio != null && walAmplificationRatio > approvedRatio * 2) {
             pauseReason = "pitr_write_amplification_anomaly";
             await pauseSongstatsHistoryImportRun({
               runId,

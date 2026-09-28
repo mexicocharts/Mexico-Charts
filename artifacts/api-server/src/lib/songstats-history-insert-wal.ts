@@ -6,6 +6,14 @@ export interface SongstatsInsertWal {
   inserted: number;
 }
 
+export function historyWalAmplification(walBytes: number, logicalBytes: number): number | null {
+  if (!Number.isFinite(walBytes) || walBytes < 0 || !Number.isFinite(logicalBytes) || logicalBytes < 0)
+    throw new Error("Invalid history WAL measurement");
+  // No new observation bytes means no defined amplification ratio, not a
+  // one-byte observation. Absolute storage/cost guards still run for every task.
+  return logicalBytes === 0 ? null : walBytes / logicalBytes;
+}
+
 // EXPLAIN ANALYZE executes the original INSERT once. Never repeat that INSERT
 // after measuring, and never use EXPLAIN's rowCount (the number of plan rows).
 export function readSongstatsInsertWal(planDocument: unknown): SongstatsInsertWal {

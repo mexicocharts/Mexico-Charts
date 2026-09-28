@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readSongstatsInsertWal } from "./songstats-history-insert-wal";
+import { readSongstatsInsertWal, historyWalAmplification } from "./songstats-history-insert-wal";
+
+test("empty windows do not invent a one-byte observation denominator", () => {
+  assert.equal(historyWalAmplification(20344, 0), null);
+  assert.equal(historyWalAmplification(19524104, 3732220.8), 19524104 / 3732220.8);
+  assert.equal(historyWalAmplification(400, 100), 4);
+  assert.throws(() => historyWalAmplification(NaN, 100));
+  assert.throws(() => historyWalAmplification(100, -1));
+});
 
 test("measured inserts use actual inserted tuple count and top-level WAL only", () => {
   assert.deepEqual(readSongstatsInsertWal([{ Plan: {
