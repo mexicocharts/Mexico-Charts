@@ -1020,6 +1020,7 @@ function SpotifyView() {
   const [artwork, setArtwork] = useState<Record<string, string>>({});
   const [artworkLoading, setArtworkLoading] = useState(false);
   const [artworkError, setArtworkError] = useState(false);
+  const [artworkRetrySeconds, setArtworkRetrySeconds] = useState(0);
   const [artworkAttempt, setArtworkAttempt] = useState(0);
   const resolvedArtwork = useRef<Record<string, string>>({});
   useEffect(() => {
@@ -1028,6 +1029,7 @@ function SpotifyView() {
   }, [auth.userId, data.subscription.artistKey, data.spotifyCatalog.items]);
   useEffect(() => {
     setArtworkError(false);
+    setArtworkRetrySeconds(0);
     if (!auth.isSignedIn || !auth.userId) { setArtworkLoading(false); return; }
     const controller = new AbortController();
     setArtworkLoading(true);
@@ -1051,6 +1053,12 @@ function SpotifyView() {
               if (controller.signal.aborted) return;
               resolvedArtwork.current = { ...resolvedArtwork.current, ...Object.fromEntries(items.filter(item => item.artworkUrl).map(item => [item.resource, item.artworkUrl!])) };
               setArtwork({ ...resolvedArtwork.current });
+              const retryAfterMs = Math.max(0, ...items.map(item => item.retryAfterMs ?? 0));
+              if (retryAfterMs > 0) {
+                setArtworkRetrySeconds(Math.ceil(retryAfterMs / 1000));
+                setArtworkError(true);
+                return;
+              }
             } catch { if (controller.signal.aborted) return; }
           }
         }
@@ -1104,7 +1112,7 @@ function SpotifyView() {
       <div role="status" className="text-xs text-white/45">
         Portadas: {spotifyTracks.filter(item => item.artworkUrl).length}/{spotifyTracks.length} canciones · {spotifyAlbums.filter(item => item.artworkUrl).length}/{spotifyAlbums.length} álbumes.
         {artworkLoading && " Cargando las portadas restantes sin bloquear los streams…"}
-        {!artworkLoading && artworkError && <> Algunas consultas de portadas siguen pendientes. <button className="text-[#39FF14] underline" onClick={() => setArtworkAttempt(value => value + 1)}>Reintentar portadas</button></>}
+        {!artworkLoading && artworkError && <> {artworkRetrySeconds > 0 ? `Spotify limitó temporalmente las consultas de portadas. Espera al menos ${artworkRetrySeconds} s antes de reintentar; no significa que falten imágenes.` : "Algunas consultas de portadas siguen pendientes."} <button className="text-[#39FF14] underline" onClick={() => setArtworkAttempt(value => value + 1)}>Reintentar portadas</button></>}
       </div>
       <Panel className="relative overflow-hidden border-[#1ed760]/25 bg-[radial-gradient(circle_at_82%_18%,rgba(30,215,96,.2),transparent_35%),radial-gradient(circle_at_12%_0%,rgba(57,255,20,.08),transparent_32%)]">
         <div className="grid lg:grid-cols-[1.05fr_.95fr]">

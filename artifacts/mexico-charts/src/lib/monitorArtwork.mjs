@@ -8,6 +8,7 @@ export function validateArtworkResponse(payload, requested) {
   if (!Array.isArray(payload?.items) || payload.items.length !== requested.length ||
     new Set(payload.items.map(item => item.resource)).size !== requested.length ||
     payload.items.some(item => !requested.includes(item.resource) || !["loaded", "pending"].includes(item.status) ||
+      (item.retryAfterMs !== undefined && (!Number.isFinite(item.retryAfterMs) || item.retryAfterMs < 0)) ||
       (item.status === "loaded" && (typeof item.artworkUrl !== "string" || !/^https:\/\//.test(item.artworkUrl))))) {
     throw new Error("Invalid artwork response");
   }

@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { missingArtworkBatches, validateArtworkResponse } from "./monitorArtwork.mjs";
+
+test("rate-limit evidence survives validation and invalid delays are rejected", () => {
+  const key = `track:${"a".repeat(22)}`;
+  const item = { resource: key, artworkUrl: null, status: "pending", retryAfterMs: 60_000 };
+  assert.equal(validateArtworkResponse({ items: [item] }, [key])[0].retryAfterMs, 60_000);
+  assert.throws(() => validateArtworkResponse({ items: [{ ...item, retryAfterMs: -1 }] }, [key]));
+});
 test("retry excludes already resolved covers without dropping unresolved catalog rows", () => {
   const items = ["a", "b", "c"].map(key => ({type:"track",key:key.repeat(22),artworkUrl:null}));
   const resolved = Object.freeze({[`track:${"a".repeat(22)}`]:"https://i.scdn.co/image/a"});

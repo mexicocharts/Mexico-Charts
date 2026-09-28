@@ -1,3 +1,5 @@
+import { monitoringArtworkRateLimit } from "./monitoring-artwork-rate-limit";
+
 export type MonitoringKworbCatalogItem = {
   type: "track" | "album";
   key: string;
@@ -241,7 +243,7 @@ export async function enrichSpotifyArtwork(items: MonitoringKworbCatalogItem[], 
             !/^\/(?:track|album)\/[A-Za-z0-9]+$/.test(url.pathname)
           )
             return;
-          const response = await fetch(
+          const response = await monitoringArtworkRateLimit.fetch(
             `https://open.spotify.com/oembed?url=${encodeURIComponent(url.href)}`,
             { signal: AbortSignal.any([signal, AbortSignal.timeout(3_000)]) },
           );

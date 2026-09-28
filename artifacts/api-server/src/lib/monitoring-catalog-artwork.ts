@@ -1,3 +1,4 @@
+import { monitoringArtworkRateLimit } from "./monitoring-artwork-rate-limit";
 /** Request-driven artwork reads only. No database writes, timers/jobs or provider search. */
 export type CatalogArtworkResource = { type: "track" | "album"; key: string; artworkUrl?: string | null };
 export const ARTWORK_BATCH_SIZE = 12;
@@ -43,9 +44,9 @@ async function resolveArtwork(item: CatalogArtworkResource, signal: AbortSignal,
     try {
       release = await acquire(signal);
       const resource = `https://open.spotify.com/${item.type}/${item.key}`;
-      const response = await fetcher(`https://open.spotify.com/oembed?url=${encodeURIComponent(resource)}`, {
+      const response = await monitoringArtworkRateLimit.fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(resource)}`, {
         signal: AbortSignal.any([signal, AbortSignal.timeout(3_000)]), redirect: "error",
-      });
+      }, fetcher);
       if (!response.ok) return null;
       const payload = await response.json() as { thumbnail_url?: unknown };
       if (typeof payload.thumbnail_url !== "string") return null;
@@ -68,6 +69,7 @@ export async function loadCatalogArtworkBatch(items: CatalogArtworkResource[], f
   const signal = AbortSignal.timeout(8_000);
   return Promise.all(items.map(async item => {
     const artworkUrl = item.artworkUrl || await resolveArtwork(item, signal, fetcher);
-    return { resource: resourceKey(item), artworkUrl, status: artworkUrl ? "loaded" as const : "pending" as const };
+    return { resource: resourceKey(item), artworkUrl, status: artworkUrl ? "loaded" as const : "pending" as const,
+      ...(!artworkUrl && monitoringArtworkRateLimit.remaining() > 0 ? { retryAfterMs: monitoringArtworkRateLimit.remaining() } : {}) };
   }));
 }
