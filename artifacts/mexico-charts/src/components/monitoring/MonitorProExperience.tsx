@@ -54,6 +54,7 @@ import { compareCatalogCounts, formatCatalogDaily, formatCatalogCutoff } from "@
 import { monitorReportRecommendation, type CompactMonitorReleaseImpact } from "@/lib/monitorReport.mjs";
 import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArtwork.mjs";
 import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
+import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1485,9 +1486,7 @@ function VideosView() {
         secondsSincePrevious: Number(video.seconds_since_previous ?? 0),
         observedAt: video.observed_at,
         milestone,
-        progress: milestone
-          ? Math.min(100, Number(((views / milestone) * 100).toFixed(1)))
-          : 0,
+        progress: monitorMilestoneProgress(views, milestone),
       };
     })
     .sort((a, b) => b.views - a.views);
@@ -1678,7 +1677,7 @@ function VideosView() {
                       {compact(video.milestone)}
                     </p>
                     <p className="text-[8px] text-white/20">
-                      {video.progress}% completado
+                      {video.progress.label}% completado
                     </p>
                   </div>
                 </div>
@@ -1691,7 +1690,7 @@ function VideosView() {
                 <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[.07]">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-red-600 to-[#39FF14]"
-                    style={{ width: `${video.progress}%` }}
+                    style={{ width: `${video.progress.percent}%` }}
                   />
                 </div>
               </div>
