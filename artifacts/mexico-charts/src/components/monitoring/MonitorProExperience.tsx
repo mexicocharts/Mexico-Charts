@@ -1099,10 +1099,6 @@ function SpotifyView() {
   const heroAlbums = spotifyAlbums.slice(0, 4);
   return (
     <div className="space-y-5">
-      {data.spotifyCatalog.coverageStatus === "partial_unresolved" && <div role="status" className="rounded-xl border border-amber-400/30 p-4 text-sm text-amber-200">
-        Catálogo parcial: la consulta de {data.spotifyCatalog.pageStatus?.tracks.status === "unresolved" ? "canciones" : "álbumes"} sigue sin resolverse.
-        Se muestran los registros disponibles; los recuentos no confirman el catálogo total ni la ausencia de otros lanzamientos. Los registros guardados se conservan sin actualizar su fecha.
-      </div>}
       <div role="status" className="text-xs text-white/45">
         Portadas: {spotifyTracks.filter(item => item.artworkUrl).length}/{spotifyTracks.length} canciones · {spotifyAlbums.filter(item => item.artworkUrl).length}/{spotifyAlbums.length} álbumes.
         {artworkLoading && " Cargando las portadas restantes sin bloquear los streams…"}
@@ -1124,7 +1120,7 @@ function SpotifyView() {
                 </span>
               )}
               <div>
-                <Kicker>Spotify completo</Kicker>
+                <Kicker>{data.spotifyCatalog.coverageStatus === "partial_unresolved" ? "Spotify · catálogo parcial" : "Spotify completo"}</Kicker>
                 <p className="mt-1 text-sm font-black text-white/55">
                   {data.subscription.artistName}
                 </p>
@@ -1291,7 +1287,7 @@ function SpotifyView() {
           <div>
             <Kicker>Discografía</Kicker>
             <h3 className="mt-2 text-2xl font-black">
-              Los {spotifyAlbums.length} álbumes
+              {data.spotifyCatalog.pageStatus?.albums.status === "unresolved" ? `Álbumes · consulta pendiente (${spotifyAlbums.length} registros disponibles)` : `Los ${spotifyAlbums.length} álbumes`}
             </h3>
           </div>
           <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
@@ -1349,7 +1345,7 @@ function SpotifyView() {
           ))}
           {!spotifyAlbums.length && (
             <div className="col-span-full rounded-2xl border border-white/[.07] p-10 text-center text-sm text-white/35">
-              Todavía no hay álbumes con streams guardados para este artista.
+              {data.spotifyCatalog.pageStatus?.albums.status === "unresolved" ? "La fuente de álbumes no respondió con datos utilizables. No se ha confirmado la ausencia de álbumes." : "Todavía no hay álbumes con streams guardados para este artista."}
             </div>
           )}
         </div>
@@ -1358,7 +1354,7 @@ function SpotifyView() {
         <div className="border-b border-white/[.07] p-6 sm:p-7">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <Kicker>Catálogo completo</Kicker>
+              <Kicker>{data.spotifyCatalog.coverageStatus === "partial_unresolved" ? "Canciones disponibles · catálogo parcial" : "Catálogo completo"}</Kicker>
               <h3 className="mt-2 text-2xl font-black">
                 {visibleTracks.length} de {spotifyTracks.length} canciones
               </h3>
@@ -2485,6 +2481,10 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
               </p>
             )}
             <ReadFailureNotice view={view} data={data} />
+            {data.spotifyCatalog.coverageStatus === "partial_unresolved" && <div role="status" className="mb-5 rounded-xl border border-amber-400/30 p-4 text-sm text-amber-200">
+              Catálogo Spotify parcial: la consulta de {data.spotifyCatalog.pageStatus?.tracks.status === "unresolved" ? "canciones" : "álbumes"} sigue sin resolverse.
+              Se muestran los registros disponibles; los recuentos no confirman el catálogo total ni la ausencia de otros lanzamientos. Los registros guardados se conservan sin actualizar su fecha.
+            </div>}
             {
               <>
                 {view === "resumen" && <SummaryView open={setView} />}{" "}
