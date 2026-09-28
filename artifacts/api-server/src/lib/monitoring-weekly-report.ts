@@ -455,9 +455,10 @@ export async function createMonitoringWeeklyReport(
     const x = 34 + i * 242;
     panel(x, 242, 230, 240);
     picture(images[i + 1], x + 12, 348, 206, 116);
-    text(x + 14, 324, `0${i + 1} / ${v.title ?? v.video_id}`, 9, WHITE, 202);
-    text(x + 14, 292, compact(v.view_count), 23, WHITE, 202);
-    text(x + 14, 276, "Fuente: YouTube Data API", 6.5, MUTED, 202);
+    // Reserve the full three-line title box before the large views metric.
+    text(x + 14, 330, `0${i + 1} / ${v.title ?? v.video_id}`, 9, WHITE, 202);
+    text(x + 14, 286, compact(v.view_count), 23, WHITE, 202);
+    text(x + 14, 270, "Fuente: YouTube Data API", 6.5, MUTED, 202);
     text(
       x + 14,
       253,
