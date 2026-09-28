@@ -16,3 +16,13 @@ test("backfill persists per-chunk WAL and execution telemetry before anomaly enf
   assert.match(store, /'telemetry', jsonb_build_object/);
 });
 
+test("persistence WAL excludes provider wait but retains full-interval diagnostics", async () => {
+  const source = await readFile(new URL("./songstats-history-backfill.ts", import.meta.url), "utf8");
+  assert.ok(source.indexOf("const persistenceBefore =") > source.indexOf("const payload = await fetchWithRetry"));
+  assert.ok(source.indexOf("const persistenceBefore =") < source.indexOf("const saved = await completeSongstatsHistoryChunk"));
+  assert.match(source, /const walBytes = await songstatsHistoryWalBytesSince\(persistenceBefore.walLsn\)/);
+  assert.match(source, /const acquisitionIntervalWalBytes = await songstatsHistoryWalBytesSince\(capacityBefore.walLsn\)/);
+  assert.match(source, /walScope: "database_global_during_persistence"/);
+  assert.match(source, /songstatsHistoryCapacityPauseReason\(projection, capacityPolicy\)/);
+  assert.match(source, /walAmplificationRatio > approvedRatio \* 2/);
+});

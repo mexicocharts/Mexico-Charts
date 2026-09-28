@@ -596,6 +596,8 @@ export async function recordSongstatsHistoryRequestAttempt(input: {
 export async function recordSongstatsHistoryChunkTelemetry(input: {
   chunkId: number;
   walBytes: number;
+  acquisitionIntervalWalBytes?: number;
+  walScope?: "database_global_during_persistence";
   estimatedLogicalBytes: number;
   rowsInserted: number;
   elapsedMs: number;
@@ -607,6 +609,10 @@ export async function recordSongstatsHistoryChunkTelemetry(input: {
     : null;
   const telemetry = {
     walBytes: Math.max(0, Math.round(input.walBytes)),
+    ...(input.walScope ? {
+      walScope: input.walScope,
+      acquisitionIntervalWalBytes: input.acquisitionIntervalWalBytes,
+    } : {}),
     estimatedLogicalBytes: Math.max(0, Math.round(input.estimatedLogicalBytes)),
     walAmplificationRatio,
     rowsInserted: Math.max(0, Math.round(input.rowsInserted)),

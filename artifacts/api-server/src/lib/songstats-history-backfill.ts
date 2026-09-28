@@ -414,6 +414,10 @@ export async function runSongstatsHistoryBackfill(
           });
           options.onProgress?.({ ...progressBase, status: "failed", error: "Conflicting provider observations" });
         } else {
+          // Do not charge unrelated database traffic during the provider HTTP
+          // wait to this insert's amplification. Keep the full interval as
+          // separate telemetry; the guard still counts all WAL during persistence.
+          const persistenceBefore = await songstatsHistoryCapacitySnapshot();
           const saved = await completeSongstatsHistoryChunk({
             runId,
             artistKey: task.artist.artistKey,
@@ -426,12 +430,15 @@ export async function runSongstatsHistoryBackfill(
             parserDuplicateCount: normalized.duplicateCount,
           });
           options.onProgress?.({ ...progressBase, status: "completed", ...saved });
-          const walBytes = await songstatsHistoryWalBytesSince(capacityBefore.walLsn);
+          const walBytes = await songstatsHistoryWalBytesSince(persistenceBefore.walLsn);
+          const acquisitionIntervalWalBytes = await songstatsHistoryWalBytesSince(capacityBefore.walLsn);
           const estimatedLogicalBytes = saved.inserted * capacityPolicy.compactBytesPerObservation;
           const walAmplificationRatio = historyWalAmplification(walBytes, estimatedLogicalBytes);
           await recordSongstatsHistoryChunkTelemetry({
             chunkId: claim.chunkId,
             walBytes,
+            acquisitionIntervalWalBytes,
+            walScope: "database_global_during_persistence",
             estimatedLogicalBytes,
             rowsInserted: saved.inserted,
             elapsedMs: Number(process.hrtime.bigint() - chunkStartedAt) / 1_000_000,
@@ -444,12 +451,12 @@ export async function runSongstatsHistoryBackfill(
             await pauseSongstatsHistoryImportRun({
               runId,
               reason: pauseReason,
-              capacity: { walBytes, estimatedLogicalBytes, walAmplificationRatio, approvedRatio },
+              capacity: { walBytes, acquisitionIntervalWalBytes, walScope: "database_global_during_persistence", estimatedLogicalBytes, walAmplificationRatio, approvedRatio },
             });
             options.onProgress?.({
               ...progressBase,
               status: "paused",
-              safeguard: { reason: pauseReason, walBytes, estimatedLogicalBytes, walAmplificationRatio, approvedRatio },
+              safeguard: { reason: pauseReason, walBytes, acquisitionIntervalWalBytes, walScope: "database_global_during_persistence", estimatedLogicalBytes, walAmplificationRatio, approvedRatio },
             });
           } else if (options.mode === "test" || options.mode === "validation") {
             options.onProgress?.({
