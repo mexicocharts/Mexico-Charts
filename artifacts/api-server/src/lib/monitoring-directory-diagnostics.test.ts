@@ -93,3 +93,21 @@ for (const failingStage of stages) {
     assert.equal(acquired, released);
   });
 }
+
+test("page evidence has at most two in-flight reads and settles workers before propagating failure", async () => {
+  let active = 0; let peak = 0; let completed = 0;
+  const failure = new Error("Query read timeout");
+  const pool = { connect: async () => ({ release() {}, query: async ({ text }: { text: string }) => {
+    if (text.includes("to_regclass")) return { rows: MONITORING_AUDIT_SOURCE_TABLES.map(table_name => ({ table_name, present: true })) };
+    if (text === MONITORING_DIRECTORY_POPULATION_SQL) return { rows: [1, 2, 3].map(n => ({ artist_key: `bounded-fixture-${n}`, artist_name: `Bounded Fixture ${n}`, source: "official_artists" })) };
+    if (text === MONITORING_ACCEPTED_ALIAS_SQL || text === MONITORING_DISCOVERY_CANDIDATES_SQL) return { rows: [] };
+    active++; peak = Math.max(peak, active);
+    await new Promise(resolve => setTimeout(resolve, 10));
+    active--; completed++; throw failure;
+  } }) };
+  await assert.rejects(getMonitoringCandidateDirectory({ search: "bounded-fixture-", limit: 3 },
+    { readPool: pool as never, now: new Date("2026-09-28") }), e => e === failure);
+  assert.equal(peak, 2);
+  assert.equal(active, 0);
+  assert.equal(completed, 2, "both failed workers settle; the third artist is not falsely audited");
+});

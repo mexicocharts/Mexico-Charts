@@ -370,17 +370,25 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
   const fresh = new Map<string, MonitoringCandidateAuditArtist>();
   if (uncached.length) {
     const sql = withUnavailableMonitoringSources(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL, missingSchemaTables);
-    // Sequential reads keep this administrative inspection from occupying all
-    // three Monitor connections. A failure remains an error, never absent data.
-    for (const artist of uncached) {
-      const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, sql,
-        [artist.artistKey, artist.sourceKeys], undefined, "page_evidence");
-      const row = rows[0];
-      if (rows.length !== 1 || row?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
-      const value = evaluateMonitoringCandidate(artist, { ...row, missing_schema_tables: missingSchemaTables }, now);
-      fresh.set(artist.artistKey, value);
-      if (cacheable) evidenceCache.set(cacheKey(artist), { expiresAt: Date.now() + CACHE_MS, value });
-    }
+    // At most two reads leave one of the three Monitor connections available
+    // for profile serving, while keeping a page within its HTTP response budget.
+    let nextArtist = 0;
+    const workers = await Promise.allSettled(Array.from({ length: Math.min(2, uncached.length) }, async () => {
+      while (nextArtist < uncached.length) {
+        const artist = uncached[nextArtist++]!;
+        const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, sql,
+          [artist.artistKey, artist.sourceKeys], undefined, "page_evidence");
+        const row = rows[0];
+        if (rows.length !== 1 || row?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
+        const value = evaluateMonitoringCandidate(artist, { ...row, missing_schema_tables: missingSchemaTables }, now);
+        fresh.set(artist.artistKey, value);
+        if (cacheable) evidenceCache.set(cacheKey(artist), { expiresAt: Date.now() + CACHE_MS, value });
+      }
+    }));
+    // Wait for both bounded workers before returning an error. Never convert a
+    // failed query into an empty evidence row or leave unhandled work behind.
+    const failed = workers.find(worker => worker.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
     // Bound process memory even while the catalog grows or identities change.
     if (evidenceCache.size > 5_000) for (const [key, entry] of evidenceCache) {
       if (entry.expiresAt <= Date.now() || evidenceCache.size > 5_000) evidenceCache.delete(key);
