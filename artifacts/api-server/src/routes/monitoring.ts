@@ -741,6 +741,9 @@ async function loadAuthorizedMonitoring(
   );
   const completeHistory = mergeMonitoringPlatformHistory(history, insight?.trends ?? {});
   const comparisonArtists = comparisonRows.map((row) => {
+    // Preserve observed window dates for like-for-like report comparisons.
+    // This reuses the same source calculation; it does not change collection.
+    const comparisonGrowth = monitoringSourceGrowth(row.historic_stats);
     const comparisonInsight = buildSongstatsPublicInsight(
       {
         historicStats: row.historic_stats,
@@ -756,10 +759,10 @@ async function loadAuthorizedMonitoring(
       snapshotDate: row.snapshot_date,
       spotifyMonthlyListeners: nullableNumber(row.spotify_monthly_listeners),
       spotifyGrowth30:
-        comparisonInsight.growth.spotifyMonthlyListeners?.days30 ?? null,
+        comparisonGrowth.spotifyMonthlyListeners?.days30 ?? null,
       youtubeChannelViews: nullableNumber(row.youtube_channel_views),
       youtubeGrowth30:
-        comparisonInsight.growth.youtubeChannelViews?.days30 ?? null,
+        comparisonGrowth.youtubeChannelViews?.days30 ?? null,
       instagramFollowers: nullableNumber(row.instagram_followers),
     };
   });
