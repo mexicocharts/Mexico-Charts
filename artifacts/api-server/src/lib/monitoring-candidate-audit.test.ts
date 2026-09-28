@@ -6,6 +6,14 @@ process.env["NEON_DATABASE_URL"] ??= "postgresql://local-test.invalid/mexico_cha
 const { evaluateMonitoringCandidate, groupMonitoringCandidateIdentities, getMonitoringCandidateDirectory, getMonitoringCandidateIdentity, MONITORING_CANDIDATE_EVIDENCE_SQL, MONITORING_CANDIDATE_POPULATION_SQL } = await import("./monitoring-candidate-audit");
 const { MONITORING_AUDIT_SOURCE_TABLES, withUnavailableMonitoringSources } = await import("./monitoring-audit-schema");
 const { buildMonitoringCompactReadinessSql } = await import("./monitoring-compact-readiness");
+const { MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL } = await import("./monitoring-candidate-audit");
+
+test("interactive evidence exposes exact artist parameters without changing the evidence projection", () => {
+  assert.match(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL, /requested AS NOT MATERIALIZED \(SELECT \$1::text artist_key, \$2::text\[\] source_keys\)/);
+  assert.doesNotMatch(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL, /jsonb_to_recordset/);
+  assert.equal(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL.split("comparison_snapshots AS MATERIALIZED")[1],
+    MONITORING_CANDIDATE_EVIDENCE_SQL.split("comparison_snapshots AS MATERIALIZED")[1]);
+});
 
 function fixture() {
   const artist = groupMonitoringCandidateIdentities([{ artist_key: "example artist", artist_name: "Example Artist", spotify_id: "0000000000000000000101", source: "kworb_coverage" }])[0]!;
@@ -800,6 +808,13 @@ test("read-only source audit SQL executes on PostgreSQL and keeps artists omitte
       "the independently selected outer transaction clock exactly matches the native statement clock, including microseconds");
     assert.equal(result.rows.length, 1);
     assert.equal(result.rows[0].snapshot, null);
+    await db.exec("BEGIN");
+    try {
+      const batch = await db.query(MONITORING_CANDIDATE_EVIDENCE_SQL,
+        [JSON.stringify([{ artist_key: "no spotify", source_keys: ["no spotify"] }])]);
+      const single = await db.query(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL, ["no spotify", ["no spotify"]]);
+      assert.deepEqual(single.rows, batch.rows, "single-artist evidence retains the exact projection at the same transaction clock");
+    } finally { await db.exec("ROLLBACK"); }
     await db.query("INSERT INTO songstats_artist_extended_data(artist_key,historic_stats) VALUES ($1,$2::jsonb)", ["no spotify", JSON.stringify({ fixture: "stored-once".repeat(2000) })]);
     const referenceResult = await db.query(MONITORING_CANDIDATE_EVIDENCE_SQL, [JSON.stringify([{ artist_key: "no spotify", source_keys: ["no spotify"] }])]);
     assert.equal(referenceResult.rows[0].legacy[0].extended_artist_key, "no spotify");

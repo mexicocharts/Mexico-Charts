@@ -18,8 +18,15 @@ export function buildMonitoringYoutubeNativeDiagnosticsSql(artistKeysSql: string
     ), inspection_samples AS MATERIALIZED (
       SELECT s.id,s.video_id,s.observed_at,s.source_type,s.view_count,e.has_approved_link,
         (s.observed_at AT TIME ZONE '${TIME_ZONE}')::date et_date
-      FROM ${SOURCE_TABLE} s JOIN native_inspection_eligible e USING(video_id) CROSS JOIN inspection_bounds b
-      WHERE s.observed_at >= (b.start_date::timestamp AT TIME ZONE '${TIME_ZONE}') AND s.observed_at <= b.as_of
+      FROM native_inspection_eligible e CROSS JOIN inspection_bounds b
+      CROSS JOIN LATERAL (
+        SELECT s.id,s.video_id,s.observed_at,s.source_type,s.view_count FROM ${SOURCE_TABLE} s
+        WHERE s.video_id=e.video_id
+          AND s.observed_at >= (b.start_date::timestamp AT TIME ZONE '${TIME_ZONE}') AND s.observed_at <= b.as_of
+        -- Preserve the parameterized per-video scan instead of scanning the
+        -- entire retained archive before filtering to this artist. No row cap.
+        OFFSET 0
+      ) s
     ), inspection_raw AS MATERIALIZED (
       SELECT video_id,count(*) any_samples,
         count(*) FILTER(WHERE source_type='${SOURCE_TYPE}' AND view_count IS NOT NULL) trusted_samples,

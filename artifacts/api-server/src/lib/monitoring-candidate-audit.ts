@@ -296,6 +296,13 @@ ORDER BY c.artist_key
 `;
 
 export type MonitoringCandidateDirectoryOptions = { limit?: number; offset?: number; search?: string; artistKeys?: string[]; founderRosterOnly?: boolean };
+/** Expose exact keys to the planner. The JSON recordset batch hides its values
+ * behind a materialization boundary and produces broad per-artist scans.
+ * Keep the original projection/predicates shared with offline audit tooling. */
+export const MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL = MONITORING_CANDIDATE_EVIDENCE_SQL.replace(
+  /requested AS MATERIALIZED \([\s\S]*?\), comparison_snapshots/,
+  "requested AS NOT MATERIALIZED (SELECT $1::text artist_key, $2::text[] source_keys), comparison_snapshots",
+);
 type AuditDependencies = { readPool?: AuditPool; now?: Date };
 const evidenceCache = new Map<string, { expiresAt: number; value: MonitoringCandidateAuditArtist }>();
 
@@ -362,12 +369,14 @@ export async function getMonitoringCandidateDirectory(options: MonitoringCandida
   const uncached = page.filter(artist => !cacheable || (evidenceCache.get(cacheKey(artist))?.expiresAt ?? 0) <= Date.now());
   const fresh = new Map<string, MonitoringCandidateAuditArtist>();
   if (uncached.length) {
-    const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, withUnavailableMonitoringSources(MONITORING_CANDIDATE_EVIDENCE_SQL, missingSchemaTables),
-      [JSON.stringify(uncached.map(artist => ({ artist_key: artist.artistKey, source_keys: artist.sourceKeys })))], undefined, "page_evidence");
-    const byKey = new Map(rows.map(row => [row.artist_key, row]));
+    const sql = withUnavailableMonitoringSources(MONITORING_SINGLE_CANDIDATE_EVIDENCE_SQL, missingSchemaTables);
+    // Sequential reads keep this administrative inspection from occupying all
+    // three Monitor connections. A failure remains an error, never absent data.
     for (const artist of uncached) {
-      const row = byKey.get(artist.artistKey);
-      if (!row) throw new Error("Monitoring source audit did not return every requested candidate");
+      const rows = await executeMonitoringReadinessQuery<MonitoringCandidateEvidenceRow>(readPool, sql,
+        [artist.artistKey, artist.sourceKeys], undefined, "page_evidence");
+      const row = rows[0];
+      if (rows.length !== 1 || row?.artist_key !== artist.artistKey) throw new Error("Monitoring source audit did not return the requested candidate");
       const value = evaluateMonitoringCandidate(artist, { ...row, missing_schema_tables: missingSchemaTables }, now);
       fresh.set(artist.artistKey, value);
       if (cacheable) evidenceCache.set(cacheKey(artist), { expiresAt: Date.now() + CACHE_MS, value });
