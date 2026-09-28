@@ -14,6 +14,15 @@ test("preview only exposes read routes, never checkout or admin jobs", () => {
   }
 });
 
+test("preview permits only exact native-video history reads", () => {
+  const path = "/api/monitoring/videos/luismiguel/yG7MPEQm1-w/history";
+  for (const method of ["GET", "HEAD"]) assert.equal(previewRequestAllowed(method, path), true);
+  for (const method of ["POST", "PUT", "PATCH", "DELETE"]) assert.equal(previewRequestAllowed(method, path), false);
+  for (const invalid of [path + "/run", path.replace("/history", "/refresh"), path.replace("yG7MPEQm1-w", "invalid"), "/api/monitoring/videos/luismiguel", "/api/admin/youtube/music-shadow/intraday/run"]) {
+    assert.equal(previewRequestAllowed("GET", invalid), false);
+  }
+});
+
 test("preview appends read-only connection options without dropping existing settings", () => {
   const url = new URL(previewReadOnlyUrl("postgresql://test.invalid/db?sslmode=require&options=-c%20statement_timeout%3D10000"));
   assert.equal(url.searchParams.get("sslmode"), "require");

@@ -25,6 +25,9 @@ export function previewRequestAllowed(method: string, path: string): boolean {
     /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|artwork\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
       path,
     ) ||
+    // Existing authenticated, artist-authorized native history SELECT handler.
+    // Keep this exact suffix: no video mutations or collector routes are exposed.
+    /^\/api\/monitoring\/videos\/[^/]+\/[A-Za-z0-9_-]{11}\/history$/.test(path) ||
     path === "/api/image-proxy" ||
     path === "/api/preview-health"
   );
