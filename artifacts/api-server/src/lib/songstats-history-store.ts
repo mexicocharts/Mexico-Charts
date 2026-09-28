@@ -1,5 +1,5 @@
 import { pool, type PoolClient } from "@workspace/db";
-import { readSongstatsInsertWal, type SongstatsInsertWal } from "./songstats-history-insert-wal";
+import { readSongstatsInsertWal, readSongstatsUpdateWal, type SongstatsInsertWal } from "./songstats-history-insert-wal";
 import { historyInsertBatchSize } from "./songstats-history-insert-batch";
 import {
   listSongstatsCatalogArtists,
@@ -496,7 +496,8 @@ export async function completeSongstatsHistoryChunk(input: {
   providerIdentityId: number;
   observations: NormalizedSongstatsHistoricalObservation[];
   parserDuplicateCount: number;
-}): Promise<{ inserted: number; duplicates: number; insertWal?: SongstatsInsertWal }> {
+}): Promise<{ inserted: number; duplicates: number; insertWal?: SongstatsInsertWal;
+  completionUpdateWal?: ReturnType<typeof readSongstatsUpdateWal> }> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -535,8 +536,8 @@ export async function completeSongstatsHistoryChunk(input: {
       );
     }
     const duplicates = input.parserDuplicateCount + input.observations.length - inserted;
-    await client.query(
-      `
+    const completionUpdate = await client.query(
+      `${insertWal ? "EXPLAIN (ANALYZE, WAL, TIMING OFF, FORMAT JSON)" : ""}
         UPDATE songstats_history_import_chunks
         SET status = 'completed', response_hash = $4, fetched_at = $5,
             observation_count = $6, duplicate_count = $7,
@@ -556,8 +557,12 @@ export async function completeSongstatsHistoryChunk(input: {
         duplicates,
       ],
     );
+    // EXPLAIN ANALYZE executes this UPDATE once, in the existing transaction.
+    // This diagnostic does not include COMMIT or other database sessions.
+    const completionUpdateWal = insertWal
+      ? readSongstatsUpdateWal(completionUpdate.rows[0]?.["QUERY PLAN"]) : undefined;
     await client.query("COMMIT");
-    return { inserted, duplicates, ...(insertWal ? { insertWal } : {}) };
+    return { inserted, duplicates, ...(insertWal ? { insertWal, completionUpdateWal } : {}) };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

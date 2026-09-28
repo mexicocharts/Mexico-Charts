@@ -6,6 +6,19 @@ export interface SongstatsInsertWal {
   inserted: number;
 }
 
+export function readSongstatsUpdateWal(planDocument: unknown) {
+  const plan = (planDocument as Array<{ Plan?: Record<string, unknown> }>)?.[0]?.Plan;
+  if (!plan || plan["Operation"] !== "Update") throw new Error("Expected measured UPDATE plan");
+  const count = (name: string) => {
+    const value = plan[name];
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
+      throw new Error(`Missing or invalid measured UPDATE ${name}`);
+    return value;
+  };
+  return { scope: "chunk_completion_update" as const, bytes: count("WAL Bytes"),
+    records: count("WAL Records"), fullPageImages: count("WAL FPI") };
+}
+
 export function historyWalAmplification(walBytes: number, logicalBytes: number): number | null {
   if (!Number.isFinite(walBytes) || walBytes < 0 || !Number.isFinite(logicalBytes) || logicalBytes < 0)
     throw new Error("Invalid history WAL measurement");

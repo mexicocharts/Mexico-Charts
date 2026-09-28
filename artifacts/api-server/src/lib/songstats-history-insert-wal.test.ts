@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readSongstatsInsertWal, historyWalAmplification } from "./songstats-history-insert-wal";
+import { readSongstatsInsertWal, readSongstatsUpdateWal, historyWalAmplification } from "./songstats-history-insert-wal";
+
+test("completion UPDATE diagnostic is separate and fails closed on missing counters", () => {
+  assert.deepEqual(readSongstatsUpdateWal([{ Plan: { Operation: "Update",
+    "WAL Bytes": 123, "WAL Records": 2, "WAL FPI": 0 } }]),
+  { scope: "chunk_completion_update", bytes: 123, records: 2, fullPageImages: 0 });
+  assert.throws(() => readSongstatsUpdateWal([{ Plan: { Operation: "Insert" } }]));
+  assert.throws(() => readSongstatsUpdateWal([{ Plan: { Operation: "Update" } }]));
+});
 
 test("empty windows do not invent a one-byte observation denominator", () => {
   assert.equal(historyWalAmplification(20344, 0), null);
