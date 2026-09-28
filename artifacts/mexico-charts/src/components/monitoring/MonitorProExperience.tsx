@@ -57,6 +57,7 @@ import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
 import { monitorVideoDelta, completeMonitorVideoDelta } from "@/lib/monitorVideoDelta.mjs";
 import { monitorVideoPage } from "@/lib/monitorVideoPage.mjs";
+import { monitorVideoThumbnail } from "@/lib/monitorVideoThumbnail.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
 // 57a7c4106dbf56b93ccc917611d66d43e790de3b. Artist identity and every displayed
@@ -1497,7 +1498,7 @@ function VideosView() {
       return {
         id: video.video_id,
         title: video.title,
-        image: video.thumbnail_url,
+        image: monitorVideoThumbnail(video),
         url: video.canonical_url,
         views,
         delta: monitorVideoDelta(video.view_delta, video.seconds_since_previous),

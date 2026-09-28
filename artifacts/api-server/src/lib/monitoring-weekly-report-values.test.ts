@@ -1,5 +1,17 @@
 import test from "node:test";
+import { reportVideoThumbnail } from "./monitoring-weekly-report";
+import { monitorVideoThumbnail } from "../../../mexico-charts/src/lib/monitorVideoThumbnail.mjs";
 import assert from "node:assert/strict";
+
+test("report and dashboard use real video CDN fallback without changing source records", () => {
+  for (const resolve of [reportVideoThumbnail, monitorVideoThumbnail]) {
+    const video = Object.freeze({ video_id: "8WrgA6mUiIY", thumbnail_url: null });
+    assert.equal(resolve(video), "https://i.ytimg.com/vi/8WrgA6mUiIY/hqdefault.jpg");
+    assert.equal(resolve({ ...video, thumbnail_url: "https://i.ytimg.com/stored.jpg" }), "https://i.ytimg.com/stored.jpg");
+    assert.equal(resolve({ video_id: "../invalid" }), null);
+    assert.equal(video.thumbnail_url, null);
+  }
+});
 import { exactReportChange, reportChangeColor, reportCatalogDaily, reportYoutubeComparison, reportRecommendations, reportSpotifyArtworkIndex, type WeeklyReportInput } from "./monitoring-weekly-report";
 
 test("album artwork follows the actual featured track count, including sparse catalogs", () => {

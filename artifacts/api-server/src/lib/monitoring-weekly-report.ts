@@ -35,6 +35,12 @@ export function reportSpotifyArtworkIndex(videoCount: number, featuredTrackCount
   return 1 + videoCount + (type === "album" ? featuredTrackCount : 0) + row;
 }
 
+export function reportVideoThumbnail(video: { video_id: string; thumbnail_url?: string | null }) {
+  // Presentation only: use the existing video's CDN image, never create an observation.
+  return video.thumbnail_url || (/^[A-Za-z0-9_-]{11}$/.test(video.video_id)
+    ? `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg` : null);
+}
+
 export function reportGrowth(input: Pick<WeeklyReportInput, "growth" | "history">, metric: string, days: number) {
   // An explicit missing window must stay missing, not fall back to a different
   // source. The report and dashboard consume exactly the same growth payload.
@@ -202,7 +208,7 @@ export async function createMonitoringWeeklyReport(
   );
   const images = await Promise.all([
     imageBytes(input.artistImageUrl),
-    ...videos.map((v) => imageBytes(v.thumbnail_url)),
+    ...videos.map((v) => imageBytes(reportVideoThumbnail(v))),
     ...featuredSpotify.map(item => imageBytes(item.artworkUrl)),
   ]);
   const doc = new PDFDocument({
