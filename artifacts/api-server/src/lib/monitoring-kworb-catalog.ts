@@ -311,10 +311,10 @@ export async function loadCompleteMonitoringKworbCatalog(
 async function fetchCompleteMonitoringKworbCatalog(
   spotifyArtistId: string,
 ): Promise<MonitoringKworbCatalog> {
-  // The caller has an 8.5s catalog stage. Never let serial metadata/fallback
-  // image requests erase streams already fetched within that stage.
-  // This shortens artwork work; it does not raise any HTTP/database timeout.
-  const catalogDeadline = AbortSignal.timeout(8_000);
+  // Catalog truth is independent of optional external artwork. The dashboard
+  // merges stored/cached images immediately; its existing authenticated artwork
+  // endpoint resolves remaining images on demand with bounded, shared dedupe.
+  // Do not start token/batch/oEmbed work on this initial serving path.
   const [songs, albums] = await Promise.all([
     privateLoaderPhase("kworb_songs_http",()=>fetchPage(spotifyArtistId, "songs")),
     privateLoaderPhase("kworb_albums_http",()=>fetchPage(spotifyArtistId, "albums")),
@@ -329,7 +329,6 @@ async function fetchCompleteMonitoringKworbCatalog(
   }
   if (!parsedItems.length) throw new Error(`Kworb catalog has no usable pages: tracks HTTP ${songs.status.httpStatus ?? "unknown"}; albums HTTP ${albums.status.httpStatus ?? "unknown"}`);
   privateTraceMark("catalog_parsed",{tracks:parsedItems.filter(x=>x.type==="track").length,albums:parsedItems.filter(x=>x.type==="album").length});
-  const items = await privateLoaderPhase("catalog_artwork",()=>enrichSpotifyArtwork(parsedItems, catalogDeadline));
   const sourceDates = { tracks: songs.status.status === "loaded" ? parseMonitoringKworbSourceDate(songs.html!) : null,
     albums: albums.status.status === "loaded" ? parseMonitoringKworbSourceDate(albums.html!) : null };
   const value: MonitoringKworbCatalog = {
@@ -337,7 +336,7 @@ async function fetchCompleteMonitoringKworbCatalog(
     sourceDates,
     snapshotDate: sourceDates.tracks != null && sourceDates.tracks === sourceDates.albums ? sourceDates.tracks : null,
     source: "kworb_live_complete_catalog",
-    items,
+    items: parsedItems,
     pageStatus: { tracks: songs.status, albums: albums.status },
   };
   // A transient/404 page must not become a six-hour cached empty catalog.

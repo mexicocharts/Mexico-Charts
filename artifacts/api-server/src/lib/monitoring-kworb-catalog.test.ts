@@ -112,7 +112,7 @@ test("preserves album compilation markers and real stream values", () => {
   ]);
 });
 
-test("uses bounded public Spotify oEmbed artwork when metadata credentials are unavailable", async () => {
+test("base catalog performs no external artwork work even when available", async () => {
   const originalFetch = globalThis.fetch;
   const originalClientId = process.env["SPOTIFY_CLIENT_ID"];
   const originalClientSecret = process.env["SPOTIFY_CLIENT_SECRET"];
@@ -143,7 +143,7 @@ test("uses bounded public Spotify oEmbed artwork when metadata credentials are u
       catalog.items.every(
         (item) =>
           item.artworkUrl ===
-          "https://image-cdn-fa.spotifycdn.com/image/test",
+          null,
       ),
     );
   } finally {
@@ -156,7 +156,7 @@ test("uses bounded public Spotify oEmbed artwork when metadata credentials are u
   }
 });
 
-test("concurrent catalog readers share one request and failed artwork batches do not erase streams", async () => {
+test("concurrent base catalog readers share pages without requesting metadata", async () => {
   const originalFetch = globalThis.fetch;
   const originalId = process.env["SPOTIFY_CLIENT_ID"];
   const originalSecret = process.env["SPOTIFY_CLIENT_SECRET"];
@@ -186,11 +186,11 @@ test("concurrent catalog readers share one request and failed artwork batches do
       loadCompleteMonitoringKworbCatalog("test-shared-request"),
     ]);
     assert.equal(pages, 2, "only one songs/albums pair for simultaneous readers");
-    assert.equal(tokenCalls, 1);
+    assert.equal(tokenCalls, 0);
     assert.equal(first, second);
     assert.deepEqual(first.items.map(item => [item.type, item.totalStreams, item.dailyStreams, item.artworkUrl]), [
-      ["track", 123, 4, "https://example.test/track.jpg"],
-      ["album", 123, 4, "https://example.test/album.jpg"],
+      ["track", 123, 4, null],
+      ["album", 123, 4, null],
     ]);
     await loadCompleteMonitoringKworbCatalog("test-shared-request");
     assert.equal(pages, 2, "successful catalog retains the existing cache policy");
