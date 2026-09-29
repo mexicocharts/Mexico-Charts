@@ -81,7 +81,8 @@ export async function startMonitorProPreview() {
   const { default: monitoringRouter } = await import("./routes/monitoring");
   const { default: imageProxyRouter } = await import("./routes/image-proxy");
   const app = express();
-  app.use((req,res,next)=>runPrivateLoaderTrace(req.path.startsWith("/api/monitoring/dashboard/") ? req.path.split("/").at(-1)! : "", row=>console.log("MONITOR_TRACE "+JSON.stringify(row)),()=>{
+  app.use((req,res,next)=>runPrivateLoaderTrace(/^\/api\/monitoring\/(dashboard|artwork)\//.test(req.path) ? req.path.split("/").at(-1)! : "", row=>console.log("MONITOR_TRACE "+JSON.stringify(row)),()=>{
+    privateTraceMark("request_kind",{kind:req.path.split("/")[3]});
     res.once("finish",privateTraceCallback(()=>privateTraceMark("response_finish",{status:res.statusCode})));
     res.once("close",privateTraceCallback(()=>privateTraceMark("response_close",{status:res.statusCode})));
     next();

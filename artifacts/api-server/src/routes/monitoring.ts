@@ -1041,7 +1041,9 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
         const catalog = await loadCompleteMonitoringKworbCatalog(catalogId);
         const selected = keys.map(key => catalog.items.find(item => `${item.type}:${item.key}` === key));
         if (selected.some(item => !item)) { res.status(400).json({ error: "Artwork must belong to this artist's catalog" }); return; }
-        res.json({ artistKey: access.grant.artist_key, items: await loadCatalogArtworkBatch(selected.filter(item => item != null)) });
+        const images = await privateLoaderPhase("deferred_artwork_batch", () => loadCatalogArtworkBatch(selected.filter(item => item != null)));
+        privateTraceMark("deferred_artwork_result", { requested: keys.length, loaded: images.filter(item => item.artworkUrl).length });
+        res.json({ artistKey: access.grant.artist_key, items: images });
       },
     );
   } catch (error) {

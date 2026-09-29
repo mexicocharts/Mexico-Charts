@@ -5,14 +5,14 @@ import { installPrivatePoolTrace, runPrivateLoaderTrace, privateLoaderPhase, pri
 
 test('private trace preserves callbacks, promises, values and error identity without logging data', async()=>{
   process.env.MONITOR_PRO_READONLY_PREVIEW='true';
-  process.env.MONITOR_PRO_LOADER_TRACE_KEY='test-artist';
+  process.env.MONITOR_PRO_LOADER_TRACE_KEY='test-artist,second-artist';
   const logs=[],calls=[];
   const failure=new Error('Query read timeout');
-  const client={processID:42,connectionParameters:{query_timeout:12000},_queryQueue:[],query(...args){
+  const client=Object.assign(new EventEmitter(),{processID:42,connectionParameters:{query_timeout:12000},_queryQueue:[],query(...args){
     calls.push(args);const cb=args.at(-1);const result={rowCount:2,rows:[{secret:'never-log'}]};
     if(typeof cb==='function'){queueMicrotask(()=>cb(null,result));return;}
     return args[0]?.text?.includes('FAIL')?Promise.reject(failure):Promise.resolve(result);
-  }};
+  }});
   const pool=new EventEmitter();
   pool.connect=function(cb){if(cb){queueMicrotask(()=>cb(null,client,()=>{}));return;}return Promise.resolve(client);};
   installPrivatePoolTrace(pool,'monitoring');pool.emit('connect',client);
@@ -29,7 +29,9 @@ test('private trace preserves callbacks, promises, values and error identity wit
   finish();
   assert.equal(logs.filter(x=>x.event==='db_query_end').length,4);
   assert.equal(logs.filter(x=>x.event==='db_acquire').length,2);
-  assert.ok(logs.filter(x=>x.event==='db_query_start').every(x=>x.phase==='identity_initial'&&x.backendPid===42&&x.queryTimeoutMs===12000));
+  assert.ok(logs.filter(x=>x.event==='db_query_start').every(x=>x.phase==='identity_initial'&&x.driverProcessId===42&&x.backendPid===undefined&&x.queryTimeoutMs===12000));
+  client.emit('end');
+  assert.ok(logs.some(x=>x.event==='db_client_end'&&x.lastQueryId===4));
   assert.ok(logs.some(x=>x.clientReadTimeout===true));
   assert.ok(logs.some(x=>x.event==='response_finish'));
   assert.equal(calls[0][0].values[0],'private-value');
