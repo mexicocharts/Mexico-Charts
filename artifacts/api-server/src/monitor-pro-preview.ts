@@ -83,6 +83,8 @@ export async function startMonitorProPreview() {
   const app = express();
   app.use((req,res,next)=>runPrivateLoaderTrace(/^\/api\/monitoring\/(dashboard|artwork)\//.test(req.path) ? req.path.split("/").at(-1)! : "", row=>console.log("MONITOR_TRACE "+JSON.stringify(row)),()=>{
     privateTraceMark("request_kind",{kind:req.path.split("/")[3]});
+    const clientTraceId = req.get("X-Monitor-Client-Trace-Id");
+    if (clientTraceId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientTraceId)) privateTraceMark("client_correlation", { clientTraceId });
     res.once("finish",privateTraceCallback(()=>privateTraceMark("response_finish",{status:res.statusCode})));
     res.once("close",privateTraceCallback(()=>privateTraceMark("response_close",{status:res.statusCode})));
     next();

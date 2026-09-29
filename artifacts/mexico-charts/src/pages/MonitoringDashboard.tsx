@@ -6,6 +6,7 @@ import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
 import { EditorialFooter } from "@/components/EditorialLayout";
 import { useMexicoAuth } from "@/auth/AuthProvider";
+import { markMonitorPanelCommit } from "@/lib/monitorClientTrace.mjs";
 import { useLanguage } from "@/i18n/LanguageContext";
 import MonitorProExperience, {
   type InternalMonitorArtistCatalog,
@@ -73,6 +74,10 @@ export default function MonitoringDashboard() {
           signal,
         }),
     });
+
+  useEffect(() => {
+    if (data && canDisplayMonitorData({ ...auth, data, error })) markMonitorPanelCommit(artistKey);
+  }, [data, error, artistKey, auth.configured, auth.isLoaded, auth.isSignedIn, auth.userId]);
 
   const viewState = monitorRequestState({
     isFetching,

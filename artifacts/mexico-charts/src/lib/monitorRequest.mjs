@@ -1,5 +1,6 @@
 import { authenticatedFetch } from "../auth/authenticatedFetch.mjs";
 import { MonitoringDashboardHttpError } from "./monitoringAccess.mjs";
+import { beginMonitorClientTrace } from "./monitorClientTrace.mjs";
 
 // Preserve the existing monitor request budget: the API's 12-second read
 // budget plus Clerk's existing three-second token acquisition allowance.
@@ -16,32 +17,46 @@ export async function requestMonitorResource({
   setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
   clearTimer = (handle) => globalThis.clearTimeout(handle),
 }) {
+  const trace = beginMonitorClientTrace(input);
   const controller = new AbortController();
   let timer;
   let cancel;
   const interrupted = new Promise((_, reject) => {
     cancel = () => {
+      trace?.mark("route_abort", { activePhase: trace.activePhase() });
       reject(new DOMException("Request cancelled", "AbortError"));
+      trace?.mark("abort_signal_invocation", { reason: "route" });
       controller.abort();
     };
     signal?.addEventListener("abort", cancel, { once: true });
     if (signal?.aborted) cancel();
+    trace?.mark("deadline_armed", { budgetMs: timeoutMs });
     timer = setTimer(() => {
+      trace?.mark("client_timeout", { activePhase: trace.activePhase() });
       reject(
         new MonitoringDashboardHttpError(
           504,
           "La consulta del Monitor agotó su tiempo de respuesta.",
         ),
       );
+      trace?.mark("abort_signal_invocation", { reason: "deadline" });
       controller.abort();
     }, timeoutMs);
   });
   try {
     if (signal?.aborted) return await interrupted;
     const request = (async () => {
-      const response = await fetchAuthenticated(getToken, input, {
+      const fetchedResponse = await fetchAuthenticated(getToken, input, {
         signal: controller.signal,
-      });
+        ...(trace ? { headers: { "X-Monitor-Client-Trace-Id": trace.id } } : {}),
+      }, trace ? (event, detail) => trace.step(event, detail) : undefined);
+      const response = trace ? new Proxy(fetchedResponse, {
+        get(target, property) {
+          if (property === "json") return () => trace.json(target);
+          const value = Reflect.get(target, property, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      }) : fetchedResponse;
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new MonitoringDashboardHttpError(
@@ -50,7 +65,9 @@ export async function requestMonitorResource({
         );
       }
       try {
-        return await readResponse(response);
+        const result = await readResponse(response);
+        trace?.step("response_validated");
+        return result;
       } catch (error) {
         if (
           error instanceof MonitoringDashboardHttpError ||
@@ -63,9 +80,12 @@ export async function requestMonitorResource({
         );
       }
     })();
-    return await Promise.race([request, interrupted]);
+    const result = await Promise.race([request, interrupted]);
+    trace?.step("query_result_return");
+    return result;
   } finally {
     clearTimer(timer);
+    trace?.mark("deadline_cleared");
     signal?.removeEventListener("abort", cancel);
   }
 }

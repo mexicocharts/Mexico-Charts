@@ -60,17 +60,20 @@ export function createAuthenticatedFetch({
   setTimer = (callback, delay) => globalThis.setTimeout(callback, delay),
   clearTimer = (handle) => globalThis.clearTimeout(handle),
 } = {}) {
-  return async function authenticatedFetch(getToken, input, init = {}) {
+  return async function authenticatedFetch(getToken, input, init = {}, diagnostic) {
+    const mark = (event, detail) => { try { diagnostic?.(event, detail); } catch { /* diagnostic only */ } };
     const url = requestUrl(input, locationHref());
     const currentOrigin = new URL(locationHref()).origin;
     const sameOrigin = url.origin === currentOrigin;
     const requestPath = url.pathname;
+    mark("token_start");
     const tokenResult = await acquireToken(
       getToken,
       tokenTimeoutMs,
       setTimer,
       clearTimer,
     );
+    mark("token_end", { outcome: tokenResult.outcome });
     const headers = new Headers(init.headers);
 
     // This helper owns the Clerk Authorization header. A caller-provided stale
@@ -91,11 +94,22 @@ export function createAuthenticatedFetch({
     });
 
     const retryInput = cloneRequestInput(input);
-    const response = await fetchImpl(input, {
+    const timedFetch = async (requestInput, options, attempt) => {
+      mark("fetch_start", { attempt });
+      try {
+        const response = await fetchImpl(requestInput, options);
+        mark("response_headers", { attempt, status: response.status });
+        return response;
+      } catch (error) {
+        mark("fetch_error", { attempt, abort: error?.name === "AbortError" });
+        throw error;
+      }
+    };
+    const response = await timedFetch(input, {
       ...init,
       headers,
       ...(credentials ? { credentials } : {}),
-    });
+    }, "primary");
 
     // Clerk prefers an Authorization bearer when one is present. If that
     // bearer is stale or rejected, replay this same-origin request exactly once
@@ -111,11 +125,11 @@ export function createAuthenticatedFetch({
         sameOrigin: true,
         requestPath,
       });
-      return fetchImpl(retryInput, {
+      return timedFetch(retryInput, {
         ...init,
         headers: fallbackHeaders,
         credentials: "include",
-      });
+      }, "cookie_fallback");
     }
 
     return response;
