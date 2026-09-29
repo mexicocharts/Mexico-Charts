@@ -16,6 +16,11 @@ const experience = readFileSync(
   "utf8",
 );
 
+test("absent Mexico markets do not render a fabricated zero total or deny other markets", () => {
+  assert.match(experience, /cities\.length \? compact\(combined\) : "Datos no disponibles"/);
+  assert.match(experience, /No hay mercados de México disponibles para este artista/);
+});
+
 test("all artists render through the recovered canonical Monitor Pro experience", () => {
   assert.match(page, /<MonitorProExperience/);
   assert.match(page, /data=\{data\}/);
@@ -58,7 +63,7 @@ test("unavailable comparison and alert data is stated rather than fabricated", (
 
 test("failed catalog reads are pending rather than evidence of zero Spotify or YouTube data", () => {
   assert.match(experience, /!data\.spotifyCatalog\.items\.length && hasReadFailure\("spotify", data\)\s*\? "Pendiente"/);
-  assert.match(experience, /!data\.liveVideos\.length && hasReadFailure\("videos", data\)\s*\? "Pendiente"/);
+  assert.match(experience, /monitorVideoCount\(data\) == null \? "Pendiente"/);
   assert.match(experience, /Consulta de YouTube pendiente/);
   assert.match(experience, /Esto no significa que el artista no tenga videos/);
 });

@@ -1840,7 +1840,7 @@ function MarketsView() {
           })}
           {!cities.length && (
             <div className="rounded-2xl border border-white/[.07] p-10 text-center text-sm text-white/35">
-              Los mercados todavía no están disponibles para este artista.
+              No hay mercados de México disponibles para este artista.
             </div>
           )}
         </div>
@@ -1859,7 +1859,9 @@ function MarketsView() {
         </Panel>
         <Panel className="p-6">
           <Kicker>Top 5 México</Kicker>
-          <p className="mt-4 text-5xl font-black">{compact(combined)}</p>
+          <p className="mt-4 text-5xl font-black">
+            {cities.length ? compact(combined) : "Datos no disponibles"}
+          </p>
           <p className="mt-2 text-xs text-white/35">
             oyentes mensuales combinados
           </p>
