@@ -51,7 +51,7 @@ import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../l
 import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog, summarizeMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
 import { loadMonitoringPriorityArtistIdentity } from "../lib/monitoring-priority-identity";
-import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory, loadMonitoringYoutubeSummary } from "../lib/monitoring-youtube-serving";
+import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory, loadMonitoringYoutubeSummary, loadMonitoringYoutubePage, parseMonitoringVideoPage } from "../lib/monitoring-youtube-serving";
 import { loadMonitoringYoutubeNativeHistory } from "../lib/monitoring-youtube-native-history";
 import { createMonitoringYoutubeHistoryHandler } from "../lib/monitoring-youtube-history-request";
 
@@ -1059,11 +1059,14 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
   }
 });
 
-// Independent read, with the same artist authorization and exact catalog SQL.
-// The existing 60-row browser pagination remains the sole pagination system.
+// Independent bounded read, with the same artist/source authorization.
 router.get("/monitoring/video-catalog/:artistKey", requireMonitoringClerkUser, async (req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
   const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
   if (!artistKey || artistKey.length > 160) { res.status(400).json({ error: "A valid artist key is required" }); return; }
+  let pagination;
+  try { pagination = parseMonitoringVideoPage(req.query.page ?? "1", req.query.pageSize ?? "60"); }
+  catch { res.status(400).json({ error: "Expected a positive integer page and pageSize=60" }); return; }
   try {
     await withDirectoryDiagnostics(
       diagnostic => logger.info({ event: "monitoring_video_catalog_identity_read", artistKey, ...diagnostic }),
@@ -1073,14 +1076,17 @@ router.get("/monitoring/video-catalog/:artistKey", requireMonitoringClerkUser, a
         if (!access.allowed || !access.grant) { res.status(403).json({ error: "Artist Pro access is required" }); return; }
         const keys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
         const startedAt = performance.now();
-        const videos = dedupeYoutubeMonitorRows(await loadMonitoringYoutubeLiveVideos(monitoringReadPool, keys));
+        const result = await loadMonitoringYoutubePage(monitoringReadPool, keys, pagination.page, pagination.pageSize);
+        const videos = result.items;
         logger.info({ event: "monitoring_video_catalog_complete", artistKey: access.grant.artist_key,
-          requestId, durationMs: elapsedMilliseconds(startedAt), total: videos.length,
+          requestId, durationMs: elapsedMilliseconds(startedAt), page: result.page,
+          total: result.totalItems, totalPages: result.totalPages, itemCount: videos.length,
+          firstId: videos[0]?.video_id ?? null, lastId: videos.at(-1)?.video_id ?? null,
           observed: videos.filter(v => v.monitor_observed_at != null).length,
           deltas: videos.filter(v => v.view_delta != null).length,
           provenance: videos.filter(v => Array.isArray(v.relationship_sources) && v.relationship_sources.length > 0).length,
-        }, "Independent complete video catalog read");
-        res.json({ artistKey: access.grant.artist_key, total: videos.length, videos });
+        }, "Bounded video catalog page read");
+        res.status(result.outOfRange ? 416 : 200).json({ artistKey: access.grant.artist_key, ...result });
       },
     );
   } catch (error) {

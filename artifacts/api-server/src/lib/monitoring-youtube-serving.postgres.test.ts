@@ -7,6 +7,8 @@ import {
   loadMonitoringYoutubeLiveVideos,
   loadMonitoringYoutubeDailyHistory,
   loadMonitoringYoutubeSummary,
+  loadMonitoringYoutubePage,
+  parseMonitoringVideoPage,
 } from "./monitoring-youtube-serving";
 
 const fixtureModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
@@ -80,8 +82,8 @@ test("16,273-video catalog remains complete while Panel receives one featured ro
   await database.exec(`
     INSERT INTO youtube_artist_video_links SELECT n,'large','Large','v'||n,90,0,true,'youtube_uploads' FROM generate_series(1,16273) n;
     INSERT INTO youtube_tracked_videos SELECT 'v'||n,'Video '||n,null,n,null,null FROM generate_series(1,16273) n;
-    INSERT INTO youtube_video_intraday_latest_observations SELECT 'v'||n,'2026-09-01'::timestamptz FROM generate_series(1,16273) n;
-    INSERT INTO youtube_video_intraday_shadow_snapshots SELECT 'v'||n,'2026-09-01'::timestamptz,n,0,300,'youtube_api_shadow' FROM generate_series(1,16273) n;
+    INSERT INTO youtube_video_intraday_latest_observations SELECT 'v'||n,'2026-09-01T00:00:00Z'::timestamptz FROM generate_series(1,16273) n;
+    INSERT INTO youtube_video_intraday_shadow_snapshots SELECT 'v'||n,'2026-09-01T00:00:00Z'::timestamptz,n,0,300,'youtube_api_shadow' FROM generate_series(1,16273) n;
   `);
   const summary = await loadMonitoringYoutubeSummary(database, ["large"]);
   assert.equal(summary.total, 16273); assert.equal(summary.observed, 16273); assert.equal(summary.deltas, 16273);
@@ -89,7 +91,60 @@ test("16,273-video catalog remains complete while Panel receives one featured ro
   const full = await loadMonitoringYoutubeLiveVideos(database, ["large"]);
   assert.equal(full.length, 16273); assert.equal(new Set(full.map(v => v.video_id)).size, 16273);
   assert.ok(full.every(v => v.relationship_sources.length === 1 && Number(v.view_delta) === 0));
+  const seen: string[] = [];
+  for (let page = 1; page <= 272; page++) {
+    const result = await loadMonitoringYoutubePage(database, ["large"], page);
+    assert.equal(result.totalItems, 16273); assert.equal(result.totalPages, 272);
+    assert.equal(result.items.length, page === 272 ? 13 : 60);
+    assert.equal(result.hasPreviousPage, page > 1); assert.equal(result.hasNextPage, page < 272);
+    for (const row of result.items) {
+      const n = Number(row.video_id.slice(1));
+      assert.equal(Number(row.view_count), n); assert.equal(Number(row.view_delta), 0);
+      assert.equal(row.seconds_since_previous, 300);
+      assert.equal(new Date(row.monitor_observed_at).toISOString(), "2026-09-01T00:00:00.000Z");
+      assert.equal(row.observation_source_type, "youtube_api_shadow");
+      assert.equal(row.relationship_sources[0].source_id, n);
+      seen.push(row.video_id);
+    }
+  }
+  assert.deepEqual(seen, full.map(v => v.video_id));
+  assert.equal(new Set(seen).size, 16273);
+  assert.deepEqual((await loadMonitoringYoutubePage(database, ["large"], 136)).items.map((v: any) => v.video_id), seen.slice(8100,8160));
+  const outside = await loadMonitoringYoutubePage(database, ["large"], 273);
+  assert.equal(outside.outOfRange, true); assert.deepEqual(outside.items, []);
 }));
+
+test("server pages preserve membership/provenance and zero versus missing readings", { skip: !fixtureModule }, async () => fixture(async database => {
+  await database.exec(candidates);
+  const full = await loadMonitoringYoutubeLiveVideos(database, ["canonical"]);
+  const page = await loadMonitoringYoutubePage(database, ["canonical"], 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(page.items)), JSON.parse(JSON.stringify(full)));
+  assert.equal(page.totalViews, "200");
+  assert.deepEqual((await loadMonitoringYoutubePage(database, ["absent"], 1)).items, []);
+  await assert.rejects(loadMonitoringYoutubePage(database, [], 1), /authorized artist identity/);
+}));
+
+test("0, 1, 59, 60 and 61 rows have exact page boundaries and stable equal-ranked ties", { skip: !fixtureModule }, async () => fixture(async database => {
+  for (const count of [0,1,59,60,61]) {
+    await database.exec(`TRUNCATE youtube_artist_video_links,youtube_tracked_videos;
+      INSERT INTO youtube_artist_video_links SELECT n,'edge','Edge','v'||lpad(n::text,3,'0'),90,0,true,'uploads' FROM generate_series(1,${count}) n;
+      INSERT INTO youtube_tracked_videos SELECT 'v'||lpad(n::text,3,'0'),'Equal',null,0,null,null FROM generate_series(1,${count}) n;`);
+    const first = await loadMonitoringYoutubePage(database, ["edge"], 1);
+    assert.equal(first.totalItems, count); assert.equal(first.items.length, Math.min(60,count));
+    assert.equal(first.totalPages, count > 60 ? 2 : 1);
+    assert.equal(first.outOfRange, false);
+    assert.deepEqual(first.items.map((v: any) => v.video_id), Array.from({length: Math.min(60,count)}, (_, i) => `v${String(i+1).padStart(3,"0")}`));
+    const second = await loadMonitoringYoutubePage(database, ["edge"], 2);
+    assert.equal(second.outOfRange, count <= 60); assert.equal(second.items.length, count === 61 ? 1 : 0);
+  }
+}));
+
+test("page validation and read errors fail closed rather than report an empty source", async () => {
+  assert.deepEqual(parseMonitoringVideoPage(), {page:1,pageSize:60});
+  for (const bad of ["0","-1","1.1","Infinity","NaN","9007199254740991",[],{},1]) assert.throws(() => parseMonitoringVideoPage(bad));
+  for (const bad of ["0","61","10000",60,[]]) assert.throws(() => parseMonitoringVideoPage("1",bad));
+  await assert.rejects(loadMonitoringYoutubePage({query: async () => { throw new Error("read timeout"); }} as any, ["a"],1), /read timeout/);
+});
 
 test("candidate-only served videos retain review/verified status and recover their real native daily history", { skip: !fixtureModule }, async () => fixture(async database => {
   await database.exec(candidates);

@@ -17,26 +17,28 @@ export interface MonitoringYoutubeRelationship {
  * existing dashboard catalog predicate. A shadow candidate remains a shadow
  * candidate even when it shares a video with an approved active link.
  */
-export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string, idsOnly = false): string {
+export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string, idsOnly = false, videoIdsSql?: string): string {
   return `
     WITH monitoring_eligible_relationships AS MATERIALIZED (
-      SELECT link.artist_key, link.artist_name, link.video_id, link.confidence_score,
+      SELECT ${idsOnly ? "link.video_id" : `link.artist_key, link.artist_name, link.video_id, link.confidence_score,
              link.priority, link.id,
              'youtube_artist_video_links'::text relation_source,
              'active'::text relation_status, NULL::text sampling_status,
-             link.source_type relation_evidence_source
+             link.source_type relation_evidence_source`}
       FROM youtube_artist_video_links link
       WHERE link.active=true AND link.confidence_score >= 80
         AND link.artist_key=ANY(${artistKeysSql})
+        ${videoIdsSql ? `AND link.video_id IN (${videoIdsSql})` : ""}
       UNION ALL
-      SELECT candidate.artist_key, candidate.artist_name, candidate.video_id, candidate.confidence_score,
+      SELECT ${idsOnly ? "candidate.video_id" : `candidate.artist_key, candidate.artist_name, candidate.video_id, candidate.confidence_score,
              0 priority, candidate.id,
              'youtube_music_catalog_candidates'::text relation_source,
              candidate.status relation_status, candidate.sampling_status,
-             candidate.evidence_source relation_evidence_source
+             candidate.evidence_source relation_evidence_source`}
       FROM youtube_music_catalog_candidates candidate
       WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
         AND candidate.artist_key=ANY(${artistKeysSql})
+        ${videoIdsSql ? `AND candidate.video_id IN (${videoIdsSql})` : ""}
     )${idsOnly ? " SELECT DISTINCT video_id FROM monitoring_eligible_relationships" : `, monitoring_selected_relationship AS (
       SELECT DISTINCT ON (video_id) * FROM monitoring_eligible_relationships
       ORDER BY video_id, confidence_score DESC, priority DESC, id, relation_source
@@ -119,6 +121,71 @@ export const MONITORING_YOUTUBE_LIVE_VIDEOS_SQL = `
   WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
   ORDER BY COALESCE(latest.view_count, tracked.view_count) DESC, tracked.title
 `;
+
+// Rank only IDs/title/current count. LIMIT precedes relationship JSON, raw
+// deltas, timestamps and thumbnail hydration. One statement/snapshot keeps the
+// count and selected page consistent. Reports deliberately retain the full read.
+// video_id is the unique final tie-breaker where count AND title are equal;
+// those ties were previously unspecified. Separate requests see current data.
+export const MONITORING_YOUTUBE_PAGE_SQL = `
+  WITH eligible AS MATERIALIZED (${buildMonitoringYoutubeEligibleVideosSql("$1::text[]", true)}),
+  ranked AS MATERIALIZED (
+    SELECT tracked.video_id, tracked.title, COALESCE(latest.view_count, tracked.view_count) view_count
+    FROM eligible JOIN youtube_tracked_videos tracked USING(video_id)
+    LEFT JOIN youtube_video_intraday_latest_observations pointer USING(video_id)
+    LEFT JOIN youtube_video_intraday_shadow_snapshots latest
+      ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
+    WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
+  ), selected_page AS MATERIALIZED (
+    SELECT * FROM ranked ORDER BY view_count DESC, title, video_id
+    LIMIT $2::integer OFFSET $3::bigint
+  ), matched_links AS MATERIALIZED (
+    ${buildMonitoringYoutubeEligibleVideosSql("$1::text[]", false, "SELECT video_id FROM selected_page")}
+  ), hydrated AS (
+    SELECT links.artist_name, links.video_id, tracked.title, tracked.thumbnail_url,
+      'https://www.youtube.com/watch?v=' || links.video_id canonical_url,
+      page.view_count, latest.view_delta, latest.seconds_since_previous,
+      latest.observed_at::text monitor_observed_at,
+      COALESCE(latest.observed_at, tracked.last_snapshot_at, tracked.updated_at)::text observed_at,
+      NULL::bigint views_24h, NULL::text views_24h_started_at, NULL::text views_24h_ended_at,
+      NULL::bigint views_today_et, NULL::text views_today_et_started_at, NULL::text views_today_et_ended_at,
+      links.relation_source, links.relation_status, links.sampling_status,
+      links.relation_evidence_source, links.has_approved_link, links.relationship_sources,
+      CASE WHEN latest.view_count IS NOT NULL THEN 'youtube_video_intraday_shadow_snapshots'
+        ELSE 'youtube_tracked_videos' END view_count_source_table,
+      CASE WHEN latest.view_count IS NOT NULL THEN latest.source_type ELSE NULL END observation_source_type
+    FROM selected_page page JOIN matched_links links USING(video_id)
+    JOIN youtube_tracked_videos tracked USING(video_id)
+    LEFT JOIN youtube_video_intraday_latest_observations pointer USING(video_id)
+    LEFT JOIN youtube_video_intraday_shadow_snapshots latest
+      ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
+  )
+  SELECT (SELECT count(*)::integer FROM ranked) total_items,
+    (SELECT COALESCE(sum(view_count),0)::text FROM ranked) total_views,
+    COALESCE(jsonb_agg(to_jsonb(hydrated) ORDER BY view_count DESC,title,video_id)
+      FILTER (WHERE video_id IS NOT NULL), '[]'::jsonb) items
+  FROM hydrated
+`;
+
+export function parseMonitoringVideoPage(page: unknown = "1", pageSize: unknown = "60") {
+  if (typeof page !== "string" || !/^[1-9]\d*$/.test(page)
+    || !Number.isSafeInteger(Number(page)) || Number(page) > Math.floor(Number.MAX_SAFE_INTEGER / 60)
+    || pageSize !== "60") throw new RangeError("Expected a positive integer page and pageSize=60");
+  return { page: Number(page), pageSize: 60 };
+}
+
+export async function loadMonitoringYoutubePage(queryable: Queryable, artistKeys: readonly string[], page: number, pageSize = 60) {
+  parseMonitoringVideoPage(String(page), String(pageSize));
+  const { rows } = await queryable.query(MONITORING_YOUTUBE_PAGE_SQL,
+    [checkedArtistKeys(artistKeys), pageSize, (page - 1) * pageSize]);
+  const row = rows[0];
+  if (!row || !Array.isArray(row.items)) throw new Error("Invalid YouTube page result");
+  const totalItems = Number(row.total_items);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  return { items: row.items as Record<string, any>[], page, pageSize, totalItems, totalPages,
+    hasPreviousPage: page > 1, hasNextPage: page < totalPages,
+    outOfRange: page > totalPages, totalViews: row.total_views };
+}
 
 /** Native dated video snapshots only. The relation metadata explains why the
  * video is served; it does not reclassify the stored observation's provenance.

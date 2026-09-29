@@ -56,7 +56,6 @@ import { missingArtworkBatches, validateArtworkResponse } from "@/lib/monitorArt
 import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
 import { monitorVideoDelta, completeMonitorVideoDelta } from "@/lib/monitorVideoDelta.mjs";
-import { monitorVideoPage } from "@/lib/monitorVideoPage.mjs";
 import { monitorVideoCount, validateMonitorVideoCatalog } from "@/lib/monitorVideoCatalog.mjs";
 import { monitorVideoThumbnail } from "@/lib/monitorVideoThumbnail.mjs";
 
@@ -1502,21 +1501,21 @@ function VideosView() {
   const { data } = useMonitorPro();
   const auth = useMexicoAuth();
   const artistKey = data.subscription.artistKey;
+  const [requestedPage, setRequestedPage] = useState(0);
+  useEffect(() => setRequestedPage(0), [artistKey]);
   const catalogQuery = useQuery({
-    queryKey: ["monitoring-video-catalog", auth.userId, artistKey],
-    enabled: Boolean(data.youtubeCatalogDeferred && auth.isSignedIn && auth.userId),
+    queryKey: ["monitoring-video-catalog", auth.userId, artistKey, requestedPage],
+    enabled: Boolean(auth.isSignedIn && auth.userId),
     staleTime: 5 * 60_000,
     retry: false,
     refetchOnWindowFocus: false,
     queryFn: ({ signal }) => requestMonitorResource({
       getToken: auth.getToken, signal,
-      input: `/api/monitoring/video-catalog/${encodeURIComponent(artistKey)}`,
-      readResponse: async response => validateMonitorVideoCatalog(await response.json(), artistKey),
+      input: `/api/monitoring/video-catalog/${encodeURIComponent(artistKey)}?page=${requestedPage + 1}&pageSize=60`,
+      readResponse: async response => validateMonitorVideoCatalog(await response.json(), artistKey, requestedPage + 1),
     }),
   });
-  const catalogVideos = data.youtubeCatalogDeferred ? catalogQuery.data?.videos ?? [] : data.liveVideos;
-  const [requestedPage, setRequestedPage] = useState(0);
-  useEffect(() => setRequestedPage(0), [data.subscription.artistKey]);
+  const catalogVideos = catalogQuery.data?.items ?? [];
   const videos = catalogVideos
     .map((video) => {
       const views = Number(video.view_count ?? 0);
@@ -1533,17 +1532,15 @@ function VideosView() {
         milestone,
         progress: monitorMilestoneProgress(views, milestone),
       };
-    })
-    .sort((a, b) => b.views - a.views);
-  const totalTrackedViews = videos.reduce(
-    (total, video) => total + video.views,
-    0,
-  );
+    });
+  const totalTrackedViews = Number(catalogQuery.data?.totalViews ?? 0);
+  const totalVideos = catalogQuery.data?.totalItems ?? 0;
   const totalLatestGain = completeMonitorVideoDelta(videos.map(video => video.delta));
   const deltaCount = videos.filter(video => video.delta !== null).length;
-  const videoReadFailed = data.youtubeCatalogDeferred ? Boolean(catalogQuery.error) : Boolean(data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded");
+  const videoReadFailed = Boolean(catalogQuery.error);
   const channelVideoCount = data.youtubeCoverage.channelVideoCount;
-  const videoPage = monitorVideoPage(videos, requestedPage);
+  const videoPage = {items: videos, page: requestedPage, pageCount: catalogQuery.data?.totalPages ?? 1,
+    offset: requestedPage * 60, total: totalVideos};
   const pagination = videoPage.pageCount > 1 && (
     <nav aria-label="Páginas del catálogo de YouTube" className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[.07] p-4 text-xs sm:px-7">
       <span aria-live="polite">Videos {videoPage.offset + 1}–{videoPage.offset + videoPage.items.length} de {videoPage.total}</span>
@@ -1556,8 +1553,11 @@ function VideosView() {
       </div>
     </nav>
   );
-  if (data.youtubeCatalogDeferred && catalogQuery.isPending)
-    return <Panel className="p-10 text-sm"><p role="status">Cargando el catálogo completo de YouTube de forma independiente. El Panel permanece disponible; esto no indica ausencia de videos.</p></Panel>;
+  if (catalogQuery.isPending)
+    return <Panel className="p-10 text-sm"><p role="status">Cargando página {requestedPage + 1} del catálogo de YouTube. El Panel permanece disponible; esto no indica ausencia de videos.</p></Panel>;
+  if (videoReadFailed)
+    return <Panel className="p-10 text-sm"><p role="alert">La página {requestedPage + 1} no se pudo consultar. No se ha confirmado ausencia de videos.</p>
+      {requestedPage > 0 && <button className="mt-4 underline" onClick={() => setRequestedPage(0)}>Volver a la primera página</button>}</Panel>;
   if (!videos.length)
     return (
       <div className="space-y-5">
@@ -1613,7 +1613,7 @@ function VideosView() {
               YouTube en vivo, video por video
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-6 text-white/42">
-              {videos.length} videos únicos del catálogo vinculado tienen conteos exactos guardados.
+              {totalVideos} videos únicos del catálogo vinculado tienen conteos exactos guardados.
               {channelVideoCount == null
                 ? ""
                 : ` El canal registra ${channelVideoCount} videos; es un conjunto distinto del catálogo vinculado.`}
@@ -1628,10 +1628,10 @@ function VideosView() {
                 ],
                 [
                   totalLatestGain == null ? "—" : `${totalLatestGain >= 0 ? "+" : ""}${compact(totalLatestGain)}`,
-                  "últimas lecturas · Cálculo de Mexico Charts",
+                  "últimas lecturas · esta página · Cálculo de Mexico Charts",
                 ],
                 [
-                  String(videos.length),
+                  String(totalVideos),
                   "videos con lecturas guardadas",
                 ],
               ].map(([value, label]) => (
@@ -1648,8 +1648,8 @@ function VideosView() {
             </div>
             {deltaCount < videos.length && (
               <p className="mt-3 text-[9px] text-white/40">
-                Variación e intervalo disponibles para {deltaCount} de {videos.length} videos.
-                El total permanece pendiente; los valores ausentes no se sustituyen por cero.
+                Variación e intervalo disponibles para {deltaCount} de {videos.length} videos en esta página.
+                El total de esta página permanece pendiente; los valores ausentes no se sustituyen por cero.
               </p>
             )}
           </div>
@@ -1667,7 +1667,7 @@ function VideosView() {
                 <Play className="ml-1 h-5 w-5 fill-current" />
               </span>
               <p className="mt-5 text-[9px] font-black uppercase tracking-[.16em] text-red-300">
-                Video con más vistas
+                Video con más vistas en esta página
               </p>
               <p className="mt-2 line-clamp-2 text-2xl font-black">
                 {videos[0].title}
@@ -1684,7 +1684,7 @@ function VideosView() {
           <div>
             <Kicker>YouTube · lecturas guardadas</Kicker>
             <h3 className="mt-2 text-2xl font-black">
-              Los {videos.length} videos conectados
+              Los {totalVideos} videos conectados
             </h3>
           </div>
           <p className="text-[9px] font-black uppercase tracking-[.14em] text-white/25">
