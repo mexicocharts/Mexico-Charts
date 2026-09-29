@@ -1,5 +1,6 @@
 import { directoryDiagnostic, privateIdentityDiagnostic, type DirectoryStage } from "./monitoring-directory-diagnostics";
 import { identityProbeEnabled, prepareIdentityProbe } from "./monitoring-private-identity-probe";
+import { privateLoaderPhase } from "./monitoring-private-loader-trace";
 import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
 export { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
@@ -88,7 +89,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     if (probing) queryText = await prepareIdentityProbe(client, directoryStage!, text, values);
     queryStartedAt = performance.now();
     if (probing) privateIdentityDiagnostic(directoryStage!, "submitted", { submitted:true });
-    const result = await client.query<T>({ text:queryText, values });
+    const result = await privateLoaderPhase(directoryStage ?? "readiness_query",()=>client.query<T>({ text:queryText, values }));
     if (probing) privateIdentityDiagnostic(directoryStage!, "returned", {rows:result.rows.length,elapsedMs:performance.now()-queryStartedAt});
     if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "ok");
     onDiagnostic?.({

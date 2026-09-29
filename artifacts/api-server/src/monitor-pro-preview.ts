@@ -3,6 +3,7 @@ import express from "express";
 import compression from "compression";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { installPrivatePoolTrace, runPrivateLoaderTrace, privateTraceMark, privateTraceCallback } from "./lib/monitoring-private-loader-trace";
 
 export const MONITOR_APPLICATION_REVISION =
   "51c8a2e4e6fef4ff223227c03190eed091cb5dd0";
@@ -54,6 +55,7 @@ export async function startMonitorProPreview() {
   process.env["DATABASE_URL"] = process.env["NEON_DATABASE_URL"];
   const { pool, publicReadPool, monitoringReadPool } =
     await import("@workspace/db");
+  for (const [name, p] of [["default",pool],["public",publicReadPool],["monitoring",monitoringReadPool]] as const) installPrivatePoolTrace(p,name);
   // Founder acceptance can leave this isolated preview idle between tabs. Keep
   // its three read-only pool connections available so the next authenticated
   // request does not have to establish a cold Neon connection inside the
@@ -79,6 +81,11 @@ export async function startMonitorProPreview() {
   const { default: monitoringRouter } = await import("./routes/monitoring");
   const { default: imageProxyRouter } = await import("./routes/image-proxy");
   const app = express();
+  app.use((req,res,next)=>runPrivateLoaderTrace(req.path.startsWith("/api/monitoring/dashboard/") ? req.path.split("/").at(-1)! : "", row=>console.log("MONITOR_TRACE "+JSON.stringify(row)),()=>{
+    res.once("finish",privateTraceCallback(()=>privateTraceMark("response_finish",{status:res.statusCode})));
+    res.once("close",privateTraceCallback(()=>privateTraceMark("response_close",{status:res.statusCode})));
+    next();
+  }));
   app.use(compression({ threshold: 1024 }));
   app.use((req, res, next) => {
     res.setHeader("Cache-Control", "private, no-store");

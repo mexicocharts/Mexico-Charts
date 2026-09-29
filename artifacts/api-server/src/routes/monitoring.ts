@@ -1,4 +1,5 @@
 import { withDirectoryDiagnostics } from "../lib/monitoring-directory-diagnostics";
+import { privateLoaderPhase, privateTraceMark } from "../lib/monitoring-private-loader-trace";
 import { MONITORING_EXTENDED_SOURCE_SQL, selectMonitoringExtendedSource } from "../lib/monitoring-extended-source";
 import { MONITORING_COMPARISONS_SQL } from "../lib/monitoring-comparisons";
 import { Router, type RequestHandler } from "express";
@@ -236,7 +237,7 @@ async function loadAuthorizedMonitoring(
   requestedArtistKey: string,
 ) {
   const dashboardLoadStartedAt = performance.now();
-  const authorization = await resolveMonitoringAccess(userId, requestedArtistKey);
+  const authorization = await privateLoaderPhase("authorization",()=>resolveMonitoringAccess(userId, requestedArtistKey));
   const active = authorization.grant;
   if (!authorization.allowed || !active) return null;
   const activeKeys = monitoringAuthorizedSourceKeys(active, monitoringIdentityKeyCandidates);
@@ -270,7 +271,8 @@ async function loadAuthorizedMonitoring(
     }
     let timeout: NodeJS.Timeout | undefined;
     let settled = false;
-    const loaded = load()
+    privateTraceMark("section_budget",{stage,remainingDashboardBudgetMs});
+    const loaded = privateLoaderPhase(stage,load)
       .then((value) => {
         if (settled) return fallback;
         sectionStatus[stage] = "loaded";
@@ -302,6 +304,7 @@ async function loadAuthorizedMonitoring(
       });
     const timedOut = new Promise<T>((resolve) => {
       timeout = setTimeout(() => {
+        privateTraceMark("section_timeout",{stage,remainingDashboardBudgetMs});
         sectionStatus[stage] = "timeout";
         logger.warn(
           {
@@ -739,6 +742,7 @@ async function loadAuthorizedMonitoring(
         : Promise.resolve(null),
     null,
   );
+  privateTraceMark("payload_assembly_start");
   const completeHistory = mergeMonitoringPlatformHistory(history, insight?.trends ?? {});
   const comparisonArtists = comparisonRows.map((row) => {
     // Preserve observed window dates for like-for-like report comparisons.
@@ -1063,7 +1067,7 @@ router.get(
         diagnostic => logger.info({ event: "monitoring_dashboard_identity_read", ...diagnostic,
           ...(process.env.MONITOR_PRO_READONLY_PREVIEW === "true" ? {artistKey} : {}),
           poolTotal: monitoringReadPool.totalCount, poolIdle: monitoringReadPool.idleCount, poolWaiting: monitoringReadPool.waitingCount }, "Monitor identity read diagnostic"),
-        requestId => { if (process.env.MONITOR_PRO_READONLY_PREVIEW === "true") res.setHeader("X-Monitor-Request-Id", requestId); return loadAuthorizedMonitoring(clerkUserId(res), artistKey); },
+        requestId => { if (process.env.MONITOR_PRO_READONLY_PREVIEW === "true") res.setHeader("X-Monitor-Request-Id", requestId); return privateLoaderPhase("authorized_loader",()=>loadAuthorizedMonitoring(clerkUserId(res), artistKey)); },
       );
       if (!dashboard) {
         res
@@ -1071,7 +1075,9 @@ router.get(
           .json({ error: "Artist Pro access is required for this artist" });
         return;
       }
+      privateTraceMark("serialization_start");
       res.json(dashboard);
+      privateTraceMark("serialization_end");
     } catch (error) {
       const status = requestDatabaseHttpStatus(error);
       const unavailable = status === 503;

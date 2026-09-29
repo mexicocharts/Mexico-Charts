@@ -1,4 +1,5 @@
 import { monitoringArtworkRateLimit } from "./monitoring-artwork-rate-limit";
+import { privateLoaderPhase, privateTraceMark } from "./monitoring-private-loader-trace";
 
 export type MonitoringKworbCatalogItem = {
   type: "track" | "album";
@@ -294,9 +295,10 @@ export async function loadCompleteMonitoringKworbCatalog(
   spotifyArtistId: string,
 ): Promise<MonitoringKworbCatalog> {
   const cached = cache.get(spotifyArtistId);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached && cached.expiresAt > Date.now()) { privateTraceMark("catalog_cache_hit"); return cached.value; }
   const pending = inFlight.get(spotifyArtistId);
-  if (pending) return pending;
+  if (pending) { privateTraceMark("catalog_inflight_hit"); return pending; }
+  privateTraceMark("catalog_cache_miss");
   const request = fetchCompleteMonitoringKworbCatalog(spotifyArtistId);
   inFlight.set(spotifyArtistId, request);
   try {
@@ -314,8 +316,8 @@ async function fetchCompleteMonitoringKworbCatalog(
   // This shortens artwork work; it does not raise any HTTP/database timeout.
   const catalogDeadline = AbortSignal.timeout(8_000);
   const [songs, albums] = await Promise.all([
-    fetchPage(spotifyArtistId, "songs"),
-    fetchPage(spotifyArtistId, "albums"),
+    privateLoaderPhase("kworb_songs_http",()=>fetchPage(spotifyArtistId, "songs")),
+    privateLoaderPhase("kworb_albums_http",()=>fetchPage(spotifyArtistId, "albums")),
   ]);
   const parsedItems = [
     ...parseMonitoringKworbCatalog(songs.html ?? "", "track"),
@@ -326,7 +328,8 @@ async function fetchCompleteMonitoringKworbCatalog(
       page.status = { ...page.status, status: "unresolved", reason: "no_parseable_rows" };
   }
   if (!parsedItems.length) throw new Error(`Kworb catalog has no usable pages: tracks HTTP ${songs.status.httpStatus ?? "unknown"}; albums HTTP ${albums.status.httpStatus ?? "unknown"}`);
-  const items = await enrichSpotifyArtwork(parsedItems, catalogDeadline);
+  privateTraceMark("catalog_parsed",{tracks:parsedItems.filter(x=>x.type==="track").length,albums:parsedItems.filter(x=>x.type==="album").length});
+  const items = await privateLoaderPhase("catalog_artwork",()=>enrichSpotifyArtwork(parsedItems, catalogDeadline));
   const sourceDates = { tracks: songs.status.status === "loaded" ? parseMonitoringKworbSourceDate(songs.html!) : null,
     albums: albums.status.status === "loaded" ? parseMonitoringKworbSourceDate(albums.html!) : null };
   const value: MonitoringKworbCatalog = {
