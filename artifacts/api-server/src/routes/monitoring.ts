@@ -1061,6 +1061,7 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
 
 // Independent bounded read, with the same artist/source authorization.
 router.get("/monitoring/video-catalog/:artistKey", requireMonitoringClerkUser, async (req, res) => {
+  const requestStartedAt = performance.now();
   res.setHeader("Cache-Control", "private, no-store");
   const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
   if (!artistKey || artistKey.length > 160) { res.status(400).json({ error: "A valid artist key is required" }); return; }
@@ -1078,14 +1079,16 @@ router.get("/monitoring/video-catalog/:artistKey", requireMonitoringClerkUser, a
         const startedAt = performance.now();
         const result = await loadMonitoringYoutubePage(monitoringReadPool, keys, pagination.page, pagination.pageSize);
         const videos = result.items;
-        logger.info({ event: "monitoring_video_catalog_complete", artistKey: access.grant.artist_key,
-          requestId, durationMs: elapsedMilliseconds(startedAt), page: result.page,
+        const queryDurationMs = elapsedMilliseconds(startedAt);
+        res.once("finish", () => logger.info({ event: "monitoring_video_catalog_complete", artistKey: access.grant!.artist_key,
+          requestId, queryDurationMs, responseDurationMs: elapsedMilliseconds(requestStartedAt),
+          httpStatus: res.statusCode, page: result.page,
           total: result.totalItems, totalPages: result.totalPages, itemCount: videos.length,
           firstId: videos[0]?.video_id ?? null, lastId: videos.at(-1)?.video_id ?? null,
           observed: videos.filter(v => v.monitor_observed_at != null).length,
           deltas: videos.filter(v => v.view_delta != null).length,
           provenance: videos.filter(v => Array.isArray(v.relationship_sources) && v.relationship_sources.length > 0).length,
-        }, "Bounded video catalog page read");
+        }, "Bounded video catalog page read"));
         res.status(result.outOfRange ? 416 : 200).json({ artistKey: access.grant.artist_key, ...result });
       },
     );
