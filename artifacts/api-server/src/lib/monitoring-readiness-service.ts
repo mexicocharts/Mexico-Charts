@@ -1,4 +1,5 @@
-import { directoryDiagnostic, type DirectoryStage } from "./monitoring-directory-diagnostics";
+import { directoryDiagnostic, privateIdentityDiagnostic, type DirectoryStage } from "./monitoring-directory-diagnostics";
+import { identityProbeEnabled, prepareIdentityProbe } from "./monitoring-private-identity-probe";
 import { publicReadPool, type PgPool, type QueryResultRow } from "@workspace/db";
 import { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
 export { evaluateMonitoringReadinessRow, type ReadinessRow } from "./monitoring-readiness-row";
@@ -79,10 +80,16 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     throw error;
   }
 
-  const queryStartedAt = performance.now();
+  let queryStartedAt = performance.now();
+  const probing = identityProbeEnabled(directoryStage, values);
   let discardClient = false;
   try {
-    const result = await client.query<T>({ text, values });
+    let queryText = text;
+    if (probing) queryText = await prepareIdentityProbe(client, directoryStage!, text, values);
+    queryStartedAt = performance.now();
+    if (probing) privateIdentityDiagnostic(directoryStage!, "submitted", { submitted:true });
+    const result = await client.query<T>({ text:queryText, values });
+    if (probing) privateIdentityDiagnostic(directoryStage!, "returned", {rows:result.rows.length,elapsedMs:performance.now()-queryStartedAt});
     if (directoryStage) directoryDiagnostic(directoryStage, "query", queryStartedAt, "ok");
     onDiagnostic?.({
       stage: "readiness_query",
@@ -91,6 +98,7 @@ export async function executeMonitoringReadinessQuery<T extends QueryResultRow>(
     });
     return result.rows;
   } catch (error) {
+    if (probing) privateIdentityDiagnostic(directoryStage!, "query_failure", {statementTimeout:(error as {code?:string}).code === "57014",elapsedMs:performance.now()-queryStartedAt});
     // pg's client-side query timeout does not cancel the server statement.
     // Do not offer that still-busy/broken connection to the next HTTP request.
     discardClient = error instanceof Error && /query read timeout|connection terminated|connection.*closed/i.test(error.message);

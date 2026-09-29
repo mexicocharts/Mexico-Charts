@@ -2,9 +2,14 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
 export type DirectoryStage = "schema_inventory" | "candidate_population" | "accepted_aliases" | "discovery_candidates" | "identity_initial" | "identity_expanded" | "identity_cache" | "page_evidence" | "directory";
-type Record = { requestId: string; stage: DirectoryStage; phase: string; elapsedMs: number; outcome: string; errorClass?: string; errorMessage?: string; ownerRequestId?: string | null };
+type Record = { requestId: string; stage: DirectoryStage; phase: string; elapsedMs: number; outcome: string; errorClass?: string; errorMessage?: string; ownerRequestId?: string | null; detail?: unknown };
 const context = new AsyncLocalStorage<{ requestId: string; emit: (record: Record) => void }>();
 export function directoryRequestId() { return context.getStore()?.requestId ?? null; }
+export function privateIdentityDiagnostic(stage: DirectoryStage, phase: string, detail: unknown) {
+  const current = context.getStore();
+  if (!current || process.env.MONITOR_PRO_READONLY_PREVIEW !== "true") return;
+  try { current.emit({ requestId: current.requestId, stage, phase, elapsedMs: 0, outcome: "diagnostic", detail }); } catch { /* Non-authoritative diagnostics. */ }
+}
 export function directoryDiagnostic(stage: DirectoryStage, phase: string, startedAt: number, outcome: string, error?: unknown, ownerRequestId?: string | null) {
   const current = context.getStore();
   if (!current) return;

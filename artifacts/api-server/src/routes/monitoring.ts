@@ -1061,8 +1061,9 @@ router.get(
     try {
       const dashboard = await withDirectoryDiagnostics(
         diagnostic => logger.info({ event: "monitoring_dashboard_identity_read", ...diagnostic,
+          ...(process.env.MONITOR_PRO_READONLY_PREVIEW === "true" ? {artistKey} : {}),
           poolTotal: monitoringReadPool.totalCount, poolIdle: monitoringReadPool.idleCount, poolWaiting: monitoringReadPool.waitingCount }, "Monitor identity read diagnostic"),
-        () => loadAuthorizedMonitoring(clerkUserId(res), artistKey),
+        requestId => { if (process.env.MONITOR_PRO_READONLY_PREVIEW === "true") res.setHeader("X-Monitor-Request-Id", requestId); return loadAuthorizedMonitoring(clerkUserId(res), artistKey); },
       );
       if (!dashboard) {
         res
