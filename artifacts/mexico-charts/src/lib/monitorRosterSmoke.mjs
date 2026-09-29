@@ -40,8 +40,10 @@ export function remainingSmokeKeys(artists, checkpoint, continuedResults = []) {
 export async function runMonitorRosterSmoke(artists, read, summarize, onResult, signal, checkpoint, continuedResults = []) {
   const {selected, keys, original} = remainingSmokeKeys(artists, checkpoint, continuedResults);
   const results = [...original, ...continuedResults];
-  let next = 0, stopReason = null, previousFailure = null;
-  const recent = [];
+  const failureSignature = r => classifySmokeResult(r) === "runtime_failure"
+    ? String(r.httpStatus) + ":" + [...(r.problems ?? [r.error])].sort().join("|") : null;
+  let next = 0, stopReason = null, previousFailure = continuedResults.length ? failureSignature(continuedResults.at(-1)) : null;
+  const recent = continuedResults.slice(-20).map(r => classifySmokeResult(r) === "runtime_failure");
   async function worker() {
     while (!stopReason && !signal?.aborted && next < keys.length) {
       const key = keys[next++], started = performance.now();
@@ -61,7 +63,7 @@ export async function runMonitorRosterSmoke(artists, read, summarize, onResult, 
       }
       result.classification = classifySmokeResult(result);
       const failed = result.classification === "runtime_failure";
-      const signature = failed ? String(result.httpStatus) + ":" + [...(result.problems ?? [result.error])].sort().join("|") : null;
+      const signature = failureSignature(result);
       recent.push(failed); if (recent.length > 20) recent.shift();
       if (failed && signature === previousFailure) stopReason = "two_consecutive_identical_runtime_failures";
       if (recent.filter(Boolean).length >= 3) stopReason ??= "three_runtime_failures_in_twenty";

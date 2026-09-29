@@ -65,3 +65,9 @@ test("a continuation excludes completed keys and rejects duplicate/mismatched ch
   assert.throws(()=>remainingSmokeKeys(roster,checkpoint,[checkpoint.originalResults[0]]),/Duplicate/);
   assert.throws(()=>remainingSmokeKeys(roster.slice(1),checkpoint),/mismatch/);
 });
+test("resuming preserves current failure history instead of resetting stop counters",async()=>{
+ const prior={artistKey:"0",httpStatus:503,outcome:"request_failed",error:"timeout"};
+ const result=await runMonitorRosterSmoke(artists,async()=>{throw Object.assign(new Error("timeout"),{status:503})},()=>({}),()=>{},undefined,undefined,[prior]);
+ assert.equal(result.stopReason,"two_consecutive_identical_runtime_failures");
+ assert.ok(result.attempted<=3);
+});
