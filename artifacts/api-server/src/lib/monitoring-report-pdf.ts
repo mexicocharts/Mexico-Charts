@@ -12,6 +12,7 @@ type Snapshot = {
 
 type SpotifyItem = {
   type: "track" | "album";
+  key?: string;
   title: string;
   artworkUrl?: string | null;
   totalStreams: number | null;

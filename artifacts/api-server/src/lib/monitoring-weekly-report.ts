@@ -1,4 +1,5 @@
 import PDFDocument from "pdfkit";
+import { loadCatalogArtworkBatch, type CatalogArtworkResource } from "./monitoring-catalog-artwork";
 import { compareMonitoringCatalogDaily, monitoringCatalogDateDescription, type MonitoringReportInput } from "./monitoring-report-pdf";
 
 // Presentation recovered from build-peso-monitor-report.py, the original
@@ -34,6 +35,22 @@ export type WeeklyReportInput = Omit<
 export function reportSpotifyArtworkIndex(videoCount: number, featuredTrackCount: number, type: "track" | "album", row: number) {
   // Images are packed after the cover and videos; sparse catalogs have no padding.
   return 1 + videoCount + (type === "album" ? featuredTrackCount : 0) + row;
+}
+
+/** Report-only enrichment after authorization; never blocks the dashboard loader. */
+export async function reportFeaturedArtwork(
+  items: WeeklyReportInput["spotifyCatalog"]["items"],
+  load: typeof loadCatalogArtworkBatch = loadCatalogArtworkBatch,
+) {
+  const missing = new Map<string, CatalogArtworkResource>();
+  for (const item of items) {
+    if (!item.artworkUrl && item.key && /^[A-Za-z0-9]{22}$/.test(item.key))
+      missing.set(`${item.type}:${item.key}`, { type: item.type, key: item.key });
+  }
+  // Only the five tracks and five albums actually printed, not the full catalog.
+  if (!missing.size) return new Map<string, string>();
+  const rows = await load([...missing.values()].slice(0, 10));
+  return new Map(rows.flatMap(row => row.artworkUrl ? [[row.resource, row.artworkUrl] as const] : []));
 }
 
 export function reportVideoThumbnail(video: { video_id: string; thumbnail_url?: string | null }) {
@@ -219,10 +236,11 @@ export async function createMonitoringWeeklyReport(
       .sort(compareMonitoringCatalogDaily)
       .slice(0, 5),
   );
+  const reportArtwork = await reportFeaturedArtwork(featuredSpotify);
   const images = await Promise.all([
     imageBytes(input.artistImageUrl),
     ...videos.map((v) => imageBytes(reportVideoThumbnail(v))),
-    ...featuredSpotify.map(item => imageBytes(item.artworkUrl)),
+    ...featuredSpotify.map(item => imageBytes(item.artworkUrl || reportArtwork.get(`${item.type}:${item.key}`))),
   ]);
   const doc = new PDFDocument({
     autoFirstPage: false,

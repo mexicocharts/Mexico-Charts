@@ -1,7 +1,25 @@
 import test from "node:test";
-import { reportVideoThumbnail, reportIdentityNotice, reportChartChange } from "./monitoring-weekly-report";
+import { reportVideoThumbnail, reportIdentityNotice, reportChartChange, reportFeaturedArtwork } from "./monitoring-weekly-report";
 import { monitorVideoThumbnail } from "../../../mexico-charts/src/lib/monitorVideoThumbnail.mjs";
 import assert from "node:assert/strict";
+
+test("report artwork only resolves bounded missing exact catalog IDs without changing source items", async () => {
+  const a = { type: "album" as const, key: "a".repeat(22), title: "A", dailyStreams: 1, totalStreams: 2, artworkUrl: null };
+  const stored = { ...a, key: "b".repeat(22), artworkUrl: "https://i.scdn.co/stored" };
+  const invalid = { ...a, key: "../invalid" };
+  const items = [Object.freeze(a), Object.freeze(stored), Object.freeze(invalid), a];
+  let calls = 0;
+  const result = await reportFeaturedArtwork(items, async selected => {
+    calls++;
+    assert.deepEqual(selected, [{ type: "album", key: a.key }]);
+    return [{ resource: `album:${a.key}`, artworkUrl: "https://i.scdn.co/real-response", status: "loaded" }];
+  });
+  assert.equal(calls, 1);
+  assert.equal(result.get(`album:${a.key}`), "https://i.scdn.co/real-response");
+  assert.equal(a.artworkUrl, null);
+  assert.equal(stored.artworkUrl, "https://i.scdn.co/stored");
+  assert.equal((await reportFeaturedArtwork([stored], async () => { throw new Error("must not fetch"); })).size, 0);
+});
 
 test("approved chart percentage uses measured endpoints and preserves unavailable baselines", () => {
   assert.equal(reportChartChange([100, 80, 90]), "-10.00%");
