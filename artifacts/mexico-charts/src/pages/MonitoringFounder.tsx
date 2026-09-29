@@ -17,6 +17,7 @@ import {
   validateMonitorDashboard,
 } from "@/lib/monitorRequest.mjs";
 import { monitorRuntimeSummary } from "@/lib/monitorRuntimeSummary";
+import { runMonitorRosterSmoke } from "@/lib/monitorRosterSmoke.mjs";
 import type { MonitorDashboardData } from "@/components/monitoring/MonitorProExperience";
 import {
   loadCompleteMonitoringAudit,
@@ -120,28 +121,15 @@ export default function MonitoringFounder() {
         getToken: auth.getToken, input: `/api/monitoring/internal/directory?limit=25&offset=${next}&view=inventory`, signal,
         readResponse: async response => validateMonitoringDirectory(await response.json()),
       }), { signal: controller.signal });
-      let consecutiveFailures = 0;
-      for (const artist of roster.artists) {
-        if (controller.signal.aborted || activeScope.current !== authScope) throw new DOMException("Cancelled", "AbortError");
-        const started = performance.now();
-        try {
-          const payload = await requestMonitorResource<MonitorDashboardData>({
-            getToken: auth.getToken, input: `/api/monitoring/dashboard/${encodeURIComponent(artist.artistKey)}`,
-            signal: controller.signal, readResponse: async response => validateMonitorDashboard(await response.json()),
-          });
-          runtimeProgress.current.push(monitorRuntimeSummary(artist.artistKey, payload, performance.now() - started));
-          consecutiveFailures = 0;
-        } catch (error) {
-          if (controller.signal.aborted) throw error;
-          const status = (error as { status?: number }).status ?? null;
-          runtimeProgress.current.push({ artistKey: artist.artistKey, status, outcome: "request_failed", durationMs: Math.round(performance.now() - started) });
-          consecutiveFailures++;
-          if (status === 401 || consecutiveFailures >= 5) throw new Error("Verificación pausada por autenticación o cinco fallos consecutivos. Descarga el avance.");
-        }
-        progress(`${runtimeProgress.current.length} / ${roster.total} respuestas de perfiles verificadas · no equivale a aceptación visual`);
-      }
+      const smoke = await runMonitorRosterSmoke(roster.artists, key => requestMonitorResource<MonitorDashboardData>({
+        getToken:auth.getToken,input:`/api/monitoring/dashboard/${encodeURIComponent(key)}`,
+        signal:controller.signal,readResponse:async response=>validateMonitorDashboard(await response.json()),
+      }), monitorRuntimeSummary, (result,state)=>{
+        runtimeProgress.current.push(result);
+        progress(`${state.completed} / ${state.total} perfiles sin conflicto · concurrencia 2 · sin reintentos`);
+      },controller.signal);
       downloadRuntime();
-      progress(`${runtimeProgress.current.length} respuestas exportadas. Portadas finales, PDF y aceptación visual siguen siendo comprobaciones separadas.`, false);
+      progress(`${smoke.attempted}/${smoke.total} consultados; ${smoke.successful} contratos válidos; ${smoke.excludedConflicts} conflictos excluidos. ${smoke.stopReason ?? "Pasada completada"}. Evidencia descargada.`, false);
     } catch (error) {
       progress(error instanceof Error ? error.message : "Verificación interrumpida; descarga el avance.", false);
     } finally {
