@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { installPrivatePoolTrace, runPrivateLoaderTrace, privateLoaderPhase, privateTraceCallback, privateTraceMark } from './monitoring-private-loader-trace.ts';
 
-test('private trace preserves callbacks, promises, values and error identity without logging data', async()=>{
+test('disabled private trace preserves callbacks, promises, values and error identity without installing instrumentation', async()=>{
   process.env.MONITOR_PRO_READONLY_PREVIEW='true';
   process.env.MONITOR_PRO_LOADER_TRACE_KEY='test-artist,second-artist';
   const logs=[],calls=[];
@@ -27,15 +27,11 @@ test('private trace preserves callbacks, promises, values and error identity wit
     });
   });
   finish();
-  assert.equal(logs.filter(x=>x.event==='db_query_end').length,4);
-  assert.equal(logs.filter(x=>x.event==='db_acquire').length,2);
-  assert.ok(logs.filter(x=>x.event==='db_query_start').every(x=>x.phase==='identity_initial'&&x.driverProcessId===42&&x.backendPid===undefined&&x.queryTimeoutMs===12000));
   client.emit('end');
-  assert.ok(logs.some(x=>x.event==='db_client_end'&&x.lastQueryId===4));
-  assert.ok(logs.some(x=>x.clientReadTimeout===true));
-  assert.ok(logs.some(x=>x.event==='response_finish'));
+  assert.deepEqual(logs, []);
+  assert.equal(client.listenerCount('end'), 0);
   assert.equal(calls[0][0].values[0],'private-value');
-  assert.match(calls[0][0].text,/^\/\* mt:/);
+  assert.equal(calls[0][0].text,'SELECT $1');
   assert.equal(calls.at(-1)[0].text,'SELECT 3');
   assert.doesNotMatch(JSON.stringify(logs),/private-value|never-log|SELECT/);
   const before=logs.length;

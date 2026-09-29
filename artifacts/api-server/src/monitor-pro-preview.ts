@@ -3,6 +3,7 @@ import express from "express";
 import compression from "compression";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
+import { MONITOR_PRIVATE_DIAGNOSTICS_ENABLED } from "./lib/monitoring-product-mode";
 import { installPrivatePoolTrace, runPrivateLoaderTrace, privateTraceMark, privateTraceCallback } from "./lib/monitoring-private-loader-trace";
 
 export const MONITOR_APPLICATION_REVISION =
@@ -116,6 +117,7 @@ export async function startMonitorProPreview() {
   // Counts from the actual authenticated response, never headers, credentials,
   // raw provider payloads or a separately reconstructed dataset.
   app.use((req, res, next) => {
+    if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) { next(); return; }
     if (req.path.startsWith("/api/monitoring/dashboard/")) {
       const originalJson = res.json.bind(res);
       res.json = (body) => {

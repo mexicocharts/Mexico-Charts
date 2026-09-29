@@ -267,7 +267,8 @@ test("dashboard reads use the dedicated three-connection monitoring pool", () =>
     source,
     /const \[\s*prioritizedArtistIdentity,[\s\S]*?snapshots,\s*\] = await Promise\.all/,
   );
-  assert.match(source, /const priorityLiveVideos = dashboardStage/);
+  assert.match(source, /const priorityLiveVideos = options\.fullReportCatalog \? dashboardStage/);
+  assert.match(source, /const priorityYoutubeSummary = options\.fullReportCatalog \? Promise\.resolve\(null\) : dashboardStage/);
   assert.match(
     source,
     /const \[comparisonRows, youtubeCoverage, availableHistory\] = await Promise\.all/s,
@@ -279,7 +280,7 @@ test("comparison and coverage reads retain the request budget without serializin
   assert.doesNotMatch(comparison, /1_500/);
   const core = source.slice(source.indexOf("const [\n    prioritizedArtistIdentity"), source.indexOf("const priorityCoverage"));
   assert.doesNotMatch(core, /priorityComparisonRows/);
-  assert.ok(source.indexOf("const priorityCoverage") < source.indexOf("const [completeCatalog, prioritizedLiveVideos]"));
+  assert.ok(source.indexOf("const priorityCoverage") < source.indexOf("const [completeCatalog, prioritizedLiveVideos, youtubeCatalogSummary]"));
   assert.match(source, /const \[comparisonRows, youtubeCoverage, availableHistory\] = await Promise\.all\(\[\s*priorityComparisonRows,\s*priorityCoverage,/);
   assert.match(source, /DASHBOARD_LOAD_BUDGET_MS = 12_000/);
 });
@@ -301,11 +302,11 @@ test("Spotify starts after identity, and YouTube starts before either catalog is
   const identity = source.indexOf("const priorityArtistIdentity = dashboardStage");
   const spotify = source.indexOf("const priorityCompleteCatalog = priorityArtistIdentity.then");
   const stored = source.indexOf("const priorityStreamSummary = dashboardStage");
-  const youtube = source.indexOf("const priorityLiveVideos = dashboardStage");
-  const joined = source.indexOf("const [completeCatalog, prioritizedLiveVideos] = await Promise.all");
+  const youtube = source.indexOf("const priorityLiveVideos = options.fullReportCatalog ? dashboardStage");
+  const joined = source.indexOf("const [completeCatalog, prioritizedLiveVideos, youtubeCatalogSummary] = await Promise.all");
   assert.ok(identity >= 0 && spotify > identity && stored > spotify);
   assert.ok(youtube > stored && joined > youtube);
-  assert.match(source.slice(joined, joined + 180), /priorityCompleteCatalog,\s*priorityLiveVideos/);
+  assert.match(source.slice(joined, joined + 260), /priorityCompleteCatalog,\s*priorityLiveVideos,\s*priorityYoutubeSummary/);
   const videoStage = source.slice(youtube, joined);
   assert.doesNotMatch(videoStage, /1_500/);
   assert.match(videoStage, /DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds/);

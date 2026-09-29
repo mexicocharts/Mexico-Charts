@@ -1,4 +1,0 @@
-export function runMonitorRosterSmoke(artists: Array<{artistKey:string;identityConflict?:boolean}>, read:(key:string)=>Promise<any>, summarize:(key:string,data:any,ms:number)=>any,onResult:(result:any,progress:{completed:number;total:number;stopReason:string|null})=>void,signal?:AbortSignal,checkpoint?:{selectedKeys:string[];originalResults:any[]},continuedResults?:any[]):Promise<{total:number;excludedConflicts:number;attempted:number;successful:number;stopReason:string|null;results:any[]}>;
-export function classifySmokeResult(result:any):string;
-export function oneShotAuthenticatedFetch(getToken:()=>Promise<string|null>,input:string,init:RequestInit,diagnostic?:any):Promise<Response>;
-export function remainingSmokeKeys(artists:any[],checkpoint?:any,continuedResults?:any[]):{selected:string[];keys:string[];original:any[];continuedResults:any[]};

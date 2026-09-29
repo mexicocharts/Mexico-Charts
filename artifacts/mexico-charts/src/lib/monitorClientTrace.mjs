@@ -1,7 +1,9 @@
 // Private build-only diagnostic. No credentials, URLs or response data enter
 // this sink. Disabled builds do not change the request or its body reader.
+import { MONITOR_PRIVATE_DIAGNOSTICS_ENABLED } from "./monitorProductMode.mjs";
 const traces = new Map();
 export function beginMonitorClientTrace(input) {
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) return undefined;
   const key = import.meta.env?.VITE_MONITOR_CLIENT_TRACE_KEY;
   if (!key || import.meta.env?.BASE_URL !== "/monitor-pro-private-preview/" ||
       input !== `/api/monitoring/dashboard/${key}`) return undefined;

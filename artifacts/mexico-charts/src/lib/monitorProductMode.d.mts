@@ -1,0 +1,1 @@
+export const MONITOR_PRIVATE_DIAGNOSTICS_ENABLED: boolean;

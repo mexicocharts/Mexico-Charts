@@ -17,8 +17,10 @@ test('diagnostic transport exposes phases but never credentials or payload', asy
   assert.doesNotMatch(JSON.stringify(rows), /secret-test-value|payload|authorization/i);
 });
 
-test('private trace splits body and parse, keeps data unchanged and redacted', async () => {
-  const source = (await readFile(new URL('./monitorClientTrace.mjs',import.meta.url),'utf8')).replaceAll('import.meta.env', '({VITE_MONITOR_CLIENT_TRACE_KEY:"luismiguel",BASE_URL:"/monitor-pro-private-preview/"})');
+test('stale private build key cannot reactivate timing overlays or body interception', async () => {
+  const source = (await readFile(new URL('./monitorClientTrace.mjs',import.meta.url),'utf8'))
+    .replace('"./monitorProductMode.mjs"', JSON.stringify(new URL('./monitorProductMode.mjs',import.meta.url).href))
+    .replaceAll('import.meta.env', '({VITE_MONITOR_CLIENT_TRACE_KEY:"luismiguel",BASE_URL:"/monitor-pro-private-preview/"})');
   const module = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
   const oldDocument=globalThis.document, oldRaf=globalThis.requestAnimationFrame;
   let output;
@@ -26,15 +28,9 @@ test('private trace splits body and parse, keeps data unchanged and redacted', a
   globalThis.requestAnimationFrame=fn=>fn();
   try {
     assert.equal(module.beginMonitorClientTrace('/api/monitoring/dashboard/other'),undefined);
-    const trace=module.beginMonitorClientTrace('/api/monitoring/dashboard/luismiguel');
-    const result=await trace.json(new Response('{"private":"not-for-logs"}'));
-    assert.deepEqual(result,{private:'not-for-logs'});
+    assert.equal(module.beginMonitorClientTrace('/api/monitoring/dashboard/luismiguel'),undefined);
     module.markMonitorPanelCommit('luismiguel');
-    assert.match(output.textContent,/body_read_start/);
-    assert.match(output.textContent,/json_parse_end/);
-    assert.match(output.textContent,/react_panel_commit/);
-    assert.match(output.textContent,/panel_paint_opportunity/);
-    assert.doesNotMatch(output.textContent,/not-for-logs/);
+    assert.equal(output,undefined);
   } finally {globalThis.document=oldDocument;globalThis.requestAnimationFrame=oldRaf;}
 });
 

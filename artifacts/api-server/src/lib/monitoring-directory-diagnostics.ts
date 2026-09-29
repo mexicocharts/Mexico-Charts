@@ -1,16 +1,20 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
+import { MONITOR_PRIVATE_DIAGNOSTICS_ENABLED } from "./monitoring-product-mode";
 
 export type DirectoryStage = "schema_inventory" | "candidate_population" | "accepted_aliases" | "discovery_candidates" | "identity_initial" | "identity_expanded" | "identity_cache" | "page_evidence" | "directory";
 type Record = { requestId: string; stage: DirectoryStage; phase: string; elapsedMs: number; outcome: string; errorClass?: string; errorMessage?: string; ownerRequestId?: string | null; detail?: unknown };
 const context = new AsyncLocalStorage<{ requestId: string; emit: (record: Record) => void }>();
 export function directoryRequestId() { return context.getStore()?.requestId ?? null; }
 export function privateIdentityDiagnostic(stage: DirectoryStage, phase: string, detail: unknown) {
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) return;
   const current = context.getStore();
   if (!current || process.env.MONITOR_PRO_READONLY_PREVIEW !== "true") return;
   try { current.emit({ requestId: current.requestId, stage, phase, elapsedMs: 0, outcome: "diagnostic", detail }); } catch { /* Non-authoritative diagnostics. */ }
 }
 export function directoryDiagnostic(stage: DirectoryStage, phase: string, startedAt: number, outcome: string, error?: unknown, ownerRequestId?: string | null) {
+  // Keep sanitized failures and request totals; suppress per-query success noise.
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED && outcome !== "error" && stage !== "directory") return;
   const current = context.getStore();
   if (!current) return;
   const message = error instanceof Error ? error.message : "";

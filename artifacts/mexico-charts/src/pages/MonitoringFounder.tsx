@@ -14,12 +14,7 @@ import { useMexicoAuth } from "@/auth/AuthProvider";
 import {
   requestMonitorResource,
   shouldRetryMonitorRequest,
-  validateMonitorDashboard,
 } from "@/lib/monitorRequest.mjs";
-import { monitorRuntimeSummary } from "@/lib/monitorRuntimeSummary";
-import { runMonitorRosterSmoke, oneShotAuthenticatedFetch } from "@/lib/monitorRosterSmoke.mjs";
-import rosterCheckpoint from "@/lib/monitorRosterCheckpoint.json";
-import type { MonitorDashboardData } from "@/components/monitoring/MonitorProExperience";
 import {
   loadCompleteMonitoringAudit,
   loadMonitoringDirectoryPage,
@@ -47,7 +42,6 @@ export default function MonitoringFounder() {
     running: boolean;
   } | null>(null);
   const exportController = useRef<AbortController | null>(null);
-  const runtimeProgress = useRef<unknown[]>([]);
   const authScope = `${auth.userId ?? ""}:${auth.isSignedIn}:${auth.isLoaded}`;
   const activeScope = useRef(authScope);
   activeScope.current = authScope;
@@ -60,7 +54,6 @@ export default function MonitoringFounder() {
   }, [search]);
   useEffect(() => {
     setExportState(null);
-    runtimeProgress.current = [];
     return () => {
       exportController.current?.abort();
       exportController.current = null;
@@ -91,95 +84,6 @@ export default function MonitoringFounder() {
   const error = result.error as (Error & { status?: number }) | null;
   const currentExport =
     enabled && exportState?.scope === authScope ? exportState : null;
-  const privatePreview = import.meta.env.BASE_URL === "/monitor-pro-private-preview/";
-  function downloadRuntime() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({
-      exportedAt: new Date().toISOString(), evidence: "authenticated_runtime_not_visual_acceptance",
-      completed: runtimeProgress.current.length, results: runtimeProgress.current,
-    }, null, 2)], { type: "application/json" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `monitor-pro-authenticated-runtime-${new Date().toISOString().slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-  async function verifyBetoOnce() {
-    if (!privatePreview || !enabled || currentExport?.running) return;
-    const key = 'monitor-rc-beto-one-shot:' + rosterCheckpoint.sourceSha256;
-    if (localStorage.getItem(key)) {
-      setExportState({scope: authScope, running: false, text: 'Beto ya solicitado. No se repite; recuperar evidencia guardada.'});
-      return;
-    }
-    localStorage.setItem(key, JSON.stringify({state: 'issued', at: new Date().toISOString()}));
-    setExportState({scope: authScope, running: true, text: 'Una consulta Beto, sin reintentos…'});
-    let evidence: unknown;
-    try {
-      const started = performance.now();
-      const payload = await requestMonitorResource<MonitorDashboardData>({
-        getToken: auth.getToken, input: '/api/monitoring/dashboard/betoquintanilla',
-        fetchAuthenticated: oneShotAuthenticatedFetch,
-        readResponse: async response => validateMonitorDashboard(await response.json()),
-      });
-      evidence = {state: 'completed', httpStatus: 200, ...monitorRuntimeSummary('betoquintanilla', payload, performance.now()-started)};
-    } catch (error) {
-      evidence = {state: 'completed', error: error instanceof Error ? error.message : 'Read failed'};
-    }
-    localStorage.setItem(key, JSON.stringify(evidence));
-    const url = URL.createObjectURL(new Blob([JSON.stringify(evidence, null, 2)], {type: 'application/json'}));
-    const link = document.createElement('a'); link.href = url; link.download = 'monitor-beto-one-shot-runtime.json'; link.click(); URL.revokeObjectURL(url);
-    setExportState({scope: authScope, running: false, text: 'Consulta Beto preservada. Revisar resultado y registro privado antes del roster.'});
-  }
-  async function verifyRuntime() {
-    if (!privatePreview || !enabled || !data || currentExport?.running) return;
-    const controller = new AbortController();
-    exportController.current = controller;
-    runtimeProgress.current = [];
-    const progress = (text: string, running = true) => {
-      if (activeScope.current === authScope) setExportState({ scope: authScope, text, running });
-    };
-    try {
-      const storageKey = `monitor-rc-continuation:${rosterCheckpoint.sourceSha256}:${authScope}`;
-      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
-      const continuation: any[] = saved?.results ?? [];
-      const issued: string[] = saved?.issued ?? [];
-      if (saved?.stopReason || issued.some(key => !continuation.some(row => row.artistKey === key)))
-        throw new Error("Avance preservado: parada de seguridad o solicitud sin resultado confirmado. No se repite ningún perfil.");
-      runtimeProgress.current = [...rosterCheckpoint.originalResults, ...continuation];
-      const persist = (stopReason: string | null = null) => localStorage.setItem(storageKey, JSON.stringify({
-        sourceSha256: rosterCheckpoint.sourceSha256, issued, stopReason,
-        results: continuation.map(({artistKey,httpStatus,durationMs,outcome,problems,classification,error}) =>
-          ({artistKey,httpStatus,durationMs,outcome,problems,classification,error})),
-      }));
-      persist();
-      progress("Verificando aislamiento y leyendo el roster…");
-      const health = await requestMonitorResource<{ mode: string; databaseReadOnly: boolean; backgroundJobsStarted: boolean }>({
-        getToken: auth.getToken, input: "/api/preview-health", signal: controller.signal,
-      });
-      if (health.mode !== "read-only-monitor-pro-preview" || health.databaseReadOnly !== true || health.backgroundJobsStarted !== false)
-        throw new Error("La verificación requiere el API privado aislado y de solo lectura.");
-      const roster = await loadCompleteMonitoringAudit((next, signal) => requestMonitorResource({
-        getToken: auth.getToken, input: `/api/monitoring/internal/directory?limit=25&offset=${next}&view=inventory`, signal,
-        readResponse: async response => validateMonitoringDirectory(await response.json()),
-      }), { signal: controller.signal });
-      const smoke = await runMonitorRosterSmoke(roster.artists, key => {
-        issued.push(key); persist();
-        return requestMonitorResource<MonitorDashboardData>({
-        getToken:auth.getToken,input:`/api/monitoring/dashboard/${encodeURIComponent(key)}`,
-        fetchAuthenticated:oneShotAuthenticatedFetch,
-        signal:controller.signal,readResponse:async response=>validateMonitorDashboard(await response.json()),
-      }); }, monitorRuntimeSummary, (result,state)=>{
-        continuation.push(result); persist(state.stopReason);
-        runtimeProgress.current.push(result);
-        progress(`${state.completed} / ${state.total} perfiles sin conflicto · concurrencia 2 · sin reintentos`);
-      },controller.signal,rosterCheckpoint,continuation);
-      downloadRuntime();
-      progress(`${smoke.attempted}/${smoke.total} consultados; ${smoke.successful} contratos válidos; ${smoke.excludedConflicts} conflictos excluidos. ${smoke.stopReason ?? "Pasada completada"}. Evidencia descargada.`, false);
-    } catch (error) {
-      progress(error instanceof Error ? error.message : "Verificación interrumpida; descarga el avance.", false);
-    } finally {
-      if (exportController.current === controller) exportController.current = null;
-    }
-  }
   async function exportAudit() {
     if (!enabled || !data) return;
     exportController.current?.abort();
@@ -316,12 +220,6 @@ export default function MonitoringFounder() {
                 </button>
               )}
             </div>
-            {privatePreview && data && <div className="mt-3 flex gap-3 text-xs">
-              <button disabled={currentExport?.running} onClick={verifyBetoOnce} className="rounded border border-white/20 px-4 py-2">Beto · una consulta sin reintento</button>
-              <button disabled={currentExport?.running} onClick={verifyRuntime} className="rounded border border-white/20 px-4 py-2 disabled:opacity-40">Verificar respuestas del roster · solo lectura</button>
-              {runtimeProgress.current.length > 0 && <button onClick={downloadRuntime} className="rounded border border-white/20 px-4 py-2">Descargar avance runtime</button>}
-              {currentExport?.running && <button onClick={() => exportController.current?.abort()} className="rounded border border-white/20 px-4 py-2">Detener verificación</button>}
-            </div>}
             {currentExport && (
               <p role="status" className="mt-3 text-xs text-white/60">
                 {currentExport.text}

@@ -28,18 +28,19 @@ test("success preserves returned rows and emits nothing outside directory scope"
   const pool = { connect: async () => ({ query: async () => ({ rows }), release: () => { released++; } }) };
   const records: any[] = [];
   assert.equal(await withDirectoryDiagnostics(r => records.push(r), () => executeMonitoringReadinessQuery(pool as never, "SELECT", [], undefined, "page_evidence")), rows);
-  assert.deepEqual(records.map(r => r.phase), ["db_acquisition", "query", "total"]);
+  assert.deepEqual(records.map(r => r.phase), ["total"]);
   assert.equal(directoryRequestId(), null);
   directoryDiagnostic("directory", "total", performance.now(), "ok");
-  assert.equal(records.length, 3); assert.equal(released, 1);
+  assert.equal(records.length, 1); assert.equal(released, 1);
 });
-test("shared pending work keeps its owner correlation; waiting request has its own id", async () => {
+test("shared pending requests retain separate ids without per-query success or wait tracing", async () => {
   const records: any[] = []; let finish!: () => void; let pending!: Promise<void>; let owner!: string;
   const first = withDirectoryDiagnostics(r => records.push(r), async id => { owner = id; pending = new Promise<void>(r => { finish = r; }); await pending; directoryDiagnostic("candidate_population", "query", performance.now(), "ok"); });
   const second = withDirectoryDiagnostics(r => records.push(r), async id => { assert.notEqual(id, owner); directoryDiagnostic("candidate_population", "shared_pending", performance.now(), "wait", undefined, owner); await pending; });
   finish(); await Promise.all([first, second]);
-  assert.equal(records.find(r => r.phase === "query").requestId, owner);
-  const wait = records.find(r => r.phase === "shared_pending"); assert.equal(wait.ownerRequestId, owner); assert.notEqual(wait.requestId, owner);
+  assert.ok(records.every(r => r.phase === "total"));
+  assert.equal(new Set(records.map(r => r.requestId)).size, 2);
+  assert.ok(records.some(r => r.requestId === owner));
 });
 test("unknown error messages and custom classes are not logged; broken sink cannot affect serving", async () => {
   const records: any[] = []; const error = new Error("credential postgres://private/password"); error.name = "private name";

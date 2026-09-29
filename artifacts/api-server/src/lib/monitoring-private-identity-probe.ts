@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { MONITOR_PRIVATE_DIAGNOSTICS_ENABLED } from "./monitoring-product-mode";
 import { directoryRequestId, privateIdentityDiagnostic, type DirectoryStage } from "./monitoring-directory-diagnostics";
 
 // Private launcher opt-in only. No timers, extra connections or background jobs.
@@ -6,6 +7,7 @@ import { directoryRequestId, privateIdentityDiagnostic, type DirectoryStage } fr
 // never enters this path. Bind values and SQL bodies are never logged.
 const planned = new Set<string>();
 export function identityProbeEnabled(stage: DirectoryStage | undefined, values: unknown[]) {
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) return false;
   if (process.env.MONITOR_PRO_READONLY_PREVIEW !== "true" || !directoryRequestId()
     || (stage !== "identity_initial" && stage !== "identity_expanded")) return false;
   const selected = (process.env.MONITOR_PRO_IDENTITY_DIAGNOSTIC_KEYS ?? "").split(",").filter(Boolean).slice(0,3);

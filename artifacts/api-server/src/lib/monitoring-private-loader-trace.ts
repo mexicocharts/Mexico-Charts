@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID, createHash } from "node:crypto";
+import { MONITOR_PRIVATE_DIAGNOSTICS_ENABLED } from "./monitoring-product-mode";
 
 type Root = { id:string; artist:string; start:number; sequence:number; emit:(row:unknown)=>void };
 const traces = new AsyncLocalStorage<{root:Root; phase:string}>();
@@ -12,6 +13,7 @@ export function privateTraceMark(event:string, detail:object = {}) {
   try { c.root.emit({event,id:c.root.id,artist:c.root.artist,phase:c.phase,at:new Date().toISOString(),offsetMs:performance.now()-c.root.start,...detail}); } catch { /* Diagnostics never control serving. */ }
 }
 export function runPrivateLoaderTrace<T>(artist:string, emit:(row:unknown)=>void, run:()=>T):T {
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) return run();
   const keys=(process.env.MONITOR_PRO_LOADER_TRACE_KEY??"").split(",").filter(Boolean);
   if(process.env.MONITOR_PRO_READONLY_PREVIEW!=="true" || !keys.includes(artist)) return run();
   return traces.run({root:{id:randomUUID(),artist,start:performance.now(),sequence:0,emit},phase:"request"},()=>{privateTraceMark("request_start");return run();});
@@ -29,6 +31,7 @@ export async function privateLoaderPhase<T>(phase:string, run:()=>Promise<T>):Pr
 // Preserve callback/Promise APIs and all SQL values. Diagnostic comments only;
 // named prepared statements and custom Query objects are deliberately untouched.
 export function installPrivatePoolTrace(pool:any, poolName:string) {
+  if (!MONITOR_PRIVATE_DIAGNOSTICS_ENABLED) return;
   if(process.env.MONITOR_PRO_READONLY_PREVIEW!=="true" || !process.env.MONITOR_PRO_LOADER_TRACE_KEY)return;
   const connect=pool.connect;
   pool.connect=function(...args:any[]) {

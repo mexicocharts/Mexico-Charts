@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { withDirectoryDiagnostics } from "./monitoring-directory-diagnostics";
 import { identityProbeEnabled, prepareIdentityProbe, summarizeIdentityPlan } from "./monitoring-private-identity-probe";
 
-test("private probe is opt-in, bounded and keeps exact bindings without logging them", async () => {
+test("private probe is disabled even with old preview opt-in and keeps SQL unchanged", async () => {
   const oldPreview = process.env.MONITOR_PRO_READONLY_PREVIEW;
   const oldKeys = process.env.MONITOR_PRO_IDENTITY_DIAGNOSTIC_KEYS;
   try {
@@ -21,13 +21,12 @@ test("private probe is opt-in, bounded and keeps exact bindings without logging 
       assert.equal(identityProbeEnabled("page_evidence",values),false);
       assert.equal(identityProbeEnabled("identity_initial",[["fourth"]]),false);
       const tagged = await prepareIdentityProbe(client,"identity_initial",sql,values);
-      assert.ok(tagged.endsWith(sql)); assert.match(tagged,/^\/\* monitor:[a-f0-9-]+:identity_initial \*\//);
-      assert.equal(calls[1].text,`EXPLAIN (FORMAT JSON) ${sql}`); assert.equal(calls[1].values,values);
+      assert.equal(tagged,sql);
       await prepareIdentityProbe(client,"identity_initial",sql,values);
-      assert.equal(calls.length,3,"second request adds metadata only; no repeated plan");
+      assert.equal(calls.length,0,"no metadata or EXPLAIN queries");
     });
     assert.doesNotMatch(JSON.stringify(records),/fixture-secret|sensitive-alias|sensitive_column|Index Cond/);
-    assert.deepEqual(records.find(r=>r.phase==="bound_query").detail.keyCounts,[2]);
+    assert.equal(records.some(r=>r.phase==="bound_query"),false);
     assert.equal(identityProbeEnabled("identity_initial",values),false,"no request context");
     assert.doesNotMatch(JSON.stringify(summarizeIdentityPlan({Plan:{"Node Type":"Seq Scan",Filter:"private"}})),/private/);
   } finally {
