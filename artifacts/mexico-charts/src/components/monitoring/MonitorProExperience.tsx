@@ -282,6 +282,14 @@ const compact = (value: number | null | undefined) =>
         notation: "compact",
         maximumFractionDigits: 1,
       }).format(value);
+const catalogDailyDetail = (catalog: MonitorDashboardData["spotifyCatalog"], type: "track" | "album") => {
+  const count = type === "track" ? catalog.trackCount : catalog.albumCount;
+  const total = type === "track" ? catalog.trackDailyStreams : catalog.albumDailyStreams;
+  const label = type === "track" ? "canciones" : "álbumes";
+  if (total != null) return `streams diarios · ${count} ${label}`;
+  const measured = catalog.items.filter(item => item.type === type && item.dailyStreams != null && Number.isFinite(item.dailyStreams)).length;
+  return `${measured ? "Total incompleto" : "Sin lectura diaria"} · ${measured}/${count} ${label} con lectura`;
+};
 const exact = (value: number | null | undefined) =>
   value == null ? "—" : new Intl.NumberFormat("es-MX").format(value);
 const signed = (value: number | null | undefined) =>
@@ -864,7 +872,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {compact(data.spotifyCatalog.trackDailyStreams)}
           </p>
           <p className="mt-1 text-[9px] text-white/30">
-            {spotifyCatalogPending ? "Consulta de canciones pendiente; no es ausencia de datos" : `streams diarios · ${data.spotifyCatalog.trackCount} canciones`}
+            {spotifyCatalogPending ? "Consulta de canciones pendiente; no es ausencia de datos" : catalogDailyDetail(data.spotifyCatalog, "track")}
           </p>
         </Panel>
         <Panel className="p-6">
@@ -873,7 +881,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {compact(data.spotifyCatalog.albumDailyStreams)}
           </p>
           <p className="mt-1 text-[9px] text-white/30">
-            {spotifyCatalogPending ? "Consulta de álbumes pendiente; no es ausencia de datos" : `streams diarios · ${data.spotifyCatalog.albumCount} álbumes`}
+            {spotifyCatalogPending ? "Consulta de álbumes pendiente; no es ausencia de datos" : catalogDailyDetail(data.spotifyCatalog, "album")}
           </p>
         </Panel>
         <button
@@ -1194,7 +1202,7 @@ function SpotifyView() {
             [
               "Canciones · diario",
               compact(spotifyCatalog.trackDaily),
-              `${spotifyCatalog.trackCount} canciones`,
+              catalogDailyDetail(data.spotifyCatalog, "track"),
             ],
             [
               "Canciones · acumulado",
@@ -1204,7 +1212,7 @@ function SpotifyView() {
             [
               "Álbumes · diario",
               compact(spotifyCatalog.albumDaily),
-              `${spotifyCatalog.albumCount} álbumes`,
+              catalogDailyDetail(data.spotifyCatalog, "album"),
             ],
             [
               "Álbumes · acumulado",
