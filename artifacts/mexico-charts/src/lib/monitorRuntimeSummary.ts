@@ -24,9 +24,10 @@ export function monitorRuntimeSummary(key: string, data: MonitorDashboardData, d
     platformHistoryPoints: data.history.length,
     availableHistory: data.availableHistory,
     youtube: {
-      videos: data.liveVideos.length,
-      withObservations: data.liveVideos.filter(video => video.observed_at && video.view_count != null).length,
-      withRawDeltas: data.liveVideos.filter(video => video.view_delta != null).length,
+      collectionEvidence: data.youtubeCatalogDeferred ? "summary_only_catalog_independent" : "complete_dashboard_catalog",
+      videos: data.youtubeCatalogDeferred ? data.youtubeCatalogSummary?.total ?? null : data.liveVideos.length,
+      withObservations: data.youtubeCatalogDeferred ? data.youtubeCatalogSummary?.observed ?? null : data.liveVideos.filter(video => video.observed_at && video.view_count != null).length,
+      withRawDeltas: data.youtubeCatalogDeferred ? data.youtubeCatalogSummary?.deltas ?? null : data.liveVideos.filter(video => video.view_delta != null).length,
       freshnessAndRenderedDeltaAcceptance: "not_measured",
       historyPoints: data.liveVideoHistory.length,
     },

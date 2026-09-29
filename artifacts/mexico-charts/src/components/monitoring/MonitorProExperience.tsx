@@ -57,6 +57,7 @@ import { monitorMarketRegion } from "@/lib/monitorMarketRegion.mjs";
 import { monitorMilestoneProgress } from "@/lib/monitorMilestone.mjs";
 import { monitorVideoDelta, completeMonitorVideoDelta } from "@/lib/monitorVideoDelta.mjs";
 import { monitorVideoPage } from "@/lib/monitorVideoPage.mjs";
+import { monitorVideoCount, validateMonitorVideoCatalog } from "@/lib/monitorVideoCatalog.mjs";
 import { monitorVideoThumbnail } from "@/lib/monitorVideoThumbnail.mjs";
 
 // Canonical presentation recovered from MonitoringFeaturePreview.tsx at
@@ -169,6 +170,8 @@ export type MonitorDashboardData = {
     }>;
   };
   liveVideos: YouTubeLivePreviewVideo[];
+  youtubeCatalogDeferred?: boolean;
+  youtubeCatalogSummary?: { total: number; observed: number; deltas: number; topVideos: YouTubeLivePreviewVideo[] } | null;
   youtubeCoverage: {
     channelVideoCount: number | null;
     importedVideoCount: number;
@@ -750,7 +753,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
     .filter((signal) => signal.delta != null)
     .slice(0, 3);
   const featuredVideo =
-    [...data.liveVideos]
+    [...(data.youtubeCatalogDeferred ? data.youtubeCatalogSummary?.topVideos ?? [] : data.liveVideos)]
       .filter((video) => video.view_count != null)
       .sort((a, b) => Number(b.view_count) - Number(a.view_count))[0] ?? null;
   const featuredViews = Number(featuredVideo?.view_count ?? 0);
@@ -845,7 +848,7 @@ function SummaryView({ open }: { open: (view: View) => void }) {
             {[
               ["Historial", data.history.length],
               ["Spotify", spotifyCatalogPending ? "Pendiente" : data.spotifyCatalog.items.length],
-              ["YouTube · catálogo vinculado", data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded" ? "Pendiente" : data.liveVideos.length],
+              ["YouTube · catálogo vinculado", monitorVideoCount(data) ?? "Pendiente"],
             ].map(([label, value]) => (
               <div key={label}>
                 <div className="flex justify-between text-[9px] font-black">
@@ -1497,9 +1500,24 @@ function VideoThumbnail({
 
 function VideosView() {
   const { data } = useMonitorPro();
+  const auth = useMexicoAuth();
+  const artistKey = data.subscription.artistKey;
+  const catalogQuery = useQuery({
+    queryKey: ["monitoring-video-catalog", auth.userId, artistKey],
+    enabled: Boolean(data.youtubeCatalogDeferred && auth.isSignedIn && auth.userId),
+    staleTime: 5 * 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+    queryFn: ({ signal }) => requestMonitorResource({
+      getToken: auth.getToken, signal,
+      input: `/api/monitoring/video-catalog/${encodeURIComponent(artistKey)}`,
+      readResponse: async response => validateMonitorVideoCatalog(await response.json(), artistKey),
+    }),
+  });
+  const catalogVideos = data.youtubeCatalogDeferred ? catalogQuery.data?.videos ?? [] : data.liveVideos;
   const [requestedPage, setRequestedPage] = useState(0);
   useEffect(() => setRequestedPage(0), [data.subscription.artistKey]);
-  const videos = data.liveVideos
+  const videos = catalogVideos
     .map((video) => {
       const views = Number(video.view_count ?? 0);
       const milestone = nextMilestone(views);
@@ -1523,7 +1541,7 @@ function VideosView() {
   );
   const totalLatestGain = completeMonitorVideoDelta(videos.map(video => video.delta));
   const deltaCount = videos.filter(video => video.delta !== null).length;
-  const videoReadFailed = Boolean(data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded");
+  const videoReadFailed = data.youtubeCatalogDeferred ? Boolean(catalogQuery.error) : Boolean(data.sectionStatus?.priority_youtube_live_videos && data.sectionStatus.priority_youtube_live_videos !== "loaded");
   const channelVideoCount = data.youtubeCoverage.channelVideoCount;
   const videoPage = monitorVideoPage(videos, requestedPage);
   const pagination = videoPage.pageCount > 1 && (
@@ -1538,6 +1556,8 @@ function VideosView() {
       </div>
     </nav>
   );
+  if (data.youtubeCatalogDeferred && catalogQuery.isPending)
+    return <Panel className="p-10 text-sm"><p role="status">Cargando el catálogo completo de YouTube de forma independiente. El Panel permanece disponible; esto no indica ausencia de videos.</p></Panel>;
   if (!videos.length)
     return (
       <div className="space-y-5">
@@ -1556,7 +1576,7 @@ function VideosView() {
           </p>
         </Panel>
         <Panel className="p-10 text-center text-sm text-white/35">
-          {hasReadFailure("videos", data)
+          {videoReadFailed
             ? "Cobertura pendiente de confirmar."
             : `Catálogo vinculado devuelto: ${videos.length} videos. El tamaño del canal es un conjunto distinto.`}
         </Panel>
@@ -2125,6 +2145,7 @@ const viewReadStages: Record<View, string[]> = {
     "priority_stored_track_artwork",
   ],
   videos: [
+    "youtube_catalog_summary",
     "priority_youtube_live_videos",
     "youtube_coverage",
     "youtube_live_history",
@@ -2247,7 +2268,7 @@ function ReportsView() {
             {[
               [String(data.history.length), "lecturas"],
               [hasReadFailure("spotify", data) ? "Pendiente" : String(data.spotifyCatalog.items.length), "Spotify"],
-              [hasReadFailure("videos", data) ? "Pendiente" : String(data.liveVideos.length), "videos"],
+              [monitorVideoCount(data) == null ? "Pendiente" : String(monitorVideoCount(data)), "videos"],
               [String(data.topMexicoCities.length), "mercados"],
             ].map(([value, label]) => (
               <div
@@ -2345,8 +2366,7 @@ export default function MonitorProExperience(props: MonitorProContextValue) {
       key: "videos",
       label: "YouTube",
       icon: Video,
-      note: !data.liveVideos.length && hasReadFailure("videos", data)
-        ? "Pendiente" : String(data.liveVideos.length),
+      note: monitorVideoCount(data) == null ? "Pendiente" : String(monitorVideoCount(data)),
     },
     { key: "mercados", label: "Mercados", icon: MapPin },
     { key: "comparar", label: "Comparar", icon: Radar },

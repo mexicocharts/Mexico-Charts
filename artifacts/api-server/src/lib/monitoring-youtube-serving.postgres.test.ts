@@ -6,6 +6,7 @@ import {
   buildMonitoringYoutubeDiagnosticsSql,
   loadMonitoringYoutubeLiveVideos,
   loadMonitoringYoutubeDailyHistory,
+  loadMonitoringYoutubeSummary,
 } from "./monitoring-youtube-serving";
 
 const fixtureModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
@@ -18,7 +19,7 @@ const schema = `
     view_count bigint, last_snapshot_at timestamptz, updated_at timestamptz);
   CREATE TABLE youtube_video_intraday_latest_observations (video_id text PRIMARY KEY, latest_observed_at timestamptz);
   CREATE TABLE youtube_video_intraday_shadow_snapshots (video_id text, observed_at timestamptz,
-    view_count bigint, view_delta bigint, seconds_since_previous integer, source_type text);
+    view_count bigint, view_delta bigint, seconds_since_previous integer, source_type text, id serial);
   CREATE TABLE youtube_video_daily_snapshots (video_id text, snapshot_date text, view_count bigint,
     daily_view_delta bigint, fetched_at timestamptz, PRIMARY KEY(video_id,snapshot_date));
   CREATE TABLE youtube_channels (artist_key text, channel_id text);
@@ -61,6 +62,34 @@ const candidates = `
     ('disabled','2026-09-02',999,999,'2026-09-02T12:00:00Z'),
     ('unrelated','2026-09-02',999,999,'2026-09-02T12:00:00Z');
 `;
+
+test("bounded Panel summary uses identical eligibility, zero/null observation truth and top video", { skip: !fixtureModule }, async () => fixture(async database => {
+  await database.exec(candidates);
+  const full = await loadMonitoringYoutubeLiveVideos(database, ["canonical"]);
+  const summary = await loadMonitoringYoutubeSummary(database, ["canonical"]);
+  assert.equal(summary.total, full.length);
+  assert.equal(summary.observed, full.filter(v => v.monitor_observed_at != null).length);
+  assert.equal(summary.deltas, full.filter(v => v.view_delta != null).length);
+  assert.equal(summary.topVideos.length, 1);
+  assert.equal(summary.topVideos[0].video_id, full[0].video_id);
+  assert.equal(summary.topVideos[0].view_count, full[0].view_count);
+  assert.deepEqual(await loadMonitoringYoutubeSummary(database, ["absent"]), {total: 0, observed: 0, deltas: 0, topVideos: []});
+}));
+
+test("16,273-video catalog remains complete while Panel receives one featured row", { skip: !fixtureModule }, async () => fixture(async database => {
+  await database.exec(`
+    INSERT INTO youtube_artist_video_links SELECT n,'large','Large','v'||n,90,0,true,'youtube_uploads' FROM generate_series(1,16273) n;
+    INSERT INTO youtube_tracked_videos SELECT 'v'||n,'Video '||n,null,n,null,null FROM generate_series(1,16273) n;
+    INSERT INTO youtube_video_intraday_latest_observations SELECT 'v'||n,'2026-09-01'::timestamptz FROM generate_series(1,16273) n;
+    INSERT INTO youtube_video_intraday_shadow_snapshots SELECT 'v'||n,'2026-09-01'::timestamptz,n,0,300,'youtube_api_shadow' FROM generate_series(1,16273) n;
+  `);
+  const summary = await loadMonitoringYoutubeSummary(database, ["large"]);
+  assert.equal(summary.total, 16273); assert.equal(summary.observed, 16273); assert.equal(summary.deltas, 16273);
+  assert.equal(summary.topVideos.length, 1);
+  const full = await loadMonitoringYoutubeLiveVideos(database, ["large"]);
+  assert.equal(full.length, 16273); assert.equal(new Set(full.map(v => v.video_id)).size, 16273);
+  assert.ok(full.every(v => v.relationship_sources.length === 1 && Number(v.view_delta) === 0));
+}));
 
 test("candidate-only served videos retain review/verified status and recover their real native daily history", { skip: !fixtureModule }, async () => fixture(async database => {
   await database.exec(candidates);

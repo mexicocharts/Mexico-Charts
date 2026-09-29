@@ -15,6 +15,8 @@ test("preview only exposes read routes, never checkout or admin jobs", () => {
 });
 
 test("preview permits only exact native-video history reads", () => {
+  assert.equal(previewRequestAllowed("GET", "/api/monitoring/video-catalog/loscadetesdelinares"), true);
+  assert.equal(previewRequestAllowed("POST", "/api/monitoring/video-catalog/loscadetesdelinares"), false);
   const path = "/api/monitoring/videos/luismiguel/yG7MPEQm1-w/history";
   for (const method of ["GET", "HEAD"]) assert.equal(previewRequestAllowed(method, path), true);
   for (const method of ["POST", "PUT", "PATCH", "DELETE"]) assert.equal(previewRequestAllowed(method, path), false);

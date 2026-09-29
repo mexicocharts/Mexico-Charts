@@ -17,7 +17,7 @@ export interface MonitoringYoutubeRelationship {
  * existing dashboard catalog predicate. A shadow candidate remains a shadow
  * candidate even when it shares a video with an approved active link.
  */
-export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string): string {
+export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string, idsOnly = false): string {
   return `
     WITH monitoring_eligible_relationships AS MATERIALIZED (
       SELECT link.artist_key, link.artist_name, link.video_id, link.confidence_score,
@@ -37,7 +37,7 @@ export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string): 
       FROM youtube_music_catalog_candidates candidate
       WHERE candidate.status IN ('review','verified') AND candidate.sampling_status='shadow'
         AND candidate.artist_key=ANY(${artistKeysSql})
-    ), monitoring_selected_relationship AS (
+    )${idsOnly ? " SELECT DISTINCT video_id FROM monitoring_eligible_relationships" : `, monitoring_selected_relationship AS (
       SELECT DISTINCT ON (video_id) * FROM monitoring_eligible_relationships
       ORDER BY video_id, confidence_score DESC, priority DESC, id, relation_source
     ), monitoring_relationship_provenance AS (
@@ -54,8 +54,46 @@ export function buildMonitoringYoutubeEligibleVideosSql(artistKeysSql: string): 
       selected.relation_source, selected.relation_status, selected.sampling_status,
       selected.relation_evidence_source, provenance.has_approved_link, provenance.relationship_sources
     FROM monitoring_selected_relationship selected
-    JOIN monitoring_relationship_provenance provenance USING(video_id)
+    JOIN monitoring_relationship_provenance provenance USING(video_id)`}
   `;
+}
+
+// Same catalog membership and stored observation joins as the complete read.
+// Only scalar counts and one featured video cross the Panel boundary. In
+// particular, do not assemble every relationship/provenance JSON here.
+export const MONITORING_YOUTUBE_SUMMARY_SQL = `
+  WITH eligible AS (${buildMonitoringYoutubeEligibleVideosSql("$1::text[]", true)}),
+  readings AS (
+    SELECT tracked.video_id, tracked.title, tracked.thumbnail_url,
+      'https://www.youtube.com/watch?v=' || tracked.video_id canonical_url,
+      COALESCE(latest.view_count, tracked.view_count) view_count,
+      latest.view_delta, latest.seconds_since_previous,
+      latest.observed_at::text monitor_observed_at,
+      COALESCE(latest.observed_at, tracked.last_snapshot_at, tracked.updated_at)::text observed_at,
+      CASE WHEN latest.view_count IS NOT NULL THEN 'youtube_video_intraday_shadow_snapshots'
+        ELSE 'youtube_tracked_videos' END view_count_source_table,
+      CASE WHEN latest.view_count IS NOT NULL THEN latest.source_type ELSE NULL END observation_source_type
+    FROM eligible JOIN youtube_tracked_videos tracked USING(video_id)
+    LEFT JOIN youtube_video_intraday_latest_observations pointer USING(video_id)
+    LEFT JOIN youtube_video_intraday_shadow_snapshots latest
+      ON latest.video_id=pointer.video_id AND latest.observed_at=pointer.latest_observed_at
+    WHERE COALESCE(latest.view_count, tracked.view_count) IS NOT NULL
+  )
+  SELECT *, count(*) OVER() total,
+    count(monitor_observed_at) OVER() observed,
+    count(view_delta) OVER() deltas
+  FROM readings ORDER BY view_count DESC, title LIMIT 1
+`;
+
+export async function loadMonitoringYoutubeSummary(queryable: Queryable, artistKeys: readonly string[]) {
+  const { rows } = await queryable.query(MONITORING_YOUTUBE_SUMMARY_SQL, [checkedArtistKeys(artistKeys)]);
+  const first = rows[0];
+  return {
+    total: Number(first?.total ?? 0),
+    observed: Number(first?.observed ?? 0),
+    deltas: Number(first?.deltas ?? 0),
+    topVideos: rows.map(({ total, observed, deltas, ...video }) => video),
+  };
 }
 
 export const MONITORING_YOUTUBE_LIVE_VIDEOS_SQL = `

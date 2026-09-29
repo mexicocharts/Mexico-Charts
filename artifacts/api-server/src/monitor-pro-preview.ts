@@ -23,7 +23,7 @@ export function previewReadOnlyUrl(raw: string): string {
 export function previewRequestAllowed(method: string, path: string): boolean {
   if (method !== "GET" && method !== "HEAD") return false;
   return (
-    /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|artwork\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
+    /^\/api\/monitoring\/(config|access|internal\/(artists|directory|build)|dashboard\/[^/]+|video-catalog\/[^/]+|artwork\/[^/]+|report\/[^/]+|history\/[^/]+\/[^/]+)$/.test(
       path,
     ) ||
     // Existing authenticated, artist-authorized native history SELECT handler.
@@ -154,6 +154,13 @@ export async function startMonitorProPreview() {
               spotifyHistory: body.spotifyCatalog.history?.length ?? 0,
               platformHistory: body.history?.length ?? 0,
               videos: videos.length,
+              fullVideoCatalogDeferred: body.youtubeCatalogDeferred === true,
+              youtubeCatalogSummary: body.youtubeCatalogSummary ? {
+                total: body.youtubeCatalogSummary.total,
+                observed: body.youtubeCatalogSummary.observed,
+                deltas: body.youtubeCatalogSummary.deltas,
+                featured: body.youtubeCatalogSummary.topVideos?.length,
+              } : null,
               videosWithObservation: videos.filter(
                 (video: { monitor_observed_at: unknown }) =>
                   Boolean(video.monitor_observed_at),

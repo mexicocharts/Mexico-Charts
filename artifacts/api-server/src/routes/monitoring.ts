@@ -51,7 +51,7 @@ import { createMonitoringHistoryHandler, isMonitoringHistoryTimeout } from "../l
 import { monitoringBuildIdentity } from "../lib/monitoring-build";
 import { loadCompleteMonitoringKworbCatalog, summarizeMonitoringKworbCatalog } from "../lib/monitoring-kworb-catalog";
 import { loadMonitoringPriorityArtistIdentity } from "../lib/monitoring-priority-identity";
-import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory } from "../lib/monitoring-youtube-serving";
+import { loadMonitoringYoutubeLiveVideos, loadMonitoringYoutubeDailyHistory, loadMonitoringYoutubeSummary } from "../lib/monitoring-youtube-serving";
 import { loadMonitoringYoutubeNativeHistory } from "../lib/monitoring-youtube-native-history";
 import { createMonitoringYoutubeHistoryHandler } from "../lib/monitoring-youtube-history-request";
 
@@ -235,6 +235,7 @@ async function resolveMonitoringAccess(
 async function loadAuthorizedMonitoring(
   userId: string,
   requestedArtistKey: string,
+  options: { fullReportCatalog?: boolean } = {},
 ) {
   const dashboardLoadStartedAt = performance.now();
   const authorization = await privateLoaderPhase("authorization",()=>resolveMonitoringAccess(userId, requestedArtistKey));
@@ -555,16 +556,20 @@ async function loadAuthorizedMonitoring(
       [],
     );
 
-  const priorityLiveVideos = dashboardStage(
+  const priorityLiveVideos = options.fullReportCatalog ? dashboardStage(
     "priority_youtube_live_videos",
     () => loadMonitoringYoutubeLiveVideos(monitoringReadPool, activeKeys, {
       deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
     }),
     [],
+  ) : Promise.resolve([]);
+  const priorityYoutubeSummary = options.fullReportCatalog ? Promise.resolve(null) : dashboardStage(
+    "youtube_catalog_summary", () => loadMonitoringYoutubeSummary(monitoringReadPool, activeKeys), null,
   );
-  const [completeCatalog, prioritizedLiveVideos] = await Promise.all([
+  const [completeCatalog, prioritizedLiveVideos, youtubeCatalogSummary] = await Promise.all([
     priorityCompleteCatalog,
     priorityLiveVideos,
+    priorityYoutubeSummary,
   ]);
 
   let resolvedStreamItems: Array<Omit<(typeof prioritizedStreamItems)[number], "total_streams" | "daily_streams"> & {
@@ -644,14 +649,14 @@ async function loadAuthorizedMonitoring(
     [],
     1_000,
   );
-  const liveVideoHistory = await dashboardStage(
+  const liveVideoHistory = options.fullReportCatalog ? await dashboardStage(
     "youtube_live_history",
     () => loadMonitoringYoutubeDailyHistory(monitoringReadPool, activeKeys, {
       includeCandidateOnly: authorization.source === "internal",
       deadlineAt: Date.now() + Math.max(0, DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt)),
     }),
     [],
-  );
+  ) : [];
   const [comparisonRows, youtubeCoverage, availableHistory] = await Promise.all([
     priorityComparisonRows,
     priorityCoverage,
@@ -798,6 +803,8 @@ async function loadAuthorizedMonitoring(
     catalog,
     latestReleaseImpact: releaseImpact,
     availableHistory,
+    youtubeCatalogSummary,
+    youtubeCatalogDeferred: !options.fullReportCatalog,
     liveVideos: dedupeYoutubeMonitorRows(
       resolvedLiveVideos as Array<{
         video_id: string;
@@ -1052,6 +1059,36 @@ router.get("/monitoring/artwork/:artistKey", requireMonitoringClerkUser, async (
   }
 });
 
+// Independent read, with the same artist authorization and exact catalog SQL.
+// The existing 60-row browser pagination remains the sole pagination system.
+router.get("/monitoring/video-catalog/:artistKey", requireMonitoringClerkUser, async (req, res) => {
+  const artistKey = String(req.params.artistKey ?? "").trim().toLowerCase();
+  if (!artistKey || artistKey.length > 160) { res.status(400).json({ error: "A valid artist key is required" }); return; }
+  try {
+    await withDirectoryDiagnostics(
+      diagnostic => logger.info({ event: "monitoring_video_catalog_identity_read", artistKey, ...diagnostic }),
+      async requestId => {
+        if (process.env.MONITOR_PRO_READONLY_PREVIEW === "true") res.setHeader("X-Monitor-Request-Id", requestId);
+        const access = await resolveMonitoringAccess(clerkUserId(res), artistKey);
+        if (!access.allowed || !access.grant) { res.status(403).json({ error: "Artist Pro access is required" }); return; }
+        const keys = monitoringAuthorizedSourceKeys(access.grant, monitoringIdentityKeyCandidates);
+        const startedAt = performance.now();
+        const videos = dedupeYoutubeMonitorRows(await loadMonitoringYoutubeLiveVideos(monitoringReadPool, keys));
+        logger.info({ event: "monitoring_video_catalog_complete", artistKey: access.grant.artist_key,
+          requestId, durationMs: elapsedMilliseconds(startedAt), total: videos.length,
+          observed: videos.filter(v => v.monitor_observed_at != null).length,
+          deltas: videos.filter(v => v.view_delta != null).length,
+          provenance: videos.filter(v => Array.isArray(v.relationship_sources) && v.relationship_sources.length > 0).length,
+        }, "Independent complete video catalog read");
+        res.json({ artistKey: access.grant.artist_key, total: videos.length, videos });
+      },
+    );
+  } catch (error) {
+    logger.warn({ event: "monitoring_video_catalog_failure", artistKey, database: safeDatabaseDiagnostic(error) });
+    res.status(requestDatabaseHttpStatus(error)).json({ error: "Video catalog is temporarily unavailable" });
+  }
+});
+
 router.get(
   "/monitoring/dashboard/:artistKey",
   requireMonitoringClerkUser,
@@ -1160,6 +1197,7 @@ router.get(
       const dashboard = await loadAuthorizedMonitoring(
         clerkUserId(res),
         artistKey,
+        { fullReportCatalog: true },
       );
       if (!dashboard) {
         res
