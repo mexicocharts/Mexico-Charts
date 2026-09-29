@@ -2,8 +2,8 @@
 set -euo pipefail
 
 checkout=/tmp/monitor-pro-preview-approved-1fa6b84
-expected_revision=91f27d7756b57f0d3870fce03b07f93abadfe29f
-expected_tree=541cfc31d9c836cd7fb773178c3e5098d1854a8c
+expected_revision=4ab552b439cbd89cd8d85da1ac6937771ab70cce
+expected_tree=5438fc0898742efabf9d5051d6752c7859528332
 approved_branch=codex/monitor-pro-bounded-diagnostics-1051
 approved_repository=https://github.com/mexicocharts/Mexico-Charts.git
 api_port=8100
