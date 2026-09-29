@@ -103,6 +103,32 @@ export default function MonitoringFounder() {
     link.click();
     URL.revokeObjectURL(url);
   }
+  async function verifyBetoOnce() {
+    if (!privatePreview || !enabled || currentExport?.running) return;
+    const key = 'monitor-rc-beto-one-shot:' + rosterCheckpoint.sourceSha256;
+    if (localStorage.getItem(key)) {
+      setExportState({scope: authScope, running: false, text: 'Beto ya solicitado. No se repite; recuperar evidencia guardada.'});
+      return;
+    }
+    localStorage.setItem(key, JSON.stringify({state: 'issued', at: new Date().toISOString()}));
+    setExportState({scope: authScope, running: true, text: 'Una consulta Beto, sin reintentos…'});
+    let evidence: unknown;
+    try {
+      const started = performance.now();
+      const payload = await requestMonitorResource<MonitorDashboardData>({
+        getToken: auth.getToken, input: '/api/monitoring/dashboard/betoquintanilla',
+        fetchAuthenticated: oneShotAuthenticatedFetch,
+        readResponse: async response => validateMonitorDashboard(await response.json()),
+      });
+      evidence = {state: 'completed', httpStatus: 200, ...monitorRuntimeSummary('betoquintanilla', payload, performance.now()-started)};
+    } catch (error) {
+      evidence = {state: 'completed', error: error instanceof Error ? error.message : 'Read failed'};
+    }
+    localStorage.setItem(key, JSON.stringify(evidence));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(evidence, null, 2)], {type: 'application/json'}));
+    const link = document.createElement('a'); link.href = url; link.download = 'monitor-beto-one-shot-runtime.json'; link.click(); URL.revokeObjectURL(url);
+    setExportState({scope: authScope, running: false, text: 'Consulta Beto preservada. Revisar resultado y registro privado antes del roster.'});
+  }
   async function verifyRuntime() {
     if (!privatePreview || !enabled || !data || currentExport?.running) return;
     const controller = new AbortController();
@@ -291,6 +317,7 @@ export default function MonitoringFounder() {
               )}
             </div>
             {privatePreview && data && <div className="mt-3 flex gap-3 text-xs">
+              <button disabled={currentExport?.running} onClick={verifyBetoOnce} className="rounded border border-white/20 px-4 py-2">Beto · una consulta sin reintento</button>
               <button disabled={currentExport?.running} onClick={verifyRuntime} className="rounded border border-white/20 px-4 py-2 disabled:opacity-40">Verificar respuestas del roster · solo lectura</button>
               {runtimeProgress.current.length > 0 && <button onClick={downloadRuntime} className="rounded border border-white/20 px-4 py-2">Descargar avance runtime</button>}
               {currentExport?.running && <button onClick={() => exportController.current?.abort()} className="rounded border border-white/20 px-4 py-2">Detener verificación</button>}
