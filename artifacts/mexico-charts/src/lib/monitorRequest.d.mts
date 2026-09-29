@@ -40,6 +40,7 @@ export function requestMonitorResource<T>(input: {
   input: string;
   signal?: AbortSignal;
   timeoutMs?: number;
+  fetchAuthenticated?: (getToken: () => Promise<string | null>, input: string, init: RequestInit, diagnostic?: unknown) => Promise<Response>;
   readResponse?: (response: Response) => Promise<T>;
 }): Promise<T>;
 export function monitorRequestState(input: {

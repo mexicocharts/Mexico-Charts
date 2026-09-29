@@ -17,7 +17,8 @@ import {
   validateMonitorDashboard,
 } from "@/lib/monitorRequest.mjs";
 import { monitorRuntimeSummary } from "@/lib/monitorRuntimeSummary";
-import { runMonitorRosterSmoke } from "@/lib/monitorRosterSmoke.mjs";
+import { runMonitorRosterSmoke, oneShotAuthenticatedFetch } from "@/lib/monitorRosterSmoke.mjs";
+import rosterCheckpoint from "@/lib/monitorRosterCheckpoint.json";
 import type { MonitorDashboardData } from "@/components/monitoring/MonitorProExperience";
 import {
   loadCompleteMonitoringAudit,
@@ -111,6 +112,19 @@ export default function MonitoringFounder() {
       if (activeScope.current === authScope) setExportState({ scope: authScope, text, running });
     };
     try {
+      const storageKey = `monitor-rc-continuation:${rosterCheckpoint.sourceSha256}:${authScope}`;
+      const saved = JSON.parse(localStorage.getItem(storageKey) ?? "null");
+      const continuation: any[] = saved?.results ?? [];
+      const issued: string[] = saved?.issued ?? [];
+      if (saved?.stopReason || issued.some(key => !continuation.some(row => row.artistKey === key)))
+        throw new Error("Avance preservado: parada de seguridad o solicitud sin resultado confirmado. No se repite ningún perfil.");
+      runtimeProgress.current = [...rosterCheckpoint.originalResults, ...continuation];
+      const persist = (stopReason: string | null = null) => localStorage.setItem(storageKey, JSON.stringify({
+        sourceSha256: rosterCheckpoint.sourceSha256, issued, stopReason,
+        results: continuation.map(({artistKey,httpStatus,durationMs,outcome,problems,classification,error}) =>
+          ({artistKey,httpStatus,durationMs,outcome,problems,classification,error})),
+      }));
+      persist();
       progress("Verificando aislamiento y leyendo el roster…");
       const health = await requestMonitorResource<{ mode: string; databaseReadOnly: boolean; backgroundJobsStarted: boolean }>({
         getToken: auth.getToken, input: "/api/preview-health", signal: controller.signal,
@@ -121,13 +135,17 @@ export default function MonitoringFounder() {
         getToken: auth.getToken, input: `/api/monitoring/internal/directory?limit=25&offset=${next}&view=inventory`, signal,
         readResponse: async response => validateMonitoringDirectory(await response.json()),
       }), { signal: controller.signal });
-      const smoke = await runMonitorRosterSmoke(roster.artists, key => requestMonitorResource<MonitorDashboardData>({
+      const smoke = await runMonitorRosterSmoke(roster.artists, key => {
+        issued.push(key); persist();
+        return requestMonitorResource<MonitorDashboardData>({
         getToken:auth.getToken,input:`/api/monitoring/dashboard/${encodeURIComponent(key)}`,
+        fetchAuthenticated:oneShotAuthenticatedFetch,
         signal:controller.signal,readResponse:async response=>validateMonitorDashboard(await response.json()),
-      }), monitorRuntimeSummary, (result,state)=>{
+      }); }, monitorRuntimeSummary, (result,state)=>{
+        continuation.push(result); persist(state.stopReason);
         runtimeProgress.current.push(result);
         progress(`${state.completed} / ${state.total} perfiles sin conflicto · concurrencia 2 · sin reintentos`);
-      },controller.signal);
+      },controller.signal,rosterCheckpoint,continuation);
       downloadRuntime();
       progress(`${smoke.attempted}/${smoke.total} consultados; ${smoke.successful} contratos válidos; ${smoke.excludedConflicts} conflictos excluidos. ${smoke.stopReason ?? "Pasada completada"}. Evidencia descargada.`, false);
     } catch (error) {
