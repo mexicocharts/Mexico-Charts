@@ -31,11 +31,35 @@ export function indexedVideoInventorySql(table: VideoInventorySource): string {
 }
 
 export function indexedMonitoringPopulationSql(original: string): string {
-  return VIDEO_INVENTORY_SOURCES.reduce((sql, table) => sql.replace(
+  const videos = VIDEO_INVENTORY_SOURCES.reduce((sql, table) => sql.replace(
     `SELECT DISTINCT artist_key, artist_name, NULL, '${table}' FROM ${table}`,
     indexedVideoInventorySql(table),
   ), original);
+  return videos.replace(
+    "SELECT DISTINCT artist_key, NULL, NULL, 'songstats_historical_observations' FROM songstats_historical_observations",
+    MONITORING_HISTORY_INVENTORY_SQL,
+  );
 }
+
+/** Directory presence needs distinct keys, not a scan of every historical
+ * observation. Seek the existing artist-leading index once per distinct key.
+ * Preserve even a nullable key exactly as SELECT DISTINCT would; downstream
+ * identity grouping decides whether that key is usable. No observation read,
+ * identity bridge, roster membership or importer behavior changes here. */
+export const MONITORING_HISTORY_INVENTORY_SQL = `SELECT artist_key,
+  NULL::text artist_name, NULL::text spotify_id, 'songstats_historical_observations'::text source
+  FROM (
+    WITH RECURSIVE inventory_keys AS (
+      (SELECT artist_key FROM songstats_historical_observations
+        WHERE artist_key IS NOT NULL ORDER BY artist_key LIMIT 1)
+      UNION ALL
+      SELECT next_key.artist_key FROM inventory_keys previous
+      CROSS JOIN LATERAL (SELECT artist_key FROM songstats_historical_observations
+        WHERE artist_key > previous.artist_key ORDER BY artist_key LIMIT 1) next_key
+    ) SELECT artist_key FROM inventory_keys
+    UNION ALL SELECT NULL::text WHERE EXISTS
+      (SELECT 1 FROM songstats_historical_observations WHERE artist_key IS NULL LIMIT 1)
+  ) history_inventory`;
 
 /** These four established source priorities always precede video names.
  * Retain all source-only artists and hydrate every distinct stored name for

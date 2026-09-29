@@ -2,8 +2,30 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { indexedVideoInventorySql, indexedMonitoringPopulationSql, videoInventoryNameKeys, videoInventoryNamesSql, VIDEO_INVENTORY_SOURCES, MONITORING_HISTORY_IDENTITY_SQL } from "./monitoring-candidate-inventory";
 import { groupMonitoringCandidateIdentities, type MonitoringCandidateSourceRow } from "./monitoring-candidate-policy";
+import { MONITORING_HISTORY_INVENTORY_SQL } from "./monitoring-candidate-inventory";
 
 const fixtureModule = process.env["MONITOR_HISTORY_PGLITE_MODULE"];
+test("directory history key seeks preserve the complete DISTINCT projection including null and unusual keys", { skip: !fixtureModule }, async () => {
+  const { PGlite } = await import(fixtureModule!);
+  const db = new PGlite();
+  try {
+    await db.exec("CREATE TABLE songstats_historical_observations(artist_key text); CREATE INDEX ON songstats_historical_observations(artist_key)");
+    const original = "SELECT DISTINCT artist_key, NULL, NULL, 'songstats_historical_observations' FROM songstats_historical_observations";
+    assert.equal(indexedMonitoringPopulationSql(original), MONITORING_HISTORY_INVENTORY_SQL);
+    const compare = async () => {
+      const before = await db.query("SELECT DISTINCT artist_key,NULL::text artist_name,NULL::text spotify_id,'songstats_historical_observations'::text source FROM songstats_historical_observations");
+      const after = await db.query(MONITORING_HISTORY_INVENTORY_SQL);
+      const order = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).sort();
+      assert.deepEqual(order(after.rows), order(before.rows));
+    };
+    await compare();
+    for (const key of [null, null, "", "", "東京", "álpha", "álpha", "Alpha", "alpha", " alpha ", "only-history"]) {
+      await db.query("INSERT INTO songstats_historical_observations VALUES ($1)", [key]);
+    }
+    await db.exec("INSERT INTO songstats_historical_observations SELECT 'repeated' FROM generate_series(1,20000)");
+    await compare();
+  } finally { await db.close(); }
+});
 test("history presence preserves DISTINCT rows, exact keys, duplicates and absent keys", { skip: !fixtureModule }, async () => {
   const { PGlite } = await import(fixtureModule!);
   const db = new PGlite();
