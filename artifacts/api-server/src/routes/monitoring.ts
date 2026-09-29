@@ -2,6 +2,7 @@ import { withDirectoryDiagnostics } from "../lib/monitoring-directory-diagnostic
 import { privateLoaderPhase, privateTraceMark } from "../lib/monitoring-private-loader-trace";
 import { MONITORING_EXTENDED_SOURCE_SQL, selectMonitoringExtendedSource } from "../lib/monitoring-extended-source";
 import { MONITORING_COMPARISONS_SQL } from "../lib/monitoring-comparisons";
+import { createBetoStageProbe, probeExtendedQuery } from "../lib/monitoring-beto-stage-probe";
 import { Router, type RequestHandler } from "express";
 import { monitoringReadPool } from "@workspace/db";
 import {
@@ -243,6 +244,7 @@ async function loadAuthorizedMonitoring(
   if (!authorization.allowed || !active) return null;
   const activeKeys = monitoringAuthorizedSourceKeys(active, monitoringIdentityKeyCandidates);
   const sectionStatus: Record<
+  const betoProbe = createBetoStageProbe(active.artist_key, row => logger.info(row, "Private extended-stage timing"));
     string,
     "loaded" | "failed" | "timeout" | "budget_exhausted"
   > = {};
@@ -254,6 +256,7 @@ async function loadAuthorizedMonitoring(
   ): Promise<T> => {
     const startedAt = performance.now();
     const remainingDashboardBudgetMs = Math.min(
+    if (stage === "extended_artist_data") betoProbe?.("stage_entry");
       DASHBOARD_LOAD_BUDGET_MS - elapsedMilliseconds(dashboardLoadStartedAt),
       maxStageDurationMs ?? Number.POSITIVE_INFINITY,
     );
@@ -276,6 +279,7 @@ async function loadAuthorizedMonitoring(
     const loaded = privateLoaderPhase(stage,load)
       .then((value) => {
         if (settled) return fallback;
+        if (stage === "extended_artist_data") betoProbe?.("stage_promise_resolution", { afterDeadline: settled });
         sectionStatus[stage] = "loaded";
         logger.info(
           {
@@ -306,6 +310,7 @@ async function loadAuthorizedMonitoring(
     const timedOut = new Promise<T>((resolve) => {
       timeout = setTimeout(() => {
         privateTraceMark("section_timeout",{stage,remainingDashboardBudgetMs});
+        if (stage === "extended_artist_data") betoProbe?.("deadline_fired", { budgetMs: remainingDashboardBudgetMs });
         sectionStatus[stage] = "timeout";
         logger.warn(
           {
@@ -328,6 +333,7 @@ async function loadAuthorizedMonitoring(
     settled = true;
     if (timeout) clearTimeout(timeout);
     return result;
+    if (stage === "extended_artist_data") betoProbe?.("stage_completion", { timedOut: sectionStatus[stage] === "timeout" });
   };
 
   // Start the paid Spotify catalog before optional licensed/audience work. The
@@ -628,8 +634,7 @@ async function loadAuthorizedMonitoring(
   const extended = await dashboardStage(
     "extended_artist_data",
     () =>
-      monitoringReadPool
-        .query<{
+      probeExtendedQuery<{
           artist_key: string;
           historic_stats: unknown;
           audience: unknown;
@@ -642,10 +647,11 @@ async function loadAuthorizedMonitoring(
           updated_at: string;
         }>(
           MONITORING_EXTENDED_SOURCE_SQL,
+          monitoringReadPool,
           [activeKeys, prioritizedArtistIdentity[0]?.spotify_artist_id
             ?? prioritizedArtistIdentity[0]?.roster_catalog_inspection?.spotifyArtistId ?? null],
-        )
-        .then((result) => result.rows),
+          betoProbe,
+        ),
     [],
     1_000,
   );
@@ -687,6 +693,7 @@ async function loadAuthorizedMonitoring(
   ]);
   const resolvedLiveVideos = prioritizedLiveVideos;
   const extendedRow = extended.length ? selectMonitoringExtendedSource(extended) : null;
+  betoProbe?.("insight_transformation_start_outside_stage_deadline");
   const insight = extendedRow
     ? buildSongstatsPublicInsight(
         {
@@ -699,6 +706,7 @@ async function loadAuthorizedMonitoring(
       )
     : null;
   const history = snapshots.map(normalizedSnapshot);
+  betoProbe?.("insight_transformation_end_outside_stage_deadline");
   const catalog = insight?.catalog ?? {
     releaseCount: 0,
     trackCount: 0,
