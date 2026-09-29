@@ -1,7 +1,15 @@
 import test from "node:test";
-import { reportVideoThumbnail, reportIdentityNotice } from "./monitoring-weekly-report";
+import { reportVideoThumbnail, reportIdentityNotice, reportChartChange } from "./monitoring-weekly-report";
 import { monitorVideoThumbnail } from "../../../mexico-charts/src/lib/monitorVideoThumbnail.mjs";
 import assert from "node:assert/strict";
+
+test("approved chart percentage uses measured endpoints and preserves unavailable baselines", () => {
+  assert.equal(reportChartChange([100, 80, 90]), "-10.00%");
+  assert.equal(reportChartChange([100, 120]), "+20.00%");
+  assert.equal(reportChartChange([100, 100]), "+0.00%");
+  for (const values of [[], [100], [0, 100], [-1, 100], [100, NaN], [Infinity, 100]])
+    assert.equal(reportChartChange(values), null);
+});
 
 test("an unresolved founder identity warning survives report export", () => {
   assert.match(reportIdentityNotice(true)!, /conflicto de identidad sin resolver/);

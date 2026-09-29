@@ -91,6 +91,14 @@ export const exactReportChange = (value: number | null) =>
   value == null ? "Ventana sin lectura" : `${value >= 0 ? "+" : ""}${exact(value)}`;
 export const reportChangeColor = (detail: string) =>
   /^-\d/.test(detail) ? RED : GREEN;
+export function reportChartChange(values: readonly number[]): string | null {
+  // Compare only the actual endpoints drawn, not an invented 90-day baseline.
+  if (values.length < 2 || !values.every(Number.isFinite) || values[0]! <= 0)
+    return null;
+  const percent = ((values.at(-1)! - values[0]!) / values[0]!) * 100;
+  if (!Number.isFinite(percent)) return null;
+  return `${percent >= 0 ? "+" : ""}${percent.toFixed(2)}%`;
+}
 export function reportCatalogDaily(catalog: WeeklyReportInput["spotifyCatalog"], type: "track" | "album") {
   const items = catalog.items.filter(item => item.type === type);
   const count = type === "track" ? catalog.trackCount : catalog.albumCount;
@@ -441,15 +449,23 @@ export async function createMonitoringWeeklyReport(
   );
   if (chart.length > 1) {
     const vals = chart.map((r) => r.spotifyMonthlyListeners!);
+    const chartChange = reportChartChange(vals);
+    if (chartChange) text(215, 281, chartChange, 10, reportChangeColor(chartChange), 100);
     const lo = Math.min(...vals),
       span = Math.max(1, Math.max(...vals) - lo);
     const t0 = Date.parse(chart[0]!.date),
       ts = Math.max(1, Date.parse(chart.at(-1)!.date) - t0);
-    chart.forEach((r, i) => {
-      const x = 54 + ((Date.parse(r.date) - t0) / ts) * 676,
-        y = 612 - 118 - ((r.spotifyMonthlyListeners! - lo) / span) * 118;
-      if (i === 0) doc.moveTo(x, y);
-      else doc.lineTo(x, y);
+    const points = chart.map(r => ({
+      x: 54 + ((Date.parse(r.date) - t0) / ts) * 676,
+      y: 612 - 118 - ((r.spotifyMonthlyListeners! - lo) / span) * 118,
+    }));
+    // Original approved PDF page 3: green area at fill alpha 0.1, same grid.
+    doc.save().fillOpacity(0.1).moveTo(points[0]!.x, 612 - 118);
+    for (const point of points) doc.lineTo(point.x, point.y);
+    doc.lineTo(points.at(-1)!.x, 612 - 118).closePath().fill(GREEN).restore();
+    points.forEach((point, i) => {
+      if (i === 0) doc.moveTo(point.x, point.y);
+      else doc.lineTo(point.x, point.y);
     });
     doc.strokeColor(GREEN).lineWidth(2).stroke();
     text(54, 101, dateLabel(chart[0]!.date), 6.5, MUTED);
