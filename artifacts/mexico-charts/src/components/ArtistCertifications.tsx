@@ -64,7 +64,7 @@ function StatCard({ label, value, certKey: ck }: { label: string; value: string 
             style={{ objectFit: "contain", display: "block" }}
           />
         )}
-        <div className="min-w-0 truncate text-[9px] font-bold uppercase tracking-[0.16em] text-zinc-600 sm:tracking-[0.2em]">{label}</div>
+        <div className="min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-400 sm:tracking-[0.2em]">{label}</div>
       </div>
       <div className="break-words text-sm font-black leading-none" style={{ color: ck ? G : "rgba(255,255,255,0.88)" }}>
         {value}
@@ -136,11 +136,11 @@ export default function ArtistCertifications({ artistName }: Props) {
           <CertImage cert={highestKey} size={22} />
           <div className="min-w-0">
             <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-zinc-300 sm:text-xs sm:tracking-[0.24em]">Certificaciones en México</h2>
-            <p className="mt-0.5 text-[9px] font-bold uppercase leading-relaxed tracking-[0.14em] text-zinc-600 sm:tracking-[0.18em]">
+            <p className="mt-0.5 text-[10px] font-bold uppercase leading-relaxed tracking-[0.14em] text-zinc-400 sm:tracking-[0.18em]">
               Certificaciones otorgadas en México atribuidas a AMPROFON
             </p>
           </div>
-          <div className="w-fit rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700 sm:ml-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">Fuente: AMPROFON</div>
+          <div className="w-fit rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 sm:ml-auto sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">Fuente: AMPROFON</div>
         </div>
 
         {/* ── Best cert + stats ── */}
@@ -168,7 +168,7 @@ export default function ArtistCertifications({ artistName }: Props) {
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                 {["Título", "Formato", "Certificación", "Nivel", "Fecha", "Disquera"].map(h => (
-                  <th key={h} className={`px-5 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-700${h === "Certificación" ? " text-center" : ""}`}>{h}</th>
+                  <th key={h} className={`px-5 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400${h === "Certificación" ? " text-center" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -182,13 +182,13 @@ export default function ArtistCertifications({ artistName }: Props) {
                   <td className="px-5 py-2.5 text-sm font-medium text-zinc-300 max-w-[200px]">
                     <span className="block truncate">{row.titulo}</span>
                   </td>
-                  <td className="px-5 py-2.5 text-[10px] text-zinc-600 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
+                  <td className="px-5 py-2.5 text-[10px] text-zinc-400 uppercase tracking-wider font-bold whitespace-nowrap">{row.formato}</td>
                   <td className="px-5 py-2.5 text-center"><div className="flex justify-center"><CertBadge cert={row.certificacion} /></div></td>
                   <td className="px-5 py-2.5 text-[11px] font-black whitespace-nowrap" style={{ color: G }}>
                     {formatCertificationLevels(row.certificacion, row.nivel)}
                   </td>
-                  <td className="px-5 py-2.5 text-[10px] text-zinc-600 whitespace-nowrap">{fmtDate(row.fechaISO)}</td>
-                  <td className="px-5 py-2.5 text-[10px] text-zinc-600 max-w-[130px]">
+                  <td className="px-5 py-2.5 text-[10px] text-zinc-400 whitespace-nowrap">{fmtDate(row.fechaISO)}</td>
+                  <td className="px-5 py-2.5 text-[10px] text-zinc-400 max-w-[130px]">
                     <span className="block truncate">{row.disquera || "—"}</span>
                   </td>
                 </tr>
@@ -196,7 +196,7 @@ export default function ArtistCertifications({ artistName }: Props) {
             </tbody>
           </table>
           {matched.length > 15 && (
-            <p className="px-5 py-2 text-[9px] text-zinc-700 font-bold uppercase tracking-[0.18em]">
+            <p className="px-5 py-2 text-[10px] text-zinc-400 font-bold uppercase tracking-[0.18em]">
               +{matched.length - 15} más · Ver todas abajo
             </p>
           )}
@@ -213,8 +213,8 @@ export default function ArtistCertifications({ artistName }: Props) {
               <div className="min-w-0">
                 <div className="text-sm font-medium text-zinc-300 truncate">{row.titulo}</div>
                 <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="text-[9px] text-zinc-600 uppercase tracking-wider font-bold">{row.formato}</span>
-                  <span className="text-[9px] text-zinc-600">{fmtDate(row.fechaISO)}</span>
+                  <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-bold">{row.formato}</span>
+                  <span className="text-[10px] text-zinc-400">{fmtDate(row.fechaISO)}</span>
                 </div>
                 {row.nivel && (
                   <div className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.12em]" style={{ color: G }}>
@@ -226,7 +226,7 @@ export default function ArtistCertifications({ artistName }: Props) {
             </div>
           ))}
           {matched.length > 10 && (
-            <p className="px-4 py-2 text-[9px] text-zinc-700 font-bold uppercase tracking-[0.18em]">
+            <p className="px-4 py-2 text-[10px] text-zinc-400 font-bold uppercase tracking-[0.18em]">
               +{matched.length - 10} más
             </p>
           )}
@@ -237,7 +237,7 @@ export default function ArtistCertifications({ artistName }: Props) {
           className="relative z-10 flex items-center justify-between gap-4 px-6 py-4"
           style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
         >
-          <span className="text-[9px] text-zinc-700 font-bold uppercase tracking-[0.14em]">
+          <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-[0.14em]">
             Mexico Charts no emite certificaciones oficiales.
           </span>
           <Link href={ctaHref}>

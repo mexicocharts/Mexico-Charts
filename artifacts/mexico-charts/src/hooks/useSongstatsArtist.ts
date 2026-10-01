@@ -53,7 +53,7 @@ export interface SongstatsRelease {
 export interface SongstatsCatalogSummary {
   releaseCount: number;
   trackCount: number;
-  albumCount: number;
+  albumCount: number | null;
   releasesLast90Days: number;
   medianReleaseGapDays: number | null;
   newestReleaseDate: string | null;

@@ -109,3 +109,12 @@ test("limits public artist history to 15 days and reserves long windows for moni
   assert.ok(paidInsight.growth.spotifyMonthlyListeners?.days90);
   assert.ok(paidInsight.latestReleaseImpact);
 });
+
+test("distinguishes unavailable albums from an explicit empty saved collection; same-day median remains zero", () => {
+  const input={historicStats:null,audience:null,audienceDetails:null};
+  const tracks=[{id:'a',name:'A',release_date:'2026-08-07'},{id:'b',name:'B',release_date:'2026-08-07'}];
+  const absent=buildSongstatsPublicInsight({...input,catalog:{catalog:tracks}});
+  const empty=buildSongstatsPublicInsight({...input,catalog:{data:{tracks,albums:[]}}});
+  assert.equal(absent.catalog.albumCount,null);assert.equal(empty.catalog.albumCount,0);
+  assert.equal(absent.catalog.medianReleaseGapDays,0);assert.equal(absent.catalog.releaseCount,2);
+});

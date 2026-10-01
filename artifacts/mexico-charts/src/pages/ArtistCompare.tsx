@@ -12,6 +12,8 @@ import { useTouring } from "@/hooks/useTouring";
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
+import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
+import { listenerSnapshot } from "@/lib/listenerSnapshot.mjs";
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
 
@@ -29,6 +31,8 @@ type Metric = {
   b: number;
   aText: string;
   bText: string;
+  aContext?: string;
+  bContext?: string;
   icon: ComponentType<{ className?: string; style?: CSSProperties }>;
 };
 
@@ -205,9 +209,10 @@ function ArtistPicker({ label, artist, artists, side, onPick }: {
   );
 }
 
-function ArtistPanel({ artist, rank, certs, tours, charts, image, side }: {
+function ArtistPanel({ artist, rank, certs, tours, charts, image, side, chartDate }: {
   artist: ArtistMetadata;
   rank: number | null;
+  chartDate?: string | null;
   certs: ReturnType<typeof certSummary>;
   tours: number;
   charts: ReturnType<typeof chartAppearances>;
@@ -245,7 +250,7 @@ function ArtistPanel({ artist, rank, certs, tours, charts, image, side }: {
       <div className="relative flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-            {rank ? spotifyMexicoRankLabel(rank) : "Perfil Mexico Charts"}
+            {rank ? `${spotifyMexicoRankLabel(rank)} · artistas · semanal · edición ${chartDate || "no informada"} · rango de fuente` : "Perfil Mexico Charts"}
           </p>
           <h2 className="mt-3 text-3xl font-black uppercase leading-[0.9] sm:text-5xl">
             {artist.displayName}
@@ -296,9 +301,10 @@ function MetricRow({ metric }: { metric: Metric }) {
           return (
             <div key={side}>
               <div className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-xl font-black tabular-nums text-white">{text}</span>
+                <span title={value.toLocaleString("es-MX")} className="text-xl font-black tabular-nums text-white">{text}</span>
                 <WinnerPill winner={winner} side={side} />
               </div>
+              {(side === "a" ? metric.aContext : metric.bContext) && <p className="mb-2 text-xs leading-relaxed text-zinc-400">{side === "a" ? metric.aContext : metric.bContext}</p>}
               <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
                 <div className="h-full rounded-full" style={{ width: `${Math.max(4, (value / max) * 100)}%`, background: side === "a" ? G : "rgba(255,255,255,0.76)" }} />
               </div>
@@ -340,6 +346,10 @@ export default function ArtistCompare() {
   const bSlug = params.get("b");
   const artistA = artists.find(artist => slugify(artist.displayName) === aSlug) ?? artists[0];
   const artistB = artists.find(artist => slugify(artist.displayName) === bSlug && artist.displayName !== artistA?.displayName) ?? artists.find(artist => artist.displayName !== artistA?.displayName);
+  const { data: aSongstats } = useSongstatsArtist(artistA?.artistKey ?? "");
+  const { data: bSongstats } = useSongstatsArtist(artistB?.artistKey ?? "");
+  const aListeners = listenerSnapshot(artistA, aSongstats);
+  const bListeners = listenerSnapshot(artistB, bSongstats);
   const artistImages = useArtistImages([artistA?.displayName, artistB?.displayName].filter(Boolean) as string[]);
   const imageA = artistA ? artistImages[artistA.displayName] : null;
   const imageB = artistB ? artistImages[artistB.displayName] : null;
@@ -373,7 +383,7 @@ export default function ArtistCompare() {
   const metrics = useMemo<Metric[]>(() => {
     if (!artistA || !artistB || !aCerts || !bCerts || !aCharts || !bCharts) return [];
     return [
-      { key: "listeners", group: "Streaming", label: "Oyentes Spotify", a: artistA.spotifyListeners, b: artistB.spotifyListeners, aText: artistA.spotifyListenersFmt, bText: artistB.spotifyListenersFmt, icon: SiSpotify },
+      { key: "listeners", group: "Streaming", label: "Oyentes mensuales Spotify", a: aListeners.value ?? 0, b: bListeners.value ?? 0, aText: aListeners.compact, bText: bListeners.compact, aContext: aListeners.context, bContext: bListeners.context, icon: SiSpotify },
       { key: "streams", group: "Streaming", label: "Streams Spotify", a: artistA.spotifyStreams, b: artistB.spotifyStreams, aText: artistA.spotifyStreamsFmt, bText: artistB.spotifyStreamsFmt, icon: SiSpotify },
       { key: "youtube-views", group: "Streaming", label: "Vistas YouTube", a: artistA.youtubeViews, b: artistB.youtubeViews, aText: artistA.youtubeViewsFmt, bText: artistB.youtubeViewsFmt, icon: SiYoutube },
       { key: "youtube-subs", group: "Social", label: "Suscriptores YouTube", a: artistA.youtubeSubscribers, b: artistB.youtubeSubscribers, aText: artistA.youtubeSubscribersFmt, bText: artistB.youtubeSubscribersFmt, icon: SiYoutube },
@@ -383,7 +393,7 @@ export default function ArtistCompare() {
       { key: "touring", group: "Actividad", label: "Fechas activas", a: aTours, b: bTours, aText: compact(aTours), bText: compact(bTours), icon: CalendarDays },
       { key: "charts", group: "Actividad", label: "Apariciones en listas", a: aCharts.count, b: bCharts.count, aText: compact(aCharts.count), bText: compact(bCharts.count), icon: BarChart3 },
     ];
-  }, [artistA, artistB, aCerts, bCerts, aTours, bTours, aCharts, bCharts]);
+  }, [artistA, artistB, aSongstats, bSongstats, aCerts, bCerts, aTours, bTours, aCharts, bCharts]);
 
   const groupedMetrics = useMemo(() => {
     return (["Streaming", "Social", "Actividad"] as const).map(group => ({
@@ -471,8 +481,8 @@ export default function ArtistCompare() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">
-              <ArtistPanel artist={artistA} rank={weeklyRanks.get(norm(artistA.displayName)) ?? null} certs={aCerts!} tours={aTours} charts={aCharts!} image={imageA} side="a" />
-              <ArtistPanel artist={artistB} rank={weeklyRanks.get(norm(artistB.displayName)) ?? null} certs={bCerts!} tours={bTours} charts={bCharts!} image={imageB} side="b" />
+              <ArtistPanel artist={artistA} rank={weeklyRanks.get(norm(artistA.displayName)) ?? null} certs={aCerts!} tours={aTours} charts={aCharts!} image={imageA} side="a" chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate} />
+              <ArtistPanel artist={artistB} rank={weeklyRanks.get(norm(artistB.displayName)) ?? null} certs={bCerts!} tours={bTours} charts={bCharts!} image={imageB} side="b" chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate} />
             </div>
 
             <div className="overflow-hidden" style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>

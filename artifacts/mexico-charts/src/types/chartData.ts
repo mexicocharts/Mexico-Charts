@@ -60,6 +60,8 @@ export interface RawChartAlbum {
 export interface ChartArtist {
   mexicoRank: number;
   sourceRank: number;
+  chartStartDate?: string;
+  chartEndDate?: string;
   name: string;
   listeners: string;        // Formatted, e.g. "32.4M"
   listenersRaw: number;     // Raw number for sorting/charts

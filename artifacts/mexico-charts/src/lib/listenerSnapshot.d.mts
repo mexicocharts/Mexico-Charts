@@ -1,0 +1,1 @@
+export function listenerSnapshot(metadata: {spotifyListeners?:number|null}|null|undefined, songstats: {snapshot:{spotifyMonthlyListeners?:number|null;snapshotDate?:string|null}}|null|undefined):{value:number|null;source:string;date:string|null|undefined;context:string;compact:string};
