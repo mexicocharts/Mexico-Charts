@@ -1,40 +1,42 @@
-import { useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ComponentType, CSSProperties } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { BadgeCheck, BarChart3, CalendarDays, Check, Copy, Search, Shuffle, Trophy } from "lucide-react";
+import { ArrowLeftRight, ArrowUpRight, BadgeCheck, BarChart3, CalendarDays, Check, ChevronDown, Copy, Search } from "lucide-react";
 import { SiInstagram, SiSpotify, SiTiktok, SiYoutube } from "react-icons/si";
 import PageSEO from "@/components/PageSEO";
 import SiteNav from "@/components/SiteNav";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { artistMatches, useCertifications } from "@/hooks/useCertifications";
-import { useArtistImages } from "@/hooks/useArtistImages";
+import { getArtistImageUrl, isValidArtistImageUrl, proxyArtistImageUrl, useArtistImagesWithStatus } from "@/hooks/useArtistImages";
 import { useChartsHub, type ChartsHubData } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
+import { useSongstatsArtist, type SongstatsArtistData } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
-import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { listenerSnapshot } from "@/lib/listenerSnapshot.mjs";
+import { commonSourceReadings, comparisonBars, formatComparisonValue, metricValue, snapshotCompatibility } from "@/lib/comparisonMetrics.mjs";
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
+import "./artist-compare.css";
 
 const G = "#39FF14";
-const NOISE = `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`;
-
-type Row = Record<string, string>;
 type HubData = ChartsHubData;
-
+type Platform = "all" | "spotify" | "youtube" | "tiktok" | "instagram" | "activity";
+type Reading = { value: number | null; text: string; source: string; date: string | null; context: string };
 type Metric = {
-  key: string;
-  group: "Streaming" | "Social" | "Actividad";
-  label: string;
-  a: number;
-  b: number;
-  aText: string;
-  bText: string;
-  aContext?: string;
-  bContext?: string;
-  icon: ComponentType<{ className?: string; style?: CSSProperties }>;
+  key: string; group: "Streaming" | "Social" | "Actividad"; platform: Platform; label: string;
+  a: Reading; b: Reading; compatible: boolean; note: string;
+  icon: ComponentType<{ className?: string; style?: CSSProperties; size?: number; "aria-hidden"?: boolean | "true" | "false" }>;
 };
+const PLATFORMS: { value: Platform; label: string; icon: Metric["icon"] }[] = [
+  { value: "all", label: "Todas las señales", icon: BarChart3 },
+  { value: "spotify", label: "Spotify", icon: SiSpotify },
+  { value: "youtube", label: "YouTube", icon: SiYoutube },
+  { value: "tiktok", label: "TikTok", icon: SiTiktok },
+  { value: "instagram", label: "Instagram", icon: SiInstagram },
+  { value: "activity", label: "Actividad", icon: CalendarDays },
+];
 
 const CHART_ARTIST_FIELDS = ["Artist", "Artist Name", "Artist Names", "artist_names"];
 const CHART_TITLE_FIELDS = ["Track Name", "Video Title", "Title", "track_name"];
@@ -48,13 +50,7 @@ function norm(value: string) {
     .trim();
 }
 
-function compact(value: number) {
-  if (!value) return "—";
-  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
-  return value.toLocaleString("es-MX");
-}
+const compact = formatComparisonValue;
 
 function artistOptionLabel(artist: ArtistMetadata) {
   return [artist.displayName, genreLabel(artist.subgenre || artist.genre)].filter(Boolean).join(" · ");
@@ -112,296 +108,254 @@ function touringCount(tours: ReturnType<typeof useTouring>["data"], artist: Arti
   return found?.events.length ?? 0;
 }
 
-function WinnerPill({ winner, side }: { winner: "a" | "b" | "tie"; side: "a" | "b" }) {
-  if (winner === "tie" || winner !== side) return null;
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-[0.16em]"
-      style={{ color: "#000", background: G }}>
-      <Trophy className="h-3 w-3" />
-      Lidera
-    </span>
-  );
-}
-
-function ArtistPicker({ label, artist, artists, side, onPick }: {
-  label: string;
-  artist: ArtistMetadata;
-  artists: ArtistMetadata[];
-  side: "a" | "b";
-  onPick: (slug: string) => void;
+function ArtistPicker({ artist, other, artists, side, onPick }: {
+  artist: ArtistMetadata; other: ArtistMetadata; artists: ArtistMetadata[];
+  side: "a" | "b"; onPick: (slug: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [focused, setFocused] = useState(false);
+  const [active, setActive] = useState(-1);
+  const input = useRef<HTMLInputElement>(null);
+  const id = useId();
   const q = norm(query);
-  const suggestions = useMemo(() => {
-    const ranked = artists
-      .filter(candidate => candidate.displayName !== artist.displayName)
-      .map(candidate => {
-        const haystack = artistSearchText(candidate);
-        const name = norm(candidate.displayName);
-        const score = !q ? candidate.spotifyListeners : name.startsWith(q) ? 1_000_000_000 + candidate.spotifyListeners : haystack.includes(q) ? 500_000_000 + candidate.spotifyListeners : 0;
-        return { candidate, score };
-      })
-      .filter(item => item.score > 0)
-      .sort((a, b) => b.score - a.score || a.candidate.displayName.localeCompare(b.candidate.displayName, "es", { sensitivity: "base" }))
-      .slice(0, 7);
-    return ranked.map(item => item.candidate);
-  }, [artist.displayName, artists, q]);
-
-  return (
-    <div className="relative">
-      <label className="block">
-        <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,0.42)" }}>
-          {label}
-        </span>
-        <span className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: side === "a" ? G : "rgba(255,255,255,0.38)" }} />
-          <input
-            value={focused ? query : artistOptionLabel(artist)}
-            onFocus={() => {
-              setFocused(true);
-              setQuery("");
-            }}
-            onChange={event => setQuery(event.target.value)}
-            onBlur={() => window.setTimeout(() => setFocused(false), 120)}
-            className="h-12 w-full rounded-lg bg-[#101010] pl-10 pr-3 text-sm font-black text-white outline-none"
-            style={{ border: side === "a" ? `1px solid ${G}46` : "1px solid rgba(255,255,255,0.13)", boxShadow: focused ? `0 0 0 1px ${side === "a" ? `${G}30` : "rgba(255,255,255,0.12)"}` : "none" }}
-            placeholder="Buscar artista..."
-            aria-label={`Buscar ${label.toLowerCase()}`}
-          />
-        </span>
-      </label>
-
-      {focused && (
-        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 overflow-hidden rounded-lg"
-          style={{ border: "1px solid rgba(57,255,20,0.18)", background: "linear-gradient(180deg,#101010,#070707)", boxShadow: "0 18px 44px rgba(0,0,0,0.72)" }}>
-          {suggestions.length ? suggestions.map(candidate => (
-            <button
-              key={candidate.artistKey}
-              type="button"
-              onMouseDown={event => {
-                event.preventDefault();
-                onPick(slugify(candidate.displayName));
-                setQuery("");
-                setFocused(false);
-              }}
-              className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/[0.055] px-3 py-3 text-left transition-colors hover:bg-white/[0.045]"
-              aria-label={`Seleccionar ${candidate.displayName} como ${label.toLowerCase()}`}
-            >
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-white">{candidate.displayName}</span>
-                <span className="mt-1 block truncate text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.38)" }}>
-                  {artistOptionLabel(candidate).replace(candidate.displayName, "").replace(/^ · /, "") || "Mexico Charts"}
-                </span>
-              </span>
-              <span className="text-[10px] font-black tabular-nums" style={{ color: side === "a" ? G : "rgba(255,255,255,0.62)" }}>
-                {candidate.spotifyListenersFmt}
-              </span>
-            </button>
-          )) : (
-            <div className="px-4 py-5 text-center text-sm font-bold" style={{ color: "rgba(255,255,255,0.38)" }}>
-              Sin resultados.
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  const suggestions = useMemo(() => artists
+    .filter(candidate => candidate.artistKey !== artist.artistKey && candidate.artistKey !== other.artistKey)
+    .map(candidate => {
+      const name = norm(candidate.displayName);
+      const score = !q ? candidate.spotifyListeners : name.startsWith(q)
+        ? 1_000_000_000 + candidate.spotifyListeners
+        : artistSearchText(candidate).includes(q) ? 500_000_000 + candidate.spotifyListeners : -1;
+      return { candidate, score };
+    })
+    .filter(item => item.score >= 0)
+    .sort((a, b) => b.score - a.score || a.candidate.displayName.localeCompare(b.candidate.displayName, "es", { sensitivity: "base" }))
+    .slice(0, 7).map(item => item.candidate), [artists, artist.artistKey, other.artistKey, q]);
+  function pick(candidate: ArtistMetadata) {
+    onPick(slugify(candidate.displayName));
+    setOpen(false);
+  }
+  return <Popover open={open} onOpenChange={next => { setOpen(next); setQuery(""); setActive(-1); }}>
+    <PopoverTrigger asChild>
+      <button type="button" className="compare-picker-trigger" aria-label={`Cambiar artista ${side.toUpperCase()}: ${artist.displayName}`}>
+        <span>Cambiar artista</span><ChevronDown size={17} aria-hidden="true" />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent className="compare-picker-popover" align={side === "a" ? "end" : "start"}
+      sideOffset={8} onOpenAutoFocus={event => { event.preventDefault(); input.current?.focus(); }}>
+      <div className="compare-picker-search"><Search size={17} aria-hidden="true" />
+        <input ref={input} value={query} placeholder="Buscar artista..." role="combobox"
+          aria-label={`Buscar artista ${side.toUpperCase()}`} aria-autocomplete="list" aria-expanded={open}
+          aria-controls={`${id}-list`} aria-activedescendant={active >= 0 && suggestions[active] ? `${id}-${active}` : undefined}
+          onChange={event => { setQuery(event.target.value); setActive(-1); }}
+          onKeyDown={event => {
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              if (suggestions.length) setActive(index => event.key === "ArrowDown"
+                ? (index + 1) % suggestions.length : (index <= 0 ? suggestions.length - 1 : index - 1));
+            } else if (event.key === "Enter" && active >= 0 && suggestions[active]) {
+              event.preventDefault(); pick(suggestions[active]);
+            }
+          }} />
+      </div>
+      <div id={`${id}-list`} role="listbox" aria-label="Artistas disponibles">
+        {suggestions.map((candidate, index) => <button key={candidate.artistKey} id={`${id}-${index}`}
+          type="button" role="option" aria-selected={active === index} tabIndex={-1}
+          className="compare-picker-option" onMouseDown={event => event.preventDefault()}
+          onPointerMove={() => setActive(index)} onClick={() => pick(candidate)}>
+          <span><strong>{candidate.displayName}</strong><small>{genreLabel(candidate.subgenre || candidate.genre) || "Mexico Charts"}</small></span>
+          <span className="compare-picker-count">{candidate.spotifyListenersFmt}</span>
+        </button>)}
+      </div>
+      {!suggestions.length && <p className="compare-picker-empty" role="status">Sin resultados.</p>}
+    </PopoverContent>
+  </Popover>;
 }
 
-function ArtistPanel({ artist, rank, certs, tours, charts, image, side, chartDate }: {
-  artist: ArtistMetadata;
-  rank: number | null;
-  chartDate?: string | null;
-  certs: ReturnType<typeof certSummary>;
-  tours: number;
-  charts: ReturnType<typeof chartAppearances>;
-  image?: string | null;
-  side: "a" | "b";
+function ArtistPanel({ artist, other, artists, image, fallbackImage, side, rank, chartDate, onPick }: {
+  artist: ArtistMetadata; other: ArtistMetadata; artists: ArtistMetadata[]; image: string | null;
+  fallbackImage?: string | null;
+  side: "a" | "b"; rank: number | null; chartDate?: string | null; onPick: (slug: string) => void;
 }) {
-  return (
-    <div className="group relative overflow-hidden"
-      style={{ borderRadius: 8, border: `1px solid ${G}28`, background: "radial-gradient(circle at 12% 0%, rgba(57,255,20,0.12), transparent 34%), rgba(255,255,255,0.022)" }}>
-      <div className="relative h-36 overflow-hidden bg-white/[0.035] sm:h-44">
-        {image ? (
-          <img src={image} alt="" className="h-full w-full object-cover opacity-70 transition-transform duration-700 group-hover:scale-105" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-7xl font-black uppercase opacity-20">
-            {artist.displayName.charAt(0)}
-          </div>
-        )}
-        <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.06), rgba(0,0,0,0.92))" }} />
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
-          <span className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: side === "a" ? "#000" : "rgba(255,255,255,0.78)", background: side === "a" ? G : "rgba(255,255,255,0.08)", border: side === "a" ? "none" : "1px solid rgba(255,255,255,0.12)" }}>
-            Artista {side.toUpperCase()}
-          </span>
-          <Link href={canonicalArtistHref(artist.artistKey) ?? canonicalArtistHref(artist.displayName) ?? "/artists"}>
-            <span className="rounded-full px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.16em]"
-              style={{ border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.78)", background: "rgba(0,0,0,0.36)" }}>
-              Perfil
-            </span>
-          </Link>
-        </div>
-      </div>
-      <div className="relative p-4 sm:p-5">
-      <div className="pointer-events-none absolute -right-6 top-2 text-[22vw] font-black uppercase leading-none opacity-[0.035] md:text-[9vw]">
-        MX
-      </div>
-      <div className="relative flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G }}>
-            {rank ? `${spotifyMexicoRankLabel(rank)} · artistas · semanal · edición ${chartDate || "no informada"} · rango de fuente` : "Perfil Mexico Charts"}
-          </p>
-          <h2 className="mt-3 text-3xl font-black uppercase leading-[0.9] sm:text-5xl">
-            {artist.displayName}
-          </h2>
-          <p className="mt-3 text-sm font-bold" style={{ color: "rgba(255,255,255,0.46)" }}>
-            {[
-              artist.subgenre || artist.genre ? genreLabel(artist.subgenre || artist.genre) : "",
-              artist.country ? countryLabel(artist.country) : "",
-              artist.label ? `Sellos/distribuidores: ${labelAssociationValue(artist.label)}` : "",
-            ].filter(Boolean).join(" · ") || "Datos editoriales"}
-          </p>
-        </div>
-      </div>
-      <div className="relative mt-5 grid grid-cols-3 gap-2">
-        {[
-          ["Certs", compact(certs.count)],
-          ["Giras", compact(tours)],
-          ["Listas", compact(charts.count)],
-        ].map(([label, value]) => (
-          <div key={label} className="px-3 py-3" style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.24)" }}>
-            <span className="block text-[8px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.36)" }}>{label}</span>
-            <span className="mt-2 block text-lg font-black text-white">{value}</span>
-          </div>
-        ))}
-      </div>
+  const [failedUrls, setFailedUrls] = useState<string[]>([]);
+  const visibleImage = [image, fallbackImage].find(url => isValidArtistImageUrl(url) && !failedUrls.includes(url));
+  return <div className={`compare-artist compare-artist--${side}`}>
+    <div className="compare-portrait" aria-hidden="true">
+      {visibleImage ? <img key={`${artist.artistKey}-${visibleImage}`} src={proxyArtistImageUrl(visibleImage)} alt=""
+        decoding="async" onError={() => setFailedUrls(urls => [...urls, visibleImage])} />
+        : <span className="compare-portrait-fallback">{artist.displayName.charAt(0)}</span>}
+    </div>
+    <div className="compare-artist-overlay" aria-hidden="true" />
+    <div className="compare-artist-copy">
+      <p className="compare-kicker">Artista {side === "a" ? "01" : "02"}</p>
+      <h2 style={{ "--compare-name-scale": Math.min(1, 8 / Math.max(...artist.displayName.split(/\s+/).map(word => word.length))) } as CSSProperties}>{artist.displayName}</h2>
+      <ArtistPicker key={artist.artistKey} artist={artist} other={other} artists={artists} side={side} onPick={onPick} />
+      <div className="compare-artist-profile">
+        <span>{genreLabel(artist.subgenre || artist.genre) || "Mexico Charts"}</span>
+        <Link href={canonicalArtistHref(artist.artistKey) ?? canonicalArtistHref(artist.displayName) ?? "/artists"}>
+          Ver perfil <ArrowUpRight size={13} aria-hidden="true" />
+        </Link>
       </div>
     </div>
-  );
+    <div className="compare-rank">{rank
+      ? `${spotifyMexicoRankLabel(rank)} · artistas · semanal · edición ${chartDate || "no informada"} · rango de fuente`
+      : "Perfil Mexico Charts"}</div>
+  </div>;
 }
 
-function MetricRow({ metric }: { metric: Metric }) {
-  const max = Math.max(metric.a, metric.b, 1);
-  const winner = metric.a === metric.b ? "tie" : metric.a > metric.b ? "a" : "b";
+function editorialReading(value: number, scope: string): Reading {
+  const reading = metricValue(value, { editorial: true });
+  return { value: reading, text: compact(reading), source: "Metadatos editoriales", date: null,
+    context: `Metadatos editoriales · ${scope} · fecha no disponible` };
+}
+function listenerReading(artist: ArtistMetadata, data: SongstatsArtistData | null | undefined): Reading {
+  const snapshot = listenerSnapshot(artist, data);
+  const saved = data?.snapshot.spotifyMonthlyListeners != null;
+  const value = metricValue(snapshot.value, { editorial: !saved });
+  return { value, text: compact(value), source: snapshot.source, date: snapshot.date ?? null,
+    context: saved ? `Songstats · Spotify global · colección ${snapshot.date || "sin fecha"}`
+      : "Metadatos editoriales · Spotify global · fecha no disponible" };
+}
+function followerReading(artist: ArtistMetadata, data: SongstatsArtistData | null | undefined): Reading {
+  const snapshot = data?.snapshot;
+  if (snapshot?.spotifyFollowers == null) return editorialReading(artist.spotifyFollowers, "seguidores Spotify");
+  const value = metricValue(snapshot.spotifyFollowers);
+  return { value, text: compact(value), source: "Songstats", date: snapshot.snapshotDate,
+    context: `Songstats · seguidores Spotify · colección ${snapshot.snapshotDate || "sin fecha"}` };
+}
+function activityReading(value: number | null, source: string): Reading {
+  // An empty loaded dataset does not prove the artist has a career count of zero.
+  const reading = value != null && value > 0 ? value : null;
+  return { value: reading, text: compact(reading), source, date: null, context: `${source} · cobertura cargada` };
+}
+function MetricRow({ metric, artistA, artistB }: { metric: Metric; artistA: string; artistB: string }) {
+  const bars = comparisonBars(metric.a.value, metric.b.value, { compatible: metric.compatible });
   const Icon = metric.icon;
-
-  return (
-    <div className="grid gap-3 p-4 md:grid-cols-[190px_minmax(0,1fr)] md:items-center" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-      <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4" style={{ color: G }} />
-        <span className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.48)" }}>
-          {metric.label}
-        </span>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        {(["a", "b"] as const).map(side => {
-          const value = side === "a" ? metric.a : metric.b;
-          const text = side === "a" ? metric.aText : metric.bText;
-          return (
-            <div key={side}>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <span title={value.toLocaleString("es-MX")} className="text-xl font-black tabular-nums text-white">{text}</span>
-                <WinnerPill winner={winner} side={side} />
-              </div>
-              {(side === "a" ? metric.aContext : metric.bContext) && <p className="mb-2 text-xs leading-relaxed text-zinc-400">{side === "a" ? metric.aContext : metric.bContext}</p>}
-              <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-                <div className="h-full rounded-full" style={{ width: `${Math.max(4, (value / max) * 100)}%`, background: side === "a" ? G : "rgba(255,255,255,0.76)" }} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+  return <article className="compare-metric" aria-labelledby={`metric-${metric.key}`} data-metric={metric.key}>
+    <h3 id={`metric-${metric.key}`} className="compare-metric-label"><Icon size={17} aria-hidden="true" />{metric.label}</h3>
+    {(["a", "b"] as const).map(side => {
+      const reading = metric[side];
+      const artist = side === "a" ? artistA : artistB;
+      return <div key={side} className={`compare-reading compare-reading--${side}${bars.winner === side ? " compare-reading--winner" : ""}`}>
+        <span className="compare-reading-artist">{artist}</span>
+        <strong className="compare-value" title={reading.value == null ? "No disponible" : reading.value.toLocaleString("es-MX")}>
+          <span aria-hidden="true">{reading.text}</span>
+          <span className="sr-only">{reading.value == null ? "No disponible" : reading.value.toLocaleString("es-MX")}{bars.winner === side ? " · valor más alto" : ""}</span>
+        </strong>
+        {reading.value != null && reading.value >= 1000 && <span className="compare-exact-value" aria-hidden="true">{reading.value.toLocaleString("es-MX")}</span>}
+        <span className="compare-reading-context">{reading.value == null ? "No disponible · " : ""}{reading.context}</span>
+      </div>;
+    })}
+    <div className="compare-battle-line" aria-hidden="true">
+      {(["a", "b"] as const).map(side => <div key={side} className={`compare-bar compare-bar--${side}${bars.winner === side ? " compare-bar--winner" : ""}`}
+        style={{ width: bars[side] == null ? "0%" : `${bars[side]}%` }} />)}
     </div>
-  );
+    <p className="compare-metric-note">{!bars.comparable && metric.a.value != null && metric.b.value != null
+      ? metric.note : metric.a.value == null || metric.b.value == null
+        ? "Datos parciales · sin comparación de barras" : metric.note}</p>
+  </article>;
 }
 
 export default function ArtistCompare() {
   const search = useSearch();
   const [, navigate] = useLocation();
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => { setCopyState("idle"); return () => { if (copyTimer.current) clearTimeout(copyTimer.current); }; }, [search]);
   const params = new URLSearchParams(search);
-  const { byKey } = useArtistMetadata();
-  const { data: tours } = useTouring();
-  const { rows: certRows } = useCertifications();
-  const { data: hub } = useChartsHub();
-
-  const artists = useMemo(() => (
-    Array.from(byKey.values())
-      .filter(artist => artist.displayName)
-      .sort((a, b) => b.spotifyListeners - a.spotifyListeners || a.displayName.localeCompare(b.displayName, "es", { sensitivity: "base" }))
-  ), [byKey]);
-
+  const platform: Platform = PLATFORMS.find(item => item.value === params.get("platform"))?.value ?? "all";
+  const SelectedIcon = PLATFORMS.find(item => item.value === platform)!.icon;
+  const { byKey, isLoading, isError } = useArtistMetadata();
+  const { data: tours, isLoading: toursLoading, isError: toursError } = useTouring();
+  const { rows: certRows, loading: certLoading } = useCertifications();
+  const { data: hub, isLoading: hubLoading } = useChartsHub();
+  const artists = useMemo(() => Array.from(byKey.values()).filter(artist => artist.displayName)
+    .sort((a, b) => b.spotifyListeners - a.spotifyListeners || a.displayName.localeCompare(b.displayName, "es", { sensitivity: "base" })), [byKey]);
   const weeklyRanks = useMemo(() => {
-    const sheet = hub?.sheets?.Spotify_Artists_Weekly?.rows ?? [];
     const ranks = new Map<string, number>();
-    sheet.forEach((row, index) => {
-      const name = row.Artist ?? "";
-      if (name) ranks.set(norm(name), Number(row.Rank || row.rank || index + 1));
-    });
-    return ranks;
+    (hub?.sheets?.Spotify_Artists_Weekly?.rows ?? []).forEach((row, index) => {
+      if (row.Artist) ranks.set(norm(row.Artist), Number(row.Rank || row.rank || index + 1));
+    }); return ranks;
   }, [hub]);
-
-  const aSlug = params.get("a");
-  const bSlug = params.get("b");
+  const aSlug = params.get("a"), bSlug = params.get("b");
   const artistA = artists.find(artist => slugify(artist.displayName) === aSlug) ?? artists[0];
-  const artistB = artists.find(artist => slugify(artist.displayName) === bSlug && artist.displayName !== artistA?.displayName) ?? artists.find(artist => artist.displayName !== artistA?.displayName);
-  const { data: aSongstats } = useSongstatsArtist(artistA?.artistKey ?? "");
-  const { data: bSongstats } = useSongstatsArtist(artistB?.artistKey ?? "");
-  const aListeners = listenerSnapshot(artistA, aSongstats);
-  const bListeners = listenerSnapshot(artistB, bSongstats);
-  const artistImages = useArtistImages([artistA?.displayName, artistB?.displayName].filter(Boolean) as string[]);
-  const imageA = artistA ? artistImages[artistA.displayName] : null;
-  const imageB = artistB ? artistImages[artistB.displayName] : null;
-
+  const artistB = artists.find(artist => slugify(artist.displayName) === bSlug && artist.displayName !== artistA?.displayName)
+    ?? artists.find(artist => artist.displayName !== artistA?.displayName);
+  const { data: aSongstats, isFetching: aSnapshotLoading } = useSongstatsArtist(artistA?.artistKey ?? "");
+  const { data: bSongstats, isFetching: bSnapshotLoading } = useSongstatsArtist(artistB?.artistKey ?? "");
+  const { images: artistImages, isFetched: imagesFetched } = useArtistImagesWithStatus([artistA?.displayName, artistB?.displayName].filter(Boolean) as string[]);
+  const knownImages = useRef<Record<string, string>>({});
+  const freshImageA = artistA ? getArtistImageUrl(artistImages, artistA.displayName, artistA.artistKey)
+    ?? (isValidArtistImageUrl(aSongstats?.avatarUrl) ? aSongstats.avatarUrl : null) : null;
+  const freshImageB = artistB ? getArtistImageUrl(artistImages, artistB.displayName, artistB.artistKey)
+    ?? (isValidArtistImageUrl(bSongstats?.avatarUrl) ? bSongstats.avatarUrl : null) : null;
+  useEffect(() => {
+    if (artistA && freshImageA) knownImages.current[artistA.artistKey] = freshImageA;
+    if (artistB && freshImageB) knownImages.current[artistB.artistKey] = freshImageB;
+  }, [artistA, artistB, freshImageA, freshImageB]);
+  const imageA = artistA ? freshImageA ?? (!imagesFetched ? knownImages.current[artistA.artistKey] ?? null : null) : null;
+  const imageB = artistB ? freshImageB ?? (!imagesFetched ? knownImages.current[artistB.artistKey] ?? null : null) : null;
+  function pairUrl(a: string, b: string) {
+    const next = new URLSearchParams(search); next.set("a", a); next.set("b", b);
+    return `/compare?${next.toString()}`;
+  }
   function setArtist(side: "a" | "b", slug: string) {
-    const nextA = side === "a" ? slug : slugify(artistA?.displayName ?? "");
-    const nextB = side === "b" ? slug : slugify(artistB?.displayName ?? "");
-    navigate(`/compare?a=${encodeURIComponent(nextA)}&b=${encodeURIComponent(nextB)}`);
+    navigate(pairUrl(side === "a" ? slug : slugify(artistA?.displayName ?? ""), side === "b" ? slug : slugify(artistB?.displayName ?? "")));
   }
-
-  function swapArtists() {
+  function swapArtists() { if (artistA && artistB) navigate(pairUrl(slugify(artistB.displayName), slugify(artistA.displayName))); }
+  function setPlatform(value: Platform) {
+    const next = new URLSearchParams(search);
+    if (value === "all") next.delete("platform"); else next.set("platform", value);
+    navigate(`/compare${next.size ? `?${next.toString()}` : ""}`);
+  }
+  async function copyShareUrl() {
     if (!artistA || !artistB) return;
-    navigate(`/compare?a=${encodeURIComponent(slugify(artistB.displayName))}&b=${encodeURIComponent(slugify(artistA.displayName))}`);
+    const href = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}${pairUrl(slugify(artistA.displayName), slugify(artistB.displayName))}`;
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(href); setCopyState("copied");
+    } catch { setCopyState("error"); }
+    if (copyTimer.current) clearTimeout(copyTimer.current);
+    copyTimer.current = setTimeout(() => setCopyState("idle"), 1800);
   }
-
-  function copyShareUrl() {
-    const href = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/compare?a=${encodeURIComponent(slugify(artistA?.displayName ?? ""))}&b=${encodeURIComponent(slugify(artistB?.displayName ?? ""))}`;
-    navigator.clipboard?.writeText(href).then(() => {
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1400);
-    }).catch(() => {});
-  }
-
   const aCerts = artistA ? certSummary(certRows, artistA) : null;
   const bCerts = artistB ? certSummary(certRows, artistB) : null;
   const aTours = artistA ? touringCount(tours, artistA) : 0;
   const bTours = artistB ? touringCount(tours, artistB) : 0;
   const aCharts = artistA ? chartAppearances(hub, artistA) : null;
   const bCharts = artistB ? chartAppearances(hub, artistB) : null;
-
-  const metrics = useMemo<Metric[]>(() => {
-    if (!artistA || !artistB || !aCerts || !bCerts || !aCharts || !bCharts) return [];
-    return [
-      { key: "listeners", group: "Streaming", label: "Oyentes mensuales Spotify", a: aListeners.value ?? 0, b: bListeners.value ?? 0, aText: aListeners.compact, bText: bListeners.compact, aContext: aListeners.context, bContext: bListeners.context, icon: SiSpotify },
-      { key: "streams", group: "Streaming", label: "Streams Spotify", a: artistA.spotifyStreams, b: artistB.spotifyStreams, aText: artistA.spotifyStreamsFmt, bText: artistB.spotifyStreamsFmt, icon: SiSpotify },
-      { key: "youtube-views", group: "Streaming", label: "Vistas YouTube", a: artistA.youtubeViews, b: artistB.youtubeViews, aText: artistA.youtubeViewsFmt, bText: artistB.youtubeViewsFmt, icon: SiYoutube },
-      { key: "youtube-subs", group: "Social", label: "Suscriptores YouTube", a: artistA.youtubeSubscribers, b: artistB.youtubeSubscribers, aText: artistA.youtubeSubscribersFmt, bText: artistB.youtubeSubscribersFmt, icon: SiYoutube },
-      { key: "tiktok", group: "Social", label: "TikTok", a: artistA.tiktokFollowers, b: artistB.tiktokFollowers, aText: artistA.tiktokFollowersFmt, bText: artistB.tiktokFollowersFmt, icon: SiTiktok },
-      { key: "instagram", group: "Social", label: "Instagram", a: artistA.instagramFollowers, b: artistB.instagramFollowers, aText: artistA.instagramFollowersFmt, bText: artistB.instagramFollowersFmt, icon: SiInstagram },
-      { key: "certifications", group: "Actividad", label: "Certificaciones", a: aCerts.count, b: bCerts.count, aText: compact(aCerts.count), bText: compact(bCerts.count), icon: BadgeCheck },
-      { key: "touring", group: "Actividad", label: "Fechas activas", a: aTours, b: bTours, aText: compact(aTours), bText: compact(bTours), icon: CalendarDays },
-      { key: "charts", group: "Actividad", label: "Apariciones en listas", a: aCharts.count, b: bCharts.count, aText: compact(aCharts.count), bText: compact(bCharts.count), icon: BarChart3 },
-    ];
-  }, [artistA, artistB, aSongstats, bSongstats, aCerts, bCerts, aTours, bTours, aCharts, bCharts]);
-
-  const groupedMetrics = useMemo(() => {
-    return (["Streaming", "Social", "Actividad"] as const).map(group => ({
-      group,
-      rows: metrics.filter(metric => metric.group === group),
-    })).filter(section => section.rows.length);
-  }, [metrics]);
-
+  const metrics: Metric[] = [];
+  if (artistA && artistB && aCerts && bCerts && aCharts && bCharts) {
+    function add(key: string, group: Metric["group"], selectedPlatform: Platform, label: string, icon: Metric["icon"], a: Reading, b: Reading) {
+      metrics.push({ key, group, platform: selectedPlatform, label, icon, a, b, ...snapshotCompatibility(a, b) });
+    }
+    add("streams", "Streaming", "spotify", "Streams Spotify", SiSpotify,
+      editorialReading(artistA.spotifyStreams, "streams Spotify acumulados"), editorialReading(artistB.spotifyStreams, "streams Spotify acumulados"));
+    function addSpotifyPair(key: string, group: Metric["group"], label: string, a: Reading, b: Reading, fallbackA: Reading, fallbackB: Reading) {
+      const pair = commonSourceReadings(a, b, fallbackA, fallbackB);
+      const context = (reading: Reading) => pair.usedFallback
+        ? { ...reading, context: `${reading.context} · fuente común para esta comparación` } : reading;
+      add(key, group, "spotify", label, SiSpotify, context(pair.a), context(pair.b));
+    }
+    addSpotifyPair("listeners", "Streaming", "Oyentes mensuales", listenerReading(artistA, aSongstats), listenerReading(artistB, bSongstats),
+      editorialReading(artistA.spotifyListeners, "Spotify global"), editorialReading(artistB.spotifyListeners, "Spotify global"));
+    addSpotifyPair("followers", "Social", "Seguidores en Spotify", followerReading(artistA, aSongstats), followerReading(artistB, bSongstats),
+      editorialReading(artistA.spotifyFollowers, "seguidores Spotify"), editorialReading(artistB.spotifyFollowers, "seguidores Spotify"));
+    add("youtube-views", "Streaming", "youtube", "Vistas YouTube", SiYoutube,
+      editorialReading(artistA.youtubeViews, "vistas YouTube"), editorialReading(artistB.youtubeViews, "vistas YouTube"));
+    add("youtube-subs", "Social", "youtube", "Suscriptores YouTube", SiYoutube,
+      editorialReading(artistA.youtubeSubscribers, "suscriptores YouTube"), editorialReading(artistB.youtubeSubscribers, "suscriptores YouTube"));
+    add("tiktok", "Social", "tiktok", "Seguidores en TikTok", SiTiktok,
+      editorialReading(artistA.tiktokFollowers, "seguidores TikTok"), editorialReading(artistB.tiktokFollowers, "seguidores TikTok"));
+    add("instagram", "Social", "instagram", "Seguidores en Instagram", SiInstagram,
+      editorialReading(artistA.instagramFollowers, "seguidores Instagram"), editorialReading(artistB.instagramFollowers, "seguidores Instagram"));
+    add("certifications", "Actividad", "activity", "Certificaciones", BadgeCheck,
+      activityReading(certLoading ? null : aCerts.count, "Archivo de certificaciones"), activityReading(certLoading ? null : bCerts.count, "Archivo de certificaciones"));
+    add("touring", "Actividad", "activity", "Fechas activas", CalendarDays,
+      activityReading(toursLoading || toursError ? null : aTours, "Giras cargadas"), activityReading(toursLoading || toursError ? null : bTours, "Giras cargadas"));
+    add("charts", "Actividad", "activity", "Apariciones en listas", BarChart3,
+      activityReading(hubLoading ? null : aCharts.count, "Charts Hub · ediciones mixtas"), activityReading(hubLoading ? null : bCharts.count, "Charts Hub · ediciones mixtas"));
+  }
+  const filteredMetrics = metrics.filter(metric => platform === "all" || metric.platform === platform);
   const presetPairs = useMemo(() => {
     if (artists.length < 4) return [];
     const pairs = [
@@ -413,93 +367,57 @@ export default function ArtistCompare() {
     return pairs.filter(pair => {
       const key = `${pair.a?.displayName}-${pair.b?.displayName}`;
       if (!pair.a || !pair.b || pair.a.displayName === pair.b.displayName || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      seen.add(key); return true;
     });
   }, [artists]);
-
-  return (
-    <div className="min-h-screen text-white" style={{ background: "#080808" }}>
-      <PageSEO
-        title="Comparar artistas"
-        description="Compara artistas mexicanos con señales de streaming, YouTube, social, certificaciones, giras y listas oficiales."
-        path="/compare"
-      />
-      <div className="fixed inset-0 pointer-events-none opacity-[0.018]" style={{ backgroundImage: NOISE, backgroundSize: 128 }} />
-      <SiteNav />
-
-      <main className="relative px-4 pb-12 pt-8 sm:px-6 lg:px-12">
-        <section className="max-w-7xl">
-          <p className="mb-3 text-[9px] font-black uppercase tracking-[0.28em]" style={{ color: G }}>
-            Herramienta Mexico Charts
-          </p>
-          <h1 className="max-w-5xl font-black uppercase leading-[0.9]" style={{ fontSize: "clamp(2.25rem,7vw,7rem)" }}>
-            Comparar artistas
-          </h1>
-          <div className="mt-4 flex max-w-5xl flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <p className="max-w-2xl text-sm leading-relaxed sm:text-lg" style={{ color: "rgba(255,255,255,0.56)" }}>
-              Dos perfiles, señales lado a lado: streaming, YouTube, social, certificaciones, giras y presencia en listas.
-            </p>
-            {artistA && artistB && (
-              <button type="button" onClick={copyShareUrl}
-                className="inline-flex w-fit items-center gap-2 rounded-full px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-colors hover:bg-white/[0.06]"
-                style={{ border: "1px solid rgba(255,255,255,0.1)", color: copied ? G : "rgba(255,255,255,0.62)" }}
-                aria-live="polite">
-                {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? "Copiado" : "Compartir"}
-              </button>
-            )}
+  return <div className="compare-page">
+    <div className="compare-background" aria-hidden="true" />
+    <PageSEO title="Comparar artistas" description="Compara artistas mexicanos con señales de streaming, YouTube, social, certificaciones, giras y listas oficiales." path="/compare" />
+    <SiteNav />
+    <main className="compare-main">
+      <header className="compare-page-heading">
+        <div><p className="compare-kicker">Mexico Charts / Comparar</p><h1>Comparar artistas</h1></div>
+        {artistA && artistB && <button type="button" onClick={copyShareUrl} className="compare-share" aria-live="polite">
+          {copyState === "copied" ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+          {copyState === "copied" ? "Copiado" : copyState === "error" ? "No se pudo copiar" : "Compartir"}
+        </button>}
+      </header>
+      {artistA && artistB ? <>
+        <section className="compare-hero" aria-label="Artistas seleccionados">
+          <ArtistPanel artist={artistA} other={artistB} artists={artists} image={imageA} fallbackImage={aSongstats?.avatarUrl} side="a"
+            rank={weeklyRanks.get(norm(artistA.displayName)) ?? null} chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate}
+            onPick={slug => setArtist("a", slug)} />
+          <div className="compare-versus"><span aria-hidden="true">VS</span>
+            <button type="button" onClick={swapArtists} aria-label="Intercambiar artistas"><ArrowLeftRight size={23} aria-hidden="true" /></button>
           </div>
+          <ArtistPanel artist={artistB} other={artistA} artists={artists} image={imageB} fallbackImage={bSongstats?.avatarUrl} side="b"
+            rank={weeklyRanks.get(norm(artistB.displayName)) ?? null} chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate}
+            onPick={slug => setArtist("b", slug)} />
         </section>
-
-        {artistA && artistB ? (
-          <section className="mt-7 max-w-7xl space-y-5">
-            <div className="p-3 sm:p-4" style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_44px_minmax(0,1fr)] md:items-end">
-                <ArtistPicker label="Artista A" artist={artistA} artists={artists} side="a" onPick={slug => setArtist("a", slug)} />
-                <button type="button" onClick={swapArtists}
-                  className="mx-auto flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/[0.06]"
-                  style={{ border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}
-                  aria-label="Intercambiar artistas">
-                  <Shuffle className="h-4 w-4" />
-                </button>
-                <ArtistPicker label="Artista B" artist={artistB} artists={artists} side="b" onPick={slug => setArtist("b", slug)} />
-              </div>
-              {presetPairs.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {presetPairs.map(pair => (
-                    <button key={pair.label} type="button"
-                      onClick={() => navigate(`/compare?a=${encodeURIComponent(slugify(pair.a.displayName))}&b=${encodeURIComponent(slugify(pair.b.displayName))}`)}
-                      className="rounded-full px-3 py-2 text-[9px] font-black uppercase tracking-[0.14em]"
-                      style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.48)", background: "rgba(255,255,255,0.025)" }}
-                      aria-label={`Comparar ${pair.a.displayName} con ${pair.b.displayName}`}>
-                      {pair.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+        {presetPairs.length > 0 && <div className="compare-presets" aria-label="Comparaciones sugeridas">
+          <span>Explorar</span>{presetPairs.map(pair => <button key={pair.label} type="button"
+            onClick={() => navigate(pairUrl(slugify(pair.a.displayName), slugify(pair.b.displayName)))}
+            aria-label={`Comparar ${pair.a.displayName} con ${pair.b.displayName}`}>{pair.label}</button>)}
+        </div>}
+        <section className="compare-data" aria-label="Comparación de métricas">
+          <div className="compare-data-controls">
+            <div className="compare-platform"><SelectedIcon size={22} aria-hidden="true" />
+              <label className="sr-only" htmlFor="compare-platform">Plataforma</label>
+              <select id="compare-platform" value={platform} onChange={event => setPlatform(event.target.value as Platform)}>
+                {PLATFORMS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
+              </select><ChevronDown size={16} aria-hidden="true" />
             </div>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ArtistPanel artist={artistA} rank={weeklyRanks.get(norm(artistA.displayName)) ?? null} certs={aCerts!} tours={aTours} charts={aCharts!} image={imageA} side="a" chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate} />
-              <ArtistPanel artist={artistB} rank={weeklyRanks.get(norm(artistB.displayName)) ?? null} certs={bCerts!} tours={bTours} charts={bCharts!} image={imageB} side="b" chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate} />
-            </div>
-
-            <div className="overflow-hidden" style={{ borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
-              <div className="grid grid-cols-2 border-b border-white/[0.06] px-4 py-3">
-                <span className="truncate text-sm font-black uppercase">{artistA.displayName}</span>
-                <span className="truncate text-right text-sm font-black uppercase">{artistB.displayName}</span>
-              </div>
-              {groupedMetrics.map(section => (
-                <div key={section.group}>
-                  <div className="px-4 py-3 text-[9px] font-black uppercase tracking-[0.24em]" style={{ color: G, background: "rgba(57,255,20,0.045)", borderBottom: "1px solid rgba(57,255,20,0.12)" }}>
-                    {section.group}
-                  </div>
-                  {section.rows.map(metric => <MetricRow key={metric.key} metric={metric} />)}
-                </div>
-              ))}
-            </div>
-
+            <p className="compare-data-status" role="status">{aSnapshotLoading || bSnapshotLoading ? "Cargando instantáneas…" : "Lecturas disponibles"}</p>
+          </div>
+          <div className="compare-column-names" aria-hidden="true"><span>{artistA.displayName}</span><span>{artistB.displayName}</span></div>
+          {filteredMetrics.map(metric => <MetricRow key={metric.key} metric={metric} artistA={artistA.displayName} artistB={artistB.displayName} />)}
+          <p className="compare-data-footnote">El verde indica el valor más alto de cada métrica; los empates quedan en blanco. Los colores reparten la línea en proporción a los valores de estos dos artistas. No representa cuota de mercado. Las fuentes y fechas describen las lecturas disponibles.</p>
+        </section>
+        <section className="compare-supplement" aria-label="Contexto de los artistas">
+          <div className="compare-supplement-heading"><p className="compare-kicker">Más contexto</p><h2>Detrás de las cifras</h2></div>
+          <div className="compare-editorial-context">{[artistA, artistB].map(artist => <p key={artist.artistKey}><strong>{artist.displayName}</strong><span>{[
+            artist.country ? countryLabel(artist.country) : "", artist.label ? `Sellos/distribuidores: ${labelAssociationValue(artist.label)}` : "",
+          ].filter(Boolean).join(" · ") || "Datos editoriales no disponibles"}</span></p>)}</div>
             <div className="grid gap-4 lg:grid-cols-2">
               {[
                 { artist: artistA, certs: aCerts!, charts: aCharts! },
@@ -543,15 +461,13 @@ export default function ArtistCompare() {
                 </div>
               ))}
             </div>
-          </section>
-        ) : (
-          <div className="mt-12 max-w-xl rounded-lg p-6" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.018)" }}>
-            <p className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.56)" }}>
-              Cargando base de artistas.
-            </p>
-          </div>
-        )}
-      </main>
-    </div>
-  );
+        </section>
+      </> : <div className="compare-empty" role="status">
+        <h2>{isError ? "No se pudo cargar la base de artistas" : isLoading ? "Cargando artistas…" : "No hay suficientes artistas disponibles"}</h2>
+        <p>{isError ? "Intenta recargar la página. Los datos no se han sustituido por ceros." : "La comparación necesita dos perfiles disponibles."}</p>
+        {isError && <button type="button" onClick={() => window.location.reload()}>Reintentar</button>}
+      </div>}
+    </main>
+    <footer className="compare-footer">MEXICO CHARTS <span>Artistas. Datos. Contexto.</span></footer>
+  </div>;
 }
