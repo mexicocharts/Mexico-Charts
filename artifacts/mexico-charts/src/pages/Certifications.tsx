@@ -428,12 +428,12 @@ export default function Certifications() {
         ) : (
           <>
             {/* Desktop table */}
-            <div className="hidden lg:block rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="hidden lg:block rounded-2xl overflow-hidden" role="table" aria-label={pick("Certificaciones", "Certifications")} aria-describedby="certification-sort-state" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
               <p id="certification-sort-state" className="sr-only">
                 {pick("Orden actual", "Current order")}: {sortLabels[sortBy]}, {sortDir === "asc" ? pick("ascendente", "ascending") : pick("descendente", "descending")}.
               </p>
               {/* Header */}
-              <div className="grid text-[9px] font-black uppercase tracking-[0.18em] px-5 py-3"
+              <div role="row" className="grid text-[9px] font-black uppercase tracking-[0.18em] px-5 py-3"
                 style={{ gridTemplateColumns: "2fr 2.5fr 1.2fr 1.6fr 0.7fr 1.1fr 1.5fr", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)" }}>
                 {[
                   { label: sortLabels.artista, col: "artista" as const },
@@ -443,23 +443,29 @@ export default function Certifications() {
                   { label: sortLabels.nivel, col: "nivel" as const },
                   { label: sortLabels.fecha, col: "fecha" as const },
                   { label: pick("Disquera", "Label"), col: null },
-                ].map(({ label, col }) => col ? (
-                  <button key={col} type="button"
+                ].map(({ label, col }) => (
+                  <div key={col ?? label} role="columnheader"
+                    aria-sort={col && sortBy === col ? (sortDir === "asc" ? "ascending" : "descending") : undefined}
+                    className="min-w-0 flex items-center">
+                  {col ? (
+                  <button type="button"
                     onClick={() => toggleSort(col)}
                     aria-describedby="certification-sort-state"
                     aria-label={`${label}: ${sortBy === col && sortDir === "desc" ? pick("ordenar en orden ascendente", "sort ascending") : pick("ordenar en orden descendente", "sort descending")}`}
-                    className="flex items-center gap-1 text-left cursor-pointer hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#39FF14]"
+                    className="w-full flex items-center gap-1 text-left cursor-pointer hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#39FF14]"
                     style={{ color: sortBy === col ? "rgba(255,255,255,0.85)" : undefined }}>
                     {label}
                     <span aria-hidden="true"><SortIcon col={col} /></span>
                   </button>
-                ) : <span key={label} className="flex items-center text-left">{label}</span>)}
+                ) : <span className="flex items-center text-left">{label}</span>}
+                  </div>
+                ))}
               </div>
 
               {/* Rows */}
               <AnimatePresence>
                 {pageRows.map((row, i) => (
-                  <motion.div key={`${row.artista}-${row.titulo}-${i}`}
+                  <motion.div role="row" key={`${row.artista}-${row.titulo}-${i}`}
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: Math.min(i * 0.008, 0.2) }}
                     className="grid px-5 py-3.5 items-center group"
                     style={{
@@ -467,19 +473,21 @@ export default function Certifications() {
                       borderBottom: "1px solid rgba(255,255,255,0.05)",
                       background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)"
                     }}>
-                    <Link href={artistLinkHref(row.artista)} className="min-w-0 pr-2">
+                    <div role="cell" className="min-w-0 pr-2">
+                    <Link href={artistLinkHref(row.artista)} className="block min-w-0">
                       <span className="block truncate text-xs font-black text-white underline decoration-white/15 underline-offset-4 transition-colors hover:text-[#39FF14] hover:decoration-[#39FF14]/45">
                         {row.artista}
                       </span>
                     </Link>
-                    <div className="text-xs truncate pr-2" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "system-ui" }}>{row.titulo}</div>
-                    <div className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.7)" }}>
+                    </div>
+                    <div role="cell" className="text-xs truncate pr-2" style={{ color: "rgba(255,255,255,0.75)", fontFamily: "system-ui" }}>{row.titulo}</div>
+                    <div role="cell" className="text-[10px] font-black uppercase tracking-[0.1em]" style={{ color: "rgba(255,255,255,0.7)" }}>
                       {row.formato === "Álbum" ? "Álbum" : row.formato === "Single" ? "Single" : "—"}
                     </div>
-                    <CertBadge cert={row.certificacion} />
-                    <div className="text-xs font-black" style={{ color: "rgba(255,255,255,0.85)" }}>{formatCertificationLevels(row.certificacion, row.nivel)}</div>
-                    <div className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.7)" }}>{formatDate(row.fechaISO)}</div>
-                    <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{row.disquera || "—"}</div>
+                    <div role="cell"><CertBadge cert={row.certificacion} /></div>
+                    <div role="cell" className="text-xs font-black" style={{ color: "rgba(255,255,255,0.85)" }}>{formatCertificationLevels(row.certificacion, row.nivel)}</div>
+                    <div role="cell" className="text-[10px] font-black" style={{ color: "rgba(255,255,255,0.7)" }}>{formatDate(row.fechaISO)}</div>
+                    <div role="cell" className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.6)", fontFamily: "system-ui" }}>{row.disquera || "—"}</div>
                   </motion.div>
                 ))}
               </AnimatePresence>

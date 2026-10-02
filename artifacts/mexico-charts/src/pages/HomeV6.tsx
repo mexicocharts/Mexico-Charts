@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import PageSEO from "@/components/PageSEO";
+import ReadableTicker from "@/components/ReadableTicker";
 import LuisMiguelTourHero from "@/components/LuisMiguelTourHero";
 import { useArtistImages } from "@/hooks/useArtistImages";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
@@ -642,33 +643,22 @@ export default function HomeV6() {
         path="/"
       />
 
-      {/* ── GREEN TICKER — pause on hover ── */}
-      <div
-        className="bg-[#39FF14] overflow-hidden py-2 cursor-default"
-        style={{ whiteSpace:"nowrap", willChange:"transform" }}
-        onMouseEnter={() => setTickerPaused(true)}
-        onMouseLeave={() => setTickerPaused(false)}
-      >
-        <div
-          className="inline-block animate-marquee"
-          style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
-        >
-          <span className="text-black font-black text-[11px] uppercase tracking-[0.22em]">
-            {TICKER_ITEMS.map((item, i) => (
-              <span key={i}>
-                {item}
-                <span className="mx-4 opacity-30">·</span>
-              </span>
-            ))}
-            {TICKER_ITEMS.map((item, i) => (
-              <span key={`r-${i}`}>
-                {item}
-                <span className="mx-4 opacity-30">·</span>
-              </span>
-            ))}
-          </span>
-        </div>
-      </div>
+      {/* ── GREEN TICKER ── */}
+      <ReadableTicker
+        id="home-message-ticker"
+        className="bg-[#39FF14] text-black py-2"
+        label={pick("Mensajes de Mexico Charts", "Mexico Charts messages")}
+        items={TICKER_ITEMS}
+        itemClassName="font-black text-[11px] uppercase tracking-[0.22em]"
+        paused={tickerPaused}
+        onToggle={() => setTickerPaused(value => !value)}
+        controls="home-message-ticker-content home-stats-ticker-content"
+        pauseLabel={pick("Pausar ambas bandas de mensajes", "Pause both scrolling message bars")}
+        resumeLabel={pick("Reanudar ambas bandas de mensajes", "Resume both scrolling message bars")}
+        pauseText={pick("Pausar", "Pause")}
+        resumeText={pick("Reanudar", "Resume")}
+        reducedText={pick("Movimiento desactivado", "Motion off")}
+      />
 
       <SiteNav homeActive />
       {showTourCampaign && <LuisMiguelTourHero />}
@@ -896,26 +886,23 @@ export default function HomeV6() {
       </div>
 
       {/* ── STATS TICKER ── */}
-      <div
-        className="border-b border-white/[0.05] bg-[#080808] overflow-hidden py-3"
-        style={{ whiteSpace:"nowrap", borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)", willChange:"transform" }}
-        onMouseEnter={() => setTickerPaused(true)}
-        onMouseLeave={() => setTickerPaused(false)}
-      >
-        <div
-          className="inline-block animate-marquee-slow"
-          style={{ willChange:"transform", animationPlayState: tickerPaused ? "paused" : "running" }}
-        >
-          <span className="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]">
-            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("PERFILES DE CATÁLOGO", "CATALOG PROFILES")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
-              <span key={i}>{s}<span className="mx-5 text-zinc-800">·</span></span>
-            ))}
-            {[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("PERFILES DE CATÁLOGO", "CATALOG PROFILES")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")].map((s,i)=>(
-              <span key={`r${i}`}>{s}<span className="mx-5 text-zinc-800">·</span></span>
-            ))}
-          </span>
-        </div>
-      </div>
+      <ReadableTicker
+        id="home-stats-ticker"
+        className="border-b border-white/[0.05] bg-[#080808] text-zinc-400 py-3"
+        style={{ borderTop:"1px solid rgba(57,255,20,0.07)", boxShadow:"inset 0 1px 0 rgba(57,255,20,0.04)" }}
+        label={pick("Resumen de Mexico Charts", "Mexico Charts summary")}
+        items={[`${artistCatalogCount.toLocaleString(language === "en" ? "en-US" : "es-MX")} ${pick("PERFILES DE CATÁLOGO", "CATALOG PROFILES")}`,pick("MÚSICA MEXICANA", "MEXICAN MUSIC"),pick("DATOS EN TIEMPO REAL", "REAL-TIME DATA"),pick("MOMENTUM DIARIO", "DAILY MOMENTUM"),pick("LISTAS SEMANALES", "WEEKLY CHARTS")]}
+        itemClassName="text-zinc-700 font-black text-[10px] uppercase tracking-[0.28em]"
+        paused={tickerPaused}
+        onToggle={() => setTickerPaused(value => !value)}
+        controls="home-message-ticker-content home-stats-ticker-content"
+        pauseLabel={pick("Pausar ambas bandas de mensajes", "Pause both scrolling message bars")}
+        resumeLabel={pick("Reanudar ambas bandas de mensajes", "Resume both scrolling message bars")}
+        pauseText={pick("Pausar", "Pause")}
+        resumeText={pick("Reanudar", "Resume")}
+        reducedText={pick("Movimiento desactivado", "Motion off")}
+        slow
+      />
 
       {/* ── ERROR BANNER — only shown when a sheet URL is configured but fetch failed ── */}
       {showErrorState && (

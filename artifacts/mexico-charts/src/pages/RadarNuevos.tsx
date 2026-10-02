@@ -196,8 +196,8 @@ function buildRadar(
         spotifyWeeklyRank ? `Spotify #${spotifyWeeklyRank}` : "",
         youtubeWeeklyRank ? `YouTube artistas #${youtubeWeeklyRank}` : "",
         youtubeWeeklyViews > 0 ? `${compact(youtubeWeeklyViews)} vistas MX` : "",
-        candidate.firstSignal ? `señal desde ${candidate.firstSignal}` : "",
-        `${candidate.releaseCount} lanzamientos detectados`,
+        candidate.firstSignal ? `año de referencia editorial: ${candidate.firstSignal}` : "",
+        `${candidate.releaseCount} lanzamientos (referencia editorial)`,
       ].filter(Boolean);
 
       return {
@@ -288,7 +288,7 @@ function RadarRow({ item, index, photoUrl }: { item: RadarArtist; index: number;
             </h2>
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">
               <span>{genre}</span>
-              <span>Desde {item.firstSignal}</span>
+              <span>Año de referencia {item.firstSignal}</span>
               <span>{item.confidence}</span>
             </div>
           </div>
@@ -307,7 +307,7 @@ function RadarRow({ item, index, photoUrl }: { item: RadarArtist; index: number;
               <div className="mt-1 text-sm font-black text-white">{item.youtubeWeeklyRank ? `#${item.youtubeWeeklyRank}` : item.youtubeWeeklyViewsLabel}</div>
             </div>
             <div className="border border-white/[0.06] bg-white/[0.025] p-2" style={{ borderRadius: 6 }}>
-              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Catálogo</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">Lanzamientos</div>
               <div className="mt-1 text-sm font-black text-white">{item.releaseCount}</div>
             </div>
           </div>
@@ -336,9 +336,9 @@ export default function RadarNuevos() {
 
   const imageNames = useMemo(() => radar.map((artist) => artist.name), [radar]);
   const artistImages = useArtistImages(imageNames);
-  const leader = radar[0];
   const isLoading = artistsDaily.isLoading || artistsWeekly.isLoading || metadata.isLoading || chartsHub.isLoading;
   const isError = artistsDaily.isError || artistsWeekly.isError || metadata.isError || chartsHub.isError;
+  const leader = !isLoading && !isError && radar[0]?.score > 0 ? radar[0] : undefined;
   const newCount = radar.filter((artist) => artist.stage === "Nuevo").length;
   const emergingCount = radar.filter((artist) => artist.stage === "Emergente").length;
 
@@ -391,7 +391,7 @@ export default function RadarNuevos() {
                       </div>
                       <div className="min-w-0 p-4">
                         <div className="text-[10px] font-black uppercase tracking-[0.22em]" style={{ color: ACCENT }}>
-                          Señal líder
+                          Artista destacado
                         </div>
                         <div className="mt-2 break-words text-[1.5rem] font-black uppercase leading-[0.95] text-white sm:text-3xl">
                           {leader.name}
@@ -406,6 +406,11 @@ export default function RadarNuevos() {
                     </div>
                   </div>
                 </Link>
+              )}
+              {!isLoading && !isError && !leader && (
+                <p className="max-w-xl text-sm leading-6 text-zinc-400">
+                  Sin artista destacado con las señales disponibles.
+                </p>
               )}
             </div>
 
@@ -427,8 +432,8 @@ export default function RadarNuevos() {
               </div>
               <div className="border border-white/[0.08] bg-white/[0.03] p-3 sm:p-4" style={{ borderRadius: 8 }}>
                 <Radio className="mb-3 h-5 w-5" style={{ color: ACCENT }} />
-                <div className="text-xl font-black sm:text-2xl">En vivo</div>
-                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Datos</div>
+                <div className="text-xl font-black sm:text-2xl">Editorial</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">Selección</div>
               </div>
             </div>
           </div>
@@ -437,7 +442,7 @@ export default function RadarNuevos() {
         <section className="mx-auto max-w-[1320px] px-5 py-8 md:px-8">
           <div className="mb-6 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
             <p className="max-w-3xl text-xs leading-5 text-zinc-500">
-              Radar usa elegibilidad editorial para definir el pool nuevo/emergente; el orden se determina por señales de éxito actual.
+              Radar usa una selección editorial de artistas nuevos y emergentes; el orden se calcula con las señales disponibles. Los años y las cifras de lanzamientos son referencias editoriales.
             </p>
             <div className="flex flex-wrap gap-2">
               {["Spotify", "YouTube", "Fanbase"].map((label) => (
