@@ -111,6 +111,7 @@ export interface KworbStats {
   spotify: KworbSpotifyStats | null;
   youtube: KworbYouTubeStats | null;
   chartPositions: KworbChartPosition[] | null;
+  chartPositionsObservedAt?: string | null;
   _status?: "cached" | "pending";
 }
 

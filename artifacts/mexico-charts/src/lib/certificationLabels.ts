@@ -5,10 +5,10 @@ export function formatCertificationLevels(certification: string, level: string):
     .filter(Boolean);
   const counts = level
     .split("&")
-    .map(value => Number.parseInt(value.trim(), 10))
-    .filter(value => Number.isFinite(value));
+    .map(value => /^\d+$/.test(value.trim()) ? Number(value.trim()) : NaN);
 
-  if (!tiers.length || tiers.length !== counts.length) return level || "—";
+  if (!level) return "—";
+  if (!tiers.length || counts.some(count => !Number.isSafeInteger(count)) || tiers.length !== counts.length || tiers.some(tier => !["oro", "platino", "diamante"].includes(tier))) return `Nivel no verificado · ${level}`;
   return tiers
     .map((tier, index) => `${counts[index].toLocaleString("es-MX")}× ${tier.charAt(0).toUpperCase()}${tier.slice(1)}`)
     .join(" + ");

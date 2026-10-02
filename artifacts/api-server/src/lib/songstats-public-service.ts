@@ -53,7 +53,7 @@ export interface SongstatsPublicRelease {
 export interface SongstatsPublicCatalog {
   releaseCount: number;
   trackCount: number;
-  albumCount: number;
+  albumCount: number | null;
   releasesLast90Days: number;
   medianReleaseGapDays: number | null;
   newestReleaseDate: string | null;
@@ -221,8 +221,8 @@ function firstDate(record: JsonObject | null, keys: string[]): string | null {
   return null;
 }
 
-function firstArrayAtKeys(root: JsonObject | null, keys: string[]): unknown[] {
-  if (!root) return [];
+function firstArrayAtKeys(root: JsonObject | null, keys: string[]): unknown[] | null {
+  if (!root) return null;
   const queue: JsonObject[] = [root];
   const visited = new Set<JsonObject>();
   while (queue.length) {
@@ -238,7 +238,7 @@ function firstArrayAtKeys(root: JsonObject | null, keys: string[]): unknown[] {
       if (nested) queue.push(nested);
     }
   }
-  return [];
+  return null;
 }
 
 function releaseType(record: JsonObject | null, fallback: SongstatsPublicRelease["type"]) {
@@ -282,10 +282,10 @@ function median(values: number[]): number | null {
 }
 
 function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCatalog {
-  const trackRows = firstArrayAtKeys(catalogPayload, ["catalog", "tracks", "songs", "recordings"]);
+  const trackRows = firstArrayAtKeys(catalogPayload, ["catalog", "tracks", "songs", "recordings"]) ?? [];
   const albumRows = firstArrayAtKeys(catalogPayload, ["albums", "releases", "discography"]);
   const candidates = [
-    ...albumRows.map(row => releaseFromRow(row, "album")),
+    ...(albumRows ?? []).map(row => releaseFromRow(row, "album")),
     ...trackRows.map(row => releaseFromRow(row, "track")),
   ].filter((release): release is SongstatsPublicRelease => release != null);
   const deduped = [...new Map(candidates.map(release => [release.id, release])).values()]
@@ -302,7 +302,7 @@ function normalizedCatalog(catalogPayload: JsonObject | null): SongstatsPublicCa
   return {
     releaseCount: deduped.length,
     trackCount: trackRows.length,
-    albumCount: albumRows.length,
+    albumCount: albumRows?.length ?? null,
     releasesLast90Days: ninetyDayCutoff
       ? dated.filter(release => Date.parse(`${release.releaseDate}T12:00:00Z`) >= ninetyDayCutoff.getTime()).length
       : 0,

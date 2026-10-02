@@ -71,9 +71,9 @@ function strongestGrowth(growth: SongstatsArtistData["growth"]) {
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="flex min-h-64 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 px-6 text-center">
-      <BarChart3 className="mb-4 h-7 w-7 text-zinc-700" />
+      <BarChart3 className="mb-4 h-7 w-7 text-zinc-400" />
       <h4 className="text-sm font-black text-zinc-300">{title}</h4>
-      <p className="mt-2 max-w-md text-xs font-medium leading-5 text-zinc-600">{body}</p>
+      <p className="mt-2 max-w-md text-xs font-medium leading-5 text-zinc-400">{body}</p>
     </div>
   );
 }
@@ -107,9 +107,9 @@ export default function ArtistIntelligenceLab({
       <section data-testid="section-artist-intelligence" className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#111] via-[#090909] to-[#050505] p-4 shadow-2xl sm:p-6">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#39FF14]/40 to-transparent" />
         <div className="relative">
-          <div className="text-[9px] font-black uppercase tracking-[0.24em] text-[#39FF14]">Mexico Charts Intelligence</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#39FF14]">Mexico Charts Intelligence</div>
           <h2 className="mt-2 text-xl font-black tracking-tight text-white sm:text-2xl">Intelligence Lab</h2>
-          <p className="mt-2 max-w-2xl text-xs font-medium leading-5 text-zinc-500">Audiencia, catálogo y conversión digital de {artistName}.</p>
+          <p className="mt-2 max-w-2xl text-xs font-medium leading-5 text-zinc-400">Audiencia, catálogo y conversión digital de {artistName}.</p>
           <div className="mt-5">
             <EmptyState title="Estamos preparando la inteligencia de este perfil" body="Las señales aparecerán automáticamente cuando exista una observación Songstats verificada. No mostramos valores estimados ni ceros para datos que todavía no están disponibles." />
           </div>
@@ -124,13 +124,13 @@ export default function ArtistIntelligenceLab({
       <div className="relative">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.24em] text-[#39FF14]">Mexico Charts Intelligence</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.24em] text-[#39FF14]">Mexico Charts Intelligence</div>
             <h2 className="mt-2 text-xl font-black tracking-tight text-white sm:text-2xl">Intelligence Lab</h2>
-            <p className="mt-2 max-w-2xl text-xs font-medium leading-5 text-zinc-500">
+            <p className="mt-2 max-w-2xl text-xs font-medium leading-5 text-zinc-400">
               Audiencia, catálogo y conversión digital de {artistName}, calculados con las señales disponibles del perfil.
             </p>
           </div>
-          <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">
+          <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">
             Actualizado {data.snapshot.snapshotDate ?? "sin fecha"}
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function ArtistIntelligenceLab({
                 role="tab"
                 aria-selected={selected}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-[10px] font-black transition ${selected ? "border-[#39FF14]/55 bg-[#39FF14]/10 text-white" : "border-white/[0.07] bg-white/[0.025] text-zinc-500 hover:border-white/20 hover:text-zinc-200"}`}
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-[10px] font-black transition ${selected ? "border-[#39FF14]/55 bg-[#39FF14]/10 text-white" : "border-white/[0.07] bg-white/[0.025] text-zinc-400 hover:border-white/20 hover:text-zinc-200"}`}
               >
                 <Icon className={`h-3.5 w-3.5 ${selected ? "text-[#39FF14]" : ""}`} />
                 {tab.label}
@@ -160,26 +160,26 @@ export default function ArtistIntelligenceLab({
             <div className="grid gap-4 lg:grid-cols-[1.25fr_.75fr]">
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <div><h3 className="text-sm font-black text-white">Audience Atlas</h3><p className="mt-1 text-[10px] font-bold text-zinc-600">Principales ciudades mexicanas · audiencia mensual de Spotify</p></div>
+                  <div><h3 className="text-sm font-black text-white">Audience Atlas</h3><p className="mt-1 text-[10px] font-bold text-zinc-400">Principales ciudades mexicanas · audiencia mensual de Spotify</p></div>
                   <MapPin className="h-5 w-5 text-[#39FF14]/70" />
                 </div>
                 <div className="mt-5 space-y-3">
                   {cities.map((city, index) => (
                     <div key={`${city.name}-${city.region ?? ""}`} className="grid grid-cols-[minmax(84px,1fr)_2fr_auto] items-center gap-3 text-[10px]">
-                      <div className="min-w-0"><div className="truncate font-black text-zinc-300">{city.name}</div><div className="truncate text-[8px] font-bold uppercase tracking-wider text-zinc-700">{city.region ?? "México"}</div></div>
+                      <div className="min-w-0"><div className="truncate font-black text-zinc-300">{city.name}</div><div className="truncate text-[10px] font-bold uppercase tracking-wider text-zinc-400">{city.region ?? "México"}</div></div>
                       <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full bg-gradient-to-r from-[#1d7c37] to-[#39FF14]" style={{ width: `${Math.max(5, (city.currentListeners / maxCity) * 100)}%` }} /></div>
-                      <div className="text-right"><div className="font-black text-white">{compact(city.currentListeners)}</div><div className="text-[8px] text-[#39FF14]/60">#{index + 1}</div></div>
+                      <div className="text-right"><div className="font-black text-white">{compact(city.currentListeners)}</div><div className="text-[10px] text-[#39FF14]/60">#{index + 1}</div></div>
                     </div>
                   ))}
                 </div>
               </div>
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Lectura de mercado</h3>
-                <p className="mt-1 text-[10px] font-bold text-zinc-600">Señales disponibles en este perfil</p>
+                <p className="mt-1 text-[10px] font-bold text-zinc-400">Señales disponibles en este perfil</p>
                 <div className="mt-5 space-y-4">
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Mercado principal observado</div><div className="mt-1 text-xl font-black text-white">{cities[0]?.name}</div></div>
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Oyentes en top 5 MX</div><div className="mt-1 text-xl font-black text-[#39FF14]">{compact(cities.reduce((sum, city) => sum + city.currentListeners, 0))}</div></div>
-                  <div><div className="text-[9px] font-black uppercase tracking-wider text-zinc-700">Mayor crecimiento 15d</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days15?.percentage)}` : "Recopilando historial"}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Mercado principal observado</div><div className="mt-1 text-xl font-black text-white">{cities[0]?.name}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Oyentes en top 5 MX</div><div className="mt-1 text-xl font-black text-[#39FF14]">{compact(cities.reduce((sum, city) => sum + city.currentListeners, 0))}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Mayor crecimiento 15d</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days15?.percentage)}` : "Recopilando historial"}</div></div>
                 </div>
               </div>
             </div>
@@ -189,21 +189,22 @@ export default function ArtistIntelligenceLab({
             <div className="grid gap-4 lg:grid-cols-[.75fr_1.25fr]">
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Catalog Pulse</h3>
-                <p className="mt-1 text-[10px] font-bold text-zinc-600">Actividad del catálogo guardado</p>
+                <p className="mt-1 text-[10px] font-bold text-zinc-400">Muestra guardada de Songstats · IDs únicos; puede ser parcial</p>
                 <div className="mt-5 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.releaseCount}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Lanzamientos</div></div>
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-[#39FF14]">{catalog.releasesLast90Days}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Últimos 90d</div></div>
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.albumCount}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Álbumes</div></div>
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.medianReleaseGapDays == null ? "—" : `${catalog.medianReleaseGapDays}d`}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">Intervalo mediano</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.releaseCount}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">Registros guardados</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-[#39FF14]">{catalog.releasesLast90Days}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">90d hasta último lanzamiento</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.albumCount ?? "—"}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">{catalog.albumCount == null ? "Álbumes · sin dato" : "Álbumes guardados"}</div></div>
+                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className="text-xl font-black text-white">{catalog.medianReleaseGapDays == null ? "—" : `${catalog.medianReleaseGapDays}d`}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">Mediana entre registros · días</div></div>
                 </div>
+                <p className="mt-3 text-xs leading-relaxed text-zinc-400">Ventana de 90 días hasta {catalog.newestReleaseDate || "fecha no disponible"}. La mediana usa registros fechados consecutivos de esta muestra; lanzamientos el mismo día cuentan como 0 días.</p>
               </div>
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <div className="flex items-center justify-between"><h3 className="text-sm font-black text-white">Lanzamientos recientes</h3><Disc3 className="h-5 w-5 text-[#39FF14]/70" /></div>
                 <div className="mt-3 divide-y divide-white/[0.06]">
                   {catalog.releases.slice(0, 6).map(release => (
                     <div key={release.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3">
-                      <div className="min-w-0"><div className="truncate text-xs font-black text-zinc-200">{release.title}</div><div className="mt-1 text-[8px] font-bold uppercase tracking-[0.12em] text-zinc-700">{releaseTypeLabel(release.type)}{release.platformCount > 0 ? ` · ${release.platformCount} plataformas` : ""}</div></div>
-                      <div className="text-[9px] font-black text-zinc-500">{dateLabel(release.releaseDate)}</div>
+                      <div className="min-w-0"><div className="truncate text-xs font-black text-zinc-200">{release.title}</div><div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">{releaseTypeLabel(release.type)}{release.platformCount > 0 ? ` · ${release.platformCount} plataformas` : ""}</div></div>
+                      <div className="text-[10px] font-black text-zinc-400">{dateLabel(release.releaseDate)}</div>
                     </div>
                   ))}
                 </div>
@@ -215,18 +216,18 @@ export default function ArtistIntelligenceLab({
             <div className="grid gap-4 lg:grid-cols-[1.25fr_.75fr]">
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Conversión entre plataformas</h3>
-                <p className="mt-1 text-[10px] font-bold text-zinc-600">Cambio relativo desde el primer punto disponible · no compara tamaños absolutos</p>
+                <p className="mt-1 text-[10px] font-bold text-zinc-400">Cambio relativo desde el primer punto disponible · no compara tamaños absolutos</p>
                 <svg viewBox="0 0 520 150" className="mt-5 h-44 w-full" role="img" aria-label="Tendencias normalizadas entre plataformas">
                   {[1, 2, 3].map(line => <line key={line} x1="0" x2="520" y1={line * 37.5} y2={line * 37.5} stroke="rgba(255,255,255,.06)" />)}
                   {conversionSeries.map(series => <polyline key={series.key} points={sparklinePath(series.points)} fill="none" stroke={series.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />)}
                 </svg>
-                <div className="flex flex-wrap gap-4">{conversionSeries.map(series => <span key={series.key} className="flex items-center gap-1.5 text-[9px] font-black text-zinc-500"><i className="h-1.5 w-1.5 rounded-full" style={{ background: series.color }} />{series.label}</span>)}</div>
+                <div className="flex flex-wrap gap-4">{conversionSeries.map(series => <span key={series.key} className="flex items-center gap-1.5 text-[10px] font-black text-zinc-400"><i className="h-1.5 w-1.5 rounded-full" style={{ background: series.color }} />{series.label}</span>)}</div>
               </div>
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Lectura actual</h3>
                 <div className="mt-5 text-5xl font-black text-[#39FF14]">{conversionSeries.length}/4</div>
-                <div className="mt-1 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">plataformas comparables</div>
-                <div className="mt-6 border-t border-white/[0.07] pt-4 text-xs font-medium leading-5 text-zinc-500">La puntuación de conversión se activará cuando exista suficiente historial diario coincidente para medir retrasos y retención sin inventar causalidad.</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">plataformas comparables</div>
+                <div className="mt-6 border-t border-white/[0.07] pt-4 text-xs font-medium leading-5 text-zinc-400">La puntuación de conversión se activará cuando exista suficiente historial diario coincidente para medir retrasos y retención sin inventar causalidad.</div>
               </div>
             </div>
           ) : <EmptyState title="Conversion Lab está recopilando historial" body="Se necesitan al menos dos plataformas con suficientes fechas coincidentes. Las líneas y puntuaciones aparecerán automáticamente cuando la comparación sea confiable." />)}
@@ -234,27 +235,27 @@ export default function ArtistIntelligenceLab({
           {activeTab === "impact" && (impact ? (
             <div className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
-                <div className="text-[9px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Último lanzamiento medible</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">Último lanzamiento medible</div>
                 <h3 className="mt-2 text-xl font-black text-white">{impact.release.title}</h3>
-                <p className="mt-1 text-[10px] font-bold text-zinc-600">{releaseTypeLabel(impact.release.type)} · {dateLabel(impact.release.releaseDate)}</p>
+                <p className="mt-1 text-[10px] font-bold text-zinc-400">{releaseTypeLabel(impact.release.type)} · {dateLabel(impact.release.releaseDate)}</p>
                 <div className="mt-6 grid grid-cols-3 gap-2">
                   {[["7 días", impact.lift7], ["30 días", impact.lift30], ["90 días", impact.lift90]].map(([label, value]) => (
-                    <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className={`text-lg font-black ${typeof value === "number" && value > 0 ? "text-[#39FF14]" : "text-white"}`}>{percentage(value as number | null)}</div><div className="mt-1 text-[8px] font-black uppercase tracking-wider text-zinc-700">{label}</div></div>
+                    <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className={`text-lg font-black ${typeof value === "number" && value > 0 ? "text-[#39FF14]" : "text-white"}`}>{percentage(value as number | null)}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</div></div>
                   ))}
                 </div>
-                <p className="mt-4 text-[9px] font-medium leading-4 text-zinc-700">Cambio promedio entre las plataformas con historial anterior y posterior suficiente. Asociación temporal; no afirma causalidad.</p>
+                <p className="mt-4 text-[10px] font-medium leading-4 text-zinc-400">Cambio promedio entre las plataformas con historial anterior y posterior suficiente. Asociación temporal; no afirma causalidad.</p>
               </div>
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Release Impact Score</h3>
                 <div className="mt-5 text-6xl font-black leading-none text-[#39FF14]">{impact.score ?? "—"}</div>
-                <div className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">{impact.score == null ? "Recopilando ventana posterior" : "Puntuación Mexico Charts · 0–100"}</div>
-                <div className="mt-6 border-t border-white/[0.07] pt-4 text-xs font-medium leading-5 text-zinc-500"><b className="text-zinc-300">Confianza: </b>{impact.confidence === "high" ? "Alta" : impact.confidence === "medium" ? "Media" : "En recopilación"}<br /><b className="text-zinc-300">Plataformas medidas: </b>{impact.platformsMeasured}</div>
+                <div className="mt-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">{impact.score == null ? "Recopilando ventana posterior" : "Puntuación Mexico Charts · 0–100"}</div>
+                <div className="mt-6 border-t border-white/[0.07] pt-4 text-xs font-medium leading-5 text-zinc-400"><b className="text-zinc-300">Confianza: </b>{impact.confidence === "high" ? "Alta" : impact.confidence === "medium" ? "Media" : "En recopilación"}<br /><b className="text-zinc-300">Plataformas medidas: </b>{impact.platformsMeasured}</div>
               </div>
             </div>
           ) : <EmptyState title="Release Impact está esperando historial compatible" body="Se necesita al menos un lanzamiento fechado y observaciones anteriores y posteriores. La puntuación aparecerá automáticamente cuando la ventana sea suficiente." />)}
         </div>
 
-        <p className="mt-4 text-[8px] font-bold leading-4 text-zinc-700">Las métricas directas proceden de fuentes licenciadas. Las lecturas, comparaciones y futuras puntuaciones son cálculos de Mexico Charts.</p>
+        <p className="mt-4 text-[10px] font-bold leading-4 text-zinc-400">Las métricas directas proceden de fuentes licenciadas. Las lecturas, comparaciones y futuras puntuaciones son cálculos de Mexico Charts.</p>
       </div>
     </section>
   );

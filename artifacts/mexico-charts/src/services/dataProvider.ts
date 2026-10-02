@@ -130,6 +130,8 @@ function normalizeArtist(raw: RawChartArtist): ChartArtist | null {
   return {
     mexicoRank,
     sourceRank: parseInt(raw.source_chart_rank, 10) || mexicoRank,
+    chartStartDate: raw.chart_start_date,
+    chartEndDate: raw.chart_end_date,
     name,
     listeners: formatListeners(listenersRaw),
     listenersRaw,

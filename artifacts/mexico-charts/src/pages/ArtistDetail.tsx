@@ -19,6 +19,8 @@ import { useSongstatsArtist } from "@/hooks/useSongstatsArtist";
 import { slugify } from "@/lib/utils";
 import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
+import { observationValue, recentObservations, observationCoordinates } from "@/lib/chartObservations.mjs";
+import { listenerSnapshot } from "@/lib/listenerSnapshot.mjs";
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
@@ -114,8 +116,8 @@ function YoutubeDailySparkline({
   compact?: boolean;
 }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const values = points.map(point => point.dailyViews ?? point.dailyStreams ?? point.value ?? 0);
-  const rawMin = Math.min(...values);
+  const values = points.map(observationValue).filter((value): value is number => value != null);
+  const rawMin = Math.min(...(values.length ? values : [0]));
   const rawMax = Math.max(...values, 1);
   const observedRange = rawMax - rawMin;
   const visualRange = Math.max(observedRange, rawMax * 0.025, 1);
@@ -127,17 +129,14 @@ function YoutubeDailySparkline({
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const fillId = gradientId ?? `trendFill-${color.replace(/[^a-z0-9]/gi, "")}`;
-  const coordinates = values.map((value, index) => ({
-    x: padding.left + (values.length <= 1 ? 0 : (index / (values.length - 1)) * plotWidth),
-    y: padding.top + ((domainMax - value) / (domainMax - domainMin)) * plotHeight,
-    value,
-    date: points[index]?.date ?? "",
+  const coordinates = observationCoordinates(points, padding.left, plotWidth).map(point => ({
+    ...point,
+    y: point.value == null ? padding.top + plotHeight : padding.top + ((domainMax - point.value) / (domainMax - domainMin)) * plotHeight,
   }));
-  const linePath = coordinates.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
-  const areaPath = `${linePath} L${coordinates.at(-1)?.x ?? padding.left},${padding.top + plotHeight} L${padding.left},${padding.top + plotHeight} Z`;
+  const linePath = coordinates.map(point => point.value == null ? "" : `${point.startsSegment ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
   const gridValues = [domainMax, domainMin + (domainMax - domainMin) / 2, domainMin];
-  const peakIndex = values.indexOf(rawMax);
-  const labeledIndexes = new Set([peakIndex, values.length - 1]);
+  const peakIndex = coordinates.findIndex(point => point.value === rawMax);
+  const labeledIndexes = new Set([peakIndex, coordinates.length - 1]);
   const dateMarkerIndexes = Array.from(new Set([
     0,
     Math.round((points.length - 1) / 3),
@@ -175,14 +174,14 @@ function YoutubeDailySparkline({
         return (
           <g key={`${fillId}-grid-${index}`}>
             <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} stroke="rgba(255,255,255,0.08)" strokeDasharray="3 5" />
-            <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="rgba(255,255,255,0.32)" fontSize="9" fontWeight="700">
+            <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="#a1a1aa" fontSize="11" fontWeight="700">
               {formatCompactCount(value)}
             </text>
           </g>
         );
       })}
 
-      <path d={areaPath} fill={`url(#${fillId})`} stroke="none" />
+
       <path
         d={linePath}
         fill="none"
@@ -193,10 +192,15 @@ function YoutubeDailySparkline({
         filter={`url(#${fillId}-glow)`}
       />
 
-      {coordinates.map((point, index) => (
+      {coordinates.map((point, index) => point.value == null ? null : (
         <g
           key={`${point.date}-${index}`}
           className="cursor-crosshair"
+          tabIndex={0}
+          role="button"
+          aria-label={`${point.date}: ${point.value?.toLocaleString("es-MX")}`}
+          onFocus={() => setHoveredIndex(index)}
+          onBlur={() => setHoveredIndex(null)}
           onMouseEnter={() => setHoveredIndex(index)}
           onMouseLeave={() => setHoveredIndex(null)}
         >
@@ -219,8 +223,8 @@ function YoutubeDailySparkline({
           x={coordinates[index]?.x ?? padding.left}
           y={height - 7}
           textAnchor={markerPosition === 0 ? "start" : markerPosition === dateMarkerIndexes.length - 1 ? "end" : "middle"}
-          fill="rgba(255,255,255,0.34)"
-          fontSize="8.5"
+          fill="#a1a1aa"
+          fontSize="11"
           fontWeight="700"
         >
           {formatChartDateEs(points[index]?.date)}
@@ -248,11 +252,11 @@ function YoutubeDailySparkline({
             stroke={color}
             strokeOpacity="0.55"
           />
-          <text x={tooltipX + 10} y={tooltipY + 13} fill="rgba(255,255,255,0.52)" fontSize="8" fontWeight="800">
+          <text x={tooltipX + 10} y={tooltipY + 13} fill="rgba(255,255,255,0.52)" fontSize="10" fontWeight="800">
             {formatShortDateEs(hoveredPoint.date).toUpperCase()}
           </text>
           <text x={tooltipX + 10} y={tooltipY + 28} fill="#ffffff" fontSize="11" fontWeight="900">
-            {Math.round(hoveredPoint.value).toLocaleString("es-MX")}
+            {Math.round(hoveredPoint.value ?? 0).toLocaleString("es-MX")}
           </text>
         </g>
       )}
@@ -261,7 +265,7 @@ function YoutubeDailySparkline({
 }
 
 function metricTone(value: number | null | undefined) {
-  if (value == null || value === 0) return "text-zinc-500";
+  if (value == null || value === 0) return "text-zinc-400";
   return value > 0 ? "text-[#39FF14]" : "text-red-300";
 }
 
@@ -271,12 +275,14 @@ function pctLabel(value: number | null | undefined) {
 }
 
 function formatSignedMetric(value: number | null | undefined, formatted: string | null | undefined) {
-  if (value == null || !formatted) return "—";
+  if (value == null) return "—";
+  if (value === 0) return "0";
+  if (!formatted) return "—";
   return value > 0 ? `+${formatted}` : formatted;
 }
 
 function formatCompactCount(value: number | null | undefined): string {
-  if (value == null || value <= 0) return "—";
+  if (value == null || value < 0) return "—";
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
   if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
@@ -290,7 +296,7 @@ function formatSignedCompactCount(value: number | null | undefined): string {
 }
 
 function formatExactCount(value: number | null | undefined): string {
-  if (value == null || value <= 0) return "—";
+  if (value == null || value < 0) return "—";
   return Math.round(value).toLocaleString("es-MX");
 }
 
@@ -568,7 +574,7 @@ export default function ArtistDetail() {
           <BrandLogo size={36} loading="eager" className="mx-auto mb-8 h-9 w-9 object-contain opacity-80" />
           <p className="mb-3 text-[10px] font-black uppercase tracking-[0.3em] text-[#39FF14]">Perfil no encontrado</p>
           <h1 className="text-3xl font-black uppercase">Ese artista no está en el catálogo activo</h1>
-          <p className="mt-4 text-sm leading-6 text-zinc-500">No creamos perfiles a partir de una URL desconocida. Busca el artista correcto en el directorio.</p>
+          <p className="mt-4 text-sm leading-6 text-zinc-400">No creamos perfiles a partir de una URL desconocida. Busca el artista correcto en el directorio.</p>
           <Link href={searchHref} className="mt-7 inline-flex rounded-full bg-[#39FF14] px-5 py-3 text-[11px] font-black uppercase tracking-[0.16em] text-black">
             Buscar artistas
           </Link>
@@ -790,7 +796,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const audienceStats = useMemo(() => {
     const songstats = songstatsArtist?.snapshot;
     return {
-      spotifyListeners: songstats?.spotifyMonthlyListeners ?? metaArtist?.spotifyListeners ?? 0,
+      spotifyListeners: listenerSnapshot(metaArtist, songstatsArtist).value ?? 0,
       spotifyFollowers: songstats?.spotifyFollowers ?? metaArtist?.spotifyFollowers ?? 0,
       instagramFollowers: songstats?.instagramFollowers ?? metaArtist?.instagramFollowers ?? 0,
       tiktokFollowers: songstats?.tiktokFollowers ?? metaArtist?.tiktokFollowers ?? 0,
@@ -850,12 +856,12 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   /* ── Kworb lifetime streaming stats ── */
   const { data: kworbStats } = useKworbStats(artist.name);
   const spotifyKworbDailyTrend = useMemo(
-    () => (kworbStats?.spotify?.history ?? []).filter(point => point.dailyStreams != null).slice(-15),
+    () => recentObservations(kworbStats?.spotify?.history ?? []),
     [kworbStats?.spotify?.history],
   );
   const spotifyKworbAnalytics = kworbStats?.spotify?.analytics;
   const youtubeKworbDailyTrend = useMemo(
-    () => (kworbStats?.youtube?.history ?? []).filter(point => (point.dailyViews ?? 0) > 0).slice(-15),
+    () => recentObservations(kworbStats?.youtube?.history ?? []),
     [kworbStats?.youtube?.history],
   );
   const youtubeKworbAnalytics = kworbStats?.youtube?.analytics;
@@ -887,18 +893,18 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
     }> = [];
 
     if (kworbStats?.youtube) {
-      const hasYoutubeDailyAvg = kworbStats.youtube.dailyAvg > 0;
+      const hasYoutubeDailyAvg = kworbStats.youtube.dailyAvg != null;
       sources.push({
         key: "youtube",
         label: "YouTube",
         kicker: "YouTube diario",
         color: "#ef4444",
         icon: <SiYoutube className="h-5 w-5" />,
-        todayValue: hasYoutubeDailyAvg ? kworbStats.youtube.dailyAvgFmt : null,
+        todayValue: hasYoutubeDailyAvg ? formatCompactCount(kworbStats.youtube.dailyAvg) : null,
         totalValue: kworbStats.youtube.totalViewsFmt,
-        totalLabel: "vistas totales",
+        totalLabel: "vistas · repertorio Kworb",
         points: youtubeKworbDailyTrend,
-        availableDays: youtubeKworbDailyTrend.length,
+        availableDays: youtubeKworbDailyTrend.filter(point => observationValue(point) != null).length,
         snapshotLabel: formatShortDateEs(youtubeKworbDailyTrend.at(-1)?.date),
         average7: youtubeKworbAnalytics?.views.average7DayFmt ?? null,
         average30: youtubeKworbAnalytics?.views.average30DayFmt ?? null,
@@ -922,11 +928,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         kicker: "Spotify",
         color: "#1DB954",
         icon: <SiSpotify className="h-5 w-5" />,
-        todayValue: kworbStats.spotify.dailyStreamsFmt,
+        todayValue: kworbStats.spotify.dailyStreams == null ? null : formatCompactCount(kworbStats.spotify.dailyStreams),
         totalValue: kworbStats.spotify.totalStreamsFmt,
-        totalLabel: "streams totales",
+        totalLabel: "streams · repertorio Kworb",
         points: spotifyKworbDailyTrend,
-        availableDays: spotifyKworbDailyTrend.length,
+        availableDays: spotifyKworbDailyTrend.filter(point => observationValue(point) != null).length,
         snapshotLabel: formatShortDateEs(spotifyKworbDailyTrend.at(-1)?.date),
         average7: spotifyKworbAnalytics?.streams.average7DayFmt ?? null,
         average30: spotifyKworbAnalytics?.streams.average30DayFmt ?? null,
@@ -1039,7 +1045,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
           <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(255,80,80,0.9)" }}>
             Fuente temporalmente no disponible
           </span>
-          <span className="text-[10px] text-zinc-600 font-medium">
+          <span className="text-[10px] text-zinc-400 font-medium">
             · Mostrando datos de referencia mientras vuelve la conexión.
           </span>
         </div>
@@ -1073,13 +1079,13 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             type="button"
             onClick={() => window.history.back()}
             aria-label="Volver a la página anterior"
-            className="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-200 transition-colors duration-200 text-[11px] font-bold uppercase tracking-widest"
+            className="flex items-center gap-1.5 text-zinc-400 hover:text-zinc-200 transition-colors duration-200 text-[11px] font-bold uppercase tracking-widest"
             data-testid="link-back"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Volver
           </button>
-          <span className="min-w-0 truncate text-[10px] uppercase tracking-widest text-zinc-700 sm:text-[11px]">/ {artist.name}</span>
+          <span className="min-w-0 truncate text-[10px] uppercase tracking-widest text-zinc-400 sm:text-[11px]">/ {artist.name}</span>
         </div>
       </nav>
 
@@ -1137,8 +1143,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
-              {artist.rank > 0 ? spotifyMexicoRankLabel(artist.rank) : "Artista"}
+            <div className="mb-3 flex max-w-[min(100%,42rem)] flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-[0.24em] sm:text-[10px] sm:tracking-[0.32em]" style={{ color: artist.accent }}>
+              {sheetArtist ? `${spotifyMexicoRankLabel(artist.rank)} · artistas · semanal · selección MX · ${sheetArtist.chartStartDate || "inicio no informado"} — ${sheetArtist.chartEndDate || "fin no informado"} · fuente #${sheetArtist.sourceRank}` : "Artista · rango editorial sin edición verificada"}
               <span className="opacity-40">·</span>
               <Link href="/generos" className="transition-opacity hover:opacity-75">
                 {genreLabel(artist.genre)}
@@ -1191,7 +1197,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     Verificado
                   </span>
                   <span className="hidden h-3 w-px bg-white/15 sm:block" />
-                  <span className="hidden text-[9px] font-black uppercase tracking-[0.18em] text-zinc-500 sm:inline">
+                  <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 sm:inline">
                     Mexico Charts
                   </span>
                 </button>
@@ -1225,7 +1231,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 <SaveArtistButton artistKey={canonicalArtistKey} artistName={artist.name} />
                   <Link
                     href={`/contribuir?artist=${encodeURIComponent(canonicalArtistKey)}&name=${encodeURIComponent(artist.name)}`}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#39FF14]/35 hover:text-[#39FF14]"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.035] px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:border-[#39FF14]/35 hover:text-[#39FF14]"
                     data-testid="artist-edit-profile"
                   >
                     <PencilLine className="h-3.5 w-3.5" />
@@ -1233,7 +1239,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </Link>
                   <Link
                     href={`/monitoreo?artist=${encodeURIComponent(canonicalArtistKey)}`}
-                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
+                    className="inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-black transition hover:brightness-110"
                     style={{ background: artist.accent, boxShadow: `0 0 18px ${artist.accent}30` }}
                     data-testid="artist-monitoring-cta"
                   >
@@ -1263,7 +1269,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               )}
             </div>
             <div className="min-h-[94px] sm:min-h-[72px]">
-              <p className="max-w-xl text-sm leading-relaxed text-zinc-500 sm:text-[15px]">
+              <p className="max-w-xl text-sm leading-relaxed text-zinc-400 sm:text-[15px]">
                 {wikiBio?.bio ?? artist.bio}
               </p>
               {wikiBio?.pageUrl && (
@@ -1271,7 +1277,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   href={wikiBio.pageUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-700 hover:text-zinc-500 transition-colors duration-150"
+                  className="mt-1 inline-block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-400 hover:text-zinc-400 transition-colors duration-150"
                 >
                   Fuente: Wikipedia
                 </a>
@@ -1287,7 +1293,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 {momentumSources.slice(0, 2).map(source => {
                   const hasDailyValue = source.todayValue != null;
                   const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
-                  const primaryLabel = hasDailyValue ? "hoy" : source.totalLabel;
+                  const primaryLabel = hasDailyValue ? `lectura ${source.snapshotLabel}` : source.totalLabel;
                   return (
                     <div
                       key={source.key}
@@ -1309,7 +1315,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                           <div className="mt-2 break-words text-[clamp(1.25rem,8vw,1.5rem)] font-black leading-none text-white">
                             {primaryValue ?? "—"}
                           </div>
-                          <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-600">
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
                             {primaryLabel}
                           </div>
                         </div>
@@ -1317,8 +1323,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                           <div className={`text-sm font-black ${metricTone(source.weeklyGrowth)}`}>
                             {formatSignedMetric(source.weeklyGrowth, source.weeklyGrowthFmt)}
                           </div>
-                          <div className="mt-1 text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">
-                            7 días
+                          <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
+                            Δ acumulado · 7 lecturas
+                            <span className="mt-1 block normal-case tracking-normal">{(source.key === "spotify" ? kworbStats?.spotify?.history : kworbStats?.youtube?.history)?.at(-8)?.date || "—"} — {(source.key === "spotify" ? kworbStats?.spotify?.history : kworbStats?.youtube?.history)?.at(-1)?.date || "—"}</span>
                           </div>
                         </div>
                       </div>
@@ -1354,7 +1361,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   <div className="mt-1 text-sm font-black uppercase tracking-[0.06em] text-white sm:truncate">
                     {formatTourDate(nextTourEvent.date)} · {nextTourEvent.city}{nextTourEvent.state ? `, ${nextTourEvent.state}` : ""}
                   </div>
-                  <div className="mt-0.5 truncate text-xs font-medium text-zinc-500">
+                  <div className="mt-0.5 truncate text-xs font-medium text-zinc-400">
                     {nextTourEvent.venue || nextTourEvent.name}
                   </div>
                 </div>
@@ -1470,14 +1477,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               ["#musica", "Música"],
               ["#audiencia", "Audiencia"],
               ["#inteligencia", "Inteligencia"],
-              ["#touring", "Touring"],
+              ...(artist.tours.length > 0 ? [["#touring", "Touring"]] : []),
               ["#logros", "Logros"],
               ["#relacionados", "Relacionados"],
             ].map(([href, label]) => (
               <a
                 key={href}
                 href={href}
-                className="rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#39FF14]/30"
+                className="rounded-xl px-3.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400 transition hover:bg-white/[0.06] hover:text-white focus:outline-none focus:ring-2 focus:ring-[#39FF14]/30"
               >
                 {label}
               </a>
@@ -1511,102 +1518,103 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               <div className="absolute inset-0 opacity-[0.025] rounded-2xl pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
               <div className="relative z-10">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 sm:mb-5">
-                  <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-500 sm:text-xs sm:tracking-[0.25em]">Audiencia y alcance</h2>
+                  <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400 sm:text-xs sm:tracking-[0.25em]">Audiencia y alcance</h2>
                   {songstatsArtist && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#39FF14]/15 bg-[#39FF14]/[0.04] px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] text-[#39FF14]/75">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#39FF14]/15 bg-[#39FF14]/[0.04] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#39FF14]/75">
                       <Database className="h-3 w-3" />
                       Songstats{songstatsSnapshotLabel ? ` · ${songstatsSnapshotLabel}` : ""}
                     </span>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 lg:grid-cols-6">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-2.5 sm:gap-3">
                   {audienceStats.spotifyListeners > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.06)", border: "1px solid rgba(29,185,84,0.15)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.spotifyListeners)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Oyentes mensuales</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.spotifyListeners)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Oyentes mensuales</div>
+                      <p className="text-[10px] leading-relaxed text-zinc-400">{listenerSnapshot(metaArtist, songstatsArtist).context}</p>
                     </div>
                   )}
                   {audienceStats.spotifyFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(29,185,84,0.04)", border: "1px solid rgba(29,185,84,0.10)" }}>
                       <SiSpotify className="w-4 h-4" style={{ color: "#1DB954" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.spotifyFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Spotify</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.spotifyFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores Spotify</div>
                     </div>
                   )}
                   {audienceStats.instagramFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(225,48,108,0.06)", border: "1px solid rgba(225,48,108,0.15)" }}>
                       <SiInstagram className="w-4 h-4 text-pink-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.instagramFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Instagram</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.instagramFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores Instagram</div>
                     </div>
                   )}
                   {audienceStats.tiktokFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiTiktok className="w-4 h-4 text-zinc-300" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.tiktokFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores TikTok</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.tiktokFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores TikTok</div>
                     </div>
                   )}
                   {audienceStats.youtubeSubscribers > 0 && (
                     <div data-youtube-powered className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)" }}>
                       <SiYoutube className="w-4 h-4 text-red-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeSubscribers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Suscriptores YouTube</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.youtubeSubscribers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Suscriptores YouTube</div>
                       <YouTubeSourceLabel observedAt={youtubeUpdatedLabel} />
                     </div>
                   )}
                   {audienceStats.youtubeViews > 0 && (
                     <div data-youtube-powered className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.04)", border: "1px solid rgba(255,0,0,0.10)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.youtubeViews)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Vistas totales YouTube</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.youtubeViews)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Vistas totales YouTube</div>
                       <YouTubeSourceLabel observedAt={youtubeUpdatedLabel} />
                     </div>
                   )}
                   {ytChannel?.videoCount != null && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,0,0,0.03)", border: "1px solid rgba(255,0,0,0.08)" }}>
                       <SiYoutube className="w-4 h-4 text-red-400" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{ytChannel.videoCount.toLocaleString("es-MX")}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Videos en canal</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{ytChannel.videoCount.toLocaleString("es-MX")}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Videos en canal</div>
                     </div>
                   )}
                   {audienceStats.deezerFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(162,56,255,0.06)", border: "1px solid rgba(162,56,255,0.15)" }}>
                       <Music className="w-4 h-4" style={{ color: "#A238FF" }} />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.deezerFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Fans Deezer</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.deezerFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Fans Deezer</div>
                     </div>
                   )}
                   {audienceStats.facebookFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(24,119,242,0.06)", border: "1px solid rgba(24,119,242,0.15)" }}>
                       <SiFacebook className="h-4 w-4 text-blue-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.facebookFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores Facebook</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.facebookFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores Facebook</div>
                     </div>
                   )}
                   {audienceStats.twitterFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.09)" }}>
                       <SiX className="h-4 w-4 text-zinc-300" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.twitterFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores X</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.twitterFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores X</div>
                     </div>
                   )}
                   {audienceStats.soundcloudFollowers > 0 && (
                     <div className="flex min-h-[6.25rem] flex-col gap-1.5 rounded-xl p-3 sm:p-4" style={{ background: "rgba(255,85,0,0.06)", border: "1px solid rgba(255,85,0,0.15)" }}>
                       <SiSoundcloud className="h-4 w-4 text-orange-500" />
-                      <div className="break-words text-lg font-black leading-none text-white sm:text-xl">{formatExactCount(audienceStats.soundcloudFollowers)}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-zinc-600 font-bold">Seguidores SoundCloud</div>
+                      <div className="whitespace-nowrap text-[clamp(1rem,2vw,1.25rem)] font-black leading-none tabular-nums text-white">{formatExactCount(audienceStats.soundcloudFollowers)}</div>
+                      <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Seguidores SoundCloud</div>
                     </div>
                   )}
                 </div>
                 {!hasVisibleAudienceMetrics && (
-                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-5 text-sm font-medium leading-6 text-zinc-500">
+                  <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-5 text-sm font-medium leading-6 text-zinc-400">
                     Aún no hay métricas públicas verificadas para este artista. Un dato ausente no se muestra como cero; el perfil conserva únicamente las fuentes disponibles.
                   </div>
                 )}
                 {hasVisibleAudienceMetrics && (
-                  <p className="mt-4 text-[10px] font-medium leading-5 text-zinc-700">
+                  <p className="mt-4 text-[10px] font-medium leading-5 text-zinc-400">
                     Audiencia multired: Songstats. En YouTube se prioriza el canal oficial registrado cuando está disponible. Cada plataforma puede actualizar sus cifras en horarios distintos.
                   </p>
                 )}
@@ -1614,10 +1622,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   <div className="mt-6 border-t border-white/[0.06] pt-5">
                     <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
                       <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                           Crecimiento de audiencia
                         </h3>
-                        <p className="mt-1 text-[10px] font-bold text-zinc-700">
+                        <p className="mt-1 text-[10px] font-bold text-zinc-400">
                           Historial licenciado de Songstats · cifras exactas
                         </p>
                       </div>
@@ -1638,7 +1646,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2" style={{ color: card.color }}>
                                   {card.icon}
-                                  <span className="truncate text-[9px] font-black uppercase tracking-[0.14em]">
+                                  <span className="truncate text-[10px] font-black uppercase tracking-[0.14em]">
                                     {card.label}
                                   </span>
                                 </div>
@@ -1648,7 +1656,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                               </div>
                               {growth15 && (
                                 <span
-                                  className="shrink-0 rounded-full px-2 py-1 text-[9px] font-black"
+                                  className="shrink-0 rounded-full px-2 py-1 text-[10px] font-black"
                                   style={{
                                     background: card.growth?.days15?.absolute && card.growth.days15.absolute < 0
                                       ? "rgba(244,63,94,0.10)"
@@ -1673,7 +1681,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             </div>
                             <div className="mt-3 border-t border-white/[0.06] pt-3">
                               {card.historyDate && (
-                                <div className="mb-2 text-[8px] font-bold uppercase tracking-[0.1em] text-zinc-600">
+                                <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400">
                                   Histórico hasta {formatShortDateEs(card.historyDate)}
                                 </div>
                               )}
@@ -1683,7 +1691,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   ["15 días", card.growth?.days15],
                                 ] as const).map(([label, window]) => (
                                   <div key={label} className="min-w-0 rounded-lg border border-white/[0.04] bg-black/25 px-2 py-2">
-                                    <div className="text-[8px] font-black uppercase tracking-[0.1em] text-zinc-600">
+                                    <div className="text-[10px] font-black uppercase tracking-[0.1em] text-zinc-400">
                                       {label}
                                     </div>
                                     <div
@@ -1715,10 +1723,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <div className="mb-4 flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-[#39FF14]/80" />
                       <div>
-                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                           Ciudades con más oyentes en México
                         </h3>
-                        <p className="mt-1 text-[10px] font-bold text-zinc-700">
+                        <p className="mt-1 text-[10px] font-bold text-zinc-400">
                           Audiencia mensual de Spotify
                         </p>
                       </div>
@@ -1740,7 +1748,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                               <div className="min-w-0">
                                 <div className="truncate text-xs font-black text-zinc-200">{city.name}</div>
                                 {city.region && (
-                                  <div className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.1em] text-zinc-700">
+                                  <div className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-[0.1em] text-zinc-400">
                                     {city.region}
                                   </div>
                                 )}
@@ -1750,7 +1758,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <div className="mt-3 text-sm font-black text-white">
                               {formatExactCount(city.currentListeners)}
                             </div>
-                            <div className="mt-1 text-[8px] font-black uppercase tracking-[0.1em] text-zinc-700">
+                            <div className="mt-1 text-[10px] font-black uppercase tracking-[0.1em] text-zinc-400">
                               oyentes
                             </div>
                           </div>
@@ -1760,9 +1768,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </div>
                 )}
                 {metaArtist?.label && (
-                  <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
-                    <span><span className="text-zinc-500 font-bold">Sellos y distribuidores asociados: </span>{labelAssociationValue(metaArtist.label)}</span>
-                    {metaArtist.country && <span><span className="text-zinc-500 font-bold">País: </span>{countryLabel(metaArtist.country)}</span>}
+                  <div className="mt-4 flex flex-col gap-1 border-t border-white/[0.05] pt-4 text-[11px] text-zinc-400 sm:flex-row sm:flex-wrap sm:gap-x-6">
+                    <span><span className="text-zinc-400 font-bold">Sellos y distribuidores asociados: </span>{labelAssociationValue(metaArtist.label)}</span>
+                    {metaArtist.country && <span><span className="text-zinc-400 font-bold">País: </span>{countryLabel(metaArtist.country)}</span>}
                   </div>
                 )}
               </div>
@@ -1800,30 +1808,28 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <TrendingUp className="h-4 w-4" style={{ color: artist.accent }} />
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Momentum</h2>
                     </div>
-                    <div className="max-w-2xl text-xs font-bold leading-relaxed text-zinc-500 sm:text-sm">
+                    <div className="max-w-2xl text-xs font-bold leading-relaxed text-zinc-400 sm:text-sm">
                       Medición diaria de crecimiento en {momentumSources.map(source => source.label).join(" y ")}.
                     </div>
                   </div>
-                  <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500 sm:tracking-[0.16em]">
+                  <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400 sm:tracking-[0.16em]">
                     {momentumSources.map(source => source.label).join(" + ")}
                   </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
                   {momentumSources.map(source => {
-                    const hasTrend = source.points.length >= 2;
+                    const hasTrend = source.points.filter(point => observationValue(point) != null).length >= 2;
                     const hasDailyValue = source.todayValue != null;
                     const primaryLabel = hasDailyValue
-                      ? source.key === "youtube" ? "Vistas hoy" : "Streams hoy"
+                      ? source.key === "youtube" ? "Vistas · última lectura" : "Streams · última lectura"
                       : source.key === "youtube" ? "Vistas totales" : "Streams totales";
                     const primaryValue = hasDailyValue ? source.todayValue : source.totalValue;
-                    const plottedValues = source.points.map(point => (
-                      source.key === "youtube" ? point.dailyViews ?? 0 : point.dailyStreams ?? 0
-                    ));
+                    const plottedValues = source.points.map(observationValue).filter((value): value is number => value != null);
                     const firstPlottedValue = plottedValues[0] ?? 0;
                     const latestPlottedValue = plottedValues.at(-1) ?? 0;
-                    const periodChange = latestPlottedValue - firstPlottedValue;
-                    const periodChangePct = firstPlottedValue > 0
+                    const periodChange = plottedValues.length >= 2 ? latestPlottedValue - firstPlottedValue : null;
+                    const periodChangePct = firstPlottedValue > 0 && periodChange != null
                       ? Math.round((periodChange / firstPlottedValue) * 10_000) / 100
                       : null;
                     const periodPeak = plottedValues.length ? Math.max(...plottedValues) : null;
@@ -1849,26 +1855,26 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 	                              <h3 className="mt-1 text-xl font-black uppercase tracking-tight text-white">{source.label}</h3>
 	                            </div>
 	                            <div className="col-span-2 rounded-xl border border-white/[0.055] bg-white/[0.018] px-3 py-2 text-left sm:col-span-1 sm:ml-auto sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
-	                              <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-700">Última medición</div>
-	                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">{source.snapshotLabel || "—"}</div>
+	                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Última medición</div>
+	                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">{source.snapshotLabel || "—"}</div>
 	                            </div>
                           </div>
 
                           <div className="grid gap-3 sm:grid-cols-[1.15fr_0.85fr]">
                             <div>
-                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
+                              <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">
                                 {primaryLabel}
                               </div>
 	                              <div className="mt-2 break-words text-[clamp(2rem,12vw,3rem)] font-black leading-none tracking-tight text-white sm:text-5xl">
 	                                {primaryValue ?? "—"}
 	                              </div>
-	                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-[0.12em] sm:text-[10px] sm:tracking-[0.14em]">
+	                              <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.12em] sm:text-[10px] sm:tracking-[0.14em]">
                                 {hasDailyValue ? (
-                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
+                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-400">
                                     {source.totalValue ?? "—"} {source.totalLabel}
                                   </span>
                                 ) : (
-                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-500">
+                                  <span className="rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-zinc-400">
                                     Esperando próxima medición
                                   </span>
                                 )}
@@ -1883,12 +1889,13 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
 	                            <div className="grid grid-cols-2 gap-2">
 	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Prom. 7 días</div>
+	                                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Prom. últimas 7 lecturas</div>
 	                                <div className="mt-1 break-words text-sm font-black text-white">{source.average7 ?? "—"}</div>
 	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(source.average7Pct)}`}>{pctLabel(source.average7Pct)}</div>
+                                <div className="mt-2 text-[10px] leading-relaxed text-zinc-400">{(source.key === "spotify" ? kworbStats?.spotify?.history : kworbStats?.youtube?.history)?.slice(-7)[0]?.date || "—"} — {source.points.at(-1)?.date || "—"}<br />vs {(source.key === "spotify" ? kworbStats?.spotify?.history : kworbStats?.youtube?.history)?.slice(-14,-7)[0]?.date || "—"} — {(source.key === "spotify" ? kworbStats?.spotify?.history : kworbStats?.youtube?.history)?.at(-8)?.date || "—"}</div>
 	                              </div>
 	                              <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.025] p-2.5 sm:p-3">
-	                                <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Cambio 15 días</div>
+	                                <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Δ primera → última lectura</div>
 	                                <div className={`mt-1 break-words text-sm font-black ${metricTone(periodChange)}`}>{formatSignedCompactCount(periodChange)}</div>
 	                                <div className={`mt-1 text-[10px] font-bold ${metricTone(periodChangePct)}`}>{pctLabel(periodChangePct)}</div>
 	                              </div>
@@ -1901,20 +1908,24 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <>
 	                              <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
 	                                <div>
-	                                  <div className="text-[9px] font-black uppercase tracking-[0.16em] text-zinc-600">Últimos 15 días</div>
-	                                  <div className="mt-1 text-[10px] font-bold text-zinc-500">
-	                                    {source.points.length} lecturas diarias exactas
+	                                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">Últimas observaciones</div>
+	                                  <div className="mt-1 text-[10px] font-bold text-zinc-400">
+	                                    {plottedValues.length} lecturas · {source.points[0]?.date} — {source.points.at(-1)?.date} · fechas no necesariamente consecutivas
 	                                  </div>
 	                                </div>
 	                                <div className="flex flex-wrap gap-2 sm:justify-end">
-	                                  <span className={`rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] ${metricTone(periodChange)}`}>
+	                                  <span className={`rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${metricTone(periodChange)}`}>
 	                                    Cambio {formatSignedCompactCount(periodChange)}{periodChangePct != null ? ` · ${pctLabel(periodChangePct)}` : ""}
 	                                  </span>
-	                                  <span className="rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+	                                  <span className="rounded-full border border-white/[0.07] bg-black/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
 	                                    Pico <span className="text-zinc-300">{formatCompactCount(periodPeak)}</span>
 	                                  </span>
 	                                </div>
                               </div>
+                              <p className="mb-3 text-xs leading-relaxed text-zinc-400">
+                                Kworb · repertorio global. Promedio de las últimas 7 filas guardadas (valores disponibles), comparado con las 7 anteriores. SUBIENDO: promedio ≥ +8% o total acumulado creciente en 7 lecturas; BAJANDO: promedio ≤ −8% sin ese aumento; en otros casos, ESTABLE. Con menos de 3 valores, NUEVA SEÑAL. El Δ del gráfico compara dos cifras diarias, no la suma del periodo. Los cortes indican fechas o valores ausentes.
+                              </p>
+                              <details className="mb-3 text-xs text-zinc-400"><summary className="cursor-pointer">Fechas y valores exactos</summary><ul className="mt-2 space-y-1">{source.points.map(point => <li key={point.date}>{point.date}: {observationValue(point) == null ? "Sin dato" : formatExactCount(observationValue(point)!)}</li>)}</ul></details>
                               <YoutubeDailySparkline
                                 points={source.points}
                                 color={source.color}
@@ -1925,11 +1936,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                           ) : (
                             <div className="rounded-xl border border-white/[0.06] bg-black/20 px-4 py-5">
                               <div className="text-sm font-black uppercase tracking-[0.08em] text-white">Medición inicial</div>
-                              <div className="mt-2 text-xs font-bold leading-relaxed text-zinc-500">
+                              <div className="mt-2 text-xs font-bold leading-relaxed text-zinc-400">
                                 Ya tenemos el total actual. La tendencia empieza con la próxima medición diaria.
                               </div>
                               <div className="mt-3 text-[10px] font-black uppercase tracking-[0.16em]" style={{ color: source.color }}>
-                                {source.availableDays} {source.availableDays === 1 ? "día medido" : "días medidos"}
+                                {source.availableDays} {source.availableDays === 1 ? "lectura guardada" : "lecturas guardadas"}
                               </div>
                             </div>
                           )}
@@ -1945,9 +1956,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
         {kworbStats?._status === "pending" && !kworbStats.spotify && !kworbStats.youtube && !kworbStats.chartPositions && (
           <section className="order-6 rounded-2xl border border-white/10 bg-white/[0.025] p-5" data-testid="section-kworb-pending">
-            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Datos de streaming</div>
+            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Datos de streaming</div>
             <div className="mt-2 text-lg font-black text-white">Importación en proceso</div>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
               El perfil está vinculado, pero Kworb todavía no ha publicado o procesado métricas compatibles para este artista. No mostramos cifras estimadas.
             </p>
           </section>
@@ -1976,7 +1987,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
                     </div>
-                    <p className="max-w-xl text-xs font-bold leading-relaxed text-zinc-600">
+                    <p className="max-w-xl text-xs font-bold leading-relaxed text-zinc-400">
                       Enlaces verificados para confirmar la identidad del perfil y abrir la fuente original.
                     </p>
                   </div>
@@ -1984,7 +1995,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <span className="rounded-full border border-[#39FF14]/20 bg-[#39FF14]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
                       {officialSourceCount} {officialSourceCount === 1 ? "fuente" : "fuentes"}
                     </span>
-                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                    <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">
                       Identidad enlazada
                     </span>
                   </div>
@@ -2004,23 +2015,23 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1DB954]/10">
                           <SiSpotify className="h-4 w-4" style={{ color: "#1DB954" }} />
                         </span>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Spotify</span>
                         {enrichment.spotify.url && (
-                          <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-[#1DB954]" />
+                          <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-400 transition-colors group-hover:text-[#1DB954]" />
                         )}
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
-                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
                         Perfil enlazado
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {enrichment.spotify.followersFmt && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             {enrichment.spotify.followersFmt} seguidores
                           </span>
                         )}
                         {spotifyUpdatedLabel && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             Actualizado {spotifyUpdatedLabel}
                           </span>
                         )}
@@ -2041,26 +2052,26 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10">
                           <SiYoutube className="h-4 w-4 text-red-500" />
                         </span>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</span>
-                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-red-400" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">YouTube</span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-400 transition-colors group-hover:text-red-400" />
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.youtube.title ?? "YouTube oficial"}</div>
-                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
                         Canal enlazado
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {enrichment.youtube.subscribersFmt && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             {enrichment.youtube.subscribersFmt} suscriptores
                           </span>
                         )}
                         {enrichment.youtube.viewsFmt && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             {enrichment.youtube.viewsFmt} vistas
                           </span>
                         )}
                         {youtubeUpdatedLabel && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             Actualizado {youtubeUpdatedLabel}
                           </span>
                         )}
@@ -2081,16 +2092,16 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400/10">
                           <Database className="h-4 w-4 text-amber-400" />
                         </span>
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">MusicBrainz</span>
-                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-700 transition-colors group-hover:text-amber-300" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">MusicBrainz</span>
+                        <ExternalLink className="ml-auto h-3.5 w-3.5 text-zinc-400 transition-colors group-hover:text-amber-300" />
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.musicbrainz.name ?? artist.name}</div>
-                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-500">
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
                         {enrichment.musicbrainz.areaName ?? enrichment.musicbrainz.country ?? "Catálogo musical"}
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {musicbrainzUpdatedLabel && (
-                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                          <span className="rounded border border-white/10 bg-black/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                             Actualizado {musicbrainzUpdatedLabel}
                           </span>
                         )}
@@ -2098,7 +2109,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       {(enrichment.musicbrainz.tags ?? []).length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-1.5">
                           {(enrichment.musicbrainz.tags ?? []).slice(0, 3).map(tag => (
-                            <span key={tag} className="rounded border border-white/10 px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                            <span key={tag} className="rounded border border-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                               {tag}
                             </span>
                           ))}
@@ -2137,7 +2148,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Activos principales en Spotify</h2>
                   </div>
                   {kworbStats?.spotify && (
-                    <div className="hidden text-[9px] uppercase tracking-widest text-zinc-700 font-bold sm:block">
+                    <div className="hidden text-[10px] uppercase tracking-widest text-zinc-400 font-bold sm:block">
                       Spotify
                     </div>
                   )}
@@ -2172,7 +2183,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         Canción líder
                       </div>
                       <div className="mt-1 truncate text-lg font-black text-white">{topTracks[0].title}</div>
-                      <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.13em]" style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}30`, color: artist.accent }}>
+                      <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.13em]" style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}30`, color: artist.accent }}>
                         Detalle
                         <ExternalLink className="h-3 w-3" />
                       </div>
@@ -2181,7 +2192,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <div className="text-2xl font-black leading-none" style={{ color: artist.accent }}>
                         {topTracks[0].streams}
                       </div>
-                      <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">streams</div>
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">streams</div>
                     </div>
                   </button>
                 )}
@@ -2196,20 +2207,20 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-white/15 focus:outline-none focus:ring-2 focus:ring-white/10"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                     >
-                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg text-[11px] font-black text-zinc-600" style={{ background: "rgba(255,255,255,0.035)" }}>
+                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg text-[11px] font-black text-zinc-400" style={{ background: "rgba(255,255,255,0.035)" }}>
                         {s.coverUrl ? (
                           <ResponsiveThumbnail src={s.coverUrl} alt="" width={44} height={44} className="h-full w-full object-cover" />
                         ) : (
                           <span className="flex h-full w-full items-center justify-center">{i + 2}</span>
                         )}
                         <span className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent" />
-                        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[9px] font-black text-white">
+                        <span className="absolute bottom-1 left-1 rounded bg-black/70 px-1 py-0.5 text-[10px] font-black text-white">
                           {i + 2}
                         </span>
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-300">{s.title}</span>
                       <span className="shrink-0 text-sm font-black" style={{ color: artist.accent }}>{s.streams}</span>
-                      <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500 sm:inline-flex">
+                      <span className="hidden shrink-0 rounded-full border border-white/10 bg-white/[0.035] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400 sm:inline-flex">
                         Detalle
                       </span>
                     </button>
@@ -2244,15 +2255,15 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <Play className="mt-0.5 h-4 w-4 shrink-0" style={{ color: artist.accent }} />
                     <div className="min-w-0">
                       <h2 className="text-[11px] font-black uppercase tracking-[0.22em] text-zinc-400 sm:text-xs sm:tracking-[0.25em]">Fuerza de catálogo</h2>
-                      <p className="mt-1 max-w-xl text-[10px] font-bold uppercase leading-relaxed tracking-[0.1em] text-zinc-700 sm:text-[11px] sm:tracking-[0.12em]">
-                        Escala acumulada del repertorio. El movimiento diario vive en Momentum.
+                      <p className="mt-1 max-w-xl text-[10px] font-bold uppercase leading-relaxed tracking-[0.1em] text-zinc-400 sm:text-[11px] sm:tracking-[0.12em]">
+                        Totales del repertorio atribuido al artista en Kworb. Los videos principales son una selección; no equivalen al catálogo del canal oficial.
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-col gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-1.5 sm:ml-auto sm:items-end sm:border-0 sm:bg-transparent sm:p-0">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-700">Spotify · YouTube</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Spotify · YouTube</span>
                     {lastUpdatedLabel && (
-                      <span className="text-[9px] font-medium text-zinc-600" data-testid="kworb-last-updated">
+                      <span className="text-[10px] font-medium text-zinc-400" data-testid="kworb-last-updated">
                         Actualizado {lastUpdatedLabel}
                       </span>
                     )}
@@ -2274,8 +2285,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <SiSpotify className="h-4 w-4" />
                           </span>
                           <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Spotify</div>
-                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">streams acumulados</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Spotify</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">streams acumulados</div>
                           </div>
                         </div>
 	                        <div
@@ -2284,14 +2295,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         >
                           {kworbStats.spotify.totalStreamsFmt}
                         </div>
-                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">streams acumulados</div>
+                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">streams acumulados</div>
                         <div className="mt-5 grid grid-cols-2 gap-2">
 	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
-	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canciones</div>
+	                            <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Canciones en repertorio Kworb</div>
 	                            <div className="mt-1 break-words text-sm font-black text-zinc-300">{kworbStats.spotify.trackCount}</div>
 	                          </div>
 	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
-	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Canción líder</div>
+	                            <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Canción líder</div>
 	                            <div className="mt-1 truncate text-sm font-black text-zinc-300">{topTracks[0]?.streams ?? "—"}</div>
                           </div>
                         </div>
@@ -2313,21 +2324,21 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             <SiYoutube className="h-4 w-4" />
                           </span>
                           <div>
-                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">YouTube</div>
-                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas acumuladas</div>
+                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">YouTube</div>
+                            <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">vistas acumuladas</div>
                           </div>
                         </div>
 	                        <div className="break-words text-[clamp(2rem,12vw,3rem)] font-black leading-none tracking-tight text-red-400 sm:text-5xl">
 	                          {kworbStats.youtube.totalViewsFmt}
 	                        </div>
-                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-600">vistas totales</div>
+                        <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-400">vistas totales</div>
                         <div className="mt-5 grid grid-cols-2 gap-2">
 	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
-	                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Videos</div>
+	                            <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Videos principales guardados</div>
 	                            <div className="mt-1 break-words text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos.length}</div>
 	                          </div>
 	                          <div className="min-w-0 rounded-lg border border-white/[0.06] bg-black/20 p-2.5 sm:p-3">
-                            <div className="text-[9px] uppercase tracking-wider text-zinc-700 font-bold">Video líder</div>
+                            <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Video líder</div>
                             <div className="mt-1 truncate text-sm font-black text-zinc-300">{kworbStats.youtube.topVideos[0]?.viewsFmt ?? "—"}</div>
                           </div>
                         </div>
@@ -2363,10 +2374,10 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <Music className="h-4 w-4 shrink-0" style={{ color: artist.accent }} />
                     <div className="min-w-0">
                       <h2 className="text-xs font-black uppercase tracking-[0.22em] text-zinc-400">Posiciones en México</h2>
-                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-700">
-                        {chartPositions.length} de {chartPositionTotal} canciones actuales
+                      <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">
+                        {chartPositions.length} de {chartPositionTotal} canciones guardadas · Kworb · lectura {kworbStats.chartPositionsObservedAt || "sin fecha"} · edición y periodo no informados
                       </div>
-                      <Link href="/charts" className="mt-2 inline-block text-[9px] font-black uppercase tracking-[0.13em] text-zinc-500 hover:text-zinc-300">
+                      <Link href="/charts" className="mt-2 inline-block text-[10px] font-black uppercase tracking-[0.13em] text-zinc-400 hover:text-zinc-300">
                         Ver charts de música en México →
                       </Link>
                     </div>
@@ -2395,7 +2406,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     }}
                   >
                     <span>Todas</span>
-                    <span className="text-[9px] text-zinc-600">{chartPositionTotal}</span>
+                    <span className="text-[10px] text-zinc-400">{chartPositionTotal}</span>
                   </button>
                   {CHART_POSITION_PLATFORMS.map(platform => (
                     <button
@@ -2410,7 +2421,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       }}
                     >
                       <span>{platform.short}</span>
-                      <span className="text-[9px] text-zinc-600">{chartPositionCounts[platform.key] ?? 0}</span>
+                      <span className="text-[10px] text-zinc-400">{chartPositionCounts[platform.key] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -2448,7 +2459,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                             {thumbnailUrl ? (
                               <ResponsiveThumbnail src={thumbnailUrl} alt="" width={64} height={64} className="h-full w-full object-cover" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-zinc-700">
+                              <div className="flex h-full w-full items-center justify-center text-zinc-400">
                                 <Music className="h-5 w-5" />
                               </div>
                             )}
@@ -2471,7 +2482,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   {selectedChartPlatform.label} México
                                 </span>
                                 {ranks.length > 1 && (
-                                  <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">
                                     +{ranks.length - 1} listas
                                   </span>
                                 )}
@@ -2485,7 +2496,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                                   return (
                                     <span
                                       key={platform.key}
-                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em]"
+                                      className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em]"
                                       style={{
                                         background: `${platform.color}${isTop3 ? "1c" : "10"}`,
                                         border: `1px solid ${platform.color}${isTop3 ? "44" : "24"}`,
@@ -2505,17 +2516,17 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                               <div className="text-lg font-black leading-none" style={{ color: selectedChartPlatform.color }}>
                                 #{cp[selectedChartPlatform.key]}
                               </div>
-                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">
                                 México
                               </div>
                             </div>
                           )}
                           {!selectedChartPlatform && ranks.length > 1 && (
                             <div className="hidden shrink-0 text-right sm:block">
-                              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                              <div className="text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                                 {ranks.length}
                               </div>
-                              <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">
+                              <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">
                                 listas
                               </div>
                             </div>
@@ -2526,14 +2537,14 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </div>
                 ) : (
                   <div
-                    className="rounded-xl px-4 py-6 text-center text-xs font-bold text-zinc-600"
+                    className="rounded-xl px-4 py-6 text-center text-xs font-bold text-zinc-400"
                     style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.055)" }}
                   >
                     No hay posiciones actuales en {selectedChartPlatform?.label ?? "esta plataforma"}.
                   </div>
                 )}
 
-                <div className="mt-4 flex flex-wrap gap-2 text-[9px] text-zinc-700 font-bold uppercase tracking-wider">
+                <div className="mt-4 flex flex-wrap gap-2 text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
                   {CHART_POSITION_PLATFORMS.map(platform => (
                     <span key={platform.key} className="inline-flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: platform.color }} />
@@ -2569,7 +2580,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 <div className="mb-5 flex items-center gap-3">
                   <SiYoutube className="w-4 h-4 text-red-500" />
                   <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Activos principales en YouTube</h2>
-                  <div className="ml-auto hidden text-[9px] font-bold uppercase tracking-widest text-zinc-700 sm:block">Catálogo</div>
+                  <div className="ml-auto hidden text-[10px] font-bold uppercase tracking-widest text-zinc-400 sm:block">Catálogo</div>
                 </div>
 
                 {kworbStats.youtube.topVideos[0] && (
@@ -2612,13 +2623,13 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       </div>
                       <div className="text-base font-black leading-snug text-white">{kworbStats.youtube.topVideos[0].title}</div>
                       {kworbStats.youtube.topVideos[0].published && (
-                        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-700">{kworbStats.youtube.topVideos[0].published}</div>
+                        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">{kworbStats.youtube.topVideos[0].published}</div>
                       )}
                     </div>
                     <div className="flex items-end justify-between gap-5 sm:flex-col sm:justify-center sm:text-right">
                       <div>
                         <div className="text-xl font-black leading-none text-red-400">{kworbStats.youtube.topVideos[0].viewsFmt}</div>
-                        <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-zinc-700">vistas</div>
+                        <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">vistas</div>
                       </div>
                     </div>
                   </a>
@@ -2650,19 +2661,19 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                           </div>
                         )}
                         <div className="absolute inset-0 bg-black/20" />
-                        <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1 py-0.5 text-[9px] font-black text-white">
+                        <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1 py-0.5 text-[10px] font-black text-white">
                           {i + 2}
                         </span>
                       </div>
                       <div className="min-w-0 sm:flex-1">
                         <div className="truncate text-sm font-bold text-zinc-300">{v.title}</div>
                         {v.published && (
-                          <div className="mt-0.5 text-[10px] text-zinc-700">{v.published}</div>
+                          <div className="mt-0.5 text-[10px] text-zinc-400">{v.published}</div>
                         )}
                       </div>
                       <div className="col-start-2 min-w-0 text-left sm:col-start-auto sm:shrink-0 sm:text-right">
                         <div className="text-sm font-black text-red-400">{v.viewsFmt}</div>
-                        <div className="text-[10px] text-zinc-700">vistas</div>
+                        <div className="text-[10px] text-zinc-400">vistas</div>
                       </div>
                     </motion.a>
                   ))}
@@ -2710,11 +2721,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 	                    <div className="text-base font-black uppercase leading-tight text-white sm:text-lg">{t.name}</div>
 	                    <div className="mt-3 grid grid-cols-2 gap-3">
 	                      <div className="min-w-0">
-	                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Recaudación est.</div>
+	                        <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Recaudación est.</div>
 	                        <div className="break-words text-sm font-black" style={{ color: artist.accent }}>{t.gross}</div>
 	                      </div>
 	                      <div className="min-w-0">
-	                        <div className="text-[9px] uppercase tracking-wider text-zinc-600 font-bold">Ciudades</div>
+	                        <div className="text-[10px] uppercase tracking-wider text-zinc-400 font-bold">Ciudades</div>
 	                        <div className="break-words text-sm font-black text-white">{t.cities}</div>
 	                      </div>
 	                    </div>
@@ -2758,11 +2769,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       <TrendingUp className="h-4 w-4" style={{ color: artist.accent }} />
                       <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Artistas cercanos</h2>
                     </div>
-                    <p className="max-w-xl text-xs font-medium leading-relaxed text-zinc-600">
+                    <p className="max-w-xl text-xs font-medium leading-relaxed text-zinc-400">
                       Recomendaciones basadas en género, subgénero y posición dentro de los datos semanales de Mexico Charts.
                     </p>
                   </div>
-                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-700">
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
                     Datos de ranking semanal
                   </span>
                 </div>
@@ -2823,17 +2834,17 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                         </div>
                         <div className="relative z-10 p-4">
                           <div className="truncate text-base font-black text-white transition-colors group-hover:text-zinc-100">{candidate.name}</div>
-                          <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-600">
+                          <div className="mt-1 truncate text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-400">
                             {genreLabel(candidate.genre || candidate.subgenre || "Artista")}
                           </div>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             {candidate.subgenre && (
-                              <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                              <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                                 {genreLabel(candidate.subgenre)}
                               </span>
                             )}
                             {candidate.listeners && (
-                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-zinc-600">
+                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                                 {candidate.listeners}
                               </span>
                             )}
@@ -2854,7 +2865,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
             type="button"
             onClick={() => window.history.back()}
             aria-label="Volver a la página anterior"
-            className="inline-flex items-center gap-2 text-zinc-600 hover:text-[#39FF14] transition-colors duration-200 text-xs font-black uppercase tracking-widest"
+            className="inline-flex items-center gap-2 text-zinc-400 hover:text-[#39FF14] transition-colors duration-200 text-xs font-black uppercase tracking-widest"
             data-testid="link-back-bottom"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
@@ -2889,7 +2900,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               onClick={event => event.stopPropagation()}
             >
               <div className="absolute inset-0 rounded-2xl opacity-[0.035] pointer-events-none" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-              <div className="pointer-events-none absolute -right-16 -top-16 h-44 w-44 rounded-full blur-3xl" style={{ background: `${artist.accent}16` }} />
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl"><div className="absolute -right-16 -top-16 h-44 w-44 rounded-full blur-3xl" style={{ background: `${artist.accent}16` }} /></div>
 
               <div className="relative z-10">
                 <div className="mb-4 flex items-center justify-between gap-3">
@@ -2897,7 +2908,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     <div className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: artist.accent }}>
                       Detalle de canción
                     </div>
-                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-zinc-700">
+                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.13em] text-zinc-400">
                       Activos principales en Spotify
                     </div>
                   </div>
@@ -2910,7 +2921,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </button>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-[8rem_1fr] sm:items-start">
+                <div className="grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-start">
                   <div
                     className="relative aspect-square w-28 overflow-hidden rounded-2xl sm:w-32"
                     style={{ background: `${artist.accent}12`, border: `1px solid ${artist.accent}28` }}
@@ -2929,7 +2940,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="text-2xl font-black leading-tight text-white sm:text-3xl">{selectedSong.title}</h3>
+                    <h3 className="break-words text-2xl font-black leading-tight text-white sm:text-3xl">{selectedSong.title}</h3>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <span
                         className="rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em]"
@@ -2937,26 +2948,26 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       >
                         {artist.name}
                       </span>
-                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-500">
+                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-zinc-400">
                         Spotify
                       </span>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Streams</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Streams</div>
                         <div className="mt-1 text-xl font-black leading-none" style={{ color: artist.accent }}>{selectedSong.streams}</div>
                       </div>
                       <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Rank perfil</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Pos. en selección</div>
                         <div className="mt-1 text-xl font-black leading-none text-white">#{selectedSong.rank}</div>
                       </div>
                       <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Canciones</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Canciones seleccionadas</div>
                         <div className="mt-1 text-xl font-black leading-none text-white">{topTracks.length}</div>
                       </div>
                       <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-                        <div className="text-[9px] font-black uppercase tracking-[0.14em] text-zinc-700">Actualizado</div>
+                        <div className="text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">Actualizado</div>
                         <div className="mt-1 truncate text-sm font-black text-white">{formatShortDateEs(spotifyKworbDailyTrend.at(-1)?.date) || "—"}</div>
                       </div>
                     </div>
@@ -2965,8 +2976,8 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
 
                 <div className="mt-5 rounded-xl border border-white/[0.07] bg-white/[0.025] p-4">
                   <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Presencia en listas MX</div>
-                    <div className="text-[9px] font-bold uppercase tracking-[0.14em] text-zinc-700">{selectedSongChartMatches.length || 0} matches</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">Presencia en listas MX</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-400">{selectedSongChartMatches.length || 0} matches</div>
                   </div>
                   {selectedSongChartMatches.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
@@ -2992,17 +3003,17 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       )}
                     </div>
                   ) : (
-                    <p className="text-sm font-medium leading-relaxed text-zinc-600">
+                    <p className="text-sm font-medium leading-relaxed text-zinc-400">
                       No encontramos una posición actual enlazada para esta canción en las listas mexicanas guardadas del perfil.
                     </p>
                   )}
                 </div>
 
                 <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-black/30 px-4 py-3">
-                  <div className="text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] text-zinc-700">
-                    Este detalle usa datos reales ya disponibles en el perfil. Sin relleno inventado.
+                  <div className="text-[10px] font-bold uppercase leading-relaxed tracking-[0.12em] text-zinc-400">
+                    Selección de canciones por streams acumulados en Kworb. Las posiciones MX provienen de una lectura guardada; su edición y periodo no están informados.
                   </div>
-                  <ExternalLink className="hidden h-4 w-4 shrink-0 text-zinc-700 sm:block" />
+                  <ExternalLink className="hidden h-4 w-4 shrink-0 text-zinc-400 sm:block" />
                 </div>
               </div>
             </motion.aside>
@@ -3014,7 +3025,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
       <footer className="border-t py-6 px-6" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="max-w-[1200px] mx-auto flex items-center justify-between flex-wrap gap-4">
           <BrandLogo size={24} className="h-6 w-6 object-contain opacity-60" />
-          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
+          <p className="text-[10px] text-zinc-400 uppercase tracking-widest font-bold">© 2026 Mexico Charts. Todos los derechos reservados.</p>
         </div>
       </footer>
     </div>

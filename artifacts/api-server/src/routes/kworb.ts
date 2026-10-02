@@ -395,6 +395,7 @@ interface KworbStats {
     analytics?: YoutubeKworbAnalytics | null;
   } | null;
   chartPositions: ChartPosition[] | null;
+  chartPositionsObservedAt?: string | null;
 }
 
 interface SpotifyKworbHistoryPoint {
@@ -1817,6 +1818,7 @@ router.get("/kworb/artist-stats", async (req, res) => {
   const stats: KworbStats = {
     slug,
     spotifyId,
+    chartPositionsObservedAt: snaps.find(s => s.metricType === "itunes")?.fetchedAt?.toISOString() ?? null,
     spotify:        (snapMap.get("spotify") as KworbStats["spotify"])        ?? null,
     youtube:        (snapMap.get("youtube") as KworbStats["youtube"])        ?? null,
     chartPositions: (snapMap.get("itunes")  as unknown as KworbStats["chartPositions"]) ?? null,

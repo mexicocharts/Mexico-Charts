@@ -358,7 +358,7 @@ export default function Monitoreo() {
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#39FF14]">{pick("Suscripción", "Subscription")}</p>
                 <h3 className="mt-3 text-xl font-black">{pick("La historia completa", "The complete history")}</h3>
                 <ul className="mt-7 space-y-4 text-xs font-bold text-white/65">
-                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual CSV descargable", "Downloadable monthly CSV report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
+                  {[pick("Ventanas de 30 y 90 días", "30- and 90-day windows"), pick("Todos los videos rastreados con contador", "Every tracked video with a live counter"), pick("Todo el historial guardado disponible", "All available stored history"), pick("Artist Pulse y cambios diarios", "Artist Pulse and daily changes"), pick("Reporte mensual PDF descargable", "Downloadable monthly PDF report")].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#39FF14]" />{item}</li>)}
                 </ul>
               </div>
             </div>
