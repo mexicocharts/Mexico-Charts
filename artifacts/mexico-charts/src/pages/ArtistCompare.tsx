@@ -15,7 +15,7 @@ import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { listenerSnapshot } from "@/lib/listenerSnapshot.mjs";
-import { commonSourceReadings, comparisonBars, formatComparisonValue, metricValue, snapshotCompatibility } from "@/lib/comparisonMetrics.mjs";
+import { commonSourceReadings, comparisonBars, comparisonScore, formatComparisonValue, metricValue, snapshotCompatibility } from "@/lib/comparisonMetrics.mjs";
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import { useArtistMetadata, type ArtistMetadata } from "@/services/dataProvider";
 import "./artist-compare.css";
@@ -355,6 +355,9 @@ export default function ArtistCompare() {
     add("charts", "Actividad", "activity", "Apariciones en listas", BarChart3,
       activityReading(hubLoading ? null : aCharts.count, "Charts Hub · ediciones mixtas"), activityReading(hubLoading ? null : bCharts.count, "Charts Hub · ediciones mixtas"));
   }
+  const score = comparisonScore(metrics);
+  const scoreLoading = aSnapshotLoading || bSnapshotLoading || certLoading || toursLoading || hubLoading;
+  const scoreLeader = score.winner === "a" ? artistA?.displayName : artistB?.displayName;
   const filteredMetrics = metrics.filter(metric => platform === "all" || metric.platform === platform);
   const presetPairs = useMemo(() => {
     if (artists.length < 4) return [];
@@ -393,6 +396,22 @@ export default function ArtistCompare() {
           <ArtistPanel artist={artistB} other={artistA} artists={artists} image={imageB} fallbackImage={bSongstats?.avatarUrl} side="b"
             rank={weeklyRanks.get(norm(artistB.displayName)) ?? null} chartDate={hub?.sheets?.Spotify_Artists_Weekly?.chartDate}
             onPick={slug => setArtist("b", slug)} />
+        </section>
+        <section className="compare-score" aria-labelledby="compare-score-title">
+          <div className="compare-score-heading">
+            <div><p className="compare-kicker">Todas las señales</p><h2 id="compare-score-title">Marcador total</h2></div>
+            <p className="compare-score-status" role="status">{scoreLoading ? "Marcador provisional · cargando datos" : score.a + score.b === 0
+              ? "Sin puntos decididos" : score.winner ? `${scoreLeader} lidera` : "Empate en puntos"}</p>
+          </div>
+          <div className="compare-score-board">
+            {(["a", "b"] as const).map(side => <div key={side} className={`compare-score-artist compare-score-artist--${side}${score.winner === side ? " compare-score-artist--winner" : ""}`}>
+              <span>{side === "a" ? artistA.displayName : artistB.displayName}</span>
+              <strong>{score[side]}</strong><span className="compare-score-unit">{score[side] === 1 ? "estadística ganada" : "estadísticas ganadas"}</span>
+            </div>)}
+            <span className="compare-score-versus" aria-hidden="true">VS</span>
+          </div>
+          <p className="compare-score-rule">1 punto por estadística ganada en todas las señales. El filtro de plataforma no cambia el total.</p>
+          <p className="compare-score-detail">{score.compared} de {score.total} estadísticas comparables · {score.ties} {score.ties === 1 ? "empate" : "empates"} · {score.unavailable} sin comparar. Los empates y datos no comparables no suman puntos.</p>
         </section>
         {presetPairs.length > 0 && <div className="compare-presets" aria-label="Comparaciones sugeridas">
           <span>Explorar</span>{presetPairs.map(pair => <button key={pair.label} type="button"

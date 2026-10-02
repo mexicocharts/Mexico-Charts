@@ -49,6 +49,34 @@
 .compare-versus { position: absolute; left: 50%; top: 36%; transform: translateX(-50%); z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .compare-versus > span { color: #bcc6bf; font-size: 18px; font-weight: 750; }
 .compare-versus button { display: grid; place-items: center; height: 54px; width: 54px; color: #e3eee6; background: #0b130ef2; border: 1px solid #b0c3b6; border-radius: 50%; cursor: pointer; transition: background-color 160ms ease; }
+.compare-score { margin-top: 24px; padding: 24px 28px; border: 1px solid #354039; border-radius: 10px; background: linear-gradient(120deg, #13201899, #0b100de6 55%); }
+.compare-score-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.compare-score-heading h2 { margin-top: 7px; font-size: 23px; font-weight: 800; letter-spacing: -.035em; }
+.compare-score-status { max-width: 45%; color: #c7d1cb; font-size: 12px; text-align: right; }
+.compare-score-board { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px; padding: 22px 0; }
+.compare-score-artist { display: grid; grid-template-columns: auto 1fr; align-items: end; gap: 4px 14px; }
+.compare-score-artist > span:first-child { grid-column: 1 / -1; font-size: 11px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; overflow-wrap: anywhere; }
+.compare-score-artist strong { font-size: clamp(50px, 6vw, 82px); line-height: 1; font-weight: 900; letter-spacing: -.06em; font-variant-numeric: tabular-nums; transition: color 300ms ease; }
+.compare-score-artist--winner strong { color: var(--compare-accent); }
+.compare-score-unit { padding-bottom: 7px; font-size: 12px; color: #c0cbc4; }
+.compare-score-artist--b { grid-template-columns: 1fr auto; text-align: right; }
+.compare-score-artist--b strong { grid-column: 2; grid-row: 2; }
+.compare-score-artist--b .compare-score-unit { grid-column: 1; grid-row: 2; }
+.compare-score-versus { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #8c9c91; font-size: 12px; font-weight: 800; letter-spacing: .1em; }
+.compare-score-rule, .compare-score-detail { text-align: center; font-size: 11px; line-height: 1.7; color: #b8c4bc; }
+.compare-score-detail { margin-top: 4px; color: #95a79a; }
+@media (max-width: 700px) {
+  .compare-score { margin-top: 18px; padding: 18px 14px; }
+  .compare-score-heading { align-items: flex-start; gap: 12px; }
+  .compare-score-heading h2 { font-size: 21px; }
+  .compare-score-status { font-size: 10px; }
+  .compare-score-board { gap: 28px; padding: 20px 0; }
+  .compare-score-artist, .compare-score-artist--b { grid-template-columns: minmax(0, 1fr); gap: 5px; }
+  .compare-score-artist > span:first-child { font-size: 9px; letter-spacing: .08em; }
+  .compare-score-artist strong, .compare-score-artist--b strong { grid-column: 1; grid-row: 2; font-size: 56px; }
+  .compare-score-unit, .compare-score-artist--b .compare-score-unit { grid-column: 1; grid-row: 3; font-size: 10px; padding-bottom: 0; }
+  .compare-score-rule, .compare-score-detail { font-size: 10px; }
+}
 .compare-presets { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 4px 0; color: var(--compare-muted); font-size: 11px; }
 .compare-presets > span { margin-right: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .12em; }
 .compare-presets button { min-height: 44px; padding: 8px 10px; border-bottom: 1px solid #3c4940; cursor: pointer; color: #d5dcd7; }

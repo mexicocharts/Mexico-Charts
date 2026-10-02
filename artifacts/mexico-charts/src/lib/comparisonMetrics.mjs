@@ -24,6 +24,20 @@ export function comparisonBars(a, b, { compatible = true } = {}) {
   };
 }
 
+export function comparisonScore(metrics) {
+  const score = { a: 0, b: 0, ties: 0, unavailable: 0, compared: 0, total: metrics.length };
+  for (const metric of metrics) {
+    const result = comparisonBars(metric.a.value, metric.b.value, { compatible: metric.compatible });
+    if (!result.comparable) score.unavailable += 1;
+    else {
+      score.compared += 1;
+      if (result.winner) score[result.winner] += 1;
+      else score.ties += 1;
+    }
+  }
+  return { ...score, winner: score.a === score.b ? null : score.a > score.b ? "a" : "b" };
+}
+
 export function commonSourceReadings(a, b, fallbackA, fallbackB) {
   // Keep saved readings when both use the same source, including explicit zero
   // and differing dates. A source mismatch may use a complete common dataset.

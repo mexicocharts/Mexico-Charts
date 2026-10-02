@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { commonSourceReadings, comparisonBars, metricValue, snapshotCompatibility, formatComparisonValue } from "./comparisonMetrics.mjs";
+import { commonSourceReadings, comparisonBars, comparisonScore, metricValue, snapshotCompatibility, formatComparisonValue } from "./comparisonMetrics.mjs";
 
 test("battle line fills edge to edge in proportion to both artists, without a minimum fill", () => {
   const largerLeft = comparisonBars(20, 10);
@@ -53,4 +53,30 @@ test("mixed sources use a complete common dataset without hiding missing values 
   const zero = { ...saved, value: 0 };
   assert.equal(commonSourceReadings(zero, saved, editorialA, editorialB).a.value, 0);
   assert.equal(commonSourceReadings(zero, editorialB, editorialA, editorialB).a.value, 0);
+});
+
+const scoreMetric = (a, b, compatible = true) => ({ a: { value: a }, b: { value: b }, compatible });
+
+test("total score gives one point per winning metric, excluding ties and unavailable comparisons", () => {
+  const score = comparisonScore([
+    scoreMetric(20, 10), scoreMetric(4, 12), scoreMetric(3, 2),
+    scoreMetric(7, 7), scoreMetric(null, 9), scoreMetric(90, 2, false),
+  ]);
+  assert.deepEqual(score, { a: 2, b: 1, ties: 1, unavailable: 2, compared: 4, total: 6, winner: "a" });
+  const swapped = comparisonScore([
+    scoreMetric(10, 20), scoreMetric(12, 4), scoreMetric(2, 3),
+    scoreMetric(7, 7), scoreMetric(9, null), scoreMetric(2, 90, false),
+  ]);
+  assert.equal(swapped.a, score.b);
+  assert.equal(swapped.b, score.a);
+  assert.equal(swapped.winner, "b");
+});
+
+test("score uses exact values, preserves zero, and reports an overall tie without a winner", () => {
+  assert.deepEqual(comparisonScore([scoreMetric(1000001, 1000000), scoreMetric(0, 1), scoreMetric(0, 0)]),
+    { a: 1, b: 1, ties: 1, unavailable: 0, compared: 3, total: 3, winner: null });
+  assert.deepEqual(comparisonScore([scoreMetric(null, null), scoreMetric(Infinity, 2)]),
+    { a: 0, b: 0, ties: 0, unavailable: 2, compared: 0, total: 2, winner: null });
+  assert.deepEqual(comparisonScore([]),
+    { a: 0, b: 0, ties: 0, unavailable: 0, compared: 0, total: 0, winner: null });
 });

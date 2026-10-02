@@ -5,3 +5,6 @@ export function comparisonBars(a: number | null, b: number | null, options?: { c
 export function snapshotCompatibility(a: { source: string; date: string | null }, b: { source: string; date: string | null }): { compatible: boolean; note: string };
 export function formatComparisonValue(value: number | null): string;
 export function commonSourceReadings<T extends { value: number | null; source: string; date: string | null }>(a: T, b: T, fallbackA: T, fallbackB: T): { a: T; b: T; usedFallback: boolean };
+export function comparisonScore(metrics: Array<{ a: { value: number | null }; b: { value: number | null }; compatible: boolean }>): {
+  a: number; b: number; ties: number; unavailable: number; compared: number; total: number; winner: "a" | "b" | null;
+};
