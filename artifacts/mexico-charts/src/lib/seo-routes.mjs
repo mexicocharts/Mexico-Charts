@@ -9,7 +9,7 @@ const routes = [
   ["/monitoreo", "Monitoreo de artistas — Mexico Charts", "Monitorea artistas elegibles con historial acumulado, métricas de audiencia, streaming y planes desde $6 USD al mes."],
   ["/legacy-acts", "Legacy Acts — Mexico Charts", "Ranking editorial de legacy acts de música mexicana con consumo histórico, audiencia actual, seguidores y señales de catálogo."],
   ["/industria", "Industria musical mexicana — IFPI, AMPROFON y mercado", "Datos de la industria musical mexicana, mercado de música grabada, crecimiento digital, certificaciones y fuentes como IFPI y AMPROFON."],
-  ["/generos", "Generos de musica mexicana — Mexico Charts", "Mapa editorial de géneros, subgéneros y escenas de la música mexicana con artistas, charts y tendencias de streaming."],
+  ["/generos", "Generos de musica mexicana — Mexico Charts", "Explora artistas incluidos por género, sus streams de Spotify registrados y las posiciones asociadas al ranking de artistas de la fuente."],
   ["/industry/certifications", "Certificaciones AMPROFON — Mexico Charts", "Certificaciones de la industria musical mexicana con fuente AMPROFON, niveles de oro, platino y diamante, y datos organizados por artista."],
   ["/insights/mexico-top-10-ifpi-2026", "México entra al Top 10 global de música grabada — Mexico Charts", "Insight editorial sobre el Top 10 de México en IFPI 2026, mercado de música grabada, streaming y contexto de la música mexicana."],
   ["/touring", "Touring Mexico — artistas mexicanos en gira", "Conciertos y giras de artistas mexicanos con fechas, ciudades, recintos y enlaces oficiales de boletos."],

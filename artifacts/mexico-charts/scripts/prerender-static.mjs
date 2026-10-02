@@ -3,6 +3,7 @@ import { statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { artistProfileRoutes } from "./artist-profile-routes.mjs";
+import { renderArtistIndex } from "../src/lib/artistIndex.mjs";
 import { ORGANIZATION_ID, WEBSITE_ID, buildStructuredDataGraph, pageId } from "../src/lib/structured-data.mjs";
 import { WEEKLY_EDITIONS } from "../src/data/weekly-editions.mjs";
 import { PLATFORM_CHART_ROUTES, applySeoRouteDefinition } from "../src/lib/seo-routes.mjs";
@@ -97,6 +98,10 @@ const routes = [
       ["/esta-semana", "Esta semana"],
       ["/charts", "Todas las listas"],
       ["/metodologia", "Metodologia"],
+      ...WEEKLY_EDITIONS.map((edition) => [
+        `/esta-semana/${edition.date}`,
+        `Edición ${edition.date}`,
+      ]),
     ],
     breadcrumbs: [
       ["/", "Mexico Charts"],
@@ -220,7 +225,7 @@ const routes = [
     path: "/generos",
     title: "Generos de musica mexicana — Mexico Charts",
     description:
-      "Mapa editorial de géneros, subgéneros y escenas de la música mexicana con artistas, charts y tendencias de streaming.",
+      "Explora artistas incluidos por género, sus streams de Spotify registrados y las posiciones asociadas al ranking de artistas de la fuente.",
     eyebrow: "Generos",
     heading: "El mapa de generos mexicanos",
     body:
@@ -543,6 +548,11 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
+function serializeJsonLd(value) {
+  // Keep graph values unchanged while preventing HTML script-data delimiters.
+  return JSON.stringify(value, null, 6).replaceAll("<", "\\u003C");
+}
+
 function canonical(routePath) {
   return routePath === "/" ? `${siteUrl}/` : `${siteUrl}${routePath}`;
 }
@@ -577,7 +587,7 @@ function updateHead(html, route) {
     .replace(
       /<script type="application\/ld\+json">[\s\S]*?<\/script>/,
       `<script type="application/ld+json">
-    ${JSON.stringify(
+    ${serializeJsonLd(
       buildStructuredDataGraph({
         title: route.title,
         description: route.description,
@@ -588,8 +598,6 @@ function updateHead(html, route) {
           url: canonical(path),
         })),
       }),
-      null,
-      6,
     )}
     </script>`,
     );
@@ -612,7 +620,7 @@ function renderContent(route) {
         <nav aria-label="Secciones principales">${links}</nav>
       </main>
     </div>
-    <script>document.getElementById("prerender-content")?.remove();</script>`;
+    <script>document.getElementById("prerender-content")?.remove();</script>${route.path === "/artists" ? `<aside id="prerender-artist-index">${renderArtistIndex()}</aside>` : ""}`;
 }
 
 function injectContent(html, route) {

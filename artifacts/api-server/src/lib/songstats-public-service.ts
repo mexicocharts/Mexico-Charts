@@ -22,11 +22,27 @@ export interface SongstatsPublicGrowthWindow {
   percentage: number | null;
 }
 
+export interface SongstatsPublicGrowthEvidence {
+  requestedDays: number;
+  baselineTargetDate: string;
+  baseline: SongstatsPublicTrendPoint | null;
+  latest: SongstatsPublicTrendPoint | null;
+  baselineOffsetDays: number | null;
+  storedDateIntervalDays: number | null;
+  dateBasis: "normalized_history_date";
+  collectionTime: null;
+  collectionIntervalDays: null;
+  providerMeasurementTime: null;
+  providerMeasurementIntervalDays: null;
+  percentageAvailability: "available" | "zero_baseline" | "missing_baseline" | "same_date";
+}
+
 export interface SongstatsPublicMetricGrowth {
   days7: SongstatsPublicGrowthWindow | null;
   days15: SongstatsPublicGrowthWindow | null;
   days30: SongstatsPublicGrowthWindow | null;
   days90: SongstatsPublicGrowthWindow | null;
+  evidence?: Record<"days7" | "days15" | "days30" | "days90", SongstatsPublicGrowthEvidence | null>;
 }
 
 export interface SongstatsInsightAccessOptions {
@@ -60,6 +76,21 @@ export interface SongstatsPublicCatalog {
   releases: SongstatsPublicRelease[];
 }
 
+export interface SongstatsPublicReleaseComparison {
+  metric: SongstatsPublicMetricKey;
+  nominalDaysAfterRelease: number;
+  baselineTargetDate: string;
+  followupTargetDate: string;
+  baseline: SongstatsPublicTrendPoint | null;
+  followup: SongstatsPublicTrendPoint | null;
+  baselineOffsetDays: number | null;
+  followupOffsetDays: number | null;
+  storedDateIntervalDays: number | null;
+  dateBasis: "normalized_history_date";
+  providerMeasurementTime: null;
+  percentage: number | null;
+}
+
 export interface SongstatsPublicReleaseImpact {
   release: SongstatsPublicRelease;
   score: number | null;
@@ -68,6 +99,7 @@ export interface SongstatsPublicReleaseImpact {
   lift7: number | null;
   lift30: number | null;
   lift90: number | null;
+  comparisons: SongstatsPublicReleaseComparison[];
 }
 
 export interface SongstatsPublicInsight {
@@ -370,6 +402,24 @@ function growthWindow(
   return { absolute, percentage };
 }
 
+function growthWindowEvidence(points: SongstatsPublicTrendPoint[], days: number): SongstatsPublicGrowthEvidence {
+  const latest = points.at(-1)!;
+  const target = new Date(`${latest.date}T12:00:00.000Z`);
+  target.setUTCDate(target.getUTCDate() - days);
+  const baselineTargetDate = target.toISOString().slice(0, 10);
+  const baseline = closestPointAtOrBefore(points, target);
+  const distance = (start: string, end: string) => (Date.parse(`${end}T12:00:00.000Z`) - Date.parse(`${start}T12:00:00.000Z`)) / 86_400_000;
+  return {
+    requestedDays: days, baselineTargetDate, baseline, latest,
+    baselineOffsetDays: baseline ? distance(baselineTargetDate, baseline.date) : null,
+    storedDateIntervalDays: baseline ? distance(baseline.date, latest.date) : null,
+    dateBasis: "normalized_history_date", collectionTime: null, collectionIntervalDays: null,
+    providerMeasurementTime: null, providerMeasurementIntervalDays: null,
+    percentageAvailability: !baseline ? "missing_baseline" : baseline.date === latest.date ? "same_date"
+      : baseline.value === 0 ? "zero_baseline" : "available",
+  };
+}
+
 function downsampleRecent(
   points: SongstatsPublicTrendPoint[],
   days = 180,
@@ -441,11 +491,24 @@ function dateOffset(date: string, days: number) {
   return value.toISOString().slice(0, 10);
 }
 
-function releaseLift(points: SongstatsPublicTrendPoint[], releaseDate: string, days: number) {
-  const baseline = closestPointAtOrBefore(points, new Date(`${dateOffset(releaseDate, -1)}T12:00:00.000Z`));
-  const after = pointAtOrAfter(points, dateOffset(releaseDate, days));
-  if (!baseline || !after || baseline.value <= 0) return null;
-  return Math.round(((after.value - baseline.value) / baseline.value) * 1_000) / 10;
+function releaseComparison(metric: SongstatsPublicMetricKey, points: SongstatsPublicTrendPoint[], releaseDate: string, days: number): SongstatsPublicReleaseComparison {
+  const baselineTargetDate = dateOffset(releaseDate, -1);
+  const followupTargetDate = dateOffset(releaseDate, days);
+  const baseline = closestPointAtOrBefore(points, new Date(`${baselineTargetDate}T12:00:00.000Z`));
+  const followup = pointAtOrAfter(points, followupTargetDate);
+  const distance = (from: string, to: string) => Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
+  return {
+    metric, nominalDaysAfterRelease: days, baselineTargetDate, followupTargetDate,
+    baseline, followup,
+    baselineOffsetDays: baseline ? distance(baselineTargetDate, baseline.date) : null,
+    followupOffsetDays: followup ? distance(followupTargetDate, followup.date) : null,
+    storedDateIntervalDays: baseline && followup ? distance(baseline.date, followup.date) : null,
+    dateBasis: "normalized_history_date",
+    providerMeasurementTime: null,
+    percentage: baseline && followup && baseline.value > 0
+      ? Math.round(((followup.value - baseline.value) / baseline.value) * 1_000) / 10
+      : null,
+  };
 }
 
 function average(values: Array<number | null>) {
@@ -460,19 +523,17 @@ function latestReleaseImpact(
 ): SongstatsPublicReleaseImpact | null {
   const release = catalog.releases.find(item => item.releaseDate != null);
   if (!release?.releaseDate) return null;
-  const series = [
-    trends.spotifyMonthlyListeners ?? [],
-    trends.instagramFollowers ?? [],
-    trends.tiktokFollowers ?? [],
-    trends.youtubeSubscribers ?? [],
-  ].filter(points => points.length >= 2);
-  if (!series.length) {
-    return { release, score: null, confidence: "collecting", platformsMeasured: 0, lift7: null, lift30: null, lift90: null };
-  }
-  const lift7 = average(series.map(points => releaseLift(points, release.releaseDate!, 7)));
-  const lift30 = average(series.map(points => releaseLift(points, release.releaseDate!, 30)));
-  const lift90 = average(series.map(points => releaseLift(points, release.releaseDate!, 90)));
-  const measured = series.filter(points => releaseLift(points, release.releaseDate!, 30) != null).length;
+  const metrics: SongstatsPublicMetricKey[] = ["spotifyMonthlyListeners", "instagramFollowers", "tiktokFollowers", "youtubeSubscribers"];
+  const comparisons = metrics.flatMap(metric => {
+    const points = trends[metric] ?? [];
+    return [7, 30, 90].map(days => releaseComparison(metric, points, release.releaseDate!, days));
+  });
+  // Preserve existing aggregates; the added facts do not introduce a lag/eligibility policy.
+  const eligible = (days: number) => comparisons.filter(comparison => comparison.nominalDaysAfterRelease === days && (trends[comparison.metric]?.length ?? 0) >= 2);
+  const lift7 = average(eligible(7).map(comparison => comparison.percentage));
+  const lift30 = average(eligible(30).map(comparison => comparison.percentage));
+  const lift90 = average(eligible(90).map(comparison => comparison.percentage));
+  const measured = eligible(30).filter(comparison => comparison.percentage != null).length;
   const score = lift30 == null ? null : Math.max(0, Math.min(100, Math.round((Math.max(0, lift30) / 40) * 100)));
   return {
     release,
@@ -482,6 +543,7 @@ function latestReleaseImpact(
     lift7,
     lift30,
     lift90,
+    comparisons,
   };
 }
 
@@ -517,6 +579,12 @@ export function buildSongstatsPublicInsight(input: {
         days15: growthWindow(points, 15),
         days30: monitoringAccess ? growthWindow(points, 30) : null,
         days90: monitoringAccess ? growthWindow(points, 90) : null,
+        evidence: {
+          days7: growthWindowEvidence(points, 7),
+          days15: growthWindowEvidence(points, 15),
+          days30: monitoringAccess ? growthWindowEvidence(points, 30) : null,
+          days90: monitoringAccess ? growthWindowEvidence(points, 90) : null,
+        },
       };
     }
     if (TREND_KEYS.has(metric.key)) {

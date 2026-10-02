@@ -113,6 +113,17 @@ function isRoutable(route) {
   return staticRoutes.has(route) || dynamicRouteRegexes.some(({ regex }) => regex.test(route));
 }
 
+// Inspect each URL block as well as the loc list: an empty URL block is
+// otherwise invisible to route and duplicate checks.
+const invalidSitemapEntries = [...sitemapSource.matchAll(/<url\b[^>]*>([\s\S]*?)<\/url>/g)]
+  .flatMap((match, index) => {
+    const locations = [...match[1].matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc>/g)];
+    const openings = [...match[1].matchAll(/<loc\b/g)];
+    return locations.length === 1 && openings.length === 1 && locations[0][1].trim()
+      ? []
+      : [`Entry ${index + 1}: expected exactly one nonempty loc`];
+  });
+
 const sitemapRoutes = new Set(
   [...sitemapSource.matchAll(/<loc>([^<]+)<\/loc>/g)]
     .map((match) => normalizeRoute(match[1]))
@@ -181,6 +192,7 @@ const failures = [
   privateSitemapRoutes,
   duplicateSitemapRoutes,
   invalidSitemapUrls,
+  invalidSitemapEntries,
   invalidLastmods,
   historicalSitemapErrors,
 ].some((list) => list.length > 0);
@@ -194,6 +206,7 @@ if (failures) {
   reportList("Robots-disallowed routes present in sitemap", privateSitemapRoutes);
   reportList("Duplicate URLs present in sitemap", duplicateSitemapRoutes);
   reportList("Sitemap URLs outside the canonical origin", invalidSitemapUrls);
+  reportList("Sitemap entries with missing, empty or multiple locations", invalidSitemapEntries);
   reportList("Invalid sitemap lastmod values", invalidLastmods);
   reportList("Historical sitemap coverage errors", historicalSitemapErrors);
   process.exit(1);

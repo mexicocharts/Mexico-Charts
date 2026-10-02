@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useArtistMetadata } from "@/services/dataProvider";
 import { slugify } from "@/lib/utils";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import { genreLabel } from "@/lib/presentationLabels";
+import { searchAvailability, searchAvailabilityCopy } from "@/lib/searchAvailability.mjs";
 import { useChartsHub, type HubRow } from "@/hooks/useChartsHub";
 import { useTouring } from "@/hooks/useTouring";
 import { useLanguage } from "@/i18n/LanguageContext";
@@ -48,9 +50,9 @@ const CHART_META: Record<string, { platform: string; label: string; period: stri
   Spotify_Regional_Daily: { platform: "Spotify", label: "Regional", period: "Diario" },
   Spotify_Regional_Weekly: { platform: "Spotify", label: "Regional", period: "Semanal" },
   Spotify_Viral_Daily: { platform: "Spotify", label: "Viral", period: "Diario" },
-  Apple_Songs: { platform: "Apple Music", label: "Canciones", period: "Diario" },
-  Apple_Albums: { platform: "Apple Music", label: "Álbumes", period: "Diario" },
-  Deezer_Top_Mexico: { platform: "Deezer", label: "México", period: "Diario" },
+  Apple_Songs: { platform: "Apple Music", label: "Canciones", period: "Captura" },
+  Apple_Albums: { platform: "Apple Music", label: "Álbumes", period: "Captura" },
+  Deezer_Top_Mexico: { platform: "Deezer", label: "México", period: "Captura" },
 };
 
 type CertRow = {
@@ -174,6 +176,7 @@ const ENGLISH_SEARCH_TEXT: Record<string, string> = {
   "Concierto": "Concert",
   "Certificación": "Certification",
   "Diario": "Daily",
+  "Captura": "Snapshot",
   "Semanal": "Weekly",
   "Canciones": "Songs",
   "Álbumes": "Albums",
@@ -194,23 +197,51 @@ function englishSearchText(value: string) {
     .replace(/Canciones/g, "Songs")
     .replace(/Álbumes/g, "Albums")
     .replace(/Semanal/g, "Weekly")
-    .replace(/Diario/g, "Daily");
+    .replace(/Diario/g, "Daily")
+    .replace(/Captura/g, "Snapshot");
+}
+
+type SearchFocusSession = { opener: HTMLElement | null; restore: boolean };
+
+function usableFocusTarget(target: HTMLElement | null): target is HTMLElement {
+  return !!target && target.isConnected && target !== document.body &&
+    !target.matches(":disabled") && !target.closest("[inert]") &&
+    target.getClientRects().length > 0 && getComputedStyle(target).visibility !== "hidden";
 }
 
 export default function SiteSearch() {
   const { language, pick } = useLanguage();
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const desktopTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const openRef = useRef(false);
+  const focusSessionRef = useRef<SearchFocusSession | null>(null);
   const [, navigate] = useLocation();
 
-  function openSearch(event: MouseEvent<HTMLButtonElement>) {
-    triggerRef.current = event.currentTarget;
+  function beginSearch(opener: HTMLElement | null) {
+    if (openRef.current) return;
+    focusSessionRef.current = { opener, restore: true };
+    openRef.current = true;
     setOpen(true);
   }
 
+  function openSearch(event: MouseEvent<HTMLButtonElement>) {
+    beginSearch(event.currentTarget);
+  }
+
   function closeSearch() {
+    if (!openRef.current) return;
+    openRef.current = false;
     setOpen(false);
-    window.setTimeout(() => triggerRef.current?.focus(), 0);
+  }
+
+  function returnSearchFocus(session: SearchFocusSession | null) {
+    if (!session?.restore || openRef.current || focusSessionRef.current !== session) return;
+    for (const target of [session.opener, desktopTriggerRef.current, mobileTriggerRef.current]) {
+      if (!usableFocusTarget(target)) continue;
+      target.focus();
+      if (document.activeElement === target) return;
+    }
   }
 
   useEffect(() => {
@@ -219,24 +250,27 @@ export default function SiteSearch() {
       const typing = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
       if ((event.key === "/" && !typing) || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) {
         event.preventDefault();
-        triggerRef.current = null;
-        setOpen(true);
+        beginSearch(document.activeElement instanceof HTMLElement ? document.activeElement : null);
       }
-      if (event.key === "Escape" && open) closeSearch();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
   function go(href: string) {
-    setOpen(false);
+    if (!openRef.current) return;
+    if (focusSessionRef.current) focusSessionRef.current.restore = false;
+    closeSearch();
     navigate(href);
   }
 
+  const session = focusSessionRef.current;
+
   return (
-    <>
+    <DialogPrimitive.Root open={open} onOpenChange={next => { if (!next) closeSearch(); }}>
       <button
         type="button"
+        ref={desktopTriggerRef}
         onClick={openSearch}
         className="hidden items-center gap-2 rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors lg:flex"
         style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.48)" }}
@@ -248,6 +282,7 @@ export default function SiteSearch() {
 
       <button
         type="button"
+        ref={mobileTriggerRef}
         onClick={openSearch}
         className="flex h-9 w-9 items-center justify-center rounded-lg lg:hidden"
         style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)" }}
@@ -256,12 +291,12 @@ export default function SiteSearch() {
         <Search className="h-4 w-4" />
       </button>
 
-      {open && <SearchDialog onClose={closeSearch} onNavigate={go} language={language} />}
-    </>
+      {open && <SearchDialog onClose={closeSearch} onNavigate={go} onReturnFocus={() => returnSearchFocus(session)} language={language} />}
+    </DialogPrimitive.Root>
   );
 }
 
-function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; onNavigate: (href: string) => void; language: "es" | "en" }) {
+function SearchDialog({ onClose, onNavigate, onReturnFocus, language }: { onClose: () => void; onNavigate: (href: string) => void; onReturnFocus: () => void; language: "es" | "en" }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const titleId = "site-search-title";
@@ -269,8 +304,9 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
   const { byKey } = useArtistMetadata();
   const normalizedQuery = norm(query.trim());
   const deepSearchEnabled = normalizedQuery.length >= 2;
-  const { data: chartData } = useChartsHub({ enabled: deepSearchEnabled, retry: 1 });
-  const { data: certificationRows = [] } = useQuery<CertRow[]>({
+  const chartQuery = useChartsHub({ enabled: deepSearchEnabled, retry: 1 });
+  const { data: chartData } = chartQuery;
+  const certificationQuery = useQuery<CertRow[]>({
     queryKey: ["search", "certifications"],
     queryFn: async () => {
       const resp = await fetch(`${import.meta.env.BASE_URL}certifications.json`);
@@ -282,20 +318,9 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
     staleTime: 30 * 60 * 1000,
     retry: 1,
   });
-  const { data: touringArtists = [] } = useTouring({ enabled: deepSearchEnabled, retry: 1 });
-
-  useEffect(() => {
-    const t = window.setTimeout(() => inputRef.current?.focus(), 40);
-    return () => window.clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
+  const { data: certificationRows = [] } = certificationQuery;
+  const touringQuery = useTouring({ enabled: deepSearchEnabled, retry: 1 });
+  const { data: touringArtists = [] } = touringQuery;
 
   const results = useMemo<SearchResult[]>(() => {
     const q = normalizedQuery;
@@ -430,14 +455,23 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
     return pruneRankedResults(ranked);
   }, [byKey, certificationRows, chartData, deepSearchEnabled, normalizedQuery, touringArtists]);
 
+  const availability = searchAvailability(deepSearchEnabled, results.length, [chartQuery, certificationQuery, touringQuery]);
+  const availabilityCopy = searchAvailabilityCopy(language);
+
   return (
-        <div className="fixed inset-0 z-[90] px-4 pt-20" role="dialog" aria-modal="true" aria-labelledby={titleId} style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }} onMouseDown={onClose}>
-          <div
+        <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[90] px-4 pt-20" style={{ background: "rgba(0,0,0,0.72)", backdropFilter: "blur(10px)" }}>
+          <DialogPrimitive.Content
+            aria-labelledby={titleId}
+            aria-modal="true"
+            aria-describedby={undefined}
+            onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }}
+            onCloseAutoFocus={event => { event.preventDefault(); onReturnFocus(); }}
+            onFocus={event => { if (event.target === event.currentTarget) inputRef.current?.focus(); }}
             className="mx-auto max-w-2xl overflow-hidden rounded-xl"
             style={{ background: "linear-gradient(180deg,#0b0b0b,#050505)", border: "1px solid rgba(57,255,20,0.2)", boxShadow: "0 28px 80px rgba(0,0,0,0.72)" }}
-            onMouseDown={event => event.stopPropagation()}
           >
-            <h2 id={titleId} className="sr-only">{language === "en" ? "Search Mexico Charts" : "Buscar en Mexico Charts"}</h2>
+            <DialogPrimitive.Title asChild><h2 id={titleId} className="sr-only">{language === "en" ? "Search Mexico Charts" : "Buscar en Mexico Charts"}</h2></DialogPrimitive.Title>
             <div className="flex items-center gap-3 border-b px-4 py-3" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
               <Search className="h-4 w-4" style={{ color: G }} />
               <input
@@ -446,7 +480,7 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
                 value={query}
                 onChange={event => setQuery(event.target.value)}
                 onKeyDown={event => {
-                  if (event.key === "Enter" && results[0]) onNavigate(results[0].href);
+                  if (event.key === "Enter" && !event.nativeEvent.isComposing && results[0]) onNavigate(results[0].href);
                 }}
                 className="min-w-0 flex-1 bg-transparent text-sm font-bold text-white outline-none placeholder:text-white/25"
                 placeholder={language === "en" ? "Search artist, song, chart, certification, touring..." : "Buscar artista, canción, chart, certificado, gira..."}
@@ -459,6 +493,12 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
             </div>
 
             <div id={resultsId} className="max-h-[65vh] overflow-y-auto p-2" aria-live="polite">
+              <div className="space-y-1 px-3 py-2 text-xs text-white/60">
+                {availability.instruction && <p>{availabilityCopy.instruction}</p>}
+                {deepSearchEnabled && results.length > 0 && <p>{availabilityCopy.results}</p>}
+                {availability.warning && <p>{availabilityCopy.warning}</p>}
+                {availability.activity && <p>{availabilityCopy[availability.activity]}</p>}
+              </div>
               {results.map(result => (
                 <button
                   key={result.dedupeKey ?? `${result.type}-${result.href}-${result.label}-${result.detail}`}
@@ -476,9 +516,9 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
                   </span>
                 </button>
               ))}
-              {results.length === 0 && (
+              {availability.showEmpty && (
                 <div className="px-4 py-10 text-center text-sm font-bold" style={{ color: "rgba(255,255,255,0.38)" }}>
-                  {language === "en" ? "No results for that search." : "Sin resultados para esa búsqueda."}
+                  {availabilityCopy.empty}
                 </div>
               )}
               {!query.trim() && (
@@ -487,7 +527,8 @@ function SearchDialog({ onClose, onNavigate, language }: { onClose: () => void; 
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Overlay>
+        </DialogPrimitive.Portal>
   );
 }

@@ -4,6 +4,7 @@ import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-qu
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useLanguage } from "@/i18n/LanguageContext";
+import { RouteErrorBoundary, RouteRecoveryState } from "@/components/RouteErrorBoundary";
 
 const NotFound = lazy(() => import("@/pages/not-found"));
 const LuisMiguelTour2027 = lazy(() => import("@/pages/LuisMiguelTour2027"));
@@ -113,6 +114,7 @@ function Router() {
       <LegacyRouteRedirects />
       <ScrollToTop />
       <GoogleAnalyticsPageView />
+      <RouteErrorBoundary fallback={<RouteRecoveryState />}>
       <Suspense fallback={<AppLoadingState />}>
         <Switch>
           <Route path="/" component={HomeV6} />
@@ -157,6 +159,7 @@ function Router() {
           <Route component={NotFound} />
         </Switch>
       </Suspense>
+      </RouteErrorBoundary>
     </>
   );
 }

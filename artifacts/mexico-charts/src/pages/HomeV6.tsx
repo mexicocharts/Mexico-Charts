@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { slugify } from "@/lib/utils";
 import { artistCatalogCount, canonicalArtistHref, resolveCanonicalArtist } from "@/lib/artistRoutes.mjs";
 import { genreLabel } from "@/lib/presentationLabels";
+import { HERO_ROTATION_INTERVAL, rotationState, nextHeroIndex, rotationIntent, selectedHero, type RotationAction } from "@/lib/heroRotation.mjs";
 import {
   motion, AnimatePresence,
   useScroll, useTransform,
@@ -381,8 +382,8 @@ export default function HomeV6() {
   const { data: heroSongstats, isLoading: heroSongstatsLoading } = useSongstatsArtists(heroArtistKeys);
 
   const HERO_ARTISTS = useMemo(() => {
-    // Current licensed snapshots are authoritative. Metadata is only a fallback after
-    // Songstats confirms that an artist has no stored snapshot.
+    // Valid stored counts, including zero, take priority. Metadata remains the
+    // existing fallback when a resolved bulk map has no usable count for this key.
     return BASE_HERO_ARTISTS.map(a => ({
       ...a,
       ...(() => {
@@ -390,23 +391,39 @@ export default function HomeV6() {
         const current = key ? heroSongstats?.[key] : null;
         const listeners = current?.snapshot.spotifyMonthlyListeners;
         const weeklyGrowth = current?.growth.spotifyMonthlyListeners?.days7?.percentage;
-        if (listeners && listeners > 0) {
+        if (typeof listeners === "number" && Number.isFinite(listeners) && listeners >= 0) {
           return {
             listeners: fmtExactCount(listeners),
             growth: typeof weeklyGrowth === "number" ? fmtSignedPct(weeklyGrowth) : "",
             snapshotDate: current?.snapshot.snapshotDate ?? "",
+            listenerSource: "Songstats",
           };
         }
-        if (heroSongstatsLoading || !heroSongstats) return { listeners: "—", growth: "", snapshotDate: "" };
+        if (heroSongstatsLoading || !heroSongstats) return { listeners: "—", growth: "", snapshotDate: "", listenerSource: "" };
         const meta = lookupArtistMetadata(undefined, a.name, metaByKey, metaByName);
         return {
           listeners: meta && meta.spotifyListeners > 0 ? fmtExactCount(meta.spotifyListeners) : "—",
           growth: "",
           snapshotDate: "",
+          listenerSource: meta && meta.spotifyListeners > 0 ? "editorial" : "",
         };
       })(),
     }));
   }, [BASE_HERO_ARTISTS, heroSongstats, heroSongstatsLoading, metaByKey, metaByName]);
+
+  const [heroRotation, setHeroRotation] = useState({ paused: false, hovered: false });
+  const heroRotationRef = useRef(heroRotation);
+  const rotationControlRef = useRef<HTMLButtonElement>(null);
+  const pointerRotationIntent = useRef<"pause" | "resume" | null>(null);
+  const [heroFocusLock, setHeroFocusLock] = useState<(typeof HERO_ARTISTS)[number] | null>(null);
+  const rotationGuardsRef = useRef({ reduced, campaign: showTourCampaign });
+  rotationGuardsRef.current = { reduced, campaign: showTourCampaign };
+  function updateHeroRotation(action: RotationAction) {
+    const next = rotationState(heroRotationRef.current, action);
+    heroRotationRef.current = next;
+    setHeroRotation(next);
+  }
+
 
   const ASCENSO = useMemo(() => {
     // Build from Spotify_Artists_Daily — Mexican artists with biggest rank climbs today
@@ -576,10 +593,14 @@ export default function HomeV6() {
 
   /* Auto-cycle hero */
   useEffect(() => {
-    if (showTourCampaign || reduced) return;
-    const t = setInterval(() => setHeroIndex(i => (i + 1) % HERO_ARTISTS.length), 5000);
+    if (showTourCampaign || reduced || heroRotation.paused || heroRotation.hovered || HERO_ARTISTS.length < 2) return;
+    // The immediate ref guard also stops an already queued tick after focus/Pause.
+    // Every restart gets a fresh full interval, with no catch-up advance.
+    const t = setInterval(() => setHeroIndex(i =>
+      nextHeroIndex(i, HERO_ARTISTS.length, heroRotationRef.current, rotationGuardsRef.current) ?? i
+    ), HERO_ROTATION_INTERVAL);
     return () => clearInterval(t);
-  }, [HERO_ARTISTS.length, showTourCampaign, reduced]);
+  }, [HERO_ARTISTS.length, showTourCampaign, reduced, heroRotation.paused, heroRotation.hovered]);
 
   /* Artist images */
   const allNames = useMemo(() => {
@@ -606,7 +627,7 @@ export default function HomeV6() {
   const canonicalImg = (name: string) => (
     img(resolveCanonicalArtist(name)?.name ?? name) ?? img(name)
   );
-  const hero = HERO_ARTISTS[heroIndex] ?? HERO_ARTISTS[0];
+  const hero = selectedHero(HERO_ARTISTS, heroIndex, heroFocusLock) ?? HERO_ARTISTS[0];
   const heroImage = img(hero.name);
 
   return (
@@ -655,7 +676,35 @@ export default function HomeV6() {
       {/* ══════════════════════════════════════════════════════════
           HERO — V5 gradient + parallax + ambient glow + noise
       ══════════════════════════════════════════════════════════ */}
-      <section hidden={showTourCampaign} ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px", zIndex: 1 }} data-testid="section-hero">
+      <section hidden={showTourCampaign} ref={heroRef} className="relative overflow-hidden" style={{ height:"68vh", minHeight:"480px", zIndex: 1 }} data-testid="section-hero"
+        onMouseEnter={() => updateHeroRotation("enter")}
+        onMouseLeave={() => updateHeroRotation("leave")}
+        onFocusCapture={event => {
+          updateHeroRotation("focus");
+          setHeroFocusLock(event.target === rotationControlRef.current ? null : hero);
+        }}
+        onBlurCapture={event => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setHeroFocusLock(null);
+        }}
+      >
+        <button
+          ref={rotationControlRef}
+          type="button"
+          className="absolute top-4 right-6 md:right-10 z-10 rounded-full border border-white/30 bg-black/70 px-3 py-2 text-xs text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#39FF14]"
+          disabled={Boolean(reduced) || HERO_ARTISTS.length < 2}
+          aria-label={heroRotation.paused ? pick("Reanudar rotación de artistas", "Resume artist rotation") : pick("Pausar rotación de artistas", "Pause artist rotation")}
+          onPointerDown={() => { pointerRotationIntent.current = rotationIntent(heroRotationRef.current); }}
+          onPointerCancel={() => { pointerRotationIntent.current = null; }}
+          onBlur={() => { pointerRotationIntent.current = null; }}
+          onClick={event => {
+            const intent = rotationIntent(heroRotationRef.current, event.detail > 0 ? pointerRotationIntent.current : null);
+            pointerRotationIntent.current = null;
+            setHeroFocusLock(null);
+            updateHeroRotation(intent);
+          }}
+        >
+          {heroRotation.paused ? pick("Reanudar", "Resume") : pick("Pausar", "Pause")}
+        </button>
 
         {/* Base — obsidian black */}
         <div className="absolute inset-0" style={{ background:"#050505" }} />
@@ -694,7 +743,7 @@ export default function HomeV6() {
 
         {/* Artist portrait — parallax */}
         <AnimatePresence mode="wait">
-          {heroImage && (
+          {!showTourCampaign && heroImage && (
             <motion.div
               key={`portrait-${heroIndex}`}
               initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
@@ -770,7 +819,7 @@ export default function HomeV6() {
               </motion.div>
             ) : (
             <motion.div
-              key={`text-${heroIndex}`}
+              key={`text-${hero.name}`}
               initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-14 }}
               transition={{ duration:0.55, ease:[0.16,1,0.3,1] }}
             >
@@ -791,8 +840,10 @@ export default function HomeV6() {
                 {hero.growth && hero.growth !== "—" && (
                   <><span className="mx-3 opacity-40">·</span><span style={{ color:"#39FF14" }}>{hero.growth} {pick("variación semanal", "weekly change")} · Spotify</span></>
                 )}
-                {hero.snapshotDate && (
-                  <><span className="mx-3 opacity-40">·</span><span className="text-white/35">Songstats · {hero.snapshotDate}</span></>
+                {hero.listenerSource && (
+                  <><span className="mx-3 opacity-40">·</span><span className="text-white/35">
+                    {hero.listenerSource === "Songstats" ? "Songstats" : pick("Metadatos editoriales", "Editorial metadata")} · {hero.snapshotDate || pick("Fecha no disponible", "Date unavailable")}
+                  </span></>
                 )}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
@@ -825,8 +876,12 @@ export default function HomeV6() {
           {/* Dot indicators */}
           <div className="absolute bottom-8 right-6 md:right-10 flex items-center gap-2">
             {HERO_ARTISTS.map((_, i) => (
-              <button key={i} onClick={() => setHeroIndex(i)}
-                className="transition-all duration-300 rounded-full focus:outline-none"
+              <button key={i} type="button" onClick={() => {
+                updateHeroRotation("select");
+                setHeroIndex(i);
+                setHeroFocusLock(HERO_ARTISTS[i] ?? null);
+              }}
+                className="transition-all duration-300 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#39FF14]"
                 style={{ width:i===heroIndex?22:6, height:6, background:i===heroIndex?"#39FF14":"rgba(255,255,255,0.25)", border:"none", padding:0, cursor:"pointer" }}
                 aria-label={`${pick("Artista", "Artist")} ${i+1}`}
               />

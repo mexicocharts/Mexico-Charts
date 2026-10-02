@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { useLanguage } from "@/i18n/LanguageContext";
+import { highestAvailableChange, audienceChangeCopy } from "@/lib/audienceChange.mjs";
 import { BarChart3, Disc3, MapPin } from "lucide-react";
+import { releaseComparisonText } from "@/lib/releaseComparisonText.mjs";
 import type {
   SongstatsArtistData,
-  SongstatsMetricGrowth,
   SongstatsTrendPoint,
 } from "@/hooks/useSongstatsArtist";
 
@@ -56,17 +58,6 @@ function sparklinePath(points: SongstatsTrendPoint[], width = 520, height = 150)
   }).join(" ");
 }
 
-function strongestGrowth(growth: SongstatsArtistData["growth"]) {
-  const candidates: Array<{ label: string; growth?: SongstatsMetricGrowth }> = [
-    { label: "Spotify", growth: growth.spotifyMonthlyListeners },
-    { label: "Instagram", growth: growth.instagramFollowers },
-    { label: "TikTok", growth: growth.tiktokFollowers },
-    { label: "YouTube", growth: growth.youtubeSubscribers },
-  ];
-  return candidates
-    .filter(item => item.growth?.days15?.percentage != null)
-    .sort((a, b) => (b.growth?.days15?.percentage ?? -Infinity) - (a.growth?.days15?.percentage ?? -Infinity))[0] ?? null;
-}
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
@@ -85,10 +76,12 @@ export default function ArtistIntelligenceLab({
   artistName: string;
   data: SongstatsArtistData | null | undefined;
 }) {
+  const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState<IntelligenceTab>("audience");
   const cities = data?.topMexicoCities ?? [];
   const maxCity = Math.max(cities[0]?.currentListeners ?? 0, 1);
-  const strongest = useMemo(() => strongestGrowth(data?.growth ?? {}), [data]);
+  const strongest = useMemo(() => highestAvailableChange(data?.growth ?? {}), [data]);
+  const changeCopy = audienceChangeCopy(language, strongest?.growth?.evidence?.days15);
   const conversionSeries = useMemo(() => {
     if (!data) return [];
     return [
@@ -179,7 +172,7 @@ export default function ArtistIntelligenceLab({
                 <div className="mt-5 space-y-4">
                   <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Mercado principal observado</div><div className="mt-1 text-xl font-black text-white">{cities[0]?.name}</div></div>
                   <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Oyentes en top 5 MX</div><div className="mt-1 text-xl font-black text-[#39FF14]">{compact(cities.reduce((sum, city) => sum + city.currentListeners, 0))}</div></div>
-                  <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Mayor crecimiento 15d</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days15?.percentage)}` : "Recopilando historial"}</div></div>
+                  <div><div className="text-[10px] font-black uppercase tracking-wider text-zinc-400">{changeCopy.heading}</div><div className="mt-1 text-sm font-black text-white">{strongest ? `${strongest.label} · ${percentage(strongest.growth?.days15?.percentage)}` : changeCopy.unavailable}</div>{strongest && <div className="mt-2 space-y-1 text-xs leading-relaxed text-zinc-400">{changeCopy.endpoints && <p>{changeCopy.endpoints}</p>}<p>{changeCopy.target}</p><p>{changeCopy.uncertainty}</p></div>}</div>
                 </div>
               </div>
             </div>
@@ -239,11 +232,14 @@ export default function ArtistIntelligenceLab({
                 <h3 className="mt-2 text-xl font-black text-white">{impact.release.title}</h3>
                 <p className="mt-1 text-[10px] font-bold text-zinc-400">{releaseTypeLabel(impact.release.type)} · {dateLabel(impact.release.releaseDate)}</p>
                 <div className="mt-6 grid grid-cols-3 gap-2">
-                  {[["7 días", impact.lift7], ["30 días", impact.lift30], ["90 días", impact.lift90]].map(([label, value]) => (
+                  {[["Objetivo +7 días", impact.lift7], ["Objetivo +30 días", impact.lift30], ["Objetivo +90 días", impact.lift90]].map(([label, value]) => (
                     <div key={String(label)} className="rounded-lg border border-white/[0.06] bg-white/[0.025] p-3"><div className={`text-lg font-black ${typeof value === "number" && value > 0 ? "text-[#39FF14]" : "text-white"}`}>{percentage(value as number | null)}</div><div className="mt-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">{label}</div></div>
                   ))}
                 </div>
-                <p className="mt-4 text-[10px] font-medium leading-4 text-zinc-400">Cambio promedio entre las plataformas con historial anterior y posterior suficiente. Asociación temporal; no afirma causalidad.</p>
+                <p className="mt-4 text-[10px] font-medium leading-4 text-zinc-400">Promedio de cambios entre los puntos seleccionados de cada plataforma. Los objetivos indican días después del lanzamiento; las fechas guardadas pueden estar más alejadas. Hora de medición del proveedor y cobertura intermedia: no verificadas. Asociación temporal; no afirma causalidad ni nuevos oyentes captados.</p>
+                {impact.comparisons?.length ? <div className="mt-4 space-y-3 text-[10px] leading-4 text-zinc-400">
+                  {[7, 30, 90].map(days => <div key={days}><b className="text-zinc-300">Base objetivo −1 día → seguimiento objetivo +{days} días</b><ul className="mt-1 space-y-1">{impact.comparisons!.filter(comparison => comparison.nominalDaysAfterRelease === days).map(comparison => <li key={comparison.metric}>{releaseComparisonText(comparison)}</li>)}</ul></div>)}
+                </div> : <p className="mt-3 text-[10px] leading-4 text-zinc-400">Fechas seleccionadas e intervalos: no disponibles en esta respuesta.</p>}
               </div>
               <div className="rounded-xl border border-white/[0.07] bg-black/25 p-4 sm:p-5">
                 <h3 className="text-sm font-black text-white">Release Impact Score</h3>

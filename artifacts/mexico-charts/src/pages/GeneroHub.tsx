@@ -142,6 +142,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
               {/* Spotify rank badge */}
               {spotifyRank && (
                 <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black text-black"
+                  title={`Posición en Spotify Artists: ${spotifyRank}. Asociación por nombre; no determina el orden de esta lista.`}
                   style={{ background: G, boxShadow: `0 0 6px ${G}80` }}>
                   {spotifyRank}
                 </div>
@@ -163,7 +164,7 @@ function ArtistCard({ meta, image, spotifyRank, accent, index }: ArtistCardProps
               <div className="flex items-center gap-3 mt-2">
                 {meta.spotifyStreams > 0 && (
                   <span className="text-[11px] font-black" style={{ color: G }}>
-                    {meta.spotifyStreamsFmt} <span className="opacity-50 font-medium">streams</span>
+                    {meta.spotifyStreamsFmt} <span className="opacity-50 font-medium">streams Spotify registrados</span>
                   </span>
                 )}
                 {meta.label && (
@@ -200,11 +201,14 @@ interface GenreCardProps {
 function GenreCard({ genre, artists, totalStreams, chartCount, isSelected, onClick }: GenreCardProps) {
   const topThree = artists.slice(0, 3).map(a => a.displayName);
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      aria-label={genre.name}
+      aria-pressed={isSelected}
       whileHover={{ scale: 1.02, y: -2 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="relative overflow-hidden rounded-xl cursor-pointer"
+      className="relative w-full overflow-hidden rounded-xl cursor-pointer text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
       style={{
         background: isSelected
           ? `linear-gradient(160deg, #0f1f0a 0%, #0a1507 100%)`
@@ -214,48 +218,48 @@ function GenreCard({ genre, artists, totalStreams, chartCount, isSelected, onCli
         transition: "all 0.25s ease",
       }}
     >
-      <div className="absolute inset-0 opacity-[0.04] pointer-events-none rounded-xl" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
-      <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: genre.accent, opacity: isSelected ? 1 : 0.5 }} />
+      <span className="absolute inset-0 opacity-[0.04] pointer-events-none rounded-xl" style={{ backgroundImage: NOISE_SVG, backgroundSize: "96px" }} />
+      <span className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl" style={{ background: genre.accent, opacity: isSelected ? 1 : 0.5 }} />
 
-      <div className="relative p-5 pl-6">
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div>
-            <div className="font-black text-sm uppercase text-white leading-tight" style={{ letterSpacing: "-0.01em" }}>
+      <span className="block relative p-5 pl-6">
+        <span className="flex items-start justify-between gap-2 mb-3">
+          <span className="block">
+            <span className="block font-black text-sm uppercase text-white leading-tight" style={{ letterSpacing: "-0.01em" }}>
               {genre.name}
-            </div>
-            <div className="text-[10px] uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-              {artists.length > 0 ? `${artists.length} artistas` : "—"}
-            </div>
-          </div>
+            </span>
+            <span className="block text-[10px] uppercase tracking-widest mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+              {artists.length > 0 ? `${artists.length} ${artists.length === 1 ? "artista incluido" : "artistas incluidos"}` : "—"}
+            </span>
+          </span>
           {isSelected && (
             <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full"
               style={{ background: genre.accent, color: "#000" }}>
               Activo
             </span>
           )}
-        </div>
+        </span>
 
-        <div className="flex items-baseline gap-1 mb-1">
+        <span className="flex items-baseline gap-1 mb-1">
           <span className="text-2xl font-black leading-none" style={{ color: isSelected ? genre.accent : "rgba(255,255,255,0.85)" }}>
             {fmtNum(totalStreams)}
           </span>
-          <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>streams spotify</span>
-        </div>
+          <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.35)" }}>streams Spotify registrados</span>
+        </span>
 
         {chartCount > 0 && (
-          <div className="text-[10px] uppercase tracking-wide mb-3" style={{ color: genre.accent + "cc" }}>
-            {chartCount} en top 200 hoy
-          </div>
+          <span className="block text-[10px] uppercase tracking-wide mb-3" style={{ color: genre.accent + "cc" }}>
+            Con posición en Spotify Artists: {chartCount}
+          </span>
         )}
 
         {topThree.length > 0 && (
-          <div className="text-[10px] uppercase tracking-wide leading-relaxed"
+          <span className="block text-[10px] uppercase tracking-wide leading-relaxed"
             style={{ color: "rgba(255,255,255,0.55)" }}>
             {topThree.join(" · ")}
-          </div>
+          </span>
         )}
-      </div>
-    </motion.div>
+      </span>
+    </motion.button>
   );
 }
 
@@ -296,7 +300,7 @@ export default function GeneroHub() {
         }
       }
     }
-    // Sort each bucket by Spotify listeners desc
+    // Sort each bucket by recorded Spotify streams desc
     for (const g of GENRES) {
       buckets[g.name].sort((a, b) => b.spotifyStreams - a.spotifyStreams);
     }
@@ -328,7 +332,7 @@ export default function GeneroHub() {
     <div style={{ minHeight: "100vh", background: "#080808", color: "#fff" }}>
       <PageSEO
         title="Géneros de Música Mexicana — Corridos, Regional, Norteño, Banda"
-        description="Explora los géneros de la música mexicana: corridos tumbados, regional mexicano, norteño y banda. Estadísticas de streaming, artistas top y tendencias."
+        description="Explora artistas incluidos por género, sus streams de Spotify registrados y las posiciones asociadas al ranking de artistas de la fuente."
         path="/generos"
         breadcrumbs={[
           { name: "Mexico Charts", path: "/" },
@@ -352,7 +356,7 @@ export default function GeneroHub() {
             </h1>
           </div>
           <p className="text-xs pb-0.5 max-w-sm" style={{ color: "rgba(255,255,255,0.35)", lineHeight: 1.5 }}>
-            Rankings en tiempo real · artistas verificados · streams Spotify
+            Artistas por género · streams de Spotify registrados
           </p>
         </div>
         <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right, transparent, ${G}22, transparent)` }} />
@@ -410,19 +414,19 @@ export default function GeneroHub() {
               {activeArtists.length > 0 && (
                 <div className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wide"
                   style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
-                  {activeArtists.length} artistas
+                  {activeArtists.length} {activeArtists.length === 1 ? "artista incluido" : "artistas incluidos"}
                 </div>
               )}
               {genreStats[selectedGenre]?.totalStreams > 0 && (
                 <div className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wide"
                   style={{ background: "rgba(57,255,20,0.07)", border: `1px solid ${activeGenre.accent}33`, color: activeGenre.accent }}>
-                  {fmtNum(genreStats[selectedGenre].totalStreams)} streams Spotify
+                  {fmtNum(genreStats[selectedGenre].totalStreams)} streams Spotify registrados
                 </div>
               )}
               {genreStats[selectedGenre]?.chartCount > 0 && (
                 <div className="px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wide"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
-                  {genreStats[selectedGenre].chartCount} en Spotify Top 200 hoy
+                  Con posición en Spotify Artists: {genreStats[selectedGenre].chartCount}
                 </div>
               )}
             </div>
@@ -431,7 +435,7 @@ export default function GeneroHub() {
           {/* Sort label */}
           {activeArtists.length > 0 && (
             <div className="text-[10px] font-black uppercase tracking-[0.25em] mb-4" style={{ color: "rgba(255,255,255,0.50)" }}>
-              Ordenado por streams acumulados · Spotify
+              Ordenados por streams de Spotify registrados, de mayor a menor
             </div>
           )}
 
@@ -468,7 +472,7 @@ export default function GeneroHub() {
           {/* Data source footnote */}
           {activeArtists.length > 0 && (
             <div className="mt-8 text-[10px] uppercase tracking-widest font-bold" style={{ color: "rgba(255,255,255,0.48)" }}>
-              Fuente: Spotify · Datos actualizados semanalmente · Solo artistas mexicanos verificados
+              La suma reúne los valores registrados para los artistas incluidos en esta categoría; no representa el total de streams del género. La fecha de estos valores no está disponible en esta vista. Las posiciones de Spotify Artists se asocian por nombre y son independientes del orden de esta lista. Un valor normalizado a cero puede corresponder a cero, un dato vacío o un dato ausente.
             </div>
           )}
         </motion.section>

@@ -11,6 +11,7 @@ import { auditArtistDirectoryRecords, directoryImageState } from "@/lib/artistDi
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { SiSpotify, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 import SiteNav from "@/components/SiteNav";
+import ArtistIndex from "@/components/ArtistIndex";
 
 const logoUrl = `${import.meta.env.BASE_URL}mexico-charts-logo.png`;
 
@@ -717,6 +718,8 @@ export default function ArtistRoster() {
           </div>
         )}
       </main>
+
+      <ArtistIndex />
 
       {/* ── FOOTER ── */}
       <footer className="max-w-[1400px] mx-auto px-6 py-8 mt-8 border-t border-white/[0.05] flex items-center justify-between gap-4 flex-wrap">

@@ -12,6 +12,7 @@ import { formatCertificationLevels } from "@/lib/certificationLabels";
 import { canonicalArtistHref } from "@/lib/artistRoutes.mjs";
 import BrandLogo from "@/components/BrandLogo";
 import CertificationBadgeImage from "@/components/CertificationBadgeImage";
+import { useLanguage } from "@/i18n/LanguageContext";
 
 const G = "#39FF14";
 const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, "") ?? "https://mexicochart.com";
@@ -111,6 +112,13 @@ function artistLinkHref(artist: string) {
 }
 
 export default function Certifications() {
+  const { pick } = useLanguage();
+  const sortLabels = {
+    artista: pick("Artista", "Artist"),
+    titulo: pick("Título", "Title"),
+    nivel: pick("Nivel", "Level"),
+    fecha: pick("Fecha", "Date"),
+  };
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -421,26 +429,31 @@ export default function Certifications() {
           <>
             {/* Desktop table */}
             <div className="hidden lg:block rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+              <p id="certification-sort-state" className="sr-only">
+                {pick("Orden actual", "Current order")}: {sortLabels[sortBy]}, {sortDir === "asc" ? pick("ascendente", "ascending") : pick("descendente", "descending")}.
+              </p>
               {/* Header */}
               <div className="grid text-[9px] font-black uppercase tracking-[0.18em] px-5 py-3"
                 style={{ gridTemplateColumns: "2fr 2.5fr 1.2fr 1.6fr 0.7fr 1.1fr 1.5fr", background: "rgba(255,255,255,0.04)", borderBottom: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)" }}>
                 {[
-                  { label: "Artista", col: "artista" as const },
-                  { label: "Título", col: "titulo" as const },
-                  { label: "Formato", col: null },
-                  { label: "Certificación", col: null },
-                  { label: "Nivel", col: "nivel" as const },
-                  { label: "Fecha", col: "fecha" as const },
-                  { label: "Disquera", col: null },
-                ].map(({ label, col }) => (
-                  <button key={label}
-                    onClick={() => col && toggleSort(col)}
-                    className={`flex items-center gap-1 text-left ${col ? "cursor-pointer hover:text-white transition-colors" : "cursor-default"}`}
-                    style={{ color: col && sortBy === col ? "rgba(255,255,255,0.85)" : undefined }}>
+                  { label: sortLabels.artista, col: "artista" as const },
+                  { label: sortLabels.titulo, col: "titulo" as const },
+                  { label: pick("Formato", "Format"), col: null },
+                  { label: pick("Certificación", "Certification"), col: null },
+                  { label: sortLabels.nivel, col: "nivel" as const },
+                  { label: sortLabels.fecha, col: "fecha" as const },
+                  { label: pick("Disquera", "Label"), col: null },
+                ].map(({ label, col }) => col ? (
+                  <button key={col} type="button"
+                    onClick={() => toggleSort(col)}
+                    aria-describedby="certification-sort-state"
+                    aria-label={`${label}: ${sortBy === col && sortDir === "desc" ? pick("ordenar en orden ascendente", "sort ascending") : pick("ordenar en orden descendente", "sort descending")}`}
+                    className="flex items-center gap-1 text-left cursor-pointer hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#39FF14]"
+                    style={{ color: sortBy === col ? "rgba(255,255,255,0.85)" : undefined }}>
                     {label}
-                    {col && <SortIcon col={col} />}
+                    <span aria-hidden="true"><SortIcon col={col} /></span>
                   </button>
-                ))}
+                ) : <span key={label} className="flex items-center text-left">{label}</span>)}
               </div>
 
               {/* Rows */}

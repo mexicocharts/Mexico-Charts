@@ -21,11 +21,27 @@ export interface SongstatsGrowthWindow {
   percentage: number | null;
 }
 
+export interface SongstatsGrowthEvidence {
+  requestedDays: number;
+  baselineTargetDate: string;
+  baseline: SongstatsTrendPoint | null;
+  latest: SongstatsTrendPoint | null;
+  baselineOffsetDays: number | null;
+  storedDateIntervalDays: number | null;
+  dateBasis: "normalized_history_date";
+  collectionTime: null;
+  collectionIntervalDays: null;
+  providerMeasurementTime: null;
+  providerMeasurementIntervalDays: null;
+  percentageAvailability: "available" | "zero_baseline" | "missing_baseline" | "same_date";
+}
+
 export interface SongstatsMetricGrowth {
   days7: SongstatsGrowthWindow | null;
   days15: SongstatsGrowthWindow | null;
   days30: SongstatsGrowthWindow | null;
   days90: SongstatsGrowthWindow | null;
+  evidence?: Record<"days7" | "days15" | "days30" | "days90", SongstatsGrowthEvidence | null>;
 }
 
 export interface SongstatsTrendPoint {
@@ -60,6 +76,21 @@ export interface SongstatsCatalogSummary {
   releases: SongstatsRelease[];
 }
 
+export interface SongstatsReleaseComparison {
+  metric: string;
+  nominalDaysAfterRelease: number;
+  baselineTargetDate: string;
+  followupTargetDate: string;
+  baseline: SongstatsTrendPoint | null;
+  followup: SongstatsTrendPoint | null;
+  baselineOffsetDays: number | null;
+  followupOffsetDays: number | null;
+  storedDateIntervalDays: number | null;
+  dateBasis: "normalized_history_date";
+  providerMeasurementTime: null;
+  percentage: number | null;
+}
+
 export interface SongstatsReleaseImpact {
   release: SongstatsRelease;
   score: number | null;
@@ -68,6 +99,7 @@ export interface SongstatsReleaseImpact {
   lift7: number | null;
   lift30: number | null;
   lift90: number | null;
+  comparisons?: SongstatsReleaseComparison[];
 }
 
 export interface SongstatsArtistData {

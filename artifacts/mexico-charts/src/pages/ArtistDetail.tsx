@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useArtistsWeekly, findArtistBySlug, useArtistMetadata, lookupArtistMetadata } from "@/services/dataProvider";
 import { SHEET_SOURCES } from "@/config/sheetSources";
-import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BadgeCheck, BellRing, Database, ExternalLink, PencilLine } from "lucide-react";
+import { ArrowLeft, TrendingUp, Music, MapPin, Globe, Play, BellRing, Database, ExternalLink, PencilLine } from "lucide-react";
 import ArtistCertifications from "@/components/ArtistCertifications";
 import PageSEO from "@/components/PageSEO";
 import { SiSpotify, SiYoutube, SiInstagram, SiTiktok, SiSoundcloud, SiFacebook, SiX } from "react-icons/si";
@@ -21,12 +21,14 @@ import { artistSearchHref, canonicalArtistHref, resolveCanonicalArtist } from "@
 import { countryLabel, genreLabel, labelAssociationValue } from "@/lib/presentationLabels";
 import { observationValue, recentObservations, observationCoordinates } from "@/lib/chartObservations.mjs";
 import { listenerSnapshot } from "@/lib/listenerSnapshot.mjs";
+import { heroListenerDisplay } from "@/lib/heroListenerDisplay.mjs";
 import { spotifyMexicoRankLabel } from "@/lib/rankLabels";
 import SaveArtistButton from "@/components/SaveArtistButton";
 import YouTubeLivePublicPreview, { type YouTubeLivePreviewVideo } from "@/components/YouTubeLivePublicPreview";
 import { YouTubeConsentGate, YouTubeMixedLegend, YouTubeSourceLabel } from "@/components/YouTubeConsent";
 import ArtistIntelligenceLab from "@/components/ArtistIntelligenceLab";
 import { SITE_URL, pageId } from "@/lib/structured-data.mjs";
+import { useLanguage } from "@/i18n/LanguageContext";
 import BrandLogo from "@/components/BrandLogo";
 import ResponsiveThumbnail from "@/components/ResponsiveThumbnail";
 
@@ -591,8 +593,9 @@ export default function ArtistDetail() {
 }
 
 function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonicalName: string }) {
+  const { pick } = useLanguage();
   const reduced = useReducedMotion();
-  const [showVerificationInfo, setShowVerificationInfo] = useState(false);
+  const [showSourceInfo, setShowSourceInfo] = useState(false);
   const [chartPositionFilter, setChartPositionFilter] = useState<ChartPositionFilter>("all");
   const [youtubeLiveVideos, setYoutubeLiveVideos] = useState<YouTubeLivePreviewVideo[]>([]);
   const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
@@ -621,6 +624,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   );
   const canonicalArtistKey = metaArtist?.artistKey ?? "";
   const { data: songstatsArtist } = useSongstatsArtist(canonicalArtistKey);
+  const heroListeners = heroListenerDisplay(listenerSnapshot(metaArtist, songstatsArtist));
 
   useEffect(() => {
     const artistKey = slug;
@@ -748,8 +752,9 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
   const wikiBio      = useWikiBio(artist.name);
   const ytChannel    = useYoutubeChannel(artist.name.toLowerCase());
   const enrichment   = useArtistEnrichment(canonicalArtistKey);
-  const isVerifiedArtist = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
-  const officialSourceCount = [enrichment?.spotify, enrichment?.youtube, enrichment?.musicbrainz].filter(Boolean).length;
+  const hasAvailableSources = Boolean(enrichment?.spotify || enrichment?.youtube || enrichment?.musicbrainz);
+  const availableSourceCount = [enrichment?.spotify, enrichment?.youtube, enrichment?.musicbrainz].filter(Boolean).length;
+  const SpotifySourceElement = enrichment?.spotify?.url ? "a" : "div";
   const spotifyUpdatedLabel = formatShortDateEs(enrichment?.spotify?.lastUpdated);
   const youtubeUpdatedLabel = formatShortDateEs(enrichment?.youtube?.cachedAt);
   const musicbrainzUpdatedLabel = formatShortDateEs(enrichment?.musicbrainz?.lastUpdated);
@@ -1165,7 +1170,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
               {artist.name}
             </h1>
             <div className="min-h-[45px]">
-            {isVerifiedArtist && (
+            {hasAvailableSources && (
               <div className="relative mb-4 inline-block">
                 <button
                   type="button"
@@ -1176,11 +1181,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     boxShadow: "0 10px 30px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.12)",
                     backdropFilter: "blur(18px) saturate(160%)",
                   }}
-                  aria-label="Ver información de verificación de Mexico Charts"
-                  aria-expanded={showVerificationInfo}
+                  aria-label={pick("Ver fuentes disponibles", "Show available sources")}
+                  aria-expanded={showSourceInfo}
                   aria-controls="artist-verification-info"
-                  onClick={() => setShowVerificationInfo(v => !v)}
-                  onBlur={() => window.setTimeout(() => setShowVerificationInfo(false), 120)}
+                  onClick={() => setShowSourceInfo(v => !v)}
+                  onBlur={() => window.setTimeout(() => setShowSourceInfo(false), 120)}
                   data-testid="artist-verified-badge"
                 >
                   <span
@@ -1191,17 +1196,17 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       color: "#050505",
                     }}
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
+                    <Database className="h-3.5 w-3.5" strokeWidth={3} />
                   </span>
                   <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                    Verificado
+                    {pick("Fuentes disponibles", "Sources available")}
                   </span>
                   <span className="hidden h-3 w-px bg-white/15 sm:block" />
                   <span className="hidden text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400 sm:inline">
                     Mexico Charts
                   </span>
                 </button>
-                {showVerificationInfo && (
+                {showSourceInfo && (
                   <div
                     id="artist-verification-info"
                     role="status"
@@ -1215,11 +1220,11 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     data-testid="artist-verification-info"
                   >
                     <div className="mb-1.5 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: artist.accent }}>
-                      <BadgeCheck className="h-3.5 w-3.5" strokeWidth={3} />
-                      Verificación Mexico Charts
+                      <Database className="h-3.5 w-3.5" strokeWidth={3} />
+                      {pick("Fuentes disponibles", "Sources available")}
                     </div>
                     <p className="text-xs font-medium leading-relaxed text-zinc-400">
-                      Mexico Charts verificó la identidad del artista y enlazó sus fuentes oficiales y mapeos de datos. Esto no significa que el artista haya reclamado el perfil o respaldado a Mexico Charts.
+                      {pick("Este perfil incluye registros de las fuentes indicadas. Un registro puede contener información, un enlace o ambos. Su presencia, por sí sola, no confirma la identidad del artista.", "This profile includes records from the listed sources. A record may contain information, a link, or both. Its presence alone does not confirm the artist’s identity.")}
                     </p>
                   </div>
                 )}
@@ -1253,8 +1258,19 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 <Globe className="h-3.5 w-3.5" style={{ color: artist.accent }} />
                 {artist.origin}
               </span>
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
-                {artist.listeners} oyentes mensuales · Spotify
+              <span className="inline-flex flex-col items-start gap-1 rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55" data-testid="artist-hero-listeners">
+                <span>
+                  {heroListeners.state === "available" ? heroListeners.compact
+                    : heroListeners.state === "unconfirmed" ? pick("Sin dato confirmado", "No confirmed data")
+                    : heroListeners.state === "invalid" ? pick("Dato inválido", "Invalid data")
+                    : pick("Sin dato", "No data")}
+                  {" · "}{pick("Oyentes mensuales de Spotify · Global", "Spotify monthly listeners · Global")}
+                </span>
+                <span className="font-medium normal-case tracking-normal">
+                  {heroListeners.source
+                    ? <>{pick("Fuente", "Source")}: {heroListeners.source === "saved" ? "Songstats" : pick("metadatos editoriales", "editorial metadata")}{" · "}{pick("Fecha del snapshot", "Snapshot date")}: {heroListeners.snapshotDate ?? pick("no disponible", "unavailable")}</>
+                    : pick("Sin snapshot disponible", "No snapshot available")}
+                </span>
               </span>
               {artist.spotifyFollowers && (
                 <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.035] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-white/55">
@@ -1388,7 +1404,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                     data-testid="link-spotify-artist"
                   >
                     <SiSpotify className="w-3.5 h-3.5" />
-                    Spotify oficial
+                    {pick("Abrir Spotify", "Open Spotify")}
                   </a>
                 )}
                 {itunesData?.appleUrl && (
@@ -1965,7 +1981,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            VERIFIED API LINKS — Spotify / YouTube / MusicBrainz
+            AVAILABLE SOURCES — Spotify / YouTube / MusicBrainz
         ══════════════════════════════════════════════════════════ */}
         {enrichment && (enrichment.spotify || enrichment.youtube || enrichment.musicbrainz) && (
           <motion.section
@@ -1984,29 +2000,29 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                 <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
                     <div className="mb-2 flex items-center gap-2">
-                      <BadgeCheck className="h-4 w-4" style={{ color: artist.accent }} />
-                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">Fuentes oficiales</h2>
+                      <Database className="h-4 w-4" style={{ color: artist.accent }} />
+                      <h2 className="text-xs font-black uppercase tracking-[0.25em] text-zinc-400">{pick("Fuentes", "Sources")}</h2>
                     </div>
                     <p className="max-w-xl text-xs font-bold leading-relaxed text-zinc-400">
-                      Enlaces verificados para confirmar la identidad del perfil y abrir la fuente original.
+                      {pick("Información y enlaces asociados a este perfil.", "Information and links associated with this profile.")}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-full border border-[#39FF14]/20 bg-[#39FF14]/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#39FF14]">
-                      {officialSourceCount} {officialSourceCount === 1 ? "fuente" : "fuentes"}
+                      {availableSourceCount} {pick(availableSourceCount === 1 ? "fuente disponible" : "fuentes disponibles", availableSourceCount === 1 ? "source available" : "sources available")}
                     </span>
                     <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-400">
-                      Identidad enlazada
+                      {pick("Registros disponibles", "Records available")}
                     </span>
                   </div>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-3">
                   {enrichment.spotify && (
-                    <a
+                    <SpotifySourceElement
                       href={enrichment.spotify.url ?? undefined}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target={enrichment.spotify.url ? "_blank" : undefined}
+                      rel={enrichment.spotify.url ? "noopener noreferrer" : undefined}
                       className="group relative overflow-hidden rounded-xl p-4 transition-colors duration-200 hover:border-[#1DB954]/35"
                       style={{ background: "linear-gradient(180deg,rgba(29,185,84,0.085),rgba(255,255,255,0.025))", border: "1px solid rgba(29,185,84,0.16)" }}
                     >
@@ -2022,7 +2038,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                       </div>
                       <div className="truncate text-lg font-black text-white">{enrichment.spotify.name ?? artist.name}</div>
                       <div className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-zinc-400">
-                        Perfil enlazado
+                        {enrichment.spotify.url ? pick("Enlace disponible", "Link available") : pick("Información disponible; sin enlace", "Information available; no link")}
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {enrichment.spotify.followersFmt && (
@@ -2036,7 +2052,7 @@ function CanonicalArtistDetail({ slug, canonicalName }: { slug: string; canonica
                           </span>
                         )}
                       </div>
-                    </a>
+                    </SpotifySourceElement>
                   )}
 
                   {enrichment.youtube && (

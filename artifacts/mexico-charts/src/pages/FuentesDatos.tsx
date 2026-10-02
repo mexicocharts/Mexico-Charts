@@ -153,8 +153,8 @@ export default function FuentesDatos() {
     {
       icon: ShieldCheck,
       number: "01",
-      title: pick("Identidad confirmada", "Confirmed identity"),
-      body: pick("Vinculamos cada cifra al perfil canónico del artista y a sus cuentas oficiales verificadas.", "We link every figure to the artist's canonical profile and verified official accounts."),
+      title: pick("Fuentes de los datos", "Data sources"),
+      body: pick("Recopilamos datos de las plataformas y fuentes indicadas.", "We compile data from the listed platforms and sources."),
     },
     {
       icon: Database,
@@ -208,8 +208,8 @@ export default function FuentesDatos() {
       icon: Disc3,
       eyebrow: pick("Discografía", "Catalog"),
       title: pick("Streaming de canciones y álbumes", "Song and album streaming"),
-      body: pick("Seguimiento del catálogo completo, desde el total histórico hasta el movimiento diario.", "Complete catalog tracking, from lifetime totals to daily movement."),
-      items: [pick("Streams acumulados y diarios", "Lifetime and daily streams"), pick("Canciones y álbumes", "Songs and albums"), pick("Orden por rendimiento", "Performance sorting"), pick("Archivo histórico continuo", "Continuous historical archive")],
+      body: pick("Seguimiento del catálogo según la cobertura de cada fuente.", "Catalog tracking based on each source’s coverage."),
+      items: [pick("Streams acumulados y diarios", "Lifetime and daily streams"), pick("Canciones y álbumes", "Songs and albums"), pick("Orden por rendimiento", "Performance sorting"), pick("Archivo histórico de las observaciones recopiladas", "Historical archive of collected observations")],
       href: null,
       action: pick("Archivo en desarrollo", "Archive in development"),
       accent: "#8D7CFF",
@@ -380,7 +380,7 @@ export default function FuentesDatos() {
                 </h2>
               </div>
               <p className="text-sm leading-7 text-white/45 sm:text-base">
-                {pick("La cobertura cambia según el artista y la plataforma. Cada cifra conserva su fecha de actualización; si una métrica no está disponible, no la presentamos como cero.", "Coverage varies by artist and platform. Every figure retains its update date; when a metric is unavailable, we never present it as zero.")}
+                {pick("La cobertura cambia según el artista y la plataforma. La disponibilidad de fechas de actualización varía según la fuente y la métrica. En algunos campos de la vista por género, 0 puede representar información no disponible. Una actualización del sitio puede incorporar mediciones de fechas anteriores.", "Coverage varies by artist and platform. Update-date availability varies by source and metric. In some genre-view fields, 0 may represent unavailable information. A site refresh may include measurements from earlier dates.")}
               </p>
             </div>
 
@@ -468,11 +468,11 @@ export default function FuentesDatos() {
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: G }}>{pick("Cobertura clara", "Clear coverage")}</p>
               <h2 className="mt-4 text-balance font-black uppercase leading-[0.95] tracking-[-0.04em]" style={{ fontSize: "clamp(1.65rem, 4vw, 2.75rem)", overflowWrap: "anywhere" }}>{pick("La ausencia de datos también se explica", "Missing data is explained too")}</h2>
-              <p className="mt-7 max-w-xl text-base leading-8 text-white/48">{pick("No todas las plataformas ofrecen la misma cobertura para cada artista. Por eso distinguimos entre una cifra en cero, un dato no disponible y una actualización pendiente.", "Not every platform provides the same coverage for every artist. That is why we distinguish between zero, unavailable data and an update still in progress.")}</p>
+              <p className="mt-7 max-w-xl text-base leading-8 text-white/48">{pick("No todas las plataformas ofrecen la misma cobertura para cada artista. La distinción entre cero, un dato no disponible y una actualización pendiente depende de la información que conserva cada fuente y métrica.", "Not every platform provides the same coverage for every artist. Distinguishing zero, unavailable data and a pending update depends on the information retained by each source and metric.")}</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                { icon: CalendarDays, title: pick("Fecha de corte", "Cutoff date"), body: pick("Cada medición indica cuándo fue actualizada", "Every measurement shows when it was updated") },
+                { icon: CalendarDays, title: pick("Fecha de corte", "Cutoff date"), body: pick("Captura y medición pueden tener fechas distintas; la disponibilidad de la fecha de medición depende de la fuente y la métrica.", "Capture and measurement dates may differ; measurement-date availability depends on the source and metric.") },
                 { icon: TrendingUp, title: pick("Periodo definido", "Defined period"), body: pick("Cada cambio señala el intervalo que compara", "Every change states the interval being compared") },
                 { icon: BarChart3, title: pick("Origen identificable", "Identifiable source"), body: pick("La plataforma acompaña siempre a la cifra", "The platform always accompanies the figure") },
                 { icon: Music2, title: pick("Un solo perfil", "One profile"), body: pick("Cada artista conserva una identidad canónica", "Every artist retains one canonical identity") },

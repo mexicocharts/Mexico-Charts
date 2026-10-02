@@ -15,7 +15,11 @@ function initialLanguage(): SiteLanguage {
   if (typeof window === "undefined") return "es";
   const requested = new URL(window.location.href).searchParams.get("lang");
   if (requested === "en" || requested === "es") return requested;
-  return window.localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "es";
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "es";
+  } catch {
+    return "es";
+  }
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -23,7 +27,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((nextLanguage: SiteLanguage) => {
     setLanguageState(nextLanguage);
-    window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, nextLanguage);
+    } catch {
+      // Persistence is optional; keep the current language and shareable URL working.
+    }
 
     const url = new URL(window.location.href);
     if (nextLanguage === "en") url.searchParams.set("lang", "en");
